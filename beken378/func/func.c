@@ -6,6 +6,7 @@
 #include "lwip_intf.h"
 #include "param_config.h"
 #include "saradc_pub.h"
+#include "sys_ctrl_pub.h"
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
@@ -137,6 +138,8 @@ UINT32 func_init_extended(void)
 
     FUNC_PRT("[FUNC]func_init_extended OVER!!!\r\n\r\n");
     os_printf("start_type:%d\r\n",bk_misc_get_start_type());
+    UINT32 reg = 0;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
     return 0;
 }
 

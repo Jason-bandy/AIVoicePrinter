@@ -63,3 +63,11 @@ do
 done
 rm -f ${BEKEN_SDK_DIR}/func/sensor/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/func/sensor/sensor_src.mk
+
+echo "clean vad lib files..."
+source ${BEKEN_SDK_DIR}/func/vad/lib_files.sh
+for sub in ${LIB_FILES}
+do
+	rm -f $sub
+done
+rm -f ${BEKEN_SDK_DIR}/func/vad/lib_files.sh

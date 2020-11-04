@@ -29,6 +29,7 @@
 #endif
 #include "rxu_task.h"
 #include "main_none.h"
+#include "sys_ctrl_pub.h"
 
 uint32_t resultful_scan_cfm = 0;
 uint8_t *ind_buf_ptr = 0;
@@ -324,6 +325,10 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
 	}  */
 
 	mcu_prevent_clear(MCU_PS_CONNECT);
+
+    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+        
 #if CFG_USE_BLE_PS
 	rf_can_share_for_ble();
 #endif
@@ -372,6 +377,9 @@ void mhdr_connect_ind(void *msg, UINT32 len)
     }
 
     mcu_prevent_clear(MCU_PS_CONNECT);
+    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+    
 #if CFG_USE_BLE_PS
     rf_can_share_for_ble();
 #endif
@@ -619,6 +627,8 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 			resultful_scan_cfm = 1;
 
 		mhdr_scanu_start_cfm(rx_msg, scan_rst_set_ptr);
+        UINT32 reg = RF_HOLD_BY_SCAN_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 		break;
 
 	case SCANU_RESULT_IND:

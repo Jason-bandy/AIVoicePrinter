@@ -38,7 +38,7 @@ typedef struct cfg80211_connect_params
     uint16_t ie_len;
     uint32_t ie_buf[64];
     uint16_t bcn_len;
-    uint32_t bcn_buf[128];
+    uint32_t bcn_buf[0];
 } CONNECT_PARAM_T;
 
 typedef struct cfg80211_auth_params
@@ -51,7 +51,7 @@ typedef struct cfg80211_auth_params
     uint16_t ie_len;
     uint8_t ie_buf[128];
 	uint16_t sae_data_len;
-	uint8_t sae_data[512];
+	uint8_t sae_data[0];
 } AUTH_PARAM_T;
 
 typedef struct cfg80211_associate_params {
@@ -64,7 +64,7 @@ typedef struct cfg80211_associate_params {
 	uint16_t ie_len;
 	uint32_t ie_buf[64];
 	uint16_t bcn_len;
-	uint32_t bcn_buf[160];
+	uint32_t bcn_buf[0];
 } ASSOC_PARAM_T;
 
 typedef struct cfg80211_scan_params

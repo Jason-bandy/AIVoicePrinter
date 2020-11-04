@@ -2403,16 +2403,12 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 
 	/* append bcn ie */
 	if (bss && bss->ie_len) {
-		params.bcn_ie = os_malloc(bss->ie_len);
-		if (params.bcn_ie) {
-			params.bcn_len = bss->ie_len;
-			os_memcpy(params.bcn_ie, bss + 1, bss->ie_len);
-		}
+		params.bcn_ie = (u8 *)(bss + 1);
+		params.bcn_len = bss->ie_len;
+		//print_hex_dump("BCN: ", params.bcn_ie, bss->ie_len);
 	}
 
 	ret = wpa_drv_associate(wpa_s, &params);
-	if (bss && bss->ie_len)
-		os_free(params.bcn_ie);
 	if (ret < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "
 			"failed");

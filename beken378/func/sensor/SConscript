@@ -16,10 +16,15 @@ sensor_lib_name = 'sensor'
 libs = [sensor_lib_name]
 libpath = [cwd + '/']
 
-group_use_lib = DefineGroup('beken_sensor_lib', [], depend = [''], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
 
-group_build_lib = DefineGroup('beken_sensor', src, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + sensor_lib_name + '.a')
+if (GetLocalDepend(options, 'CFG_WIFI_SENSOR') == 0):
+    group = []
+else:
+    group_use_lib = DefineGroup('beken_sensor_lib', [], depend = [''], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
 
-group = group_use_lib + group_build_lib
+    group_build_lib = DefineGroup('beken_sensor', src, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + sensor_lib_name + '.a')
+
+    group = group_use_lib + group_build_lib
+
 
 Return('group')

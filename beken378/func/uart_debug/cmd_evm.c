@@ -585,9 +585,9 @@ int do_evm(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
             rwnx_cal_en_extra_txpa();
 
 #if CFG_SUPPORT_CALIBRATION
-            power_save_wake_rf_if_in_sleep();
+            power_save_set_temp_use_rf_flag();
             rwnx_cal_set_txpwr_by_rate(evm_translate_tx_rate(rate), test_mode);
-            power_save_check_clr_rf_prevent_flag();
+            power_save_clr_temp_use_rf_flag();
 #endif
             //evm_bypass_mac_set_txdelay(txdelay);
 
@@ -690,9 +690,9 @@ int do_evm(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
             evm_via_mac_set_rate((HW_RATE_E)h_rate, modul_format, guard_i_tpye);
 
 #if CFG_SUPPORT_CALIBRATION
-            power_save_wake_rf_if_in_sleep();
+            power_save_set_temp_use_rf_flag();
             rwnx_cal_set_txpwr_by_rate(evm_translate_tx_rate(rate), test_mode);
-            power_save_check_clr_rf_prevent_flag();
+            power_save_clr_temp_use_rf_flag();
 #endif
             evm_via_mac_begin();
         }

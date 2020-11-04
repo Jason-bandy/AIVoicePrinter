@@ -272,7 +272,9 @@ static void wm_netif_status_callback(struct netif *n)
                 if (sta_connected_func != NULL)
                     (*sta_connected_func)();
 
+                #if CFG_USE_STA_PS
                 auto_check_dtim_rf_ps_mode();
+                #endif
             }
             else
             {

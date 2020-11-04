@@ -76,7 +76,10 @@ static void scan_cb(void *ctxt, uint8_t param)
 	}
 
 #if CFG_ROLE_LAUNCH
-	rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
+    if(mhdr_get_station_status() == RW_EVT_STA_GOT_IP)
+    {
+        rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
+    }
 #endif
 
 	sr_release_scan_results(scan_rst);

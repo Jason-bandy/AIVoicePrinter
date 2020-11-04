@@ -11,6 +11,8 @@ rm -rf bugzilla
 rm -f README.md
 rm -rf ./beken378/bugzilla
 rm -f ./beken378/README.md
+rm -rf ./samples/story_xyos
+rm -rf ./samples/wantong
 
 # clean lib source files
 ./tool/scripts/clean_lib_files.sh

@@ -28,6 +28,7 @@
 #include "uart_pub.h"
 #include "param_config.h"
 #include "mcu_ps_pub.h"
+#include "sys_ctrl_pub.h"
 
 #if 0
 static void wpa_supplicant_gen_assoc_event(struct wpa_supplicant *wpa_s)
@@ -1287,6 +1288,10 @@ void wpa_supplicant_req_scan(struct wpa_supplicant *wpa_s, int sec, int usec)
 
 	os_printf("wpa_supplicant_req_scan\r\n");
     mcu_prevent_set(MCU_PS_CONNECT);
+
+    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+
 #if CFG_USE_BLE_PS
     rf_not_share_for_ble();
 #endif

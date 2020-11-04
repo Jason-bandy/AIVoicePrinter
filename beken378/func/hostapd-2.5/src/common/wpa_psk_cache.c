@@ -358,6 +358,9 @@ void wpa_psk_cal_thread(void *arg)
 		if (!ssid || !passphrase) {
 			os_free(ssid);
 			os_free(passphrase);
+			GLOBAL_INT_DISABLE();
+			wpa_pskcalc_thread_handle = 0;
+		    GLOBAL_INT_RESTORE();
 			break;
 		}
 
@@ -373,6 +376,9 @@ void wpa_psk_cal_thread(void *arg)
 			os_memcpy(cache->item.psk, psk, sizeof(cache->item.psk));
 			cache->item.flags = WPA_PSK_CACHE_FLAG_COMPLETE;
 			done = 1;
+			GLOBAL_INT_DISABLE();
+			wpa_pskcalc_thread_handle = 0;
+		    GLOBAL_INT_RESTORE();
 		}
 		rtos_set_semaphore(&cache->sema);
 
@@ -383,9 +389,6 @@ void wpa_psk_cal_thread(void *arg)
 			break;
 	}
 
-    GLOBAL_INT_DISABLE();
-	wpa_pskcalc_thread_handle = 0;
-    GLOBAL_INT_RESTORE();
 	rtos_delete_thread(NULL);	/* Delete thread */
 }
 #endif

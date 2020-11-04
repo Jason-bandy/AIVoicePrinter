@@ -32,6 +32,7 @@
 #include "error.h"
 #include "errno-base.h"
 #include "rw_ieee80211.h"
+#include "sys_ctrl_pub.h"
 
 extern struct mac_scan_result *scanu_search_by_ssid(struct mac_ssid const *ssid);
 

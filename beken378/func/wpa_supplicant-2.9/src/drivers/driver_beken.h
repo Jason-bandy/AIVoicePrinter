@@ -785,7 +785,7 @@ struct prism2_hostapd_param {
 			u16 ie_len;
 			u32 ie_buf[64];		// assoc ie
 			u16 bcn_len;
-			u32 bcn_buf[160];
+			u8 bcn_buf[0];
 		} assoc_req;
 
 #ifdef CONFIG_SME
@@ -798,7 +798,7 @@ struct prism2_hostapd_param {
 			u16 ie_len;
 			u8 ie[128];
 			u16 sae_data_len;
-			u8 sae_data[512];
+			u8 sae_data[0];
 		} authen_req;
 #endif
 

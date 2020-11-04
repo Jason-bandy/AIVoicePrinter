@@ -1822,16 +1822,12 @@ pfs_fail:
 	/* append bcn ie */
 	//bk_printf("%s: bss %p, ie_len %d\n", __func__, wpa_s->current_bss, wpa_s->current_bss ? wpa_s->current_bss->ie_len : -1);
 	if (wpa_s->current_bss && wpa_s->current_bss->ie_len) {
-		params.bcn_ie = os_malloc(wpa_s->current_bss->ie_len);
-		if (params.bcn_ie) {
-			params.bcn_len = wpa_s->current_bss->ie_len;
-			os_memcpy(params.bcn_ie, wpa_s->current_bss + 1, wpa_s->current_bss->ie_len);
-			//print_hex_dump("BCN: ", params.bcn_ie, wpa_s->current_bss->ie_len);
-		}
+		params.bcn_ie = (u8 *)(wpa_s->current_bss + 1);
+		params.bcn_len = wpa_s->current_bss->ie_len;
+		//print_hex_dump("BCN: ", params.bcn_ie, wpa_s->current_bss->ie_len);
 	}
 
 	if (wpa_drv_associate(wpa_s, &params) < 0) {
-		os_free(params.bcn_ie);
 		wpa_msg(wpa_s, MSG_INFO, "SME: Association request to the "
 			"driver failed");
 		wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
@@ -1839,7 +1835,6 @@ pfs_fail:
 		os_memset(wpa_s->pending_bssid, 0, ETH_ALEN);
 		return;
 	}
-	os_free(params.bcn_ie);
 
 	eloop_register_timeout(SME_ASSOC_TIMEOUT, 0, sme_assoc_timer, wpa_s,
 			       NULL);

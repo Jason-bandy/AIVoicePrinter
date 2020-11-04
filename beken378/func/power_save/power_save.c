@@ -1247,34 +1247,51 @@ void power_save_dump ( void )
 
 void power_save_wake_mac_rf_if_in_sleep(void)
 {
-        ps_set_rf_prevent();
-        power_save_rf_dtim_manual_do_wakeup();
+    ps_set_rf_prevent();
+    power_save_rf_dtim_manual_do_wakeup();
 
-        if (sctrl_if_rf_sleep())
-        {
-            UINT32 reg = RF_HOLD_BY_STA_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
-        }
+    UINT32 reg = RF_HOLD_BY_MAC_USE_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
 }
 
-void power_save_check_clr_rf_prevent_flag(void)
+void power_save_wake_mac_rf_end_clr_flag(void)
 {
     if(ps_get_sleep_prevent() & PS_WAITING_RF_OPERATION)
     {
         ps_clear_rf_prevent();
     }
+    
+    UINT32 reg = RF_HOLD_BY_MAC_USE_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+}
+
+void power_save_check_clr_rf_prevent_flag(void)
+{
 }
 
 void power_save_wake_rf_if_in_sleep(void)
 {
-        ps_set_rf_prevent();
-
-        if (sctrl_if_rf_sleep())
-        {
-            UINT32 reg = RF_HOLD_BY_STA_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
-        }
 }
+
+void power_save_clr_temp_use_rf_flag(void)
+{
+    if(ps_get_sleep_prevent() & PS_WAITING_RF_OPERATION)
+    {
+        ps_clear_rf_prevent();
+    }
+
+    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+}
+
+void power_save_set_temp_use_rf_flag(void)
+{
+    ps_set_rf_prevent();
+
+    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+}
+
 
 
 UINT8 power_save_if_ps_rf_dtim_enabled ( void )

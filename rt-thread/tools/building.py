@@ -214,16 +214,24 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
                 action = 'store_true',
                 default = False,
                 help = 'build libraries, remove confidential source, package the project')
+    AddOption('--buildlibs',
+                dest = 'buildlibs',
+                action = 'store_true',
+                default = False,
+                help = 'building libraries of all components')
 
     if GetOption('release'):
         os.system("scons --beken=bk7231n --buildlib=beken_ip")
         os.system("scons --beken=bk7231n --buildlib=beken_ble")
+        os.system("scons --beken=bk7231n --buildlib=beken_vad")
         os.system("rm -rf build")
         #os.system("scons --beken=bk7231u --buildlib=beken_ip")
         #os.system("scons --beken=bk7231u --buildlib=beken_ble")
+        #os.system("scons --beken=bk7231u --buildlib=beken_vad")
         #os.system("rm -rf build")
         #os.system("scons --beken=bk7251 --buildlib=beken_ip")
         #os.system("scons --beken=bk7251 --buildlib=beken_ble")
+        #os.system("scons --beken=bk7251 --buildlib=beken_vad")
         #os.system("scons --beken=bk7251 --buildlib=beken_usb")
         #os.system("scons --beken=bk7251 --buildlib=beken_sensor")
         #os.system("scons --beken=bk7251 --buildlib=player")
@@ -234,6 +242,29 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
         else:
             os.system("tool/scripts/make_sdk.sh")
         exit(0)
+
+    if GetOption('buildlibs'):
+        if GetOption('beken') == 'bk7231n':
+            os.system("scons --beken=bk7231n --buildlib=beken_ip")
+            os.system("scons --beken=bk7231n --buildlib=beken_ble")
+            os.system("scons --beken=bk7231n --buildlib=beken_vad")
+            os.system("rm -rf build")
+        elif GetOption('beken') == 'bk7231u':
+            os.system("scons --beken=bk7231u --buildlib=beken_ip")
+            os.system("scons --beken=bk7231u --buildlib=beken_ble")
+            os.system("scons --beken=bk7231u --buildlib=beken_vad")
+            os.system("rm -rf build")
+        else:
+            os.system("scons --beken=bk7251 --buildlib=beken_ip")
+            os.system("scons --beken=bk7251 --buildlib=beken_ble")
+            os.system("scons --beken=bk7251 --buildlib=beken_vad")
+            os.system("scons --beken=bk7251 --buildlib=beken_usb")
+            os.system("scons --beken=bk7251 --buildlib=beken_sensor")
+            #os.system("scons --beken=bk7251 --buildlib=player")
+            os.system("rm -rf build")
+
+        exit(0)
+
     beken_target = GetOption('beken')
     if sys.platform == 'win32':
         os.system("tool\\scripts\\generate_sys_config.bat " + beken_target)

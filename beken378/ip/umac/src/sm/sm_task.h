@@ -252,14 +252,13 @@ struct sm_connect_req
     uint8_t uapsd_queues;
     /// VIF index
     uint8_t vif_idx;
-	uint8_t driver_sme;
     /// Buffer containing the additional information elements to be put in the
     /// association request
     uint32_t ie_buf[64];
-    /// beacon ie
-    uint32_t bcn_buf[128];
-    /// bcn_ie_len
+	/// bcn_ie_len
     uint16_t bcn_len;
+    /// beacon ie
+	uint32_t bcn_buf[0];
 };
 
 /// Structure containing the parameters of @ref SM_CONNECT_REQ message.
@@ -280,8 +279,8 @@ struct sm_auth_req
 	uint16_t ie_len;
 
 	/// SAE data
-	uint8_t sae_data[512];
 	uint16_t sae_data_len;
+	uint32_t sae_data[0];
 };
 
 struct sm_set_oper_state_req {
@@ -323,7 +322,7 @@ struct sm_assoc_req
     uint32_t ie_buf[64];
 
 	uint16_t bcn_len;
-	uint32_t bcn_buf[160];
+	uint32_t bcn_buf[0];
 };
 
 /// Structure containing the parameters of the @ref SM_CONNECT_CFM message.

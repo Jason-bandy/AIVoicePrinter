@@ -764,7 +764,7 @@ int __rw_msg_send_sm_auth_req(AUTH_PARAM_T *sme, void *cfm)
 
 	/* Build the SM_AUTH_REQ message */
 	req = ke_msg_alloc(SM_AUTH_REQ, TASK_SM, TASK_API,
-			sizeof(struct sm_auth_req)/* + sme->ie_len + sme->sae_data_len*/);
+			sizeof(struct sm_auth_req)/* + sme->ie_len*/ + sme->sae_data_len);
 	if (!req)
 		return -1;
 
@@ -798,7 +798,7 @@ int __rw_msg_send_sm_auth_req(AUTH_PARAM_T *sme, void *cfm)
 	}
 
 	if (req->sae_data_len) {
-		ASSERT(sizeof(req->sae_data) >= req->sae_data_len);
+		//ASSERT(sizeof(req->sae_data) >= req->sae_data_len);
 		os_memcpy((UINT8 *)req->sae_data, (UINT8 *)sme->sae_data, req->sae_data_len);
 	}
 
@@ -842,7 +842,7 @@ int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm)
 
     /* Build the SM_ASSOCIATE_REQ message */
     req = ke_msg_alloc(SM_ASSOCIATE_REQ, TASK_SM, TASK_API,
-                       sizeof(struct sm_assoc_req));
+                       sizeof(struct sm_assoc_req) + sme->bcn_len);
     if (!req)
         return -1;
 
@@ -868,7 +868,7 @@ int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm)
 	}
 	req->bcn_len = sme->bcn_len;
 	if (req->bcn_len) {
-		ASSERT(sizeof(req->bcn_buf) >= req->bcn_len);
+		//ASSERT(sizeof(req->bcn_buf) >= req->bcn_len);
 		os_memcpy(req->bcn_buf, sme->bcn_buf, req->bcn_len);
 	}
 
@@ -880,10 +880,11 @@ int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm)
 int rw_msg_send_sm_connect_req( CONNECT_PARAM_T *sme, void *cfm)
 {
     struct sm_connect_req *req;
+	unsigned int bcn_len_more_than = 0;
 
     /* Build the SM_CONNECT_REQ message */
     req = ke_msg_alloc(SM_CONNECT_REQ, TASK_SM, TASK_API,
-                       sizeof(struct sm_connect_req));
+                       sizeof(struct sm_connect_req) + sme->bcn_len);
     if (!req)
         return -1;
 

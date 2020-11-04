@@ -1630,7 +1630,7 @@ int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)
     size_t blen;
     int ret = 0;
 
-    blen = sizeof(*param);
+    blen = sizeof(*param) + params->bcn_len;
     buf = os_zalloc(blen);
     if(buf == NULL)
     {
@@ -1834,7 +1834,7 @@ int wpa_driver_authenticate(void *priv, struct wpa_driver_auth_params *params)
 	size_t blen;
 	int ret = 0;
 
-	blen = sizeof(*param) + params->sae_data_len + params->ie_len;
+	blen = sizeof(*param) + params->sae_data_len;
 	buf = os_zalloc(blen);
 	if (buf == NULL) {
 		return -1;

@@ -2709,13 +2709,11 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
         break;
 
     case CMD_SCTRL_BLK_DISABLE:
-        power_save_wake_rf_if_in_sleep();
         reg = REG_READ(SCTRL_BLOCK_EN_CFG);
 		reg &= (~(BLOCK_EN_WORD_MASK << BLOCK_EN_WORD_POSI));
 		reg |= (BLOCK_EN_WORD_PWD & BLOCK_EN_WORD_MASK) << BLOCK_EN_WORD_POSI;        
         reg &= ~((*(UINT32 *)param) & BLOCK_EN_VALID_MASK);
         REG_WRITE(SCTRL_BLOCK_EN_CFG, reg);
-        power_save_check_clr_rf_prevent_flag();
         break;
 
     case CMD_SCTRL_BIAS_REG_SET:
@@ -2781,6 +2779,7 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
 
     case CMD_RF_HOLD_BIT_SET:
         rf_hold_status |= (*(UINT32 *)param);
+        //os_printf("s:%x %x\r\n",rf_hold_status,(*(UINT32 *)param));
         if(rf_hold_status)
         {
             sctrl_rf_wakeup();
@@ -2789,6 +2788,7 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
 
     case CMD_RF_HOLD_BIT_CLR:
         rf_hold_status &= ~(*(UINT32 *)param);
+        //os_printf("c:%x %x\r\n",rf_hold_status,(*(UINT32 *)param));
         if(0 == rf_hold_status)
         {
             sctrl_rf_sleep();

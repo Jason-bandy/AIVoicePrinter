@@ -436,6 +436,12 @@ void bk_wlan_ap_init(network_InitTypeDef_st *inNetworkInitPara)
 #endif
     }
 
+	if(inNetworkInitPara)
+    {
+        UINT32 reg = RF_HOLD_BY_AP_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    }
+
     sa_ap_init();
 }
 
@@ -568,6 +574,17 @@ void bk_wlan_sta_init(network_InitTypeDef_st *inNetworkInitPara)
 	        return;
 	    }
 #endif
+
+    if(inNetworkInitPara)
+    {
+        UINT32 reg = RF_HOLD_BY_STA_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    }
+    else
+    {
+        UINT32 reg = RF_HOLD_BY_SCAN_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    }
 
     bk_wlan_reg_csa_cb_coexist_mode();
     sa_station_init();
@@ -1026,6 +1043,7 @@ int bk_wlan_stop_scan(void)
 int bk_wlan_stop(char mode)
 {
     int ret = kNoErr;
+    UINT32 reg;
 
     #if CFG_USE_AP_IDLE
     if(bk_wlan_has_role(VIF_AP) && ap_ps_enable_get())
@@ -1065,6 +1083,8 @@ int bk_wlan_stop(char mode)
 #if CFG_ROLE_LAUNCH
         rl_pre_ap_set_status(RL_STATUS_AP_LAUNCHED);
 #endif
+        reg = RF_HOLD_BY_AP_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
         break;
 
     case BK_STATION:
@@ -1078,9 +1098,13 @@ int bk_wlan_stop(char mode)
 #endif
 
 #if !CFG_NEW_SUPP
+#if 0
         net_wlan_remove_netif(&g_sta_param_ptr->own_mac);
         supplicant_main_exit();
         wpa_hostapd_release_scan_rst();
+#else
+		wlan_sta_disable();
+#endif
 #else
 		wlan_sta_disable();	/* same but call in wpas task */
 #endif
@@ -1092,6 +1116,8 @@ int bk_wlan_stop(char mode)
 #if CFG_ROLE_LAUNCH
         rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
 #endif
+        reg = RF_HOLD_BY_STA_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
         break;
 
     default:
@@ -1316,6 +1342,9 @@ int bk_wlan_start_monitor(void)
 	lsig_init();
 #endif
 
+	UINT32 reg = RF_HOLD_BY_MONITOR_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+
 	bk_wlan_ap_init(0);
 	rwnx_remove_added_interface();
 
@@ -1342,6 +1371,9 @@ int bk_wlan_stop_monitor(void)
         hal_machw_exit_monitor_mode();
     }
 
+	UINT32 reg = RF_HOLD_BY_MONITOR_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+
     return 0;
 }
 
@@ -1363,6 +1395,8 @@ int bk_wlan_get_channel(void)
 int bk_wlan_set_channel_sync(int channel)
 {
     rwnxl_reset_evt(0);
+	UINT32 reg = RF_HOLD_BY_PHY_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
     rw_msg_set_channel(channel, PHY_CHNL_BW_20, NULL);
 
     return 0;
@@ -1383,6 +1417,8 @@ int bk_wlan_get_channel_with_band_width(int *channel, int *band_width)
 int bk_wlan_set_channel_with_band_width(int channel, int band_width)
 {
     rwnxl_reset_evt(0);
+	UINT32 reg = RF_HOLD_BY_PHY_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
     rw_msg_set_channel((uint32_t)channel, (uint32_t)band_width, NULL);
 
     return 0;

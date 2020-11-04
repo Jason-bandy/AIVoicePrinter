@@ -316,7 +316,8 @@ int hapd_intf_add_key(struct prism2_hostapd_param *param, int len)
 
     ps_set_key_prevent();
     mcu_prevent_set(MCU_PS_ADD_KEY);
-
+    UINT32 reg = RF_HOLD_BY_KEY_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
 #if CFG_USE_STA_PS
     power_save_rf_dtim_manual_do_wakeup();
 #endif
@@ -627,7 +628,7 @@ int wpa_send_auth_req(struct prism2_hostapd_param *param, int len)
 	AUTH_PARAM_T *auth_param;
 	int ret = 0;
 
-	auth_param = os_zalloc(sizeof(*auth_param) /*+ param->u.authen_req.ie_len + param->u.authen_req.sae_data_len*/);
+	auth_param = os_zalloc(sizeof(*auth_param) /*+ param->u.authen_req.ie_len*/ + param->u.authen_req.sae_data_len);
 	if (!auth_param) {
 		os_printf("%s: malloc failed\n", __func__);
 		return -1;
@@ -678,8 +679,7 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
     ASSOC_PARAM_T *assoc_param;
     int ret = 0;
 
-	//os_printf("%s %d: proto 0x%x\n", __func__, __LINE__, param->u.assoc_req.proto);
-	assoc_param = os_zalloc(sizeof(*assoc_param));
+	assoc_param = os_zalloc(sizeof(*assoc_param) + param->u.assoc_req.bcn_len);
 	if (!assoc_param) {
 		os_printf("%s: oom\n");
 		return -1;
@@ -704,7 +704,7 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 #endif
 	assoc_param->bcn_len = param->u.assoc_req.bcn_len;
 	if (assoc_param->bcn_len) {
-		ASSERT(sizeof(assoc_param->bcn_buf) >= assoc_param->bcn_len);
+		//ASSERT(sizeof(assoc_param->bcn_buf) >= assoc_param->bcn_len);
 		os_memcpy(assoc_param->bcn_buf, param->u.assoc_req.bcn_buf, assoc_param->bcn_len);
 	}
 
@@ -726,7 +726,7 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 
 int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 {
-	CONNECT_PARAM_T connect_param = {0};
+	CONNECT_PARAM_T *connect_param;
 	int ret = 0;
 
 #if CFG_ROLE_LAUNCH
@@ -734,26 +734,31 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 		goto assoc_exit;
 #endif
 
-	os_memcpy((UINT8 *)&connect_param.bssid, param->u.assoc_req.bssid, ETH_ALEN);
-	connect_param.flags = CONTROL_PORT_HOST;
+	connect_param = os_zalloc(sizeof(*connect_param) + param->u.assoc_req.bcn_len);
+	if (!connect_param)
+		return -1;
+
+	os_memcpy((UINT8 *)&connect_param->bssid, param->u.assoc_req.bssid, ETH_ALEN);
+	connect_param->flags = CONTROL_PORT_HOST;
 	if (param->u.assoc_req.proto & (WPA_PROTO_WPA | WPA_PROTO_RSN))
-		connect_param.flags |= WPA_WPA2_IN_USE;
+		connect_param->flags |= WPA_WPA2_IN_USE;
 
 	if (param->u.assoc_req.mfp == MGMT_FRAME_PROTECTION_REQUIRED)
-		connect_param.flags |= MFP_IN_USE;
+		connect_param->flags |= MFP_IN_USE;
 
-	connect_param.vif_idx = param->vif_idx;
-	connect_param.ssid.length = param->u.assoc_req.ssid_len;
-	os_memcpy(connect_param.ssid.array, param->u.assoc_req.ssid, connect_param.ssid.length);
-	connect_param.ie_len = param->u.assoc_req.ie_len;
-	os_memcpy((UINT8 *)connect_param.ie_buf, (UINT8 *)param->u.assoc_req.ie_buf, connect_param.ie_len);
-	connect_param.bcn_len = param->u.assoc_req.bcn_len;
-	if (connect_param.bcn_len)
-		os_memcpy((UINT8 *)connect_param.bcn_buf, (UINT8 *)param->u.assoc_req.bcn_buf, connect_param.bcn_len);
+	connect_param->vif_idx = param->vif_idx;
+	connect_param->ssid.length = param->u.assoc_req.ssid_len;
+	os_memcpy(connect_param->ssid.array, param->u.assoc_req.ssid, connect_param->ssid.length);
+	connect_param->ie_len = param->u.assoc_req.ie_len;
+	os_memcpy((UINT8 *)connect_param->ie_buf, (UINT8 *)param->u.assoc_req.ie_buf, connect_param->ie_len);
+	connect_param->bcn_len = param->u.assoc_req.bcn_len;
+	if (connect_param->bcn_len)
+		os_memcpy((UINT8 *)connect_param->bcn_buf, (UINT8 *)param->u.assoc_req.bcn_buf, connect_param->bcn_len);
 
-	connect_param.auth_type = param->u.assoc_req.auth_alg;
-	ret = sa_station_send_associate_cmd(&connect_param);
+	connect_param->auth_type = param->u.assoc_req.auth_alg;
+	ret = sa_station_send_associate_cmd(connect_param);
 
+	os_free(connect_param);
 #if CFG_ROLE_LAUNCH
 assoc_exit:
 #endif
@@ -1008,6 +1013,8 @@ int hapd_intf_ioctl(unsigned long arg)
         {
             ret = hapd_intf_del_key(param, len);
             mcu_prevent_clear(MCU_PS_ADD_KEY);
+            UINT32 reg = RF_HOLD_BY_KEY_BIT;
+            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
         }
         else
         {

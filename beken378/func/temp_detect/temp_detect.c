@@ -314,9 +314,13 @@ static void temp_detect_polling_handler(void)
 
 #if CFG_USE_STA_PS
     ps_set_temp_prevent();
+    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
     bk_wlan_dtim_rf_ps_mode_do_wakeup();
     rwnx_cal_do_temp_detect(cur_val, thre, &g_temp_detect_config.last_detect_val);
     ps_clear_temp_prevent();
+    reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 #endif
 
     if(g_temp_detect_config.detect_intval_change == ADC_TMEP_DETECT_INTVAL_CHANGE) 

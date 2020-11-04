@@ -250,6 +250,11 @@ enum
 #endif
 
 /* CMD_RF_HOLD_BIT_SET/_CLR*/
+#define RF_HOLD_BY_PHY_BIT                          (1 << 11)
+#define RF_HOLD_BY_MAC_USE_BIT                       (1 << 10)
+#define RF_HOLD_BY_CONNECT_BIT                       (1 << 9)
+#define RF_HOLD_BY_KEY_BIT                           (1 << 8)
+#define RF_HOLD_BY_SCAN_BIT                          (1 << 7)
 #define RF_HOLD_BY_IBSS_BIT                          (1 << 6)
 #define RF_HOLD_BY_MESH_BIT                          (1 << 5)
 #define RF_HOLD_BY_MONITOR_BIT                       (1 << 4)

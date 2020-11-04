@@ -20,6 +20,7 @@
 #if CFG_USE_TEMPERATURE_DETECT
 #include "temp_detect_pub.h"
 #endif
+#include "sys_ctrl_pub.h"
 
 extern void mm_bcn_init(void);
 void sa_ap_init(void)

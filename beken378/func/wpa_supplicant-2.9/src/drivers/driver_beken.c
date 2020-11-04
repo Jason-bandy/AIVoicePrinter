@@ -1625,30 +1625,26 @@ fail_result:
 
 int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)
 {
-    struct hostap_driver_data *drv = priv;
-    struct prism2_hostapd_param *param;
-    u8 *buf;
-    size_t blen;
-    int ret = 0;
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	u8 *buf;
+	size_t blen;
+	int ret = 0;
 
-    blen = sizeof(*param);
-    buf = os_zalloc(blen);
-    if(buf == NULL)
-    {
-        return -1;
-    }
+	blen = sizeof(*param) + params->bcn_len;
+	buf = os_zalloc(blen);
+	if (buf == NULL)
+		return -1;
 
 	eloop_register_signal(SIGASSOC, wpa_driver_assoc_sig_handler, drv->wpa_s);
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->vif_idx = drv->vif_index;
-    param->cmd = PRISM2_HOSTAPD_REG_ASSOC_CALLBACK;
-    param->u.reg_assoc_cfm.cb = wpa_handler_signal;
-    param->u.reg_assoc_cfm.arg = (void *)SIGASSOC;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	param = (struct prism2_hostapd_param *)buf;
+	param->vif_idx = drv->vif_index;
+	param->cmd = PRISM2_HOSTAPD_REG_ASSOC_CALLBACK;
+	param->u.reg_assoc_cfm.cb = wpa_handler_signal;
+	param->u.reg_assoc_cfm.arg = (void *)SIGASSOC;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
     os_printf("wpa_driver_associate\r\n");
     param = (struct prism2_hostapd_param *)buf;
@@ -1669,53 +1665,47 @@ int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)
 	param->u.assoc_req.key_mgmt_suite = params->key_mgmt_suite;
 	param->u.assoc_req.pairwise_suite = params->pairwise_suite;
 	param->u.assoc_req.group_suite = params->group_suite;
-    param->u.assoc_req.ie_len = params->wpa_ie_len;
-    os_memcpy((u8 *)param->u.assoc_req.ie_buf, params->wpa_ie, param->u.assoc_req.ie_len);
+	param->u.assoc_req.ie_len = params->wpa_ie_len;
+	os_memcpy((u8 *)param->u.assoc_req.ie_buf, params->wpa_ie, param->u.assoc_req.ie_len);
 	param->u.assoc_req.mfp = params->mgmt_frame_protection;
 	param->u.assoc_req.bcn_len = params->bcn_len;
 	//bk_printf("%s: bcn_len %d\n", __func__, params->bcn_len);
 	if (params->bcn_len) {
 		os_memcpy(param->u.assoc_req.bcn_buf, params->bcn_ie, params->bcn_len);
-		ASSERT(sizeof(param->u.assoc_req.bcn_buf) >= params->bcn_len);
+		//ASSERT(sizeof(param->u.assoc_req.bcn_buf) >= params->bcn_len);
 	}
 
-    if(hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
-    else
-    {
-        param->cmd = PRISM2_HOSTAPD_ASSOC_ACK;
-        param->vif_idx = drv->vif_index;
-        hostapd_ioctl(drv, param, blen);
-    }
+	if (hostapd_ioctl(drv, param, blen)) {
+		ret = -1;
+	} else {
+		param->cmd = PRISM2_HOSTAPD_ASSOC_ACK;
+		param->vif_idx = drv->vif_index;
+		hostapd_ioctl(drv, param, blen);
+	}
 
 	eloop_register_signal(SIGDISASSOC, wpa_driver_disassoc_sig_handler, drv->wpa_s);
 
-    param->cmd = PRISM2_HOSTAPD_REG_DISASSOC_CALLBACK;
-    param->vif_idx = drv->vif_index;
-    param->u.reg_disassoc_evt.cb = wpa_handler_signal;
-    param->u.reg_disassoc_evt.arg = (void *)SIGDISASSOC;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	param->cmd = PRISM2_HOSTAPD_REG_DISASSOC_CALLBACK;
+	param->vif_idx = drv->vif_index;
+	param->u.reg_disassoc_evt.cb = wpa_handler_signal;
+	param->u.reg_disassoc_evt.arg = (void *)SIGDISASSOC;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
 	eloop_register_signal(SIGDEAUTH, wpa_driver_deauth_sig_handler, drv->wpa_s);
 
-    param->cmd = PRISM2_HOSTAPD_REG_DEAUTH_CALLBACK;
-    param->vif_idx = drv->vif_index;
-    param->u.reg_deauth_evt.cb = wpa_handler_signal;
-    param->u.reg_deauth_evt.arg = (void *)SIGDEAUTH;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	param->cmd = PRISM2_HOSTAPD_REG_DEAUTH_CALLBACK;
+	param->vif_idx = drv->vif_index;
+	param->u.reg_deauth_evt.cb = wpa_handler_signal;
+	param->u.reg_deauth_evt.arg = (void *)SIGDEAUTH;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
-    os_free(buf);
+	os_free(buf);
 
-    return ret;
+	return ret;
 }
+
 
 int wpa_driver_get_bssid(void *priv, u8 *bssid)
 {
@@ -1850,7 +1840,7 @@ int wpa_driver_authenticate(void *priv, struct wpa_driver_auth_params *params)
 	size_t blen;
 	int ret = 0;
 
-	blen = sizeof(*param) + params->auth_data_len + params->ie_len;
+	blen = sizeof(*param) + params->auth_data_len;
 	buf = os_zalloc(blen);
 	if (buf == NULL) {
 		return -1;
