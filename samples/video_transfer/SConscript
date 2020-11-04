@@ -1,0 +1,12 @@
+# RT-Thread building script for component
+
+from building import *
+
+cwd     = GetCurrentDir()
+src     = Glob('*.c') + Glob('*.S')
+libs    = []
+libpath = [cwd]
+CPPPATH = [os.path.join(cwd,'..')]
+group = DefineGroup('video_transfer', src, depend = [''], CPPPATH = CPPPATH,LIBS = libs, LIBPATH = libpath)
+
+Return('group')

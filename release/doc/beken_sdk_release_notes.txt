@@ -1,0 +1,14 @@
+
+================================================================================
+BEKEN SDK 3.0.3 release notes:
+
+1. Beken378 is BEKEN SDK directory, the other directories are OSK directoies;
+2. The RT-thread OSK which matches SDK 3.0.3 is OSK R-3.0.3;
+3. It is the initial release which support BK7231N;
+4. The libraries included with this release are built with the default sys_config.h
+   file, if you change sys_config.h with your build, for example, enable WPA3 or
+   PMF, the IP librarys may not work, please contact BEKEN for your configuration.
+5. This release provide WiFi and Ble functionality, and a series of peripheral
+   interfaces, for the detailed APIs, please see the API document.
+
+
