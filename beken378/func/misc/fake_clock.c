@@ -323,8 +323,8 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
 #endif
         param.end_value       = fclk_cal_endvalue((UINT32)param.cfg.bits.clk);
 
-        ret = sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
-        ASSERT(PWM_SUCCESS == ret);
+        sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
+        
     }
     else
     {   //timer
@@ -338,8 +338,8 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
         ASSERT(BK_TIMER_SUCCESS == ret);
         UINT32 timer_channel;
         timer_channel = param.channel;
-        ret = sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_ENABLE, &timer_channel);
-        ASSERT(BK_TIMER_SUCCESS == ret);
+        sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_ENABLE, &timer_channel);
+        
     }
 }
 

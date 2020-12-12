@@ -1069,7 +1069,9 @@ void wpa_supplicant_req_scan(struct wpa_supplicant *wpa_s, int sec, int usec)
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
 
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rf_not_share_for_ble();
+#endif
 #endif
 
 	if (wpa_s->p2p_mgmt) {

@@ -41,7 +41,11 @@ SCAN_RST_UPLOAD_T *scan_rst_set_ptr = 0;
 #if CFG_NEW_SUPP
 IND_CALLBACK_T scan_cfm_cb_user = {0};
 #endif
+#if !CFG_NEW_SUPP
+IND_CALLBACK_T scan_cfm_cb[2] = {0};
+#else
 IND_CALLBACK_T scan_cfm_cb = {0};
+#endif
 IND_CALLBACK_T assoc_cfm_cb = {0};
 IND_CALLBACK_T deassoc_evt_cb = {0};
 IND_CALLBACK_T deauth_evt_cb = {0};
@@ -75,9 +79,15 @@ UINT8 *sr_malloc_shell(void)
     layer2_space_len = MAX_BSS_LIST * sizeof(struct sta_scan_res *);
     ptr = os_zalloc(layer1_space_len + layer2_space_len);
 
-    ASSERT(ptr);
-
-    return ptr;
+	if(ptr)
+	{
+		return ptr;
+	}
+	else
+	{
+    	os_printf("sr_malloc fail \r\n");
+		return 0;
+	}
 }
 
 void sr_free_shell(UINT8 *shell_ptr)
@@ -106,12 +116,20 @@ void *sr_get_scan_results(void)
 
 void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 {
+	GLOBAL_INT_DECLARATION();
+
+    GLOBAL_INT_DISABLE();
+	if(ptr && scan_rst_set_ptr == ptr)
+	{
+		scan_rst_set_ptr = 0;
+		wpa_clear_scan_results();
+	}
+	GLOBAL_INT_RESTORE();
+	
     if(ptr)
     {
         sr_free_all(ptr);
     }
-    scan_rst_set_ptr = 0;
-	wpa_clear_scan_results();
 }
 
 void mr_kmsg_init(void)
@@ -220,12 +238,59 @@ void mhdr_scanu_reg_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
 	wlan_register_notifier(scanu_notifier_func, ctxt);
 }
 
+void mhdr_scanu_reg_cb_handle(struct scanu_start_cfm *cfm)
+{
+	if(scan_cfm_cb.cb)
+	{
+		(*scan_cfm_cb.cb)(scan_cfm_cb.ctxt_arg, cfm->vif_idx);
+	}
+}
 #else	/* !CFG_NEW_SUPP */
 
 void mhdr_scanu_reg_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
 {
-    scan_cfm_cb.cb = ind_cb;
-    scan_cfm_cb.ctxt_arg = ctxt;
+	int i;
+
+	for(i=0;i<(sizeof(scan_cfm_cb)/sizeof(IND_CALLBACK_T));i++)
+	{
+		if((scan_cfm_cb[i].cb == ind_cb)
+			&&(scan_cfm_cb[i].ctxt_arg == ctxt))
+		{
+			return;
+		}
+	}
+
+	for(i=0;i<(sizeof(scan_cfm_cb)/sizeof(IND_CALLBACK_T));i++)
+	{
+		if(scan_cfm_cb[i].cb == NULL)
+		{
+			scan_cfm_cb[i].cb = ind_cb;
+			scan_cfm_cb[i].ctxt_arg = ctxt;
+			return;
+		}
+	}
+}
+
+void mhdr_scanu_reg_cb_handle(struct scanu_start_cfm *cfm)
+{
+	IND_CALLBACK_T _scan_cfm_cb[2];
+
+	_scan_cfm_cb[0] = scan_cfm_cb[0];
+	_scan_cfm_cb[1] = scan_cfm_cb[1];
+	scan_cfm_cb[0].cb = NULL;
+	scan_cfm_cb[0].ctxt_arg = NULL;
+	scan_cfm_cb[1].cb = NULL;
+	scan_cfm_cb[1].ctxt_arg = NULL;
+
+	if(_scan_cfm_cb[0].cb)
+	{
+		(*_scan_cfm_cb[0].cb)(_scan_cfm_cb[0].ctxt_arg, cfm->vif_idx);
+	}
+
+	if(_scan_cfm_cb[1].cb)
+	{
+		(*_scan_cfm_cb[1].cb)(_scan_cfm_cb[1].ctxt_arg, cfm->vif_idx);
+	}
 }
 #endif
 
@@ -330,7 +395,9 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
         
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
 	rf_can_share_for_ble();
+#endif
 #endif
 }
 
@@ -381,7 +448,9 @@ void mhdr_connect_ind(void *msg, UINT32 len)
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
     
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rf_can_share_for_ble();
+#endif
 #endif
 }
 #endif
@@ -463,13 +532,9 @@ UINT32 mhdr_scanu_start_cfm(void *msg, SCAN_RST_UPLOAD_T *ap_list)
     if(ap_list)
     {
         sort_scan_result(ap_list);
-        wpa_buffer_scan_results();
     }
 
-    if(scan_cfm_cb.cb)
-    {
-        (*scan_cfm_cb.cb)(scan_cfm_cb.ctxt_arg, cfm->vif_idx);
-    }
+	mhdr_scanu_reg_cb_handle(cfm);
 
     return RW_SUCCESS;
 }
@@ -640,13 +705,20 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		}
 
 		if (0 == scan_rst_set_ptr) {
-			scan_rst_set_ptr = (SCAN_RST_UPLOAD_T *)sr_malloc_shell();
-			ASSERT(scan_rst_set_ptr);
-			scan_rst_set_ptr->scanu_num = 0;
-			scan_rst_set_ptr->res = (SCAN_RST_ITEM_PTR *)&scan_rst_set_ptr[1];
+            scan_rst_set_ptr = (SCAN_RST_UPLOAD_T *)sr_malloc_shell();
+			if(scan_rst_set_ptr){
+			    scan_rst_set_ptr->scanu_num = 0;
+            	scan_rst_set_ptr->res = (SCAN_RST_ITEM_PTR*)&scan_rst_set_ptr[1];
+				mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
+			}
+			else{
+				os_printf("scan_rst_set_ptr malloc fail\r\n");
+			}
+		}
+		else{
+				mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
 		}
 
-		mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
 		break;
 
 		/**************************************************************************/
@@ -710,7 +782,9 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 
 	case SM_BEACON_LOSE_IND:
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
 		rf_not_share_for_ble();
+#endif
 #endif
 
 		if (fn) {

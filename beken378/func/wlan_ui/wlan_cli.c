@@ -53,6 +53,12 @@ extern void sec_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #include "utils_httpc.h"
 #endif
 
+#ifdef monitor_printf_debug
+#define monitor_dbg(fmt, ...)   bk_printf(fmt, ##__VA_ARGS__)
+#else
+#define monitor_dbg(fmt, ...)
+#endif
+
 #ifndef MOC
 static void task_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv );
 #endif
@@ -750,12 +756,12 @@ void cli_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
     uint32_t count, i;
 
     count = MIN(32, len);
-    os_printf("cli_monitor_cb:%d:%d\r\n", count, len);
+    monitor_dbg("cli_monitor_cb:%d:%d\r\n", count, len);
     for(i = 0; i < count; i ++)
     {
-        os_printf("%x ", data[i]);
+        monitor_dbg("%x ", data[i]);
     }
-    os_printf("\r\n");
+    monitor_dbg("\r\n");
 
     channel_count ++;
 }
@@ -811,6 +817,7 @@ void mtr_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     channel_num = os_strtoul(argv[1], NULL, 10);
     if(99 == channel_num)
     {
+        cmd_printf("stop monitor\r\n");
         bk_wlan_stop_monitor();
     }
     else
@@ -948,21 +955,6 @@ void airkiss_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **
     start = strtoul(argv[1], NULL, 0);
 
     airkiss_process(start);
-}
-
-void air_kiss_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
-{
-    u8 start = 0;
-
-    if(argc != 2)
-    {
-        os_printf("need 2 parameters: airkiss 1(start), 0(stop)\r\n");
-        return;
-    }
-
-    start = strtoul(argv[1], NULL, 0);
-
-    bk_airkiss_process(start);
 }
 
 #endif
@@ -2236,6 +2228,43 @@ extern void cmd_rfcali_cfg_tssi_g(char *pcWriteBuffer, int xWriteBufferLen, int 
 extern void cmd_rfcali_cfg_tssi_b(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 extern void cmd_rfcali_show_data(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 
+static void wifi_mgmt_filter_cb(uint8_t *data, int len, void *info)
+{
+	if (!data) {
+		bk_printf("null data\n");
+		return;
+	}
+
+	uint16_t framectrl = co_read16(data);
+	uint16_t frame_type_subtype = framectrl & MAC_FCTRL_TYPESUBTYPE_MASK;
+
+	bk_printf("filter type=%x info=%u\n", frame_type_subtype, (uint32_t)info);
+}
+
+static void wifi_mgmt_filter_help(void)
+{
+	bk_printf("wifi_mgmt_filter 0(all)/1(probe req)/-1(stop)\n");
+}
+
+static void cmd_wifi_mgmt_filter(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+	OSStatus ret = kGeneralErr;
+	uint32_t filter = 0;
+
+	if (argc != 2){
+		wifi_mgmt_filter_help();
+		return;
+	}
+
+	filter = os_strtoul(argv[1], NULL, 0);
+	if (filter == -1) {
+		ret = bk_wlan_reg_rx_mgmt_cb(NULL, 0);
+	} else {
+		ret = bk_wlan_reg_rx_mgmt_cb(wifi_mgmt_filter_cb, filter);
+	}
+
+	bk_printf("set filter ret=%x\n", ret);
+}
 
 static const struct cli_command built_ins[] =
 {
@@ -2250,8 +2279,8 @@ static const struct cli_command built_ins[] =
     {"softap", "softap ssid key", softap_Command},
     {"stopintf", "stopintf intfacename", stop_wlan_intface_Command},
     {"sta", "sta ap_ssid key", sta_Command},
-#if (CFG_WFA_CERT || CFG_NEW_SUPP)
-    {"net", "wifi net config", net_Command},
+#if (CFG_WFA_CERT || CFG_WPA_CTRL_IFACE)
+    {"net", "wifi net config", net_Command},           // 8k rom size
 #endif
     {"adv", "adv", sta_adv_Command},
     {"mtr", "mtr channel", mtr_Command},
@@ -2301,7 +2330,7 @@ static const struct cli_command built_ins[] =
     {"easylink", "start easylink", easylink_Command},
 #if CFG_AIRKISS_TEST
     {"airkiss", "start airkiss", airkiss_Command},
-    {"air_kiss", "control airkiss", air_kiss_command},
+
 #endif
 #if CFG_SUPPORT_OTA_TFTP
 	{"tftpota", "tftpota [ip] [file]", tftp_ota_get_Command},
@@ -2334,7 +2363,7 @@ static const struct cli_command built_ins[] =
 #if CFG_WIFI_SENSOR
 	{"wifisensor", "wifi sensor", wifi_sensor_command},
 #endif
-
+    {"wifi_mgmt_filter", "wifi_mgmt_filter <0/1/-1>", cmd_wifi_mgmt_filter},
 };
 
 /* Built-in "help" command: prints all registered commands and their help
@@ -2461,12 +2490,12 @@ void monitor(uint8_t *data, int len, wifi_link_info_t *info)
 {
     int i;
 
-    os_printf("[%d]: ", len);
+    monitor_dbg("[%d]: ", len);
     for(i = 0; i < len; i++)
     {
-        os_printf("%02x ", data[i]);
+        monitor_dbg("%02x ", data[i]);
     }
-    os_printf("\r\n");
+    monitor_dbg("\r\n");
 }
 
 static void monitor_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -2524,7 +2553,7 @@ static void channel_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, 
         os_printf("Invalid channel number \r\n");
         return ;
     }
-    cmd_printf("set to channel %d\r\n", channel);
+    cmd_printf("monitor mode :set to channel %d\r\n", channel);
     bk_wlan_set_channel_sync(channel);
 }
 
@@ -2567,8 +2596,10 @@ static void Deep_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int arg
 					deep_sleep_param.gpio_last_edge_map,
 					deep_sleep_param.sleep_time,
 					deep_sleep_param.wake_up_way);
-		
+
+	#if (CFG_SOC_NAME != SOC_BK7271)
 		bk_enter_deep_sleep_mode(&deep_sleep_param);
+	#endif
 	}
 	else
 	{

@@ -150,18 +150,39 @@ uint32_t rl_launch_sta(void)
     uint32_t next_launch_flag = 0;
     RL_ENTITY_T *entity, *pre_entity;
     uint32_t ret = LAUNCH_STATUS_OVER;
-    
+	GLOBAL_INT_DECLARATION();
+
     if(NULL == g_role_launch.jl_previous_sta)
     {
         if(g_role_launch.jl_following_sta)
         {
             pre_entity = g_role_launch.jl_following_sta;
-            g_role_launch.jl_previous_sta = pre_entity;
-            g_role_launch.jl_following_sta = NULL;
+			g_role_launch.jl_following_sta = NULL;
+			GLOBAL_INT_DISABLE();
+			if((!(g_role_launch.rl_status & RL_STATUS_MASK))
+				&&((g_role_launch.rl_status & RL_STA_STATE_MASK) != RL_STA_STATE_HOLD))
+			{
+				g_role_launch.rl_status |= RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+				g_role_launch.jl_previous_sta = pre_entity;
 
-			rl_sta_request_start(&pre_entity->rlaunch);
-			
-            ret = LAUNCH_STATUS_CONT;
+				rl_sta_request_start(&pre_entity->rlaunch);
+
+				ret = LAUNCH_STATUS_CONT;
+
+				GLOBAL_INT_DISABLE();
+				g_role_launch.rl_status &= ~RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+			}
+			else
+			{
+				GLOBAL_INT_RESTORE();
+				if(pre_entity)
+				{
+					rl_free_entity(pre_entity);
+					pre_entity = NULL;
+				}
+			}
         }
     }
     else
@@ -174,7 +195,7 @@ uint32_t rl_launch_sta(void)
                 rl_pre_sta_set_cancel();
             }
         }
-        
+
         pre_entity = g_role_launch.jl_previous_sta;
         if(pre_entity->relaunch_limit 
                 && (pre_entity->launch_count >= pre_entity->relaunch_limit))
@@ -185,21 +206,40 @@ uint32_t rl_launch_sta(void)
         next_launch_flag = rl_sta_may_next_launch();
         if(next_launch_flag)
         {
-            rl_pre_sta_stop_launch();
-            
-            pre_entity = g_role_launch.jl_previous_sta;
-            rl_free_entity(pre_entity);
-                
-            pre_entity = g_role_launch.jl_following_sta;
-            g_role_launch.jl_previous_sta = pre_entity;
-            g_role_launch.jl_following_sta = NULL;
+			rl_pre_sta_stop_launch();
 
-            if(pre_entity)
-            {   
-				rl_sta_request_start(&pre_entity->rlaunch);
-                
-                ret = LAUNCH_STATUS_CONT;
-            }
+			pre_entity = g_role_launch.jl_previous_sta;
+			rl_free_entity(pre_entity);
+
+			pre_entity = g_role_launch.jl_following_sta;
+			g_role_launch.jl_following_sta = NULL;
+			GLOBAL_INT_DISABLE();
+			if((!(g_role_launch.rl_status & RL_STATUS_MASK))
+				&&((g_role_launch.rl_status & RL_STA_STATE_MASK) != RL_STA_STATE_HOLD))
+			{
+				g_role_launch.rl_status |= RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+				g_role_launch.jl_previous_sta = pre_entity;
+
+				if(pre_entity)
+				{
+					rl_sta_request_start(&pre_entity->rlaunch);
+					ret = LAUNCH_STATUS_CONT;
+				}
+				GLOBAL_INT_DISABLE();
+				g_role_launch.rl_status &= ~RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+			}
+			else
+			{
+				GLOBAL_INT_RESTORE();
+				if(pre_entity)
+				{
+					rl_free_entity(pre_entity);
+					pre_entity = NULL;
+				}
+				g_role_launch.jl_previous_sta = pre_entity;
+			}
         }
         else
         {
@@ -216,19 +256,35 @@ uint32_t rl_launch_ap(void)
     uint32_t next_launch_flag = 0;
     RL_ENTITY_T *entity, *pre_entity;
     uint32_t ret = LAUNCH_STATUS_OVER;
-    
+    GLOBAL_INT_DECLARATION();
+	
     if(NULL == g_role_launch.jl_previous_ap)
     {
         if(g_role_launch.jl_following_ap)
         {
-            pre_entity = g_role_launch.jl_following_ap;
-            g_role_launch.jl_previous_ap = pre_entity;
-            g_role_launch.jl_following_ap = NULL;
+			pre_entity = g_role_launch.jl_following_ap;
+			g_role_launch.jl_following_ap = NULL;
+			GLOBAL_INT_DISABLE();
+			if(!(g_role_launch.rl_status & RL_STATUS_MASK))
+			{
+				g_role_launch.rl_status |= RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+				g_role_launch.jl_previous_ap = pre_entity;
 
-            rl_pre_ap_init();
-            rl_ap_request_start(&pre_entity->rlaunch);
-            
-            ret = LAUNCH_STATUS_CONT;
+				rl_pre_ap_init();
+				rl_ap_request_start(&pre_entity->rlaunch);
+
+				ret = LAUNCH_STATUS_CONT;
+				GLOBAL_INT_DISABLE();
+				g_role_launch.rl_status &= ~RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+			}
+			else
+			{
+				GLOBAL_INT_RESTORE();
+				rl_free_entity(pre_entity);
+				pre_entity = NULL;
+			}
         }
     }
     else
@@ -260,16 +316,35 @@ uint32_t rl_launch_ap(void)
             rl_free_entity(pre_entity);
                 
             pre_entity = g_role_launch.jl_following_ap;
-            g_role_launch.jl_previous_ap = pre_entity;
-            g_role_launch.jl_following_ap = NULL;
+			g_role_launch.jl_following_ap = NULL;
+			GLOBAL_INT_DISABLE();
+			if(!(g_role_launch.rl_status & RL_STATUS_MASK))
+			{
+				g_role_launch.rl_status |= RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+				g_role_launch.jl_previous_ap = pre_entity;
+				if(pre_entity)
+				{
+					rl_pre_ap_init();
+					rl_ap_request_start(&pre_entity->rlaunch);
 
-            if(pre_entity)
-            {
-                rl_pre_ap_init();
-                rl_ap_request_start(&pre_entity->rlaunch);
-                
-                ret = LAUNCH_STATUS_CONT;
-            }
+					ret = LAUNCH_STATUS_CONT;
+				}
+				GLOBAL_INT_DISABLE();
+				g_role_launch.rl_status &= ~RL_STATUS_DOING;
+				GLOBAL_INT_RESTORE();
+			}
+			else
+			{
+				GLOBAL_INT_RESTORE();
+				if(pre_entity)
+				{
+					rl_free_entity(pre_entity);
+					pre_entity = NULL;
+				
+				}
+				g_role_launch.jl_previous_ap = pre_entity;
+			}
         }
         else
         {
@@ -310,8 +385,10 @@ uint32_t _sta_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
     GLOBAL_INT_DECLARATION();
 
     GLOBAL_INT_DISABLE();
-    if((0 == g_role_launch.jl_previous_ap)
-        && (0 == g_role_launch.jl_previous_sta))
+	g_role_launch.rl_status |= RL_STATUS_DOING;
+	if((0 == g_role_launch.jl_previous_ap)
+        && (0 == g_role_launch.jl_previous_sta)
+        &&((g_role_launch.rl_status & RL_STA_STATE_MASK) != RL_STA_STATE_HOLD))
     {
         entity = rl_alloc_entity(param, completion);
 
@@ -322,26 +399,35 @@ uint32_t _sta_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
 
 		ret = 1;
     }
-    else if(0 == g_role_launch.jl_following_sta)
+	else if((0 == g_role_launch.jl_following_sta)
+		&&((g_role_launch.rl_status & RL_STA_STATE_MASK) != RL_STA_STATE_HOLD))
     {
-        entity = rl_alloc_entity(param, completion);
-        
-        g_role_launch.jl_following_sta = entity;
-        rl_start();
+		entity = rl_alloc_entity(param, completion);
+
+		g_role_launch.jl_following_sta = entity;
+		rl_start();
 		ret = 2;
-    }
+	}
 	else
 	{
-		os_printf("cmd queue fill!\n");
-        rl_start();
+		if((g_role_launch.rl_status & RL_STA_STATE_MASK) != RL_STA_STATE_HOLD)
+		{
+			os_printf("cmd queue RESTART HOLD!\n");
+		}
+		else
+		{
+			os_printf("cmd queue fill!\n");
+		}
+		rl_start();
 	}
 
-    if(entity
-        && (PRE_ENTITY_IDLE == g_role_launch.pre_entity_type))
-    {
-        g_role_launch.pre_entity_type = PRE_ENTITY_STA;
-    }
-    GLOBAL_INT_RESTORE();
+	if(entity
+	&& (PRE_ENTITY_IDLE == g_role_launch.pre_entity_type))
+	{
+		g_role_launch.pre_entity_type = PRE_ENTITY_STA;
+	}
+	g_role_launch.rl_status &= ~RL_STATUS_DOING;
+	GLOBAL_INT_RESTORE();
 
 	return ret;
 }
@@ -423,24 +509,41 @@ void rl_enter_handler(void *left, void *right)
 	os_memset(&g_rl_socket, 0, sizeof(g_rl_socket));
     GLOBAL_INT_RESTORE();
 
-	if(hit_sta)
+	GLOBAL_INT_DISABLE();
+	if(!(g_role_launch.rl_status & RL_STATUS_MASK))
 	{
-		JL_PRT("_sta_request_enter\r\n");
-		ret = _sta_request_enter(sta_param, sta_completion);
-		if(ret)
+		g_role_launch.rl_status |= RL_STATUS_PENDING;
+		GLOBAL_INT_RESTORE();
+		if(hit_sta)
 		{
-			g_sta_cache.sta_completion = sta_completion;
-			g_sta_cache.sta_param = *sta_param;
-			g_sta_cache.sta_req_flag = 1;
+			JL_PRT("_sta_request_enter\r\n");
+			ret = _sta_request_enter(sta_param, sta_completion);
+			if(ret)
+			{
+				if(sta_param->req_type == LAUNCH_REQ_STA)
+				{
+					g_sta_cache.sta_completion = sta_completion;
+					g_sta_cache.sta_param = *sta_param;
+					g_sta_cache.sta_req_flag = 1;
+				}
+			}
 		}
-	}
-	
-	if(hit_ap)
-	{
-		JL_PRT("_ap_request_enter\r\n");
-		_ap_request_enter(ap_param, ap_completion);
-	}
 
+		if(hit_ap)
+		{
+			JL_PRT("_ap_request_enter\r\n");
+			_ap_request_enter(ap_param, ap_completion);
+		}
+		
+		GLOBAL_INT_DISABLE();
+		g_role_launch.rl_status &= ~RL_STATUS_PENDING;
+		GLOBAL_INT_RESTORE();
+	}
+	else
+	{
+		GLOBAL_INT_RESTORE();
+		JL_PRT("rl discard request\r\n");
+	}
 	os_free(ptr);
 	ptr = 0;
 }
@@ -452,11 +555,30 @@ uint32_t rl_sta_cache_request_enter(void)
 
 	JL_PRT("sta_cache_request\r\n");
     GLOBAL_INT_DISABLE();
-	if(g_sta_cache.sta_req_flag && (0 == bk_wlan_is_monitor_mode()))
+	if(g_sta_cache.sta_req_flag && (0 == bk_wlan_is_monitor_mode())
+		&&(!(g_role_launch.rl_status & RL_PRIV_STATUS_STA_ADV_RDY))
+		&&((g_role_launch.rl_status & RL_STA_STATE_MASK) != RL_STA_STATE_HOLD))
 	{
-		rl_sta_request_enter(&g_sta_cache.sta_param, g_sta_cache.sta_completion);
-
+		if(g_role_launch.rl_status & RL_PRIV_STATUS_STA_ADV)
+		{
+			rl_status_reset_private_state(RL_PRIV_STATUS_STA_ADV);
+		}
+		rl_sta_request_enter_handle(&g_sta_cache.sta_param, g_sta_cache.sta_completion);
+		JL_PRT("sta_cache_request start\r\n");
 		ret = 1;
+	}
+	else
+	{
+		if((g_role_launch.rl_status & RL_PRIV_STATUS_STA_ADV)
+			&& (!(g_role_launch.rl_status & RL_PRIV_STATUS_STA_ADV_RDY)))
+		{
+			rl_status_reset_private_state(RL_PRIV_STATUS_STA_ADV);
+			LAUNCH_REQ param = {0};
+			param.req_type = LAUNCH_REQ_DELIF_STA;
+
+			rl_sta_request_enter(&param, 0);
+			JL_PRT("sta_cache_request DELIF_STA\r\n");
+		}
 	}
 
 	os_memset(&g_sta_cache, 0, sizeof(g_sta_cache));
@@ -921,7 +1043,7 @@ void rl_ap_request_start(LAUNCH_REQ *req)
     }
 }
 
-void rl_sta_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
+void rl_sta_request_enter_handle(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
 {
     OSStatus err = kNoErr;
 	
@@ -951,6 +1073,12 @@ void rl_sta_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
     GLOBAL_INT_RESTORE();
 }
 
+void rl_sta_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
+{
+	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD);
+	rl_sta_request_enter_handle(param,completion);
+}
+
 void rl_ap_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
 {
     OSStatus err = kNoErr;
@@ -973,6 +1101,69 @@ void rl_ap_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion)
     GLOBAL_INT_RESTORE();
 }
 
+unsigned int rl_status_is_idle(void)
+{
+	return (((g_role_launch.rl_status & RL_STATUS_BIT_MASK) & (~RL_STATUS_MASK)) == RL_STATUS_IDLE);
+}
+
+void rl_status_set_pause(int en)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	if(en)
+		g_role_launch.rl_status |= RL_STATUS_PAUSE;
+	else
+		g_role_launch.rl_status &= ~RL_STATUS_PAUSE;
+	GLOBAL_INT_RESTORE();
+}
+
+void rl_status_set_private_state(unsigned int st)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	g_role_launch.rl_status |= (st & RL_PRIV_STATUS_MASK);
+	GLOBAL_INT_RESTORE();
+}
+
+void rl_status_reset_private_state(unsigned int st)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	g_role_launch.rl_status &= (~(st & RL_PRIV_STATUS_MASK));
+	GLOBAL_INT_RESTORE();
+}
+
+void rl_sta_adv_register_cache_station(LAUNCH_REQ *lreq)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	g_sta_cache.sta_completion = NULL;
+	g_sta_cache.sta_param = *lreq;
+	g_sta_cache.sta_req_flag = 1;
+	GLOBAL_INT_RESTORE();
+}
+
+void rl_status_set_st_state(unsigned int st)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	g_role_launch.rl_status |= (st & RL_ST_STATUS_MASK);
+	GLOBAL_INT_RESTORE();
+}
+
+void rl_status_reset_st_state(unsigned int st)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	g_role_launch.rl_status &= (~(st & RL_ST_STATUS_MASK));
+	GLOBAL_INT_RESTORE();
+}
 #endif // CFG_ROLE_LAUNCH
 
 // eof

@@ -108,13 +108,34 @@ void mpb_set_txdelay(UINT32 delay_us)
 {
     UINT32 delay_us_value;
 
-    delay_us_value = delay_us * 30;
-
     if(g_band == 1)
         delay_us_value = delay_us * 60;
+    else
+        delay_us_value = delay_us * 30;
 
     if(delay_us_value > 0xfffff)
     delay_us_value = 0xfffff;
+
+    mpb_regs.r3->value = delay_us_value;
+}
+
+void mpb_set_txdelay_precision(float delay_us)
+{
+    UINT32 delay_us_value;
+
+    if (g_band == 1)
+    {
+        delay_us_value = (UINT32)(delay_us * 60 + 0.5);
+    }
+    else
+    {
+        delay_us_value = (UINT32)(delay_us * 30 + 0.5);
+    }
+
+    if (delay_us_value > 0xfffff)
+    {
+        delay_us_value = 0xfffff;
+    }
 
     mpb_regs.r3->value = delay_us_value;
 }

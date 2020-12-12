@@ -393,8 +393,7 @@ void wpa_psk_cal_thread(void *arg)
 }
 #endif
 
-
-void start_wpa_psk_cal_thread()
+void start_wpa_psk_cal_thread(void)
 {
     GLOBAL_INT_DECLARATION();
 

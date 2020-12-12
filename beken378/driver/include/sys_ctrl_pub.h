@@ -250,7 +250,9 @@ enum
 #endif
 
 /* CMD_RF_HOLD_BIT_SET/_CLR*/
-#define RF_HOLD_BY_PHY_BIT                          (1 << 11)
+#define RF_HOLD_BY_BKREG_BIT                         (1 << 13)
+#define RF_HOLD_BY_ATE_BIT                           (1 << 12)
+#define RF_HOLD_BY_PHY_BIT                           (1 << 11)
 #define RF_HOLD_BY_MAC_USE_BIT                       (1 << 10)
 #define RF_HOLD_BY_CONNECT_BIT                       (1 << 9)
 #define RF_HOLD_BY_KEY_BIT                           (1 << 8)
@@ -369,4 +371,7 @@ extern void sctrl_flash_select_dco(void);
 extern UINT8 sctrl_if_rf_sleep(void);
 extern UINT32 charger_is_full(void);
 extern UINT32 usb_power_is_pluged(void);
+extern void sctrl_rf_ps_enable_set(void);
+extern void sctrl_rf_ps_enable_clear(void);
+extern void sctrl_rf_ps_enabled(void);
 #endif // _SCTRL_PUB_H_

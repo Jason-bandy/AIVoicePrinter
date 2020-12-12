@@ -3,6 +3,7 @@
 
 #include "generic.h"
 #include "drv_model_pub.h"
+#include "uart_pub.h"
 
 #define GPIO_FAILURE                (1)
 #define GPIO_SUCCESS                (0)
@@ -187,40 +188,45 @@ __inline static void bk_gpio_config_input(GPIO_INDEX id)
     
     param = GPIO_CFG_PARAM(id, GMODE_INPUT);
     ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-    
-    ASSERT(GPIO_SUCCESS == ret);
+
+	if(ret !=0 )
+		os_printf("gpio config fail\r\n");
 }
 								
 __inline static void bk_gpio_config_input_pup(GPIO_INDEX id)
 {
     UINT32 ret;
     UINT32 param;
-    
+
     param = GPIO_CFG_PARAM(id, GMODE_INPUT_PULLUP);
     ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-    
-    ASSERT(GPIO_SUCCESS == ret);
+
+	if(ret !=0 )
+		os_printf("gpio config fail\r\n");
+
 }
-								
+
 __inline static void bk_gpio_config_input_pdwn(GPIO_INDEX id)
 {
     UINT32 ret;
 	UINT32 param;
-    
+
 	param = GPIO_CFG_PARAM(id, GMODE_INPUT_PULLDOWN);
 	ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-    
-	ASSERT(GPIO_SUCCESS == ret);
+
+	if(ret !=0 )
+		os_printf("gpio config fail\r\n");
+
 }
 
 __inline static uint32_t bk_gpio_input(GPIO_INDEX id)
 {
-    UINT32 ret;                                             
-    UINT32 param = id;   
+    UINT32 ret;                      
+    UINT32 param = id;
     
     ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_INPUT, &param); 
     
-    return ret;                      
+    return ret;
 }
 
 __inline static void bk_gpio_config_output(GPIO_INDEX id)

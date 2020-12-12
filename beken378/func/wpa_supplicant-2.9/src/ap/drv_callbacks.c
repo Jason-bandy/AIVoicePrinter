@@ -608,6 +608,9 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 		       freq, ht, hapd->iconf->ch_switch_vht_config, offset,
 		       width, channel_width_to_string(width), cf1, cf2);
 
+#if CFG_ROLE_LAUNCH
+	rl_set_csa_switched();
+#endif
 	if (!hapd->iface->current_mode) {
 		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_WARNING,
@@ -711,10 +714,6 @@ void hostapd_event_ch_switch(struct hostapd_data *hapd, int freq, int ht,
 #ifdef CONFIG_FULL_HOSTAPD
 	for (i = 0; i < hapd->iface->num_bss; i++)
 		hostapd_neighbor_set_own_report(hapd->iface->bss[i]);
-#endif
-
-#if CFG_ROLE_LAUNCH
-	rl_set_csa_switched();
 #endif
 
     (void)is_dfs;

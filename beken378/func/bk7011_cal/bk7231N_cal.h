@@ -729,9 +729,7 @@ typedef union
         volatile unsigned long Dtau             : 4; //PA bias settling time programming; 1000:400ns; ~50n/LSB
         volatile unsigned long Dvldo            : 2; //Gm LDO output programming: (00,01,10) =>  [1.2, 1.3, 1.4]
         volatile unsigned long Dvnlo            : 2; //Mixer LO dc bias programming: 0.8*Vrefm + Vrefm*Dvnlo/16;
-        volatile unsigned long vstxloldo        : 3; //tx lo ldo voltage selection
-        volatile unsigned long ldo_dac          : 2; //tx dac ldo voltage selection
-        volatile unsigned long tspi             : 3; //Reserved control bits;
+        volatile unsigned long tspi             : 8; //Reserved control bits;
     } bits;
     volatile unsigned int value;
 }BK7011_TRxV2A_REG0x0_TypeDef;
@@ -1397,13 +1395,11 @@ typedef struct
     UINT32 cali_mode;
     INT32 gtx_tssi_thred_b;
     INT32 gtx_tssi_thred_g;
+    INT32 power_cali_shift_b;
+    INT32 power_cali_shift_g;
 
     UINT32 is_tpc_used;
 
-#if CFG_USE_TEMPERATURE_DETECT
-    INT16 ble_pwr_indx;
-    INT16 ble_pwr_shift;
-#endif
 } BK7011_CALI_CONTEXT;
 
 typedef struct

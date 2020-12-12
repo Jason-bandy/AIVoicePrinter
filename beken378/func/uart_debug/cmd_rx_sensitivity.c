@@ -56,7 +56,7 @@ void rxsens_ct_show_hdl(void *param)
 #endif // CFG_RX_SENSITIVITY_TEST
 }
 
-int do_rx_sensitivity(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+static int do_rx_sensitivity_implement(int argc, char *const argv[])
 {
     OSStatus err;
     char cmd0 = 0;
@@ -392,6 +392,19 @@ int do_rx_sensitivity(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 #endif // CFG_RX_SENSITIVITY_TEST
 
     return 0;
+}
+
+int do_rx_sensitivity(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
+{
+    UINT32 reg;
+
+    reg = RF_HOLD_BY_ATE_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+
+    do_rx_sensitivity_implement(argc, argv);
+
+    reg = RF_HOLD_BY_ATE_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 }
 
 // eof

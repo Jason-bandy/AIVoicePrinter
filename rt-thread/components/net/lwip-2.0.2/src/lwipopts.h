@@ -3,6 +3,19 @@
 
 #include <rtconfig.h>
 
+#define LWIP_DEFAULT_MEM_POLICY                   1
+#define LWIP_REDUCE_THE_PLAN                      2
+
+#ifndef CFG_LWIP_MEM_POLICY
+#define CFG_LWIP_MEM_POLICY                       LWIP_REDUCE_THE_PLAN
+#else
+#if CFG_LWIP_MEM_POLICY == LWIP_DEFAULT_MEM_POLICY
+#undef RT_LWIP_TCP_SND_BUF
+#undef RT_LWIP_TCP_WND
+#define RT_LWIP_STATS
+#endif
+#endif
+
 #define ERRNO                       1
 
 #define LWIP_IPV4                   1
@@ -157,6 +170,10 @@
 /* PBUF_POOL_BUFSIZE: the size of each pbuf in the pbuf pool. */
 #ifdef RT_LWIP_PBUF_POOL_BUFSIZE
 #define PBUF_POOL_BUFSIZE            RT_LWIP_PBUF_POOL_BUFSIZE
+#else
+#if CFG_LWIP_MEM_POLICY == LWIP_DEFAULT_MEM_POLICY
+#define PBUF_POOL_BUFSIZE               1580
+#endif
 #endif
 
 /* PBUF_LINK_HLEN: the number of bytes that should be allocated for a
@@ -194,13 +211,21 @@
 #define TCP_QUEUE_OOSEQ             1
 
 /* TCP Maximum segment size. */
+#if CFG_LWIP_MEM_POLICY == LWIP_DEFAULT_MEM_POLICY
+#define TCP_MSS                     (1460)
+#else
 #define TCP_MSS                     (1400)
+#endif
 
 /* TCP sender buffer space (bytes). */
 #ifdef RT_LWIP_TCP_SND_BUF
 #define TCP_SND_BUF                 RT_LWIP_TCP_SND_BUF
 #else
+#if CFG_LWIP_MEM_POLICY == LWIP_DEFAULT_MEM_POLICY
+#define TCP_SND_BUF                 (TCP_MSS * 10)
+#else
 #define TCP_SND_BUF                 (TCP_MSS * 2)
+#endif
 #endif
 
 /* TCP sender buffer space (pbufs). This must be at least = 2 *
@@ -217,7 +242,11 @@
 #ifdef RT_LWIP_TCP_WND
 #define TCP_WND                     RT_LWIP_TCP_WND
 #else
+#if CFG_LWIP_MEM_POLICY == LWIP_DEFAULT_MEM_POLICY
+#define TCP_WND                     (TCP_MSS * 10)
+#else
 #define TCP_WND                     (TCP_MSS * 2)
+#endif
 #endif
 
 /* Maximum number of retransmissions of data segments. */
@@ -225,6 +254,10 @@
 
 /* Maximum number of retransmissions of SYN segments. */
 #define TCP_SYNMAXRTX               4
+
+#if CFG_LWIP_MEM_POLICY == LWIP_DEFAULT_MEM_POLICY
+#define TCP_MSL                    (TCP_TMR_INTERVAL)
+#endif
 
 /* tcpip thread options */
 #ifdef RT_LWIP_TCPTHREAD_PRIORITY

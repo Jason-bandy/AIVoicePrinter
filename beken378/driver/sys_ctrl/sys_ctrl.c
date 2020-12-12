@@ -64,9 +64,11 @@ static SDD_OPERATIONS sctrl_op =
 };
 
 static UINT32 rf_hold_status = 0;
+UINT32 rf_sleepe_enable = 1;
 UINT32 rf_sleeped = 0;
 UINT32 sta_rf_sleeped = 0;
 
+static void sctrl_rf_init(void);
 extern void WFI( void );
 /**********************************************************************/
 void sctrl_dpll_delay10us(void)
@@ -131,6 +133,10 @@ void sctrl_cali_dpll(UINT8 flag)
 
 void sctrl_dpll_isr(void)
 {
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    bk7011_cal_bias();
+    os_printf("BIAS Cali\r\n");
+#endif
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);    
     sctrl_cali_dpll(0);
 
@@ -253,7 +259,7 @@ void sctrl_flash_select_dco(void)
 
     /* Flash 26MHz clock select dco clock*/
     flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    
     ddev_control(flash_hdl, CMD_FLASH_SET_DCO, 0);
 	
     //flash get id  shouldn't remove
@@ -301,14 +307,6 @@ void sctrl_sta_ps_init(void)
 #if CFG_USE_BLE_PS
 void sctrl_ble_ps_init(void)
 {
-    UINT32 reg;
-
-#if (CFG_SOC_NAME == SOC_BK7231)
-    reg = LPO_SELECT_32K_DIV;
-#else
-    reg = LPO_SELECT_ROSC;
-#endif
-    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_LOW_PWR_CLK, &reg);
 }
 #endif
 
@@ -397,7 +395,7 @@ void sctrl_init(void)
     #if (CFG_SOC_NAME == SOC_BK7221U)
     param = CHARGE_ANALOG_CTRL3_CHARGE_DEFAULT_VALUE;
 #elif (CFG_SOC_NAME == SOC_BK7231N)
-    param = 0xF0000000; //wangjiang20200822 0x00000000->0x70000000//cunliang20201010<31:28>=0xF
+    param = 0x70000000; //wangjiang20200822 0x00000000->0x70000000
     #else
     param = 0x4FE06C50;
     #endif
@@ -419,6 +417,13 @@ void sctrl_init(void)
     intc_service_register(FIQ_DPLL_UNLOCK, PRI_FIQ_DPLL_UNLOCK, sctrl_dpll_isr);
 
     sctrl_sub_reset();
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    // This feature may cause crash, so close it
+#ifdef FIX_DPLL_DIV
+    sctrl_fix_dpll_div();
+#endif
+#endif
 
 	/*sys ctrl clk gating, for rx dma dead*/
 	REG_WRITE(SCTRL_CLK_GATING, 0x3f);
@@ -444,6 +449,7 @@ void sctrl_init(void)
     #endif // CFG_USE_AUDIO
     #endif // (CFG_SOC_NAME == SOC_BK7221U)
 
+    sctrl_rf_init();
 }
 
 void sctrl_exit(void)
@@ -463,6 +469,25 @@ void sctrl_sub_reset(void)
     sctrl_ctrl(CMD_SCTRL_MODEM_SUBCHIP_RESET, 0);
     sctrl_ctrl(CMD_SCTRL_MAC_SUBSYS_RESET, 0);
     sctrl_ctrl(CMD_SCTRL_USB_SUBSYS_RESET, 0);
+}
+
+static void sctrl_rf_init(void)
+{
+    UINT32 reg;
+
+    /* Modem AHB clock enable*/
+    reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
+    REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | PHY_HCLK_EN_BIT);
+
+    /* Modem Subsystem clock 480m enable*/
+    reg = REG_READ(SCTRL_CONTROL);
+    reg &= ~MODEM_CLK480M_PWD_BIT;
+    REG_WRITE(SCTRL_CONTROL, reg);
+
+	/*Enable BK7011:rc_en,ch0_en*/
+    rc_cntl_stat_set(0x09);
+
+    rf_sleeped = 0;
 }
 
 void ps_delay(volatile UINT16 times)
@@ -544,7 +569,6 @@ void sctrl_hw_sleep(UINT32 peri_clk)
 {    
     UINT32 reg;
     PS_DEBUG_DOWN_TRIGER;
-
     if(4 == flash_get_line_mode())
     {
         flash_set_line_mode(2);
@@ -566,14 +590,19 @@ void sctrl_hw_sleep(UINT32 peri_clk)
     {
         reg = REG_READ(ICU_ARM_WAKEUP_EN);
         reg |= (BLE_ARM_WAKEUP_EN_BIT);
+        #if (CFG_SOC_NAME == SOC_BK7231N)
+        reg |= (BTDM_ARM_WAKEUP_EN_BIT);
+        #endif
         REG_WRITE(ICU_ARM_WAKEUP_EN, reg);
     }
     #endif
     
     PS_DEBUG_DOWN_TRIGER;
 
+#if ((CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
     REG_WRITE(SCTRL_ROSC_CAL, 0x35);
     REG_WRITE(SCTRL_ROSC_CAL, 0x37);
+#endif
 
     if(sctrl_mcu_ps_info.mcu_use_dco == 0)
     {
@@ -696,7 +725,8 @@ void sctrl_hw_wakeup(void)
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);
 
     #if CFG_USE_BLE_PS
-    if(if_ble_sleep())
+    #if ((CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
+    if (if_ble_sleep())
     {
         if(BIT(FIQ_BLE) & REG_READ(ICU_INT_STATUS))
         {
@@ -706,10 +736,13 @@ void sctrl_hw_wakeup(void)
         }
     }
     #endif
+    #endif
 
+    #if ((CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
     /*open 32K Rosc calib*/
     REG_WRITE(SCTRL_ROSC_CAL, 0x35);
     REG_WRITE(SCTRL_ROSC_CAL, 0x37);
+    #endif
 
     reg = REG_READ(ICU_INTERRUPT_ENABLE);
     reg |= (CO_BIT(FIQ_DPLL_UNLOCK));
@@ -719,7 +752,7 @@ void sctrl_hw_wakeup(void)
     {
         flash_set_line_mode(4);
     }
-	PS_DEBUG_BCN_TRIGER;       
+	PS_DEBUG_BCN_TRIGER;  
 }
 
 UINT8 sctrl_if_rf_sleep(void)
@@ -732,9 +765,37 @@ UINT8 sctrl_if_rf_sleep(void)
     return value;
 }
 
+void sctrl_rf_ps_enable_set(void)
+{
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    rf_sleepe_enable = 1;
+    GLOBAL_INT_RESTORE();
+}
+
+void sctrl_rf_ps_enable_clear(void)
+{
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    rf_sleepe_enable = 0;
+    GLOBAL_INT_RESTORE();
+}
+
+void sctrl_rf_ps_enabled(void)
+{
+    uint32_t value = 0;
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    value =  rf_sleepe_enable;
+    GLOBAL_INT_RESTORE();
+    return (value > 0) ? 1 : 0;
+}
+
 static void sctrl_rf_sleep(void)
 {
     #if (!CFG_USE_PTA)
+    if(sctrl_rf_ps_enabled == 1)
+    {
     UINT32 reg;
     GLOBAL_INT_DECLARATION();
     GLOBAL_INT_DISABLE();
@@ -756,12 +817,15 @@ static void sctrl_rf_sleep(void)
     }
     
     GLOBAL_INT_RESTORE();
+    }
     #endif
 }
 
 static void sctrl_rf_wakeup(void)
 {
     #if (!CFG_USE_PTA)
+    if(sctrl_rf_ps_enabled == 1)
+    {
     UINT32 reg;
     GLOBAL_INT_DECLARATION();
     GLOBAL_INT_DISABLE();
@@ -783,6 +847,7 @@ static void sctrl_rf_wakeup(void)
         rf_sleeped = 0;
     }
     GLOBAL_INT_RESTORE();
+    }
     #endif
 }
 
@@ -853,14 +918,9 @@ void sctrl_sta_rf_wakeup(void)
 #if CFG_USE_MCU_PS
 UINT8 sctrl_if_mcu_can_sleep(void)
 {
-    return ((power_save_if_rf_sleep()) 
-#if CFG_USE_BLE_PS
+    return (((! bk_wlan_has_role(VIF_STA))
+        || power_save_if_rf_sleep()) 
     	&& if_ble_sleep()
-#else
-#if (CFG_SOC_NAME != SOC_BK7231)
-        &&  (!(REG_READ(SCTRL_CONTROL) & BLE_RF_EN_BIT))
-#endif
-#endif
     	&& ap_if_ap_rf_sleep()
     	&& sctrl_if_rf_sleep()
         && (sctrl_mcu_ps_info.hw_sleep == 0));
@@ -1114,6 +1174,23 @@ void sctrl_subsys_reset(UINT32 cmd)
     return;
 }
 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+#ifdef FIX_DPLL_DIV
+void sctrl_fix_dpll_div(void)
+{
+	volatile INT32   i;
+	REG_WRITE(CMD_SCTRL_MODEM_SUBCHIP_RESET, MODEM_SUBCHIP_RESET_WORD);
+	REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) | (1 << 14));
+
+	for(i = 0; i < 100; i ++);
+
+	REG_WRITE(CMD_SCTRL_MODEM_SUBCHIP_RESET, 0);
+	REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) & ~(1 << 14));
+
+	for(i = 0; i < 100; i ++);
+}
+#endif
+#endif
 
 #if CFG_USE_FAKERTC_PS
 UINT32 block_en_value;

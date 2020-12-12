@@ -127,6 +127,8 @@
 #include "param_config.h"
 #include "ieee802_11_demo.h"
 #include "net.h"
+#include "dragonfly.h"
+
 #define CMD_WLAN_MAX_BSS_CNT	50
 
 #if (CFG_WFA_CERT || CFG_NEW_SUPP)
@@ -540,11 +542,11 @@ static int cmd_wlan_sta_set(char *cmd)
 	} else if (os_strcmp(cmd, "sae_groups") == 0) {
 		int groups[16] = {0};
 		int num;
-		if ((num = cmd_parse_array_int(value, &groups, ARRAY_SIZE(groups))) > 0) {
+		if ((num = cmd_parse_array_int(value, groups, ARRAY_SIZE(groups))) > 0) {
 			int i;
 			int valid = 1;
 			for (i = 0; i < num; i++) {
-				if (sae_suitable_group(groups[i]) == 0) {
+				if (dragonfly_suitable_group(groups[i], 0) == 0) {
 					os_printf("Invalid sae group %d\n", groups[i]);
 					valid = 0;
 				}

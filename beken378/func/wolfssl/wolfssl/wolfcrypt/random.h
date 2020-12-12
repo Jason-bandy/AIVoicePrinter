@@ -99,7 +99,7 @@ static inline int __hw_get_random(uint8_t* buf, size_t len) {
 	 return os_get_random(buf, len);
 }
 
-#define CUSTOM_RAND_GENERATE_BLOCK hw_get_random
+#define CUSTOM_RAND_GENERATE_BLOCK __hw_get_random
 
 
 #if defined(CUSTOM_RAND_GENERATE_BLOCK)

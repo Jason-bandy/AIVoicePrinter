@@ -205,9 +205,16 @@ int supplicant_main_entry(char *oob_ssid)
 			ASSERT(0 == wpa_s->ssids_from_scan_req);
 			oob_ssid_len = os_strlen(oob_ssid);
 
-			if (0 == wpas_connect_ssid) {
-				wpas_connect_ssid = (struct wpa_ssid_value *)os_malloc(sizeof(struct wpa_ssid_value));
-				ASSERT(wpas_connect_ssid);
+			if(0 == wpas_connect_ssid)
+			{
+	            wpas_connect_ssid = (struct wpa_ssid_value *)os_malloc(sizeof(struct wpa_ssid_value));
+
+				if(wpas_connect_ssid == NULL)
+				{
+					os_printf("wpas_connect_ssid is null\r\n");
+					exitcode = -1;
+					break;
+				}
 			}
 
 			len = MIN(SSID_MAX_LEN, oob_ssid_len);

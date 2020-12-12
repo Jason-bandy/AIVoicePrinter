@@ -3,7 +3,7 @@
 #include "rtthread.h"
 #include <dfs.h>
 #include <dfs_fs.h>
-#include "player.h"
+//#include "player.h"
 #include "include.h"
 #include "driver_pub.h"
 #include "func_pub.h"

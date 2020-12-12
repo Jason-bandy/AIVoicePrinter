@@ -217,8 +217,15 @@ UINT32 rw_ieee80211_get_centre_frequency(UINT32 chan_id)
         freq = channels[chan_id - 1].center_freq;
     }
 
-    ASSERT(freq);
-    return freq;
+    if(freq!=0)
+    {
+		return freq;
+    }
+	else
+	{
+		os_printf("centre freq is 0 \r\n");
+		return 0;
+	}
 }
 
 UINT8 rw_ieee80211_get_chan_id(UINT32 freq)

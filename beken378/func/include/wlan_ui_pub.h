@@ -467,7 +467,7 @@ void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num);
 
 void bk_wlan_scan_ap_reg_cb(FUNC_2PARAM_PTR ind_cb);
 unsigned char bk_wlan_get_scan_ap_result_numbers(void);
-void bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num);
+int bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num);
 void bk_wlan_ap_set_default_channel(uint8_t channel);
 uint8_t bk_wlan_has_role(uint8_t role);
 void bk_wlan_phy_open_cca(void);

@@ -8,6 +8,7 @@
 #include "arm_arch.h"
 #include "uart.h"
 #include "rtthread.h"
+#include "sys_ctrl_pub.h"
 
 // #define ATE_USE_DEGUB
 
@@ -157,6 +158,8 @@ uint32_t get_ate_mode_state(void)
 void ate_start(void)
 {
     app_pre_start();
+
+    sctrl_rf_ps_enable_clear();
 
     ATE_PRT("ate_start\r\n");
 }

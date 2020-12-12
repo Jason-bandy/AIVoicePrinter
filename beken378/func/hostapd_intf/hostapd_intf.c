@@ -569,9 +569,14 @@ int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 	FUNC_1PARAM_PTR fn;
     int i, ret = 0;
 	u32 val;
+	GLOBAL_INT_DECLARATION();
+	
+	GLOBAL_INT_DISABLE();
+	wpa_buffer_scan_results();
 
     if(NULL == s_scan_result_upload_ptr)
     {
+    	GLOBAL_INT_RESTORE();
         WPAS_PRT("get_scan_rst_null\r\n");
 
 		fn = bk_wlan_get_status_cb();
@@ -593,7 +598,7 @@ int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 	}
 
 	WPAS_PRT("wpa_get_scan_rst:%d\r\n", s_scan_result_upload_ptr->scanu_num);
-	for (i = 0; i < s_scan_result_upload_ptr->scanu_num; i++) {
+	for (i = 0; s_scan_result_upload_ptr && i < s_scan_result_upload_ptr->scanu_num; i++) {
 		scan_rst_ptr = s_scan_result_upload_ptr->res[i];
 		r = os_zalloc(sizeof(*r) + scan_rst_ptr->ie_len);
 		if (r == NULL) {
@@ -613,6 +618,8 @@ int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 
 		results->res[results->num++] = r;
 	}
+	
+	GLOBAL_INT_RESTORE();
 
 #if CFG_NEW_SUPP
 	/* doesn't need to keep, all info are stored in wpas */

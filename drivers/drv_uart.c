@@ -175,7 +175,7 @@ int rt_hw_uart_init(void)
 
         serial->ops              = &_uart_ops;
         serial->config           = config;
-        serial->config.baud_rate = 115200;
+        serial->config.baud_rate = UART1_BAUD_RATE;
         serial->config.bufsz     = 2048;
 
         uart->port  = UART1_PORT; // UART1_PORT;
@@ -198,7 +198,7 @@ int rt_hw_uart_init(void)
 
         serial->ops              = &_uart_ops;
         serial->config           = config;
-        serial->config.baud_rate = 115200;
+        serial->config.baud_rate = UART2_BAUD_RATE;
         serial->config.bufsz     = 2048;
 
         uart->port  = UART2_PORT; // UART2_PORT;

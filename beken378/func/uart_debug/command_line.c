@@ -9,6 +9,9 @@
 #include "ate_app.h"
 #include "_reg_rc.h"
 
+#include "drv_model_pub.h"
+#include "sys_ctrl_pub.h"
+
 #if CFG_UART_DEBUG
 /* find command table entry for a command */
 cmd_tbl_t *cmd_find_tbl(const char *cmd, cmd_tbl_t *table, int table_len)
@@ -418,7 +421,7 @@ int run_command(const char *cmd, int flag)
 
 #if CFG_SUPPORT_BKREG
 #include "bk7011_cal_pub.h"
-int bkreg_run_command(const char *content, int cnt)
+static int bkreg_run_command_implement(const char *content, int cnt)
 {
     char tx_buf[BKREG_TX_FIFO_THRD];
     UINT32 uart_rx_index;
@@ -647,6 +650,19 @@ int bkreg_run_command(const char *content, int cnt)
     bkreg_tx(pHCItxBuf);
 
     return 0;
+}
+
+int bkreg_run_command(const char *content, int cnt)
+{
+    UINT32 param;
+
+    param = RF_HOLD_BY_BKREG_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &param);
+
+    bkreg_run_command_implement(content, cnt);
+
+    param = RF_HOLD_BY_BKREG_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &param);
 }
 #endif // CFG_SUPPORT_BKREG
 #endif // CFG_UART_DEBUG

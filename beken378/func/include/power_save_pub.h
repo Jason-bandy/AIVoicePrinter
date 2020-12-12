@@ -164,6 +164,13 @@ extern void power_save_set_keep_timer_time ( UINT32 );
 extern void ps_set_rf_prevent(void);
 extern void ps_clear_rf_prevent(void);
 
+void ps_set_td_timer(void);
+UINT32 bk_unconditional_sleep_mode_get ( void );
+void ps_set_mac_reset_prevent(void);
+void ps_clear_mac_reset_prevent(void);
+UINT8 power_save_low_latency_get ( void );
+void power_save_set_low_latency ( UINT8 );
+
 /***************************************************************************/
 extern void power_save_wake_rf_if_in_sleep(void);
 extern void power_save_check_clr_rf_prevent_flag(void);

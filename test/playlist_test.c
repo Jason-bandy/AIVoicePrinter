@@ -1,9 +1,10 @@
 #include <rtthread.h>
+
+#ifdef PLAY_LIST_TEST
 #include "codec_helixmp3.h" 
 #include "player_init.h"
 #include "player.h"
 #include "test_config.h"
-#ifdef PLAY_LIST_TEST
 
 #define PLAY_LIST_SIZE  3
 

@@ -1,4 +1,7 @@
 #include <rtthread.h>
+#include "sys_config.h"
+#if defined(CHECK_SD_PLAY_TEST) && CFG_USE_SDCARD_HOST
+
 #include "codec_helixmp3.h" 
 #include "player_init.h"
 #include "player.h"
@@ -17,7 +20,7 @@
 #define REG_WRITE(addr, _data) 	(*((volatile UINT32 *)(addr)) = (_data))
 
 #define CHECK_SD_PLAY_TEST
-#if defined(CHECK_SD_PLAY_TEST) && CFG_USE_SDCARD_HOST
+
 
 enum{
 	OFFLINE_PLAYER_PLAY = (0x1 << (PLYAER_STATE_CHANGED+1)),

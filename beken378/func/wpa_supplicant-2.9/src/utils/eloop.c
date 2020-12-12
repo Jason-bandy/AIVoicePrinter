@@ -131,6 +131,7 @@ static void eloop_sock_table_destroy(struct eloop_sock_table *table)
 		}
 
 		os_free(table->table);
+		table->table = NULL;
 	}
 }
 

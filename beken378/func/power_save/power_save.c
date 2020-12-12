@@ -40,6 +40,7 @@ static UINT16 r_wakeup_time = 50;
 #else
 static UINT16 r_wakeup_time = 66;
 #endif
+static UINT32 ps_wait_status = 0;
 
 static UINT32 int_enable_reg_save = 0;
 static UINT8 ps_lock = 1;
@@ -47,7 +48,7 @@ static PS_FORBID_STATUS bk_forbid_code = 0;
 static UINT16 bk_forbid_count = 0;
 static UINT32 ps_dis_flag = 0;
 static UINT16 beacon_len = 0;
-static UINT32 ps_wait_status = 0;
+static UINT8 ps_data_low_latency = 0;
 
 #if PS_USE_KEEP_TIMER
 static beken2_timer_t ps_keep_timer = {0};
@@ -1240,9 +1241,6 @@ void power_save_dump ( void )
 #if CFG_USE_STA_PS
 	sctrl_ps_dump();
 #endif
-#if CFG_USE_BLE_PS
-	ble_ps_dump();
-#endif
 }
 
 void power_save_wake_mac_rf_if_in_sleep(void)
@@ -1333,6 +1331,16 @@ UINT32 power_save_time_to_sleep ( void )
 	less = 0;
 #endif
 	return less;
+}
+
+void power_save_set_low_latency ( UINT8 value )
+{
+	ps_data_low_latency = value;
+}
+
+UINT8 power_save_low_latency_get ( void )
+{
+	return ps_data_low_latency;
 }
 // eof
 

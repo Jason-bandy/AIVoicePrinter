@@ -11,7 +11,7 @@
 // ble dut uart port
 #define PORT_UART1                   (1)
 #define PORT_UART2                   (2)
-#define BLE_DUT_UART_PORT            PORT_UART1  // PORT_UART2
+#define BLE_DUT_UART_PORT            PORT_UART2  // PORT_UART2
 
 enum
 {

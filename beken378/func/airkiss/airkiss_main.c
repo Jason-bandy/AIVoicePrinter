@@ -15,7 +15,9 @@
 #include "airkiss_main.h"
 #include "mac_frame.h"
 #include "co_utils.h"
-
+#if CFG_ROLE_LAUNCH
+#include "role_launch.h"
+#endif
 static airkiss_context_t *ak_contex = NULL;
 const airkiss_config_t ak_conf =
 {
@@ -442,7 +444,14 @@ void airkiss_main( void *arg )
     }
 
     AIRKISS_WARN("Airkiss version: %s\r\n", airkiss_version());
-
+#if CFG_ROLE_LAUNCH
+	rl_status_set_pause(1);
+	while(!rl_status_is_idle())
+	{
+		bk_printf("rl_get_ap_and_sta_idle delay\r\n");
+		rtos_delay_milliseconds(150);
+	}
+#endif
     // stop monitor mode
     bk_wlan_stop_monitor();
     bk_wlan_register_monitor_cb(NULL);
@@ -497,6 +506,9 @@ void airkiss_main( void *arg )
     // stop monitor mode
     bk_wlan_stop_monitor();
     bk_wlan_register_monitor_cb(NULL);
+#if CFG_ROLE_LAUNCH
+	rl_status_set_pause(0);
+#endif
 
     if(ak_result.ssid)
     {
@@ -519,7 +531,15 @@ void airkiss_main( void *arg )
             // start udp boardcast
             if(airkiss_exit)
             {
+#if CFG_ROLE_LAUNCH
+                LAUNCH_REQ param;
+
+                memset(&param, 0, sizeof(LAUNCH_REQ));
+                param.req_type = LAUNCH_REQ_DELIF_STA;
+                rl_sta_request_enter(&param, 0);
+#else
                 bk_wlan_stop(BK_STATION);
+#endif
             }
             else
             {
@@ -563,9 +583,8 @@ kiss_exit:
     ak_semaphore = NULL;
 
     ak_thread_handle = NULL;
-    rtos_delete_thread(NULL);
-
 	pingpong_free();
+    rtos_delete_thread(NULL);
 }
 
 u32 airkiss_process(u8 start)

@@ -160,7 +160,10 @@ enum
 #else
 #define TIMER_ARM_WAKEUP_EN_BIT                         (1 << 8)
 #endif
-#define BLE_ARM_WAKEUP_EN_BIT                       	 (1 << 30) 
+#define BLE_ARM_WAKEUP_EN_BIT                       	 (1 << 30)
+#if (CFG_SOC_NAME == SOC_BK7231N)
+#define BTDM_ARM_WAKEUP_EN_BIT                       	 (1 << 29)
+#endif
 #define MAC_ARM_WAKEUP_EN_BIT                       	 (1 << 26) 
 #define MAC_GENERAL_ARM_WAKEUP_EN_BIT                    (1 << 22) 
 #define GENERDMA_ARM_WAKEUP_EN_BIT                      (1 << 15)

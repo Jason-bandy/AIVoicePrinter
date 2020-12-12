@@ -1041,6 +1041,9 @@ out:
 	dpp_global_deinit(g_hapd_interfaces.dpp);
 #endif /* CONFIG_DPP */
 
+#if (!CFG_NEW_SUPP)
+	eloop_signals_remove_signal(SIGCSA);
+#endif
 	eloop_cancel_timeout(hostapd_periodic, &g_hapd_interfaces, NULL);
 	hostapd_global_deinit(pid_file, 1);
 

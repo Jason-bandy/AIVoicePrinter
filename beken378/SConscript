@@ -111,6 +111,7 @@ else:
 
 if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     src += [hostapd_path + "src/common/sae.c"]
+    src += [hostapd_path + "src/common/dragonfly.c"]
     src += [hostapd_path + "src/crypto/aes-ctr.c"]
     src += [hostapd_path + "src/crypto/aes-omac1.c"]
     src += [hostapd_path + "src/crypto/aes-siv.c"]

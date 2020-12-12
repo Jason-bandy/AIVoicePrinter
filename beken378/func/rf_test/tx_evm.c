@@ -190,7 +190,7 @@ UINT32 evm_bypass_mac_set_tx_data_length(UINT32 modul_format, UINT32 len, UINT32
 	UINT32 ret, is_legacy_mode = 1;
 	UINT32 param;
 
-    if(need_change)
+    if(0)//(need_change)
     {
         if(bandwidth == 0)
         {

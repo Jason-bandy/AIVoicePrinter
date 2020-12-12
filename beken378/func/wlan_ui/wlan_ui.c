@@ -447,6 +447,10 @@ void bk_wlan_ap_init(network_InitTypeDef_st *inNetworkInitPara)
 
 OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitParaAP)
 {
+#if CFG_USE_STA_PS
+    bk_wlan_dtim_rf_ps_disable_send_msg();
+#endif
+
 #if !CFG_NEW_SUPP
     int ret, flag ,empty;
     GLOBAL_INT_DECLARATION();
@@ -599,9 +603,15 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 	sta_ip_down();	// XXX: WLAN_DISCONNECT_EVENT may handle this
 	wlan_sta_disconnect();
 #else /* !CFG_NEW_SUPP */
+#if CFG_ROLE_LAUNCH
+	rl_status_set_st_state(RL_ST_STATUS_RESTART_ST);
+#endif
     bk_wlan_stop(BK_STATION);
 #endif
     mhdr_set_station_status(RW_EVT_STA_CONNECTING);
+#if CFG_ROLE_LAUNCH
+	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
+#endif
 
 #if (RF_USE_POLICY == BLE_DEFAULT_WIFI_REQUEST)
     wifi_station_status_event_notice(0,RW_EVT_STA_CONNECTING);
@@ -671,6 +681,7 @@ OSStatus bk_wlan_start(network_InitTypeDef_st *inNetworkInitPara)
         lreq.req_type = LAUNCH_REQ_STA;
         lreq.descr = *inNetworkInitPara;
 
+		rl_status_reset_private_state(RL_PRIV_STATUS_STA_ADV);
         rl_sta_request_enter(&lreq, 0);
         #else
         bk_wlan_start_sta(inNetworkInitPara);
@@ -688,8 +699,14 @@ void bk_wlan_start_scan(void)
     bk_wlan_dtim_rf_ps_disable_send_msg();
 #endif
 
+#if CFG_ROLE_LAUNCH
+	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
+#endif
+
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rf_not_share_for_ble();
+#endif
 #endif
 
     if(bk_wlan_is_monitor_mode())
@@ -727,20 +744,27 @@ unsigned char bk_wlan_get_scan_ap_result_numbers(void)
 {
     struct scanu_rst_upload *scan_rst;
     unsigned char scanu_num = 0;
+	GLOBAL_INT_DECLARATION();
+		
+	GLOBAL_INT_DISABLE();
 
     scan_rst = sr_get_scan_results();
     if(scan_rst)
     {
         scanu_num = scan_rst->scanu_num;
     }
+	GLOBAL_INT_RESTORE();
 
     return scanu_num;
 }
 
-void bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num)
+int bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num)
 {
     struct scanu_rst_upload *scan_rst;
     unsigned char scanu_num = 0,i;
+	GLOBAL_INT_DECLARATION();
+	
+	GLOBAL_INT_DISABLE();
 
     scan_rst = sr_get_scan_results();
     if(scan_rst)
@@ -752,8 +776,10 @@ void bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char g
             scan_rst_table[i] = *(scan_rst->res[i]);
         }
     }
+	GLOBAL_INT_RESTORE();
 
     sr_release_scan_results(scan_rst);
+	return scanu_num;
 }
 
 void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num)
@@ -776,6 +802,8 @@ void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num)
 
 void bk_wlan_sta_init_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 {
+    UINT32 reg;
+
     if(!g_sta_param_ptr)
     {
         g_sta_param_ptr = (sta_param_t *)os_zalloc(sizeof(sta_param_t));
@@ -817,12 +845,24 @@ void bk_wlan_sta_init_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
         inet_aton(inNetworkInitParaAdv->gateway_ip_addr, &(g_wlan_general_param->ip_gw));
     }
 
+    if(inNetworkInitParaAdv)
+    {
+        reg = RF_HOLD_BY_STA_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    }
+    else
+    {
+        reg = RF_HOLD_BY_SCAN_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    }
     bk_wlan_reg_csa_cb_coexist_mode();
     sa_station_init();
 }
 
 void bk_wlan_ap_init_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
 {
+    UINT32 reg = RF_HOLD_BY_AP_BIT;
+
     if(!g_ap_param_ptr)
     {
         g_ap_param_ptr = (ap_param_t *)os_zalloc(sizeof(ap_param_t));
@@ -871,9 +911,28 @@ void bk_wlan_ap_init_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
         inet_aton(inNetworkInitParaAP->local_ip_addr, &(g_wlan_general_param->ip_addr));
         inet_aton(inNetworkInitParaAP->net_mask, &(g_wlan_general_param->ip_mask));
         inet_aton(inNetworkInitParaAP->gateway_ip_addr, &(g_wlan_general_param->ip_gw));
+
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
     }
 
     sa_ap_init();
+}
+
+void bk_wlan_sta_adv_param_2_sta(network_InitTypeDef_adv_st *sta_adv,network_InitTypeDef_st* sta)
+{
+	memset(sta,0,sizeof(*sta));
+
+	sta->wifi_mode = BK_STATION;
+	memcpy(sta->wifi_ssid,sta_adv->ap_info.ssid,32);
+	sta->wifi_ssid[32] = '\0';
+	memcpy(sta->wifi_key,sta_adv->key,64);
+	memcpy(sta->local_ip_addr,sta_adv->local_ip_addr,16);
+	memcpy(sta->net_mask,sta_adv->net_mask,16);
+	memcpy(sta->gateway_ip_addr,sta_adv->gateway_ip_addr,16);
+	memcpy(sta->dns_server_ip_addr,sta_adv->dns_server_ip_addr,16);
+	sta->dhcp_mode = sta_adv->dhcp_mode;
+	memcpy(sta->wifi_bssid,sta_adv->ap_info.bssid,16);
+	sta->wifi_retry_interval = sta_adv->wifi_retry_interval;
 }
 
 OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
@@ -885,12 +944,29 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
     }
 
 #if !CFG_NEW_SUPP
+#if CFG_ROLE_LAUNCH
+	rl_status_set_private_state(RL_PRIV_STATUS_STA_ADV_RDY);
+#endif
+#if CFG_ROLE_LAUNCH
+	rl_status_set_st_state(RL_ST_STATUS_RESTART_ST);
+#endif
+
     bk_wlan_stop(BK_STATION);
 #if CFG_ROLE_LAUNCH
     if(rl_pre_sta_set_status(RL_STATUS_STA_INITING))
     {
         return -1;
     }
+
+	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
+	rl_status_set_private_state(RL_PRIV_STATUS_STA_ADV);
+	rl_status_reset_private_state(RL_PRIV_STATUS_STA_ADV_RDY);
+	LAUNCH_REQ lreq;
+
+	lreq.req_type = LAUNCH_REQ_STA;
+	bk_wlan_sta_adv_param_2_sta(inNetworkInitParaAdv,&lreq.descr);
+
+	rl_sta_adv_register_cache_station(&lreq);
 #endif
 
     bk_wlan_sta_init_adv(inNetworkInitParaAdv);
@@ -965,6 +1041,10 @@ OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
         return ret;
     }
 
+#if CFG_USE_STA_PS
+    bk_wlan_dtim_rf_ps_disable_send_msg();
+#endif
+
 #if !CFG_NEW_SUPP
     bk_wlan_stop(BK_SOFT_AP);
 
@@ -1026,7 +1106,8 @@ int bk_wlan_stop_scan(void)
 {
 	struct scan_cancel_cfm cfm = {0};
 	int ret = -1;
-
+	
+	os_printf("%s\r\n",__FUNCTION__);
 	ret = rw_msg_send_scan_cancel_req(&cfm);
 	if(ret == 0){
 		/*if(CO_FAIL == cfm.status){
@@ -1058,22 +1139,22 @@ int bk_wlan_stop(char mode)
     {
         mhdr_set_station_status(RW_EVT_STA_IDLE);
     }
-#if CFG_USE_STA_PS
-    bk_wlan_dtim_rf_ps_disable_send_msg();
-#endif
+
     switch(mode)
     {
     case BK_SOFT_AP:
 	    sm_build_broadcast_deauthenticate();
-
         mm_hw_ap_disable();
 
 #if !CFG_NEW_SUPP
         uap_ip_down();
         net_wlan_remove_netif(&g_ap_param_ptr->bssid);
         hostapd_main_exit();
+#if CFG_ROLE_LAUNCH
+        rl_set_csa_switched();
+#endif
 #else
-		wlan_ap_disable();
+        wlan_ap_disable();
 #endif
         if(bk_wlan_has_role(VIF_STA))
         {
@@ -1090,6 +1171,11 @@ int bk_wlan_stop(char mode)
     case BK_STATION:
 #if CFG_ROLE_LAUNCH
         rl_pre_sta_set_status(RL_STATUS_UNKNOWN);
+		rl_status_set_st_state(RL_ST_STATUS_RESTART_HOLD);
+#endif
+
+#if CFG_USE_STA_PS
+        bk_wlan_dtim_rf_ps_disable_send_msg();
 #endif
 
         sta_ip_down();
@@ -1104,6 +1190,7 @@ int bk_wlan_stop(char mode)
         wpa_hostapd_release_scan_rst();
 #else
 		wlan_sta_disable();
+		bk_wlan_stop_scan();
 #endif
 #else
 		wlan_sta_disable();	/* same but call in wpas task */
@@ -1216,41 +1303,54 @@ OSStatus bk_wlan_get_ip_status(IPStatusTypedef *outNetpara, WiFi_Interface inInt
 
 OSStatus bk_wlan_get_link_status(LinkStatusTypeDef *outStatus)
 {
-    struct sm_get_bss_info_cfm *cfm;
-    int ret;
-    u8 vif_idx = 0, ssid_len;
+	int val, ret = kNoErr;
+	u8 vif_idx = 0, ssid_len;
+	struct sm_get_bss_info_cfm *cfm = NULL;
 
-    if( !sta_ip_is_start() )
-    {
-        return kGeneralErr;
-    }
+	os_null_printf("bk_wlan_get_link_status\r\n");
+	if((NULL == outStatus) || (!sta_ip_is_start()))
+	{
+		ret = kGeneralErr;
+		goto get_exit;
+	}
 
-    outStatus->conn_state = mhdr_get_station_status();
+	outStatus->conn_state = mhdr_get_station_status();	
+	vif_idx = rwm_mgmt_vif_mac2idx((void *)&g_sta_param_ptr->own_mac);
+	if(INVALID_VIF_IDX == vif_idx)
+	{
+		ret = kGeneralErr;
+		goto get_exit;
+	}
+    
+	cfm = os_malloc(sizeof(struct sm_get_bss_info_cfm));
+	if(!cfm)
+	{
+		ret = kNoMemoryErr;
+		goto get_exit;
+	}
 
-    cfm = os_malloc(sizeof(struct sm_get_bss_info_cfm));
-    if(!cfm)
-    {
-        return kNoMemoryErr;
-    }
+	val = rw_msg_get_bss_info(vif_idx, (void *)cfm);
+	if(val)
+	{
+		ret = kGeneralErr;
+		goto get_exit;
+	}
 
-    vif_idx = rwm_mgmt_vif_mac2idx((void *)&g_sta_param_ptr->own_mac);
-    ret = rw_msg_get_bss_info(vif_idx, (void *)cfm);
-    if(ret)
-    {
-        os_free(cfm);
-        return kGeneralErr;
-    }
+	outStatus->wifi_strength = cfm->rssi;
+	outStatus->channel = rw_ieee80211_get_chan_id(cfm->freq);
+	outStatus->security = g_sta_param_ptr->cipher_suite;
+    
+	os_memcpy(outStatus->bssid, cfm->bssid, 6);
+	ssid_len = MIN(SSID_MAX_LEN, os_strlen((char*)(cfm->ssid)));
+	os_memcpy(outStatus->ssid, cfm->ssid, ssid_len);
 
-    outStatus->wifi_strength = cfm->rssi;
-    outStatus->channel = rw_ieee80211_get_chan_id(cfm->freq);
-    outStatus->security = g_sta_param_ptr->cipher_suite;
-    os_memcpy(outStatus->bssid, cfm->bssid, 6);
-    ssid_len = MIN(SSID_MAX_LEN, os_strlen((char*)(cfm->ssid)));
-    os_memcpy(outStatus->ssid, cfm->ssid, ssid_len);
+	get_exit:
+	if(cfm)
+	{
+		os_free(cfm);
+	}
 
-    os_free(cfm);
-
-    return kNoErr;
+    return ret;
 }
 
 void bk_wlan_ap_para_info_get(network_InitTypeDef_ap_st *ap_info)
@@ -1680,18 +1780,9 @@ static uint32_t rf_ps_enabled = 0;
  */
 int bk_wlan_dtim_rf_ps_mode_enable(void )
 {
-    #if CFG_ROLE_LAUNCH
-    if (bk_wlan_sta_is_connected())
-    #endif
-    {
-		rf_ps_enabled = 1;
+        rf_ps_enabled = 1;
         bmsg_ps_sender(PS_BMSG_IOCTL_RF_ENABLE);
         return 0;
-    }
-    #if CFG_ROLE_LAUNCH
-	else
-		return 1;
-    #endif
 }
 
 int bk_wlan_dtim_rf_ps_disable_send_msg(void)
@@ -1703,14 +1794,7 @@ int bk_wlan_dtim_rf_ps_disable_send_msg(void)
     }
     else
     {
-        #if CFG_ROLE_LAUNCH
-        if (bk_wlan_sta_is_connected())
-        #endif
-            power_save_dtim_rf_ps_disable_send_msg();
-        #if CFG_ROLE_LAUNCH
-		else
-			return 1;
-        #endif
+        power_save_dtim_rf_ps_disable_send_msg();
     }
     return 0;
 }
@@ -1769,7 +1853,12 @@ int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
     GLOBAL_INT_DISABLE();
     TickType_t missed_ticks = 0;
     missed_ticks = mcu_power_save( sleep_ticks );
-    fclk_update_tick( missed_ticks );
+	if(missed_ticks >= 0){
+	    fclk_update_tick( missed_ticks );
+	}
+    else{
+		return -1;
+	}
     GLOBAL_INT_RESTORE();
 	#endif
 #endif
@@ -1992,7 +2081,6 @@ int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len)
 #if (CFG_SUPPORT_ALIOS)
 /**********************for alios*******************************/
 static monitor_cb_t g_mgnt_cb = 0;
-static  uint32_t umac_rx_filter = 0;
 
 void bk_wifi_get_mac_address(char *mac)
 {
@@ -2006,15 +2094,12 @@ void bk_wifi_set_mac_address(char *mac)
 
 void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn)
 {
-    g_mgnt_cb = fn;
+	g_mgnt_cb = fn;
 
 	if (fn != NULL) {
-		umac_rx_filter = mm_rx_filter_umac_get();
-		mm_rx_filter_umac_set(umac_rx_filter | NXMAC_ACCEPT_PROBE_REQ_BIT);
+		mm_rx_filter_app_set(NXMAC_ACCEPT_PROBE_REQ_BIT);
 	} else {
-		if (umac_rx_filter != 0) {
-			mm_rx_filter_umac_set(umac_rx_filter);
-		}
+		mm_rx_filter_app_set(0);
 	}
 }
 

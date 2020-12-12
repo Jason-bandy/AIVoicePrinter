@@ -2,6 +2,7 @@
 #if ATE_APP_FUN
 
 #include "include.h"
+#include "sys_ctrl.h"
 
 #if (CFG_OS_FREERTOS)
 #include "app.h"
@@ -79,6 +80,8 @@ void ate_start(void)
     app_pre_start();
 
     cli_init();
+
+    sctrl_rf_ps_enable_clear();
 
     ATE_PRT("ate_start\r\n");
 

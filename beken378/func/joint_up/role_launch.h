@@ -141,7 +141,31 @@ typedef struct _role_launch_
     beken2_timer_t enter_timer;
     beken2_timer_t rl_timer;
     uint32_t rl_timer_flag;
-    
+
+	uint32_t rl_status;
+
+#define RL_PRIV_STATUS_MASK          (0x00FF0000U)
+#define RL_PRIV_STATUS_STA_ADV       (1U << 16)
+#define RL_PRIV_STATUS_STA_ADV_RDY   (1U << 17)
+
+#define RL_ST_STATUS_MASK            (0xFF000000U)
+#define RL_ST_STATUS_RESTART_HOLD    (1U << 24)      ////station restart hold bit
+#define RL_ST_STATUS_RESTART_ST      (1U << 25)
+
+#define RL_STA_STATE_MASK            (RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST)
+#define RL_STA_STATE_HOLD            (RL_ST_STATUS_RESTART_HOLD)
+
+#define RL_STATUS_BIT_MASK          (0x0000FFFFU)
+#define RL_STATUS_IDLE              (0)
+#define RL_STATUS_PENDING           (1 << 0)
+#define RL_STATUS_DOING             (1 << 1)
+
+#define RL_STATUS_PAUSE             (1 << 7)
+#define RL_STATUS_MASK              (RL_STATUS_PAUSE)
+
+
+
+
     uint32_t pre_entity_type;
     uint32_t pre_sta_cancel;
     uint32_t pre_sta_status;    
@@ -190,10 +214,18 @@ extern uint32_t fl_get_pre_ap_cancel_status(void);
 extern RL_ENTITY_T *rl_alloc_entity(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion);
 extern void rl_sta_request_start(LAUNCH_REQ *param);
 extern void rl_ap_request_start(LAUNCH_REQ *param);
+extern void rl_sta_request_enter_handle(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion);
 extern void rl_sta_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion);
 extern void rl_ap_request_enter(LAUNCH_REQ *param, FUNC_1PARAM_PTR completion);
 extern uint32_t rl_sta_cache_request_enter(void);
 extern uint32_t rl_sta_req_is_null(void);
 extern uint32_t rl_sta_is_launched(void);
+
+extern unsigned int rl_status_is_idle(void);
+extern void rl_status_set_pause(int en);
+extern void rl_status_reset_private_state(unsigned int st);
+extern void rl_status_set_private_state(unsigned int st);
+extern void rl_status_set_st_state(unsigned int st);
+extern void rl_status_reset_st_state(unsigned int st);
 #endif //_ROLE_LAUNCH_H_ 
 

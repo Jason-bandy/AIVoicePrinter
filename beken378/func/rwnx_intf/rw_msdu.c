@@ -982,9 +982,9 @@ UINT8 rwm_mgmt_sta_mac2port(void *mac)
 UINT8 rwm_mgmt_vif_mac2idx(void *mac)
 {
     VIF_INF_PTR vif_entry = NULL;
-    UINT8 vif_idx = 0xff;
+    UINT8 vif_idx = INVALID_VIF_IDX;
     UINT32 i;
-
+	
     for(i = 0; i < NX_VIRT_DEV_MAX; i++)
     {
         vif_entry = &vif_info_tab[i];

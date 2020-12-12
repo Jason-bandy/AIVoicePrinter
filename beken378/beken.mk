@@ -230,6 +230,7 @@ endif
 # for WPA3
 ifeq ($(CFG_WPA3), 1)
 $(NAME)_SOURCES +=  func/$(WPA_VERSION)/src/common/sae.c \
+					func/$(WPA_VERSION)/src/common/dragonfly.c \
 					func/$(WPA_VERSION)/src/crypto/aes-ctr.c \
 					func/$(WPA_VERSION)/src/crypto/aes-omac1.c \
 					func/$(WPA_VERSION)/src/crypto/aes-siv.c \

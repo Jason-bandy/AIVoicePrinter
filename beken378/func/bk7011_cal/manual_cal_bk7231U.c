@@ -300,6 +300,10 @@ UINT32 g_cur_temp = DEFAULT_TXID_THERMAL;
 UINT32 g_cur_temp_flash = DEFAULT_TXID_THERMAL;
 UINT32 g_lpf_cal_i = DEFAULT_TXID_LPF_CAP_I, g_lpf_cal_q = DEFAULT_TXID_LPF_CAP_Q;
 UINT32 g_xtal = DEFAULT_TXID_XTAL;
+static unsigned char ble_cal_bit = 0;
+#if (CFG_SOC_NAME == SOC_BK7231N)
+static UINT32 ble_diff_to_wifi = 32;
+#endif
 
 int g_dif_g_ble_ch0 = MOD_DIST_G_BW_BLE_CH0;
 int g_dif_g_ble_ch19 = MOD_DIST_G_BW_BLE_CH19;
@@ -328,7 +332,6 @@ static int manual_cal_fit_txpwr_tab_n_40(UINT32 differ);
 static void manual_cal_adjust_fitting(TXPWR_PTR ptr, UINT16 dist);
 static UINT32 manual_cal_g_rfcali_status(void);
 extern void manual_cal_init_xtal_cali(UINT16 init_temp, UINT16 init_xtal);
-unsigned char cal_11b_2_ble_flag = 0;
 
 #define RF_CALI_FLAG_SET0        (0x1)
 #define RF_CALI_FLAG_SET1        (0x2)
@@ -403,16 +406,23 @@ void manual_cal_save_txpwr(UINT32 rate, UINT32 channel, UINT32 pwr_gain)
     // for ble
     if(rate == EVM_DEFUALT_BLE_RATE)
     {
-        if(channel >= BLE_2_4_G_CHANNEL_NUM) {
+        if(channel > BLE_2_4_G_CHANNEL_NUM) {
             MCAL_WARN("ble wrong channel:%d\r\n", channel);
             return;
         }
         
         txpwr_tab_ptr = &gtxpwr_tab_ble[channel];
-        
-        cal_11b_2_ble_flag = 1;
+
         SET_TXPWR_GAIN(txpwr_tab_ptr, pwr_gain);
         SET_TXPWR_FLAG(txpwr_tab_ptr, TXPWR_ELEM_INUSED);
+
+        if (channel == 0) {
+            ble_cal_bit |= 0x1;
+        } else if (channel == 19) {
+            ble_cal_bit |= 0x2;
+        } else if (channel == 39) {
+            ble_cal_bit |= 0x4;
+        }
 
         MCAL_FATAL("save c:%d, gain:%d\r\n", channel, pwr_gain);
         
@@ -457,10 +467,10 @@ const UINT16 shift_tab_n[1] = {0}; // for MCS7
 #elif (CFG_SOC_NAME == SOC_BK7231N)
 const UINT16 shift_tab_b[4] = {0, 0, 0, 0}; // 11M base,5.5M,2M,1M
 // 54M base -                 54M,48M,36M,24M,18M,12M,9M,6M
-const UINT16 shift_tab_g[8] = {0,  2,  2,  2,  6,  6,  10, 10/*4*/}; // 54M base -  12M,9M,6M//do
-const UINT16 shift_tab_n20[8] = {0,  2,  2,  2,  6,  6,  10, 10/*4*/};; // n20 mcs7base -  mcs0
+const UINT16 shift_tab_g[8] = {0,  2,  2,  2,  3,  3,  4, 4/*4*/}; // 54M base -  12M,9M,6M//do
+const UINT16 shift_tab_n20[8] = {0,  2,  2,  2,  3,  3,  4, 4/*4*/};; // n20 mcs7base -  mcs0
 
-const UINT16 shift_tab_n40[8] = {0,  2,  2,  2,  6,  6,  10, 10/*4*/}; // n40 mcs7base -  mcs0
+const UINT16 shift_tab_n40[8] = {0,  2,  2,  2,  3,  3,  4, 4/*4*/}; // n40 mcs7base -  mcs0
 #else
 const UINT16 shift_tab_b[4] = {0, 0, 0, 0}; // 11M base,5.5M,2M,1M
 // 54M base -                 54M,48M,36M,24M,18M,12M,9M,6M
@@ -571,6 +581,18 @@ int manual_cal_get_txpwr(UINT32 rate, UINT32 channel, UINT32 bandwidth, UINT32 *
      //MCAL_PRT("get txpwrtab gain:%d,ch:%d\r\n", *pwr_gain, channel+1); ///remove for midea
 	 
      return 1;
+}
+
+uint8_t manual_cal_get_ble_pwr_idx(uint8_t channel)
+{
+	TXPWR_PTR txpwr_tab_ptr = NULL;
+
+	if (channel > 39)
+		channel = 39;
+
+	txpwr_tab_ptr = &gtxpwr_tab_ble[channel];
+
+	return (GET_TXPWR_GAIN(txpwr_tab_ptr));
 }
 
 void manual_cal_show_txpwr_tab(void)
@@ -766,9 +788,84 @@ static void manual_cal_do_fitting(TXPWR_PTR dst, TXPWR_PTR srclow, TXPWR_PTR src
 
 void manual_cal_11b_2_ble(void)
 {	
-    TXPWR_PTR tab_ptr = NULL;
-    if(cal_11b_2_ble_flag == 0)
-    {		
+	TXPWR_PTR tab_ptr = NULL;
+	unsigned char gain;
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+	tab_ptr = gtxpwr_tab_g;
+	if (ble_cal_bit == 0) {
+		if (GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED) {
+			gain = GET_TXPWR_GAIN(&tab_ptr[0]);
+
+			// think ble power need to be 7db
+			if ((gain + 3) > ble_diff_to_wifi) {
+				gain = gain + 3 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[0],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[0],TXPWR_ELEM_INUSED);
+		}
+		if (GET_TXPWR_FLAG(&tab_ptr[6]) == TXPWR_ELEM_INUSED) {
+			gain = GET_TXPWR_GAIN(&tab_ptr[6]);
+
+			// think ble power need to be 7db
+			if ((gain + 2) > ble_diff_to_wifi) {
+				gain = gain + 2 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[19],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[19],TXPWR_ELEM_INUSED);
+		} else if ((GET_TXPWR_FLAG(&tab_ptr[12]) == TXPWR_ELEM_INUSED)
+			&& (GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED)) {
+			gain = (GET_TXPWR_GAIN(&tab_ptr[0]) + GET_TXPWR_GAIN(&tab_ptr[12])) / 2;
+
+			if ((gain + 2) > ble_diff_to_wifi) {
+				gain = gain + 2 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[19],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[19],TXPWR_ELEM_INUSED);
+		}
+		if (GET_TXPWR_FLAG(&tab_ptr[12]) == TXPWR_ELEM_INUSED) {
+			gain = GET_TXPWR_GAIN(&tab_ptr[12]);
+
+			// think ble power need to be 7db
+			if ((gain + 0) > ble_diff_to_wifi) {
+				gain = gain + 0 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[39],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[39],TXPWR_ELEM_INUSED);
+		}
+	} else if ((ble_cal_bit & 0x2) == 0x2) {
+		if ((ble_cal_bit & 0x1) == 0) {
+			if ((GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED)
+				&& (GET_TXPWR_FLAG(&tab_ptr[6]) == TXPWR_ELEM_INUSED)) {
+				gain = (char)GET_TXPWR_GAIN(&gtxpwr_tab_ble[19]) - ((char)GET_TXPWR_GAIN(&tab_ptr[6]) - (char)GET_TXPWR_GAIN(&tab_ptr[0]));
+				SET_TXPWR_GAIN(&gtxpwr_tab_ble[0],gain);
+				SET_TXPWR_FLAG(&gtxpwr_tab_ble[0],TXPWR_ELEM_INUSED);
+			}
+		}
+		if ((ble_cal_bit & 0x4) == 0) {
+			if ((GET_TXPWR_FLAG(&tab_ptr[6]) == TXPWR_ELEM_INUSED)
+				&& (GET_TXPWR_FLAG(&tab_ptr[12]) == TXPWR_ELEM_INUSED)) {
+				gain = (char)GET_TXPWR_GAIN(&gtxpwr_tab_ble[19]) - ((char)GET_TXPWR_GAIN(&tab_ptr[6]) - (char)GET_TXPWR_GAIN(&tab_ptr[12]));
+				SET_TXPWR_GAIN(&gtxpwr_tab_ble[39],gain);
+				SET_TXPWR_FLAG(&gtxpwr_tab_ble[39],TXPWR_ELEM_INUSED);
+			}
+		}
+	}
+
+#else
+    if (ble_cal_bit == 0) {
         tab_ptr = gtxpwr_tab_g;	
         
         if((GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED)	
@@ -812,6 +909,7 @@ void manual_cal_11b_2_ble(void)
             SET_TXPWR_FLAG(&gtxpwr_tab_ble[39],TXPWR_ELEM_INUSED);	
         }	
     }
+#endif
 }
 
 UINT32 manual_cal_fitting_txpwr_tab(void)
@@ -1188,6 +1286,13 @@ void manual_cal_set_dif_g_ble(int dif_ch0, int dif_ch19, int dif_ch39)
     g_dif_g_ble_ch19 = dif_ch19;
     g_dif_g_ble_ch39 = dif_ch39;
 }
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+void manual_cal_set_dif_ble(UINT32 diff)
+{
+	ble_diff_to_wifi = diff;
+}
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 static UINT32 manual_cal_search_opt_tab(UINT32 *len)
@@ -2862,6 +2967,8 @@ UINT32 manual_cal_txpwr_tab_ready_in_flash(void)
 
 typedef struct tmp_set_pwr_st {
     UINT8 indx;
+    UINT8 indx_cali_bias;
+    UINT8 indx_cali_dpll;
     UINT8 flag;
     UINT16 temp_tab[TMP_PWR_TAB_LEN];
     TMP_PWR_PTR pwr_ptr;
@@ -3004,7 +3111,10 @@ void manual_cal_temp_pwr_unint(void)
 {
     rwnx_cal_set_txpwr_by_tmpdetect(0, 0);
     rwnx_set_tpc_txpwr_by_tmpdetect(0, 0);
+
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rwnx_cal_set_ble_txpwr_by_tmpdetect(0);
+#endif
 
 	manual_cal_do_xtal_temp_delta_set(0);
     manual_cal_do_xtal_cali(0, 0, 0, 0);
@@ -3064,6 +3174,8 @@ void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dis
 
     os_memset(&g_tmp_pwr.temp_tab[0], 0, sizeof(UINT16)*TMP_PWR_TAB_LEN);
     g_tmp_pwr.indx = idx;
+    g_tmp_pwr.indx_cali_bias = idx;
+    g_tmp_pwr.indx_cali_dpll = idx;
     g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[idx];
     g_tmp_pwr.temp_tab[idx] = init_temp;
 
@@ -3110,8 +3222,11 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 {
     #define DO_SETP     (10)
     //change thre from ADC_TMEP_LSB_PER_10DEGREE to ADC_TMEP_LSB_PER_5DEGREE first
-    UINT32 dist = 0, thre_1 = (thre >> 2) + 2, thre_2 = thre_1 + (DO_SETP-1)*(thre >> 1);
-    UINT8 need_cal_dpll = 0, need_cal_bais = 0;
+    UINT32 dist = 0;
+    UINT32 thre_2_5_degree = (thre >> 2) + 2; /* -2.5 ~ +2.5 ===> 5, for tmp_pwr_tab */
+    UINT32 thre_5_degree = (thre >> 1);
+    UINT32 thre_50_degree = DO_SETP * thre_5_degree;
+    UINT8 dist_cal_dpll = 0, dist_cal_bias = 0;
     UINT16 last_val = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
 
     UINT8 indx = g_tmp_pwr.indx;
@@ -3119,75 +3234,78 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if(cur_val > last_val)
     {
         dist = cur_val - last_val;
-        if(dist >= thre_2)
+        if(dist >= thre_50_degree)
         {
             indx = ((indx-DO_SETP) > 0)? (indx - DO_SETP) : 0;
-            need_cal_dpll = 1;
-            need_cal_bais = 1;
         }
-        else if(dist >= thre_1)
+        else if(dist >= thre_2_5_degree)
         {
             //round down to find step index
-            int i = (dist - thre_1) / (thre >> 1);
+            int i = (dist - thre_2_5_degree) / thre_5_degree;
             indx = ((indx-(i+1)) > 0)? (indx-(i+1)) : 0;
-
-            need_cal_bais = 1;
-
-            if(i >= 1)
-            {
-                need_cal_dpll = 1;
-            }
         }
     }
     else if(cur_val < last_val)
     {
         dist = last_val - cur_val;
-        if(dist >= thre_2)
+        if(dist >= thre_50_degree)
         {
             indx = (indx+DO_SETP<TMP_PWR_TAB_LEN)? (indx+DO_SETP):(TMP_PWR_TAB_LEN);
-            need_cal_dpll = 1;
-            need_cal_bais = 1;
         }
-        else if(dist >= thre_1)
+        else if(dist >= thre_2_5_degree)
         {
             //round down to find step index
-            int i = (dist - thre_1) / (thre >> 1);
+            int i = (dist - thre_2_5_degree) / thre_5_degree;
             indx = ((indx +i+1)<TMP_PWR_TAB_LEN)? (indx+i+1) : (TMP_PWR_TAB_LEN);
-
-            need_cal_bais = 1;
-
-            if(i >= 1)
-            {
-                need_cal_dpll = 1;
-            }
         }
     }
 
     if(g_tmp_pwr.indx == indx)
         return NULL;
 
-    if(need_cal_dpll)
+    if (indx > g_tmp_pwr.indx_cali_dpll)
     {
-        if(ble_in_dut_mode() == 0)
-            os_printf("cal dpll!\r\n");
+        dist_cal_dpll = indx - g_tmp_pwr.indx_cali_dpll;
+    }
+    else
+    {
+        dist_cal_dpll = g_tmp_pwr.indx_cali_dpll - indx;
+    }
+#ifdef ATE_PRINT_DEBUG
+        os_printf("cal dpll!\r\n");
+#endif
 
+    if (indx > g_tmp_pwr.indx_cali_bias)
+    {
+        dist_cal_bias = indx - g_tmp_pwr.indx_cali_bias;
+    }
+    else
+    {
+        dist_cal_bias = g_tmp_pwr.indx_cali_bias - indx;
+    }
+
+    /* cali bias each 4*5degree */
+    if (dist_cal_bias >= 4)
+    {
+#ifdef ATE_PRINT_DEBUG
+        os_printf("cal_bias!\r\n");
+#endif
+        g_tmp_pwr.indx_cali_bias = indx;
+        bk7011_cal_bias();
+    }
+
+    /* cali dpll each 4*5degree */
+    if (dist_cal_dpll >= 4)
+    {
+#ifdef ATE_PRINT_DEBUG
+        os_printf("cal dpll!\r\n");
+#endif
+
+        g_tmp_pwr.indx_cali_dpll = indx;
         power_save_wake_rf_if_in_sleep();
         sctrl_cali_dpll(0);
         sctrl_dpll_int_open();
         power_save_check_clr_rf_prevent_flag();
-    }
-
-    if(need_cal_bais)
-    {
-        if(ble_in_dut_mode() == 0)
-            os_printf("cal_bias!\r\n");
-        bk7011_cal_bias();
-
-        // normal_temp_25C + 7 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C + 70C = 95C
-        bk7011_cal_bias_high_temprature(g_cur_temp_flash >= 7 * thre + cur_val);
-
-        // normal_temp_25C - 2 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C - 20C = 5C
-        bk7011_cal_bias_low_temprature(cur_val >= 2 * thre + g_cur_temp_flash);
     }
 
     // bk7231U need dist>60, then do tx pwr.
@@ -3195,25 +3313,30 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     {
         UINT8 last_idx = g_tmp_pwr.indx;
 
+        // normal_temp_25C + 7 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C + 70C = 95C
+        bk7011_cal_bias_high_temprature(g_cur_temp_flash >= 7 * thre + cur_val);
+
+        // normal_temp_25C - 2 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C - 20C = 5C
+        //bk7011_cal_bias_low_temprature(cur_val >= 2 * thre + g_cur_temp_flash);
+
         g_tmp_pwr.indx = indx;
         g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[indx];
         *last = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
 
         ///os_printf("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
         //    g_tmp_pwr.pwr_ptr->mod, g_tmp_pwr.pwr_ptr->pa, *last);
-        if(ble_in_dut_mode() == 0)
-        {
-            bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
-                cur_val,
-                last_idx, g_tmp_pwr.temp_tab[last_idx],
-                g_tmp_pwr.indx, g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
+#ifdef ATE_PRINT_DEBUG
+        bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
+            cur_val,
+            last_idx, g_tmp_pwr.temp_tab[last_idx],
+            g_tmp_pwr.indx, g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
 
-            bk_printf("--0xc:%02x, shift_b:%d, shift_g:%d, X:%d\n",
-                g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
-                g_tmp_pwr.pwr_ptr->p_index_delta,
-                g_tmp_pwr.pwr_ptr->p_index_delta_g,
-                g_tmp_pwr.pwr_ptr->xtal_c_dlta);
-        }
+        bk_printf("--0xc:%02x, shift_b:%d, shift_g:%d, X:%d\n",
+            g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
+            g_tmp_pwr.pwr_ptr->p_index_delta,
+            g_tmp_pwr.pwr_ptr->p_index_delta_g,
+            g_tmp_pwr.pwr_ptr->xtal_c_dlta);
+#endif
 
         return g_tmp_pwr.pwr_ptr;
     }
@@ -3294,9 +3417,6 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
             }
         }
     }
-
-    if(get_ate_mode_state() == 0)
-        os_printf("td cur:%d, last:%d, flag:%d\r\n", cur_val, last_val, g_tmp_pwr.flag);
     
     if(g_tmp_pwr.indx == indx)
         return NULL;
@@ -3398,13 +3518,12 @@ void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 i
 	param = g_xcali.init_xtal + g_xcali.xtal_c_delta;
     if(g_xcali.last_xtal != param) 
     {
-        if(ble_in_dut_mode() ==0 )
-        {
-    		os_printf("init_xtal:%d, delta:%d, last_xtal:%d\r\n",
-                            g_xcali.init_xtal,
-                            g_xcali.xtal_c_delta,
-                            g_xcali.last_xtal);
-        }
+#ifdef ATE_PRINT_DEBUG
+		os_printf("init_xtal:%d, delta:%d, last_xtal:%d\r\n",
+                        g_xcali.init_xtal,
+                        g_xcali.xtal_c_delta,
+                        g_xcali.last_xtal);
+#endif
 		
         if(param > PARAM_XTALH_CTUNE_MASK)
             param = PARAM_XTALH_CTUNE_MASK;

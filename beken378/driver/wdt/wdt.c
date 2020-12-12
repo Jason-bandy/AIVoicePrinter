@@ -4,6 +4,7 @@
 #include "wdt_pub.h"
 #include "wdt.h"
 #include "icu_pub.h"
+#include "uart_pub.h"
 
 #include "drv_model_pub.h"
 #include "start_type_pub.h"
@@ -41,18 +42,20 @@ UINT32 wdt_ctrl(UINT32 cmd, void *param)
 	{		
 		case WCMD_POWER_DOWN:
 			g_wdt_period = 0;
-			
+
 			parameter = PWD_ARM_WATCHDOG_CLK_BIT;
 		    ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&parameter);
-		    ASSERT(ICU_SUCCESS == ret);	
+		    if(ret !=0 )
+				os_printf("clk powerdown fail\r\n");
 			break;
-			
+
 		case WCMD_POWER_UP:
 			parameter = PWD_ARM_WATCHDOG_CLK_BIT;
 		    ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&parameter);
-		    ASSERT(ICU_SUCCESS == ret);	
+		    if(ret !=0 )
+				os_printf("clk powerup fail\r\n");
 			break;
-			
+
 		case WCMD_RELOAD_PERIOD:
 			reg = WDT_1ST_KEY << WDT_KEY_POSI;
 			reg |= (g_wdt_period & WDT_PERIOD_MASK) << WDT_PERIOD_POSI;

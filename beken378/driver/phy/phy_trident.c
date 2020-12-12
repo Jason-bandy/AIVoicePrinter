@@ -1909,7 +1909,7 @@ static void phy_agc_init(void)
     // ADC sat thd
     agc_rwnxagcsat_set(0x8373335);
 #else
-    REG_PL_WR(0x01000890, (REG_PL_RD(0x01000890) | 0x2));  // Enable AGC OPT
+    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, (REG_PL_RD(REG_AGC_BASE_ADDR + 0x890) | 0x2));  // Enable AGC OPT
     agc_rwnxagcevtsat_set(0x05044804);
     agc_rwnxagcevtdet_set(0x3D401008);
     agc_rwnxagcevtdis_set(0x3955B00B);
@@ -1951,7 +1951,7 @@ static void phy_agc_init(void)
 
     // AGC Power Estimate Bias
 #if (SOC_BK7231N == CFG_SOC_NAME)
-    agc_vpeakadcqdbv_setf((uint8_t) - 20);
+    agc_vpeakadcqdbv_setf((uint8_t) - 32); //change MDM_reg819<23:16> from 0xEC to 0xE0 by cunliang20201112
 #else
     agc_vpeakadcqdbv_setf((uint8_t) - 32);
 #endif

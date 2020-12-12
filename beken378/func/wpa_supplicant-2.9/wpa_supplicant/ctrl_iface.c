@@ -1031,9 +1031,7 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 	case WPA_CTRL_CMD_STA_DISABLE:
 		/* disable the station */
 		if (supplicant_started) {
-			uint8_t mac[ETH_ALEN];
-			wifi_get_mac_address((char *)mac, CONFIG_ROLE_STA);
-			net_wlan_remove_netif(mac);
+			net_wlan_remove_netif(&g_sta_param_ptr->own_mac);
 			supplicant_main_exit();
 			wpa_hostapd_release_scan_rst();
 			supplicant_started = 0;
