@@ -19,7 +19,9 @@
 #include "rw_pub.h"
 #include "net_param_pub.h"
 #include "wlan_ui_pub.h"
-
+#if CFG_ROLE_LAUNCH
+#include "role_launch.h"
+#endif
 #if (CFG_OS_FREERTOS) || (CFG_SUPPORT_RTT)
 #if (CFG_SOC_NAME != SOC_BK7231)
 #include "sys_ctrl_pub.h"
@@ -164,6 +166,9 @@ uint8_t wifi_get_vif_index_by_mac(char *mac)
 
 int wifi_set_mac_address(char *mac)
 {
+#if CFG_ROLE_LAUNCH
+    LAUNCH_REQ param;
+#endif
 
     if(mac[0]&0x01)
     {
@@ -171,15 +176,25 @@ int wifi_set_mac_address(char *mac)
         return 0;
     }
 
-   os_memcpy(system_mac, mac, 6);
-
+    if (0 != os_memcmp(system_mac, mac, sizeof(system_mac)))
+    {
 #if (WIFI_MAC_POS == MAC_EFUSE)
-    //wifi_set_mac_address_to_efuse((UINT8 *)system_mac);
+        //wifi_set_mac_address_to_efuse((UINT8 *)system_mac);
 #elif (WIFI_MAC_POS == MAC_RF_OTP_FLASH)
-    manual_cal_write_macaddr_to_flash((UINT8 *)system_mac);
+        manual_cal_write_macaddr_to_flash((UINT8 *)system_mac);
 #elif (WIFI_MAC_POS == MAC_ITEM)
-    save_info_item(WIFI_MAC_ITEM, (UINT8 *)system_mac, NULL, NULL);
+        save_info_item(WIFI_MAC_ITEM, (UINT8 *)system_mac, NULL, NULL);
 #endif
+        os_memcpy(system_mac, mac, sizeof(system_mac));
+        bk_wlan_stop(BK_SOFT_AP);
+#if CFG_ROLE_LAUNCH
+        param.req_type = LAUNCH_REQ_DELIF_STA;
+        rl_sta_request_enter(&param, 0);
+#else
+        bk_wlan_stop(BK_STATION);
+#endif
+
+    }
 
     return 0;
 }

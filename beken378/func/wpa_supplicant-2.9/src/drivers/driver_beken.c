@@ -1507,11 +1507,12 @@ void wpa_handler_signal(void *arg, u8 vif_idx)
 
 int wpa_driver_scan2(void *priv, struct wpa_driver_scan_params *params)
 {
-    struct hostap_driver_data *drv = priv;
-    struct prism2_hostapd_param *param;
-    u8 *buf;
-    size_t blen;
-    int ret = 0, i;
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	u8 *buf;
+	size_t blen;
+	int ret = 0, i;
+	int *freqs;
 
 	blen = sizeof(*param);
 	buf = os_zalloc(blen);
@@ -1519,43 +1520,48 @@ int wpa_driver_scan2(void *priv, struct wpa_driver_scan_params *params)
 		return -1;
 
 	eloop_register_signal(SIGSCAN, wpa_driver_scan_sig_handler, drv->wpa_s);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	eloop_register_signal(SIGSCAN_START, wpa_driver_scan_start_sig_handler, drv->wpa_s);
 #endif
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->cmd = PRISM2_HOSTAPD_REG_SCAN_CALLBACK;
-    param->vif_idx = drv->vif_index;
-    param->u.reg_scan_cfm.cb = wpa_handler_signal;
-    param->u.reg_scan_cfm.arg = (void *)SIGSCAN;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_REG_SCAN_CALLBACK;
+	param->vif_idx = drv->vif_index;
+	param->u.reg_scan_cfm.cb = wpa_handler_signal;
+	param->u.reg_scan_cfm.arg = (void *)SIGSCAN;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->cmd = PRISM2_HOSTAPD_SCAN_REQ;
-    param->u.scan_req.ssids_num = MIN(SCAN_SSID_MAX, params->num_ssids);
-    param->vif_idx = drv->vif_index;
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_SCAN_REQ;
+	param->u.scan_req.ssids_num = MIN(SCAN_SSID_MAX, params->num_ssids);
+	param->vif_idx = drv->vif_index;
 
-    for(i = 0; i < param->u.scan_req.ssids_num; i++)
-    {
-        param->u.scan_req.ssids[i].ssid_len = params->ssids[i].ssid_len;
-        os_memcpy(param->u.scan_req.ssids[i].ssid, params->ssids[i].ssid, param->u.scan_req.ssids[i].ssid_len);
+	for (i = 0; i < param->u.scan_req.ssids_num; i++) {
+		param->u.scan_req.ssids[i].ssid_len = params->ssids[i].ssid_len;
+		os_memcpy(param->u.scan_req.ssids[i].ssid, params->ssids[i].ssid, param->u.scan_req.ssids[i].ssid_len);
 #if CFG_SUPPORT_BSSID_CONNECT
-        os_memcpy(param->u.scan_req.ssids[i].bssid, params->ssids[i].bssid, sizeof(param->u.scan_req.ssids[i].bssid));
+		os_memcpy(param->u.scan_req.ssids[i].bssid, params->ssids[i].bssid, sizeof(param->u.scan_req.ssids[i].bssid));
 #endif
-    }
+	}
 
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	freqs = params->freqs;
+	if (freqs) {
+		for (i = 0; i < ARRAY_SIZE(param->u.scan_req.freqs); i++, freqs++) {
+			if (!*freqs)
+				break;
+			param->u.scan_req.freqs[i] = *freqs;
+		}
+	}
 
-    os_free(buf);
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
-    return ret;
+	os_free(buf);
+
+	return ret;
 }
+
 
 struct wpa_scan_results *wpa_driver_get_scan_results2(void *priv)
 {
@@ -1625,97 +1631,85 @@ fail_result:
 
 int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)
 {
-    struct hostap_driver_data *drv = priv;
-    struct prism2_hostapd_param *param;
-    u8 *buf;
-    size_t blen;
-    int ret = 0;
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	u8 *buf;
+	size_t blen;
+	int ret = 0;
 
-    blen = sizeof(*param);
-    buf = os_zalloc(blen);
-    if(buf == NULL)
-    {
-        return -1;
-    }
+	blen = sizeof(*param) + params->bcn_len;
+	buf = os_zalloc(blen);
+	if (buf == NULL)
+		return -1;
 
 	eloop_register_signal(SIGASSOC, wpa_driver_assoc_sig_handler, drv->wpa_s);
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->vif_idx = drv->vif_index;
-    param->cmd = PRISM2_HOSTAPD_REG_ASSOC_CALLBACK;
-    param->u.reg_assoc_cfm.cb = wpa_handler_signal;
-    param->u.reg_assoc_cfm.arg = (void *)SIGASSOC;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	param = (struct prism2_hostapd_param *)buf;
+	param->vif_idx = drv->vif_index;
+	param->cmd = PRISM2_HOSTAPD_REG_ASSOC_CALLBACK;
+	param->u.reg_assoc_cfm.cb = wpa_handler_signal;
+	param->u.reg_assoc_cfm.arg = (void *)SIGASSOC;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
+	
+	eloop_register_signal(SIGDISASSOC, wpa_driver_disassoc_sig_handler, drv->wpa_s);
+	
+	param->cmd = PRISM2_HOSTAPD_REG_DISASSOC_CALLBACK;
+	param->vif_idx = drv->vif_index;
+	param->u.reg_disassoc_evt.cb = wpa_handler_signal;
+	param->u.reg_disassoc_evt.arg = (void *)SIGDISASSOC;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
-    os_printf("wpa_driver_associate\r\n");
-    param = (struct prism2_hostapd_param *)buf;
-    param->cmd = PRISM2_HOSTAPD_ASSOC_REQ;
-    param->vif_idx = drv->vif_index;
-	if(params->auth_alg & WPA_AUTH_ALG_OPEN)
-	{
+	eloop_register_signal(SIGDEAUTH, wpa_driver_deauth_sig_handler, drv->wpa_s);
+
+	param->cmd = PRISM2_HOSTAPD_REG_DEAUTH_CALLBACK;
+	param->vif_idx = drv->vif_index;
+	param->u.reg_deauth_evt.cb = wpa_handler_signal;
+	param->u.reg_deauth_evt.arg = (void *)SIGDEAUTH;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
+
+	os_printf("wpa_driver_associate\r\n");
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_ASSOC_REQ;
+	param->vif_idx = drv->vif_index;
+	if (params->auth_alg & WPA_AUTH_ALG_OPEN)
 		param->u.assoc_req.auth_alg = HOSTAP_AUTH_OPEN;
-	}
-	else
-	{
+	else if (params->auth_alg & WPA_AUTH_ALG_SHARED)
 		param->u.assoc_req.auth_alg = HOSTAP_AUTH_SHARED;
-	}
-    os_memcpy(param->u.assoc_req.bssid, params->bssid, ETH_ALEN);
-    param->u.assoc_req.ssid_len = params->ssid_len;
-    os_memcpy(param->u.assoc_req.ssid, params->ssid, param->u.assoc_req.ssid_len);
-    param->u.assoc_req.proto = params->wpa_proto;
+	else if (params->auth_alg & WPA_AUTH_ALG_SAE)
+		param->u.assoc_req.auth_alg = HOSTAP_AUTH_SAE;
+	os_memcpy(param->u.assoc_req.bssid, params->bssid, ETH_ALEN);
+	param->u.assoc_req.ssid_len = params->ssid_len;
+	os_memcpy(param->u.assoc_req.ssid, params->ssid, param->u.assoc_req.ssid_len);
+	param->u.assoc_req.proto = params->wpa_proto;
 	param->u.assoc_req.key_mgmt_suite = params->key_mgmt_suite;
 	param->u.assoc_req.pairwise_suite = params->pairwise_suite;
 	param->u.assoc_req.group_suite = params->group_suite;
-    param->u.assoc_req.ie_len = params->wpa_ie_len;
-    os_memcpy((u8 *)param->u.assoc_req.ie_buf, params->wpa_ie, param->u.assoc_req.ie_len);
+	param->u.assoc_req.ie_len = params->wpa_ie_len;
+	os_memcpy((u8 *)param->u.assoc_req.ie_buf, params->wpa_ie, param->u.assoc_req.ie_len);
 	param->u.assoc_req.mfp = params->mgmt_frame_protection;
 	param->u.assoc_req.bcn_len = params->bcn_len;
 	//bk_printf("%s: bcn_len %d\n", __func__, params->bcn_len);
 	if (params->bcn_len) {
 		os_memcpy(param->u.assoc_req.bcn_buf, params->bcn_ie, params->bcn_len);
-		ASSERT(sizeof(param->u.assoc_req.bcn_buf) >= params->bcn_len);
+		//ASSERT(sizeof(param->u.assoc_req.bcn_buf) >= params->bcn_len);
 	}
 
-    if(hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
-    else
-    {
-        param->cmd = PRISM2_HOSTAPD_ASSOC_ACK;
-        param->vif_idx = drv->vif_index;
-        hostapd_ioctl(drv, param, blen);
-    }
+	if (hostapd_ioctl(drv, param, blen)) {
+		ret = -1;
+	} else {
+		param->cmd = PRISM2_HOSTAPD_ASSOC_ACK;
+		param->vif_idx = drv->vif_index;
+		hostapd_ioctl(drv, param, blen);
+	}
 
-	eloop_register_signal(SIGDISASSOC, wpa_driver_disassoc_sig_handler, drv->wpa_s);
+	os_free(buf);
 
-    param->cmd = PRISM2_HOSTAPD_REG_DISASSOC_CALLBACK;
-    param->vif_idx = drv->vif_index;
-    param->u.reg_disassoc_evt.cb = wpa_handler_signal;
-    param->u.reg_disassoc_evt.arg = (void *)SIGDISASSOC;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
-
-	eloop_register_signal(SIGDEAUTH, wpa_driver_deauth_sig_handler, drv->wpa_s);
-
-    param->cmd = PRISM2_HOSTAPD_REG_DEAUTH_CALLBACK;
-    param->vif_idx = drv->vif_index;
-    param->u.reg_deauth_evt.cb = wpa_handler_signal;
-    param->u.reg_deauth_evt.arg = (void *)SIGDEAUTH;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
-
-    os_free(buf);
-
-    return ret;
+	return ret;
 }
+
 
 int wpa_driver_get_bssid(void *priv, u8 *bssid)
 {
@@ -1850,7 +1844,7 @@ int wpa_driver_authenticate(void *priv, struct wpa_driver_auth_params *params)
 	size_t blen;
 	int ret = 0;
 
-	blen = sizeof(*param) + params->auth_data_len + params->ie_len;
+	blen = sizeof(*param) + params->auth_data_len;
 	buf = os_zalloc(blen);
 	if (buf == NULL) {
 		return -1;
@@ -2003,6 +1997,34 @@ int wpa_driver_deauthenticate(void *priv, const u8 *addr, u16 reason_code)
     return ret;
 }
 
+#ifdef CONFIG_SAE_EXTERNAL
+int wpa_driver_send_external_auth_status(void *priv,
+		struct external_auth *params)
+{
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	u8 *buf;
+	size_t blen;
+	int ret = 0;
+
+	blen = sizeof(*param);
+	buf = os_zalloc(blen);
+	if (buf == NULL)
+		return -1;
+
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_EXTERNAL_AUTH_STATUS;
+	param->vif_idx = drv->vif_index;
+	param->u.external_auth_status.status = params->status;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
+
+	os_free(buf);
+
+	return ret;
+}
+#endif
+
 const struct wpa_driver_ops wpa_driver_hostap_ops =
 {
     .name = "hostap_beken",
@@ -2049,5 +2071,8 @@ const struct wpa_driver_ops wpa_driver_hostap_ops =
     .get_mac_addr = wpa_driver_get_mac,
     .get_capa = wpa_driver_get_capa,
     .set_operstate = wpa_driver_set_operstate,
+#ifdef CONFIG_SAE_EXTERNAL
+    .send_external_auth_status  = wpa_driver_send_external_auth_status,
+#endif
 };
 

@@ -1,5 +1,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
+
+#ifdef RECORD_COM_TCP_TEST
 #include <finsh.h>
 #include <string.h>
 #include <stdlib.h>
@@ -12,8 +14,6 @@
 #include <sys/socket.h> /* 使用BSD socket，需要包含sockets.h头文件 */
 #include "netdb.h"
 #include "test_config.h"
-
-#ifdef RECORD_COM_TCP_TEST
 
 #define EVENT_TCP_START 	(1<<0)
 #define EVENT_TCP_DATA 	(1<<1)

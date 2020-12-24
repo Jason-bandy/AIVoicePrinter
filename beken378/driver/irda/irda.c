@@ -169,10 +169,6 @@ static void trng_active(UINT8 enable)
 	{
 		value &= ~TRNG_EN;
 	}
-    // close it for lowpower
-    // under normal sleep, this modeul cause "min curretn" 300uA more than shut down it
-    
-	//REG_WRITE(TRNG_CTRL, value);
 }
 
 static UINT32 trng_get_random(void)
@@ -243,7 +239,7 @@ void Irda_init_app(void)
 	IR_key.IRkey_mq = rt_mq_create("ir_mq",4,3,RT_IPC_FLAG_FIFO);
 	if(NULL == IR_key.IRkey_mq)
 	{
-		rt_kprintf("create ir mq error!!\r\n");
+		os_printf("create ir mq error!!\r\n");
 		return;
 	}
 	

@@ -283,7 +283,7 @@ struct sta_info_tag
     /// TX policy table control
     struct sta_pol_tbl_cntl pol_tbl;
 	
-	uint32_t pre_rx_timepoint;
+	uint64_t pre_rx_timepoint;
 
     #if (NX_AMPDU_TX)
     /// For TX BA agreements per TID

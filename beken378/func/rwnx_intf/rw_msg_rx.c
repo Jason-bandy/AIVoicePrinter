@@ -15,7 +15,8 @@
 #include "wlan_ui_pub.h"
 #include "mcu_ps_pub.h"
 #include "driver.h"
-#if CFG_NEW_SUPP
+#include "drv_model_pub.h"
+#if CFG_WPA_CTRL_IFACE
 #include "signal.h"
 #include "ctrl_iface.h"
 #endif
@@ -23,28 +24,34 @@
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
 #endif
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "wpa_ctrl.h"
-#include "notifier.h"
+#include "notifier_pub.h"
 #endif
 #include "rxu_task.h"
 #include "main_none.h"
+#include "sys_ctrl_pub.h"
 
 uint32_t resultful_scan_cfm = 0;
 uint8_t *ind_buf_ptr = 0;
 struct co_list rw_msg_rx_head;
 struct co_list rw_msg_tx_head;
 rw_evt_type connect_flag = RW_EVT_STA_IDLE;
-
 SCAN_RST_UPLOAD_T *scan_rst_set_ptr = 0;
-#if CFG_NEW_SUPP
+
+#if CFG_WPA_CTRL_IFACE
 IND_CALLBACK_T scan_cfm_cb_user = {0};
 #endif
+#if !CFG_WPA_CTRL_IFACE
+IND_CALLBACK_T scan_cfm_cb[2] = {0};
+#else
 IND_CALLBACK_T scan_cfm_cb = {0};
+#endif
 IND_CALLBACK_T assoc_cfm_cb = {0};
 IND_CALLBACK_T deassoc_evt_cb = {0};
 IND_CALLBACK_T deauth_evt_cb = {0};
 IND_CALLBACK_T wlan_connect_user_cb = {0};
+rw_event_handler rw_event_handlers[RW_EVT_MAX] = {0};
 
 extern FUNC_1PARAM_PTR bk_wlan_get_status_cb(void);
 extern void app_set_sema(void);
@@ -74,9 +81,15 @@ UINT8 *sr_malloc_shell(void)
     layer2_space_len = MAX_BSS_LIST * sizeof(struct sta_scan_res *);
     ptr = os_zalloc(layer1_space_len + layer2_space_len);
 
-    ASSERT(ptr);
-
-    return ptr;
+	if(ptr)
+	{
+		return ptr;
+	}
+	else
+	{
+    	os_printf("sr_malloc fail \r\n");
+		return 0;
+	}
 }
 
 void sr_free_shell(UINT8 *shell_ptr)
@@ -94,23 +107,83 @@ void sr_free_all(SCAN_RST_UPLOAD_T *scan_rst)
         scan_rst->res[i] = 0;
     }
     scan_rst->scanu_num = 0;
+	scan_rst->ref = 0;
 
     sr_free_shell((UINT8 *)scan_rst);
 }
 
-void *sr_get_scan_results(void)
+uint32_t sr_get_scan_number(void)
 {
-    return scan_rst_set_ptr;
+	uint32_t count = 0;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	if(scan_rst_set_ptr)
+	{
+		count = scan_rst_set_ptr->scanu_num;
+	}
+	GLOBAL_INT_RESTORE();
+
+	return count;
 }
 
+/* Attention: sr_get_scan_results and sr_release_scan_results have to come in pairs*/
+void *sr_get_scan_results(void)
+{
+	void *ptr;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	ptr = scan_rst_set_ptr;
+	scan_rst_set_ptr->ref += 1;
+	GLOBAL_INT_RESTORE();
+	
+    return ptr;
+}
+
+void sr_flush_scan_results(SCAN_RST_UPLOAD_PTR ptr)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	ptr->ref = 1;
+	sr_release_scan_results(ptr);
+	GLOBAL_INT_RESTORE();
+}
+
+/* Attention: sr_get_scan_results and sr_release_scan_results have to come in pairs*/
 void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 {
-    if(ptr)
-    {
-        sr_free_all(ptr);
-    }
-    scan_rst_set_ptr = 0;
+	GLOBAL_INT_DECLARATION();
+	
+	GLOBAL_INT_DISABLE();
+	if((0 == ptr) || (0 == ptr->ref))
+	{
+		os_printf("released_scan_results\r\n");
+		goto release_exit;
+	}
+	
+	ptr->ref -= 1;
+
+	if(ptr->ref)
+	{
+		os_printf("release_scan_results later\r\n");
+		goto release_exit;
+	}
+	
+	if(ptr)
+	{
+		sr_free_all(ptr);
+	}
+	scan_rst_set_ptr = 0;
+	resultful_scan_cfm = 0;
+	
 	wpa_clear_scan_results();
+	
+release_exit:	
+	GLOBAL_INT_RESTORE();
+	return;
+
 }
 
 void mr_kmsg_init(void)
@@ -134,7 +207,10 @@ UINT32 mr_kmsg_fwd(struct ke_msg *msg)
 
 void mr_kmsg_flush(void)
 {
-    while(mr_kmsg_fuzzy_handle());
+    while(mr_kmsg_fuzzy_handle())
+    {
+        ;
+    }
 }
 
 UINT32 mr_kmsg_fuzzy_handle(void)
@@ -185,6 +261,14 @@ UINT32 mr_kmsg_exact_handle(UINT16 rsp)
     return ret;
 }
 
+void rw_evt_set_callback(rw_evt_type evt_type, rw_event_handler handler)
+{
+    if ((RW_EVT_STA_IDLE <= evt_type) && (evt_type < RW_EVT_MAX))
+    {
+        rw_event_handlers[evt_type] = handler;
+    }
+}
+
 void mhdr_connect_user_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
 {
     wlan_connect_user_cb.cb = ind_cb;
@@ -197,10 +281,10 @@ void mhdr_assoc_cfm_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
     assoc_cfm_cb.ctxt_arg = ctxt;
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 void scanu_notifier_func(void *cxt, int type, int value)
 {
-	os_printf("%s: type %d, cb %p, value %d\r\n", __func__, type, scan_cfm_cb_user.cb, value);
+	os_null_printf("%s: type %d, cb %p, value %d\r\n", __func__, type, scan_cfm_cb_user.cb, value);
 	if (type != WLAN_EVENT_SCAN_RESULTS || !scan_cfm_cb_user.cb || !value)
 		return;
 	scan_cfm_cb_user.cb(cxt, (uint8_t)value);
@@ -219,12 +303,59 @@ void mhdr_scanu_reg_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
 	wlan_register_notifier(scanu_notifier_func, ctxt);
 }
 
-#else	/* !CFG_NEW_SUPP */
+void mhdr_scanu_reg_cb_handle(struct scanu_start_cfm *cfm)
+{
+	if(scan_cfm_cb.cb)
+	{
+		(*scan_cfm_cb.cb)(scan_cfm_cb.ctxt_arg, cfm->vif_idx);
+	}
+}
+#else	/* !CFG_WPA_CTRL_IFACE */
 
 void mhdr_scanu_reg_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
 {
-    scan_cfm_cb.cb = ind_cb;
-    scan_cfm_cb.ctxt_arg = ctxt;
+	int i;
+
+	for(i=0;i<(sizeof(scan_cfm_cb)/sizeof(IND_CALLBACK_T));i++)
+	{
+		if((scan_cfm_cb[i].cb == ind_cb)
+			&&(scan_cfm_cb[i].ctxt_arg == ctxt))
+		{
+			return;
+		}
+	}
+
+	for(i=0;i<(sizeof(scan_cfm_cb)/sizeof(IND_CALLBACK_T));i++)
+	{
+		if(scan_cfm_cb[i].cb == NULL)
+		{
+			scan_cfm_cb[i].cb = ind_cb;
+			scan_cfm_cb[i].ctxt_arg = ctxt;
+			return;
+		}
+	}
+}
+
+void mhdr_scanu_reg_cb_handle(struct scanu_start_cfm *cfm)
+{
+	IND_CALLBACK_T _scan_cfm_cb[2];
+
+	_scan_cfm_cb[0] = scan_cfm_cb[0];
+	_scan_cfm_cb[1] = scan_cfm_cb[1];
+	scan_cfm_cb[0].cb = NULL;
+	scan_cfm_cb[0].ctxt_arg = NULL;
+	scan_cfm_cb[1].cb = NULL;
+	scan_cfm_cb[1].ctxt_arg = NULL;
+
+	if(_scan_cfm_cb[0].cb)
+	{
+		(*_scan_cfm_cb[0].cb)(_scan_cfm_cb[0].ctxt_arg, cfm->vif_idx);
+	}
+
+	if(_scan_cfm_cb[1].cb)
+	{
+		(*_scan_cfm_cb[1].cb)(_scan_cfm_cb[1].ctxt_arg, cfm->vif_idx);
+	}
 }
 #endif
 
@@ -280,7 +411,7 @@ void mhdr_disconnect_ind(void *msg)
 		rl_sta_cache_request_enter();
 	}
 	else if(deassoc_evt_cb.cb)
-#elif !CFG_NEW_SUPP
+#elif !CFG_WPA_CTRL_IFACE
     sa_reconnect_init();
     nxmac_pwr_mgt_setf(0);
 
@@ -324,8 +455,14 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
 	}  */
 
 	mcu_prevent_clear(MCU_PS_CONNECT);
+
+    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+        
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
 	rf_can_share_for_ble();
+#endif
 #endif
 }
 
@@ -346,10 +483,10 @@ void mhdr_auth_ind(void *msg, UINT32 len)
 void mhdr_connect_ind(void *msg, UINT32 len)
 {
     struct ke_msg *msg_ptr;
-    struct sm_connect_indication *conn_ind_ptr;
+    struct sm_connect_ind *conn_ind_ptr;
 
     msg_ptr = (struct ke_msg *)msg;
-    conn_ind_ptr = (struct sm_connect_indication *)msg_ptr->param;
+    conn_ind_ptr = (struct sm_connect_ind *)msg_ptr->param;
     if(0 == conn_ind_ptr->status_code)
     {
         os_printf("---------SM_CONNECT_IND_ok\r\n");
@@ -372,8 +509,13 @@ void mhdr_connect_ind(void *msg, UINT32 len)
     }
 
     mcu_prevent_clear(MCU_PS_CONNECT);
+    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+    
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rf_can_share_for_ble();
+#endif
 #endif
 }
 #endif
@@ -384,7 +526,7 @@ void mhdr_mgmt_ind(void *msg, UINT32 len)
     struct ke_msg *msg_ptr = (struct ke_msg *)msg;
     struct rxu_mgt_ind *ind = (struct rxu_mgt_ind *)msg_ptr->param;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_ctrl_event_copy(WPA_CTRL_EVENT_MGMT_IND, ind, sizeof(*ind) + ind->length);
 #else
 	/* FIXME: DON'T CALL IN RWNX_MSG THREAD */
@@ -406,6 +548,7 @@ void mhdr_mgmt_ind(void *msg, UINT32 len)
 void mhdr_set_station_status(rw_evt_type val)
 {
     GLOBAL_INT_DECLARATION();
+	
     GLOBAL_INT_DISABLE();
     connect_flag = val;
 #if (CFG_SUPPORT_ALIOS)
@@ -455,13 +598,9 @@ UINT32 mhdr_scanu_start_cfm(void *msg, SCAN_RST_UPLOAD_T *ap_list)
     if(ap_list)
     {
         sort_scan_result(ap_list);
-        wpa_buffer_scan_results();
     }
 
-    if(scan_cfm_cb.cb)
-    {
-        (*scan_cfm_cb.cb)(scan_cfm_cb.ctxt_arg, cfm->vif_idx);
-    }
+	mhdr_scanu_reg_cb_handle(cfm);
 
     return RW_SUCCESS;
 }
@@ -493,7 +632,11 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
     vies_len = scanu_ret_ptr->length - MAC_BEACON_VARIABLE_PART_OFT;
     var_part_addr = probe_rsp_ieee80211_ptr->rsp.variable;
 
-    elmt_addr = (UINT8 *)mac_ie_find((UINT32)var_part_addr, (UINT16)vies_len, MAC_ELTID_DS);
+    elmt_addr = (UINT8 *)mac_ie_find((UINT32)var_part_addr, (UINT16)vies_len, MAC_ELTID_DS
+#if CFG_IEEE80211AX
+                   , 0
+#endif
+                 );
     if(elmt_addr) // adjust channel
     {
         chann = *(elmt_addr + MAC_DS_CHANNEL_OFT);
@@ -501,7 +644,11 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
         {
             elmt_addr = (UINT8 *)mac_ie_find((UINT32)var_part_addr,
                                              (UINT16)vies_len,
-                                             MAC_ELTID_SSID);
+                                             MAC_ELTID_SSID
+#if CFG_IEEE80211AX
+                                              , 0
+#endif
+                         );
             if(elmt_addr)
             {
                 UINT8 ssid_b[MAC_SSID_LEN];
@@ -509,7 +656,6 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
 
                 if (ssid_len > MAC_SSID_LEN)
                     ssid_len = MAC_SSID_LEN;
-
 
                 os_memcpy(ssid_b, elmt_addr + MAC_SSID_SSID_OFT, ssid_len);
                 os_printf("drop: %s, chan:%d\r\n", ssid_b, chann);
@@ -556,7 +702,11 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
 
     elmt_addr = (UINT8 *)mac_ie_find((UINT32)var_part_addr,
                                      (UINT16)vies_len,
-                                     MAC_ELTID_SSID);
+                                     MAC_ELTID_SSID
+#if CFG_IEEE80211AX
+                                     , 0
+#endif
+                 );
     if(elmt_addr)
     {
         UINT8 ssid_len = *(elmt_addr + MAC_SSID_LEN_OFT);
@@ -616,27 +766,40 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER);
 #endif
 		if (scan_rst_set_ptr)
+		{
+			/* scan activity has valid result*/
 			resultful_scan_cfm = 1;
+		}
 
 		mhdr_scanu_start_cfm(rx_msg, scan_rst_set_ptr);
+        UINT32 reg = RF_HOLD_BY_SCAN_BIT;
+        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 		break;
 
 	case SCANU_RESULT_IND:
 		/* scan result indication */
 		if (resultful_scan_cfm && scan_rst_set_ptr) {
-			sr_release_scan_results(scan_rst_set_ptr);
+			sr_flush_scan_results(scan_rst_set_ptr);
+			
 			scan_rst_set_ptr = 0;
 			resultful_scan_cfm = 0;
 		}
 
 		if (0 == scan_rst_set_ptr) {
-			scan_rst_set_ptr = (SCAN_RST_UPLOAD_T *)sr_malloc_shell();
-			ASSERT(scan_rst_set_ptr);
-			scan_rst_set_ptr->scanu_num = 0;
-			scan_rst_set_ptr->res = (SCAN_RST_ITEM_PTR *)&scan_rst_set_ptr[1];
+            scan_rst_set_ptr = (SCAN_RST_UPLOAD_T *)sr_malloc_shell();
+			if(scan_rst_set_ptr){
+			    scan_rst_set_ptr->scanu_num = 0;
+            	scan_rst_set_ptr->res = (SCAN_RST_ITEM_PTR*)&scan_rst_set_ptr[1];
+				mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
+			}
+			else{
+				os_printf("scan_rst_set_ptr malloc fail\r\n");
+			}
+		}
+		else{
+				mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
 		}
 
-		mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
 		break;
 
 		/**************************************************************************/
@@ -658,7 +821,9 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		/* connect indication */
 		if (scan_rst_set_ptr) {
 			sr_release_scan_results(scan_rst_set_ptr);
+			
 			scan_rst_set_ptr = 0;
+			resultful_scan_cfm = 0;
 		}
 
 		mhdr_connect_ind(rx_msg, rx_msg->param_len);
@@ -674,12 +839,14 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 #endif
 
 	case SM_DISCONNECT_IND:
-		/* disconnect indication */
 		os_printf("SM_DISCONNECT_IND\r\n");
 		mhdr_disconnect_ind(rx_msg);
+		
+#if (CFG_SOC_NAME != SOC_BK7271)
 		extern UINT32 rwnx_sys_is_enable_hw_tpc(void);
 		if (rwnx_sys_is_enable_hw_tpc() == 0)
 			rwnx_cal_set_txpwr(20, 11);
+#endif	
 
 #if CFG_ROLE_LAUNCH
 		rl_pre_sta_set_status(RL_STATUS_STA_LAUNCH_FAILED);
@@ -700,7 +867,9 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 
 	case SM_BEACON_LOSE_IND:
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
 		rf_not_share_for_ble();
+#endif
 #endif
 
 		if (fn) {
@@ -807,17 +976,39 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		break;
 
 	case APM_ASSOC_IND:
-		if (fn) {
-			param = RW_EVT_AP_CONNECTED;
-			(*fn)(&param);
-		}
+#if CFG_SUPPORT_TIANZHIHENG_DRONE
+		if (rw_event_handlers[RW_EVT_AP_CONNECTED])
+        {
+            struct rw_evt_payload evt_payload;
+            struct apm_assoc_ind *sta_assoc = (struct apm_assoc_ind *)rx_msg->param;
+            os_memcpy(evt_payload.mac, sta_assoc->mac, sizeof(sta_assoc->mac));
+            (*rw_event_handlers[RW_EVT_AP_CONNECTED])(RW_EVT_AP_CONNECTED, (void *)&evt_payload);
+        }
+#else
+		if(fn)
+        {
+            param = RW_EVT_AP_CONNECTED;
+            (*fn)(&param);
+        }
+#endif
 		break;
 
 	case APM_DEASSOC_IND:
-		if (fn) {
-			param = RW_EVT_AP_DISCONNECTED;
-			(*fn)(&param);
-		}
+#if CFG_SUPPORT_TIANZHIHENG_DRONE
+		if (rw_event_handlers[RW_EVT_AP_DISCONNECTED])
+        {
+            struct rw_evt_payload evt_payload;
+            struct apm_deassoc_ind *sta_deassoc = (struct apm_deassoc_ind *)rx_msg->param;
+            os_memcpy(evt_payload.mac, sta_deassoc->mac, sizeof(sta_deassoc->mac));
+            (*rw_event_handlers[RW_EVT_AP_DISCONNECTED])(RW_EVT_AP_DISCONNECTED, (void *)&evt_payload);
+        }
+#else
+        if(fn)
+        {
+            param = RW_EVT_AP_DISCONNECTED;
+            (*fn)(&param);
+        }
+#endif
 		break;
 
 	case APM_ASSOC_FAILED_IND:
@@ -868,6 +1059,18 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 	case MM_RSSI_STATUS_IND:
 		//NL80211_ATTR_CQM_RSSI_THRESHOLD_EVENT
 		break;
+
+#ifdef CONFIG_SAE_EXTERNAL
+	case SM_EXTERNAL_AUTH_REQUIRED_IND: {
+	    struct ke_msg *msg_ptr;
+	    struct sm_external_auth_required_ind *ind;
+
+	    msg_ptr = (struct ke_msg *)rx_msg;
+	    ind = (struct sm_external_auth_required_ind *)msg_ptr->param;
+
+		wpa_ctrl_event_copy(WPA_CTRL_EVENT_EXTERNAL_AUTH_IND, ind, sizeof(*ind));
+	}	break;
+#endif
 
 	default:
 		break;

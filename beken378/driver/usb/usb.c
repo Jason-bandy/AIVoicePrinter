@@ -1,12 +1,9 @@
 #include "include.h"
 #include "typedef.h"
 #include "arm_arch.h"
-
 #include "sys_ctrl.h"
-
 #include "usb_pub.h"
 #include "usb.h"
-
 #include "drv_model_pub.h"
 #include "icu_pub.h"
 #include "sys_ctrl_pub.h"
@@ -16,11 +13,14 @@
 #if CFG_USB
 #include "usb_msd.h"
 #include "target_util_pub.h"
-
 #include "board.h"
 #include "ps.h"
 #include "brd_cnf.h"
 #include "uart_pub.h"
+#if (SOC_BK7271 == CFG_SOC_NAME)
+#include "pmu.h"
+#include "icu.h"
+#endif
 
 #define USB_BACKGROUND_STACK_SIZE     (2 * 1024)
 beken_thread_t ubg_thread_handle = NULL;
@@ -54,7 +54,9 @@ FUNCPTR usb_connected_cb = 0;
 void usb_init(void)
 {
     USB_PRT("usb_init\r\n");
+#if (SOC_BK7271 != CFG_SOC_NAME)
     intc_service_register(IRQ_USB, PRI_IRQ_USB, usb_isr);
+#endif
     ddev_register_dev(USB_DEV_NAME, &usb_op);
 }
 
@@ -167,7 +169,6 @@ UINT32 usb_open (UINT32 op_flag)
 #if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
     USB_PRT("gpio_usb_second_function\r\n");
     gpio_usb_second_function();
-#endif
 
     /*step0.0: power up usb subsystem*/
     param = 0;
@@ -244,7 +245,6 @@ UINT32 usb_open (UINT32 op_flag)
     REG_AHB2_USB_GEN = (0x7 << 4) | (0x7 << 0);
 #endif
 
-
 #if CFG_USB
     if (usb_sw_init() == 0)
     {
@@ -257,8 +257,6 @@ UINT32 usb_open (UINT32 op_flag)
 
     ret = usb_sw_open();
     ASSERT(USB_SUCCESS == ret);
-
-//    os_printf("usb_sw_init OK\r\n");
 #endif
 
     /*step2: interrupt setting about usb*/
@@ -266,7 +264,76 @@ UINT32 usb_open (UINT32 op_flag)
 
     param = GINTR_IRQ_BIT;
     sddev_control(ICU_DEV_NAME, CMD_ICU_GLOBAL_INT_ENABLE, &param);
+#elif (SOC_BK7271 == CFG_SOC_NAME)
+	gpio_config(GPIO_USB_DP_PIN, GMODE_SET_HIGH_IMPENDANCE);
+	gpio_config(GPIO_USB_DN_PIN, GMODE_SET_HIGH_IMPENDANCE);
 
+	param = REG_READ(SCTRL_BLOCK_EN_CFG);
+	param &= ~(BLOCK_EN_WORD_MASK << BLOCK_EN_WORD_POSI);
+	param |= BLOCK_EN_WORD_PWD << BLOCK_EN_WORD_POSI;
+#if (CFG_USE_USB_PORT == USE_USB1_PORT)
+	param |= BLK_BIT_USB;
+#else
+	param |= BLK_BIT_USB2;
+#endif
+	REG_WRITE(SCTRL_BLOCK_EN_CFG, param);
+
+	param = REG_READ(ICU_FUNC_CLK_PWD);
+#if (CFG_USE_USB_PORT == USE_USB1_PORT)
+	param &= ~(PWD_USB1_CLK);
+#else
+	param &= ~(PWD_USB2_CLK);
+#endif
+	REG_WRITE(ICU_FUNC_CLK_PWD, param);
+
+	VREG_USB_INTRRX1E = 0x0;
+	VREG_USB_INTRTX1E = 0x0;
+	VREG_USB_INTRUSBE = 0x0;
+	REG_AHB2_USB_VTH &= ~(1 << 7);
+
+	if (usb_mode == USB_HOST_MODE) {
+		USB_PRT("usb host\r\n");
+		param = sctrl_analog_get(SCTRL_ANALOG_CTRL3);
+	#if (CFG_USE_USB_PORT == USE_USB1_PORT)
+		param |= (1 << 3);
+		param &= ~(7 << 0);
+	#else
+		param |= (1 <<  8);
+		param &= ~(7 << 5);
+	#endif
+		sctrl_analog_set(SCTRL_ANALOG_CTRL3, param);
+
+		VREG_USB_INTRRX1E = 0x07;
+		VREG_USB_INTRTX1E = 0x07;
+		VREG_USB_INTRUSBE = 0x3F;
+
+		REG_AHB2_USB_OTG_CFG = 0x50;
+		REG_AHB2_USB_DEV_CFG = 0x00;
+	}
+
+	reg = REG_AHB2_USB_INT;
+	delay(100);
+	REG_AHB2_USB_INT = reg;
+	delay(100);
+
+	/*dp and dn driver current slection*/
+	REG_AHB2_USB_GEN = (0x7 << 4) | (0x7 << 0);
+
+#if (CFG_USB)
+	if (usb_sw_init() == 0) {
+		USB_PRT("usb sw init OK\r\n");
+	} else {
+		USB_PRT("usb sw init ERROR\r\n");
+	}
+#endif
+
+#if (CFG_USE_USB_PORT == USE_USB1_PORT)
+	intc_enable(IRQ_USB1);
+#else
+	intc_enable(IRQ_USB2);
+#endif
+
+#endif
     return USB_SUCCESS;
 }
 
@@ -276,11 +343,13 @@ UINT32 usb_close (void)
 
     USB_PRT("usb_close\r\n");
 
+#if (SOC_BK7271 != CFG_SOC_NAME)
     param = IRQ_USB_BIT;
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
 
     param = PWD_USB_CLK_BIT;
     sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, &param);
+#endif
 
 #if CFG_USB
     usb_sw_uninit();
@@ -289,6 +358,35 @@ UINT32 usb_close (void)
     return USB_SUCCESS;
 }
 
+#if (SOC_BK7271 == CFG_SOC_NAME)
+UINT32 usb_read(UINT32 pos, const void *buffer, UINT32 size)
+{
+	USB_PRT("usb read\r\n");
+	UINT32 start_blk_addr = pos;
+	UINT32 read_blk_num = size;
+	UINT8 *read_data_buf = buffer;
+
+	if (0 != MUSB_HfiRead_sync(start_blk_addr, read_blk_num, read_data_buf)) {
+		size = 0;
+	}
+
+	return size;
+}
+
+UINT32 usb_write(UINT32 pos, const void *buffer, UINT32 size)
+{
+	USB_PRT("usb write\r\n");
+	UINT32 start_blk_addr = pos;
+	UINT32 write_blk_num = size;
+	UINT8 *write_data_buf = buffer;
+
+	if (0 != MUSB_HfiWrite_sync(start_blk_addr, write_blk_num, write_data_buf)) {
+		size = 0;
+	}
+
+	return size;
+}
+#else
 UINT32 usb_read (char *user_buf, UINT32 count, UINT32 op_flag)
 {
     USB_PRT("usb_read\r\n");
@@ -300,6 +398,7 @@ UINT32 usb_write (char *user_buf, UINT32 count, UINT32 op_flag)
     USB_PRT("usb_write\r\n");
     return USB_SUCCESS;
 }
+#endif
 
 #if CFG_SUPPORT_UVC
 UINT32 usb_uvc_ctrl(UINT32 cmd, void *param)
@@ -439,14 +538,23 @@ static void usb_plug_inout_icu_int_open(void)
 {
     UINT32 param;
     param = (FIQ_USB_PLUG_INOUT_BIT);
+#if (CFG_SOC_NAME == SOC_BK7271)
+    sddev_control(ICU_DEV_NAME, CMD_ICU_FIQ_ENABLE, &param);
+#else
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
+#endif
 }
 
 static void usb_plug_inout_icu_int_close(void)
 {
     UINT32 param;
+	
     param = (FIQ_USB_PLUG_INOUT_BIT);
+#if (CFG_SOC_NAME == SOC_BK7271)
+    sddev_control(ICU_DEV_NAME, CMD_ICU_FIQ_DISABLE, &param);
+#else
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
+#endif
 }
 
 UINT32 usb_plug_inout_open(UINT32 op_flag)

@@ -451,8 +451,10 @@
 #define MAC_RSNIE_GROUP_CIPHER_OFT               4
 #define MAC_RSNIE_PAIRWISE_CIPHER_SUITE_CNT_OFT  8
 #define MAC_RSNIE_PAIRWISE_CIPHER_SUITE_LIST_OFT 10
+#define MAC_RSNIE_PAIRWISE_CIPHER_SIZE           4
 #define MAC_RSNIE_KEY_MANAGEMENT_SUITE_CNT_OFT   14
 #define MAC_RSNIE_KEY_MANAGEMENT_SUITE_LIST_OFT  16
+#define MAC_RSNIE_KEY_MANAGEMENT_SIZE            4
 #define MAC_RSNIE_RSN_CAPABILITIES_OFT           20
 #define MAC_RSNIE_RSN_PMKID_COUNT_OFT            22
 #define MAC_RSNIE_RSN_PMKID_COUNT_LIST_OFT       24
@@ -1523,6 +1525,34 @@ enum
 #define MAC_AC_VO_TXOP_b                102    // 3264us / 32 us
 #define MAC_AC_VO_TXOP_ag                47    // 1504us / 32 us
 
+/**
+ * @name RSNIE definitions
+ * @{
+ ****************************************************************************************
+ */
+// Cipher suites
+
+// AKM suites
+#define MAC_RSNIE_AKM_8021X                   0x000FAC01
+#define MAC_RSNIE_AKM_PSK                     0x000FAC02
+#define MAC_RSNIE_AKM_FT_8021X                0x000FAC03
+#define MAC_RSNIE_AKM_FT_PSK                  0x000FAC04
+#define MAC_RSNIE_AKM_8021X_SHA256            0x000FAC05
+#define MAC_RSNIE_AKM_PSK_SHA256              0x000FAC06
+#define MAC_RSNIE_AKM_TDLS                    0x000FAC07
+#define MAC_RSNIE_AKM_SAE                     0x000FAC08
+#define MAC_RSNIE_AKM_FT_OVER_SAE             0x000FAC09
+#define MAC_RSNIE_AKM_8021X_SUITE_B           0x000FAC0B
+#define MAC_RSNIE_AKM_8021X_SUITE_B_192       0x000FAC0C
+#define MAC_RSNIE_AKM_FILS_SHA256             0x000FAC0D
+#define MAC_RSNIE_AKM_FILS_SHA384             0x000FAC0F
+#define MAC_RSNIE_AKM_FT_FILS_SHA256          0x000FAC10
+#define MAC_RSNIE_AKM_FT_FILS_SHA384          0x000FAC11
+#define MAC_RSNIE_AKM_OWE                     0x000FAC12
+
+// RSN CAPA
+
+/** @} */
 
 #define MAC_EDCA_DEFAULT_STA                                                            \
 {                                                                                       \
@@ -1582,13 +1612,13 @@ enum
  #define MAC_RSNIE_PAIRWISE_KEY_OFT     13
 
  // Cipher suite selectors
- #define MAC_RSNIE_CIPHER_MASK    0x07
- #define MAC_RSNIE_CIPHER_WEP40   0x00
- #define MAC_RSNIE_CIPHER_TKIP    0x01
- #define MAC_RSNIE_CIPHER_CCMP    0x02
- #define MAC_RSNIE_CIPHER_WEP104  0x03
- #define MAC_RSNIE_CIPHER_WPI_SMS4 0x04
- #define MAC_RSNIE_CIPHER_AES_CMAC 0x05
+ #define MAC_RSNIE_CIPHER_MASK         0x07
+ #define MAC_RSNIE_CIPHER_WEP_40       0x00
+ #define MAC_RSNIE_CIPHER_TKIP         0x01
+ #define MAC_RSNIE_CIPHER_CCMP_128     0x02
+ #define MAC_RSNIE_CIPHER_WEP_104      0x03
+ #define MAC_RSNIE_CIPHER_WPI_SMS4     0x04
+ #define MAC_RSNIE_CIPHER_AES_CMAC     0x05
 
  #define MAC_RSNIE_CIPHER_NOSEC   0xFE
  #define MAC_RSNIE_CIPHER_INVALID 0xFF
@@ -1616,9 +1646,9 @@ enum
     MAC_ELTID_OUI, 0x16,                                                             \
     0x00, 0x50, 0xF2, MAC_OUI_TYPE_WPA,         /* additionnal WPA OUI                                                     */ \
     0x01, 0x00,                                 /* version                                                                 */ \
-    0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_CCMP,    /* group key cipher    (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
+    0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_CCMP_128,/* group key cipher    (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x01, 0x00,                                 /* pairwise key cipher number                                              */ \
-    0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_CCMP,    /* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
+    0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_CCMP_128,/* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x01, 0x00,                                 /* authentication key management number                                    */ \
     0x00, 0x50, 0xF2, MAC_RSNIE_KEYMGT_PSK      /* authentication key management (01==802.1X auth, 02==PSK)                */ \
 }
@@ -1630,7 +1660,7 @@ enum
     0x01, 0x00,                                 /* version                                                                 */ \
     0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_TKIP,    /* group key cipher    (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x02, 0x00,                                 /* pairwise key cipher number                                              */ \
-    0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_CCMP,    /* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
+    0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_CCMP_128,/* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x00, 0x50, 0xF2, MAC_RSNIE_CIPHER_TKIP,    /* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x01, 0x00,                                 /* authentication key management number                                    */ \
     0x00, 0x50, 0xF2, MAC_RSNIE_KEYMGT_PSK      /* authentication key management (01==802.1X auth, 02==PSK)                */ \
@@ -1652,9 +1682,9 @@ enum
 {{                                                                                       \
     MAC_ELTID_RSN_IEEE, 0x14,                                                            \
     0x01, 0x00,                                 /* version                                                                 */ \
-    0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_CCMP,    /* group key cipher    (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
+    0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_CCMP_128,/* group key cipher    (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x01, 0x00,                                 /* pairwise key cipher number                                              */ \
-    0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_CCMP,    /* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
+    0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_CCMP_128,/* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x01, 0x00,                                 /* authentication key management number                                    */ \
     0x00, 0x0F, 0xAC, MAC_RSNIE_KEYMGT_PSK,     /* authentication key management (01==802.1X auth, 02==PSK)                */ \
     0x00, 0x00                                  /* no pre-authentication capabilities   */                                    \
@@ -1667,7 +1697,7 @@ enum
     0x01, 0x00,                                 /* version                                                                 */ \
     0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_TKIP,    /* group key cipher    (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x02, 0x00,                                 /* pairwise key cipher number                                              */ \
-    0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_CCMP,    /* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
+    0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_CCMP_128,/* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x00, 0x0F, 0xAC, MAC_RSNIE_CIPHER_TKIP,    /* pairwise key cipher (00==none, 01=WEP40, 02==TKIP, 04==CCMP, 05==WEP104)*/ \
     0x01, 0x00,                                 /* authentication key management number                                    */ \
     0x00, 0x0F, 0xAC, MAC_RSNIE_KEYMGT_PSK,     /* authentication key management (01==802.1X auth, 02==PSK)                */ \

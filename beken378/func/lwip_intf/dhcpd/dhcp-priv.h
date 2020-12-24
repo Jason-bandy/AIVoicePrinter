@@ -25,6 +25,12 @@
 #define SERVER_BUFFER_SIZE		1024
 #define MAC_IP_CACHE_SIZE		8
 
+#if OSMALLOC_STATISTICAL
+#define DHCP_SERVER_TASK_STACK_SIZE     2048
+#else
+#define DHCP_SERVER_TASK_STACK_SIZE     1152
+#endif
+
 struct client_mac_cache {
 	uint8_t client_mac[6];    /* mac address of the connected device */
 	uint32_t client_ip;       /* ip address of the connected device */

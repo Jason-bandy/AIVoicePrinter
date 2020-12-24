@@ -63,5 +63,8 @@
 #define __deprecated        __attribute__((deprecated))
 #define __weak              __attribute__((weak))
 
+#define __SHAREDRAM
+#define __MIB
+
 #endif // _COMPILER_H_
 

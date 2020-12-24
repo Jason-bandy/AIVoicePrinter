@@ -16,6 +16,7 @@
 #include "compiler.h"
 #include "doubly_list.h"
 #include "generic.h"
+#include "intc_pub.h"
 
 //#define INTC_DEBUG
 
@@ -27,8 +28,11 @@
 #define INTC_WPRT      os_null_printf
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define INTC_MAX_COUNT                    (IRQ_MAX_COUNT + FIQ_MAX_COUNT)
+#else
 #define INTC_MAX_COUNT                    32
-
+#endif
 
 struct arm_registers
 {

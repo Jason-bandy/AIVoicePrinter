@@ -552,6 +552,39 @@ void *rt_memheap_realloc(struct rt_memheap *heap, void *ptr, rt_size_t newsize)
 }
 RTM_EXPORT(rt_memheap_realloc);
 
+#define __is_print(ch) ((unsigned int)((ch) - ' ') < 127u - ' ')
+void rt_dump_heap_mem(struct rt_memheap_item *mem, int size)
+{
+    unsigned char *buf = (unsigned char*)mem;
+    int i, j;
+    rt_kprintf("mem: 0x%x magic(0x%x),size=%d\n", mem, mem->magic, size);
+    for (i=0; i<size; i+=16)
+    {
+        rt_kprintf("%06x: ", i);
+        for (j=0; j<16; j++)
+        {
+            if (i+j < size)
+            {
+                rt_kprintf("%02x ", buf[i+j]);
+            }
+            else
+            {
+                rt_kprintf("   ");
+            }
+        }
+        rt_kprintf(" ");
+        for (j=0; j<16; j++)
+        {
+            if (i+j < size)
+            {
+                rt_kprintf("%c", __is_print(buf[i+j]) ? buf[i+j] : '.');
+            }
+        }
+        rt_kprintf("\n");
+    }
+    rt_kprintf("\n");
+}
+
 void rt_memheap_free(void *ptr)
 {
     rt_err_t result;
@@ -572,9 +605,19 @@ void rt_memheap_free(void *ptr)
                                     ptr, header_ptr));
 
     /* check magic */
+	if ((header_ptr->magic & RT_MEMHEAP_MASK) != RT_MEMHEAP_MAGIC)
+    {
+        rt_dump_heap_mem(header_ptr, (unsigned char *)header_ptr->next - (unsigned char *)header_ptr);
+        rt_dump_heap_mem((unsigned char *)header_ptr - 4096, 4096);
+    }
     RT_ASSERT((header_ptr->magic & RT_MEMHEAP_MASK) == RT_MEMHEAP_MAGIC);
     RT_ASSERT(header_ptr->magic & RT_MEMHEAP_USED);
     /* check whether this block of memory has been over-written. */
+	if ((header_ptr->next->magic & RT_MEMHEAP_MASK) != RT_MEMHEAP_MAGIC)
+    {
+        rt_dump_heap_mem(header_ptr, (unsigned char *)header_ptr->next - (unsigned char *)header_ptr);
+        rt_dump_heap_mem(header_ptr->next, 4096);
+    }
     RT_ASSERT((header_ptr->next->magic & RT_MEMHEAP_MASK) == RT_MEMHEAP_MAGIC);
 
     /* get pool ptr */
@@ -658,20 +701,23 @@ void rt_memheap_free(void *ptr)
 }
 RTM_EXPORT(rt_memheap_free);
 
+#define USE_DTCM_MEM       1
+
 #ifdef RT_USING_MEMHEAP_AS_HEAP
 struct rt_memheap _heap;
 
 void rt_system_heap_init(void *begin_addr, void *end_addr)
 {
-    /* initialize a default heap in the system */
-    rt_memheap_init(&_heap,
-                    "heap",
-                    begin_addr,
-                    (rt_uint32_t)end_addr - (rt_uint32_t)begin_addr);
+	/* initialize a default heap in the system */
+	rt_memheap_init(&_heap,
+					"heap",
+					begin_addr,
+					(rt_uint32_t)end_addr - (rt_uint32_t)begin_addr);
 }
 
 void *rt_malloc(rt_size_t size)
 {
+#if USE_DTCM_MEM
     void *ptr;
 
     /* try to allocate in system heap */
@@ -703,18 +749,37 @@ void *rt_malloc(rt_size_t size)
         }
     }
 
+	if (NULL == ptr)
+    {
+        //rt_kprintf("%s size=%d\r\n", __FUNCTION__, size);
+        return  sdram_malloc(size);
+    }
     return ptr;
+#else
+    void *ptr = sdram_malloc(size);
+    if (NULL == ptr)
+    {
+        ptr = dtcm_malloc(size);
+    }
+    return ptr;
+#endif
 }
 RTM_EXPORT(rt_malloc);
 
 void rt_free(void *rmem)
 {
+#if USE_DTCM_MEM
     rt_memheap_free(rmem);
+#else
+    /* using shram free to deal with shared memory */
+    shram_free(rmem);
+#endif
 }
 RTM_EXPORT(rt_free);
 
 void *rt_realloc(void *rmem, rt_size_t newsize)
 {
+#if USE_DTCM_MEM
     void *new_ptr;
     struct rt_memheap_item *header_ptr;
 
@@ -752,6 +817,10 @@ void *rt_realloc(void *rmem, rt_size_t newsize)
     }
 
     return new_ptr;
+#else
+    /* use shram realloc to deal with shared memory case */
+    return shram_realloc(rmem, newsize);
+#endif
 }
 RTM_EXPORT(rt_realloc);
 

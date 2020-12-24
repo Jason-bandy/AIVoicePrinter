@@ -5,9 +5,13 @@
 #include <audio_pipe.h>
 #include "board.h"
 #include <string.h>
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include <data_node.h>
+#include "mailbox_pub.h"
+#endif
 
 #include "include.h"
-#if ((CFG_SOC_NAME == SOC_BK7221U) && (CFG_USE_AUD_ADC == 1))
+#if ((CFG_SOC_NAME == SOC_BK7221U || CFG_SOC_NAME == SOC_BK7271) && (CFG_USE_AUD_ADC == 1))
 #include "arm_arch.h"
 #include "general_dma_pub.h"
 #include "audio.h"
@@ -31,6 +35,12 @@
 
 #define BEKEN_AUDIO_ADC_DMA           1
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define ADC_BUFFER_NODE_MAX 8
+static dma_buffer_node audio_adc_buffer_nodes[ADC_BUFFER_NODE_MAX];
+static void audio_adc_callback_handler(MAILBOX_TYPE_T type, mailbox_t *param);
+#endif
+
 struct audio_mic_device
 {
     /* inherit from rt_device */
@@ -40,15 +50,24 @@ struct audio_mic_device
     rt_uint32_t recv_fifo_len;
     rt_uint32_t n_channel;
     rt_uint32_t stat;
+#if (CFG_SOC_NAME == SOC_BK7271)
+    struct co_list using_list;
+    struct co_list free_list;
+    dma_buffer_node *current;
+    rt_uint8_t *read_ptr;
+#else
     struct rt_audio_pipe record_pipe;
+#endif
 };
 
 static struct audio_mic_device _g_audio_mic;
 
 static void adc_dma_init(struct audio_mic_device *audio_adc);
 
+#if CFG_USE_AUD_ADC
 static rt_err_t audio_adc_init(rt_device_t dev)
 {
+#if (CFG_SOC_NAME == SOC_BK7221U)
     struct audio_mic_device *audio_adc = RT_NULL;
     audio_adc = (struct audio_mic_device *)dev;
 
@@ -59,7 +78,7 @@ static rt_err_t audio_adc_init(rt_device_t dev)
     audio_adc_set_volume(AUDIO_ADC_DEF_VOLUME);
 
     audio_power_up();
-
+#endif
     return RT_EOK;
 }
 
@@ -71,8 +90,11 @@ static rt_err_t audio_adc_open(rt_device_t dev, rt_uint16_t oflag)
 
     if ((oflag & RT_DEVICE_OFLAG_RDONLY) && (!(audio_adc->stat & ADC_IS_OPENED)))
     {
+	#if (CFG_SOC_NAME == SOC_BK7271)
+        mailbox_ctrl(CMD_MAILBOX_SET_CALLBACK, (void *)audio_adc_callback_handler);
+	#else
         rt_device_open(&audio_adc->record_pipe.parent, RT_DEVICE_OFLAG_RDONLY);
-        
+    #endif    
     #ifdef BEKEN_AUDIO_ADC_DMA
         adc_dma_init(audio_adc);
         audio_adc_set_dma(1);
@@ -101,7 +123,49 @@ static rt_size_t audio_adc_read(rt_device_t dev, rt_off_t pos,
     struct audio_mic_device *audio_adc = RT_NULL;
 
     audio_adc = (struct audio_mic_device *)dev;
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    dma_buffer_node *node;
+    uint32_t length;
+    uint8_t *dst_ptr = (uint8_t *)buffer;
+    uint8_t *dst_end = (uint8_t *)buffer + size;
+
+    while (dst_ptr < dst_end)
+    {
+        if (NULL == audio_adc->current)
+        {
+            audio_adc->current = (dma_buffer_node *)co_list_pop_front(&audio_adc->using_list);
+            if (NULL == audio_adc->current)
+            {
+                break;
+            }
+            audio_adc->read_ptr = audio_adc->current->buffer;
+        }
+        node = audio_adc->current;
+        length = node->buffer + node->size - audio_adc->read_ptr;
+        if (length > dst_end - dst_ptr)
+        {
+            length = dst_end - dst_ptr;
+        }
+        memcpy((void *)dst_ptr, (void *)audio_adc->read_ptr, length);
+        audio_adc->read_ptr += length;
+        dst_ptr += length;
+        if (audio_adc->read_ptr >= node->buffer + node->size)
+        {
+            /* audio_adc.current read done */
+            co_list_push_back(&audio_adc->free_list, (struct co_list_hdr *)node);
+            mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_PCM_READ_DONE, (uint32_t)node->buffer, node->size, 0);
+            mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+
+            audio_adc->current = NULL;
+            audio_adc->read_ptr = NULL;
+        }
+    }
+
+    return (rt_size_t)(dst_ptr - (uint8_t *)buffer);
+#else
     return rt_device_read(&audio_adc->record_pipe.parent, pos, buffer, size);
+#endif
 }
 
 static rt_err_t audio_adc_control(rt_device_t dev, int cmd, void *args)
@@ -202,7 +266,32 @@ static rt_err_t audio_adc_close(rt_device_t dev)
     #else
 
     #endif
+	#if (CFG_SOC_NAME == SOC_BK7271)
+        mailbox_ctrl(CMD_MAILBOX_CLEAR_CALLBACK, (void *)audio_adc_callback_handler);
+        while (1)
+        {
+            mailbox_t mailbox;
+
+            if (NULL == audio_adc->current)
+            {
+                audio_adc->current = (dma_buffer_node *)co_list_pop_front(&audio_adc->using_list);
+                if (NULL == audio_adc->current)
+                {
+                    audio_adc->read_ptr = NULL;
+                    break;
+                }
+            }
+
+            /* audio_adc.current read done */
+            co_list_push_back(&audio_adc->free_list, (struct co_list_hdr *)audio_adc->current);
+            mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_PCM_READ_DONE, (uint32_t)audio_adc->current->buffer, audio_adc->current->size, 0);
+            mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+
+            audio_adc->current = NULL;
+        }
+	#else
         rt_device_close(&audio_adc->record_pipe.parent);
+	#endif
         stat &= ~(ADC_DMA_IRQ_ENABLE | ADC_IRQ_ENABLE | ADC_IS_OPENED);
     }
 
@@ -210,6 +299,40 @@ static rt_err_t audio_adc_close(rt_device_t dev)
     dbg_log(DBG_INFO, "close mic device");
 }
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+static void audio_adc_callback_handler(MAILBOX_TYPE_T type, mailbox_t *param)
+{
+    dma_buffer_node *node;
+
+    switch (param->cmd)
+    {
+        case MAILBOX_CMD_AUDIO_ADC_PCM_READ:
+            rt_kprintf("%s:%d ADC_READ 0x%08x len=%d\r\n", __FUNCTION__, __LINE__, param->param1, param->param2);
+            {
+                if (NULL == (uint8_t *)param->param1)
+                {
+                    rt_kprintf("%s:%d param1 is invalid\n", __FUNCTION__, __LINE__);
+                    break;
+                }
+
+                node = (dma_buffer_node *)co_list_pop_front(&_g_audio_mic.free_list);
+                if (NULL == node)
+                {
+                    rt_kprintf("%s:%d free_list is empty\n", __FUNCTION__, __LINE__);
+                    break;
+                }
+
+                node->buffer = (uint8_t *)param->param1;
+                node->size = param->param2;
+                co_list_push_back(&_g_audio_mic.using_list, (struct co_list_hdr *)node);
+            }
+        break;
+        default:
+        break;
+    }
+}
+
+#else
 void audio_adc_irq_handler(UINT32 arg)
 {
     rt_uint32_t status, cnt;
@@ -270,9 +393,12 @@ void adc_dma_finish_handler(UINT32 flag)
 		audio_adc->cur_ptr = (rt_uint16_t *)write_ptr_bak; 
 	} 
 }
+#endif
 
 void adc_dma_init(struct audio_mic_device *audio_adc)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+#else
     GDMACFG_TPYES_ST cfg;
     GDMA_CFG_ST en_cfg;
 
@@ -315,6 +441,7 @@ void adc_dma_init(struct audio_mic_device *audio_adc)
     en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
     en_cfg.param = AUDIO_RECV_BUFFER_LEN;//adc_buf_len; // dma translen
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, &en_cfg);
+#endif
 }
 
 #ifdef RT_USING_DEVICE_OPS
@@ -361,8 +488,24 @@ int rt_audio_adc_hw_init(void)
         RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_RDONLY | RT_DEVICE_FLAG_DMA_RX);
 
     rt_device_init(&audio_adc->parent);
-
+	
+	if (1)
     {
+	#if (CFG_SOC_NAME == SOC_BK7271)
+        uint32_t index;
+
+        co_list_init(&audio_adc->using_list);
+        co_list_init(&audio_adc->free_list);
+        audio_adc->current = NULL;
+        audio_adc->read_ptr = NULL;
+        for (index = 0; index < ADC_BUFFER_NODE_MAX; index++)
+        {
+            audio_adc_buffer_nodes[index].buffer = (uint8_t *)NULL;
+            audio_adc_buffer_nodes[index].size = 0;
+            co_list_push_back(&audio_adc->free_list, &audio_adc_buffer_nodes[index].header);
+            rt_kprintf("adc_list.current=0x%x(0x%x,%d)\n", &audio_adc_buffer_nodes[index].header, audio_adc_buffer_nodes[index].buffer, audio_adc_buffer_nodes[index].size);
+        }
+	#else
         rt_size_t size = AUDIO_RECV_BUFFER_LEN * AUDIO_RECV_BUFFER_CNT;
         rt_uint8_t *buf = sdram_malloc(size);
         if(buf == RT_NULL)
@@ -383,10 +526,12 @@ int rt_audio_adc_hw_init(void)
         audio_adc->recv_fifo_len = size;
         audio_adc->recv_fifo = (rt_uint16_t*)buf;
         audio_adc->cur_ptr = (rt_uint16_t*)buf;
+	#endif
     }
 
     return RT_EOK;
 }
 
 INIT_DEVICE_EXPORT(rt_audio_adc_hw_init);
+#endif
 #endif // #if (CFG_SOC_NAME == SOC_BK7221U)

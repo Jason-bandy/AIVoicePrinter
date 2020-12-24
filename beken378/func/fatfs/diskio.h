@@ -11,6 +11,7 @@
 #include "integer.h"
 
 #define FAT_INTF_DEBUG
+#undef FAT_INTF_DEBUG
 
 #ifdef FAT_INTF_DEBUG
 #define FAT_PRT      os_printf

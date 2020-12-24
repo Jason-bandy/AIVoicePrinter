@@ -32,7 +32,10 @@
 #include "drv_uart.h"
 #include "include.h"
 #include "func_pub.h"
+#include "wlan_ui_pub.h"
 #include <string.h>
+#include "wdt_pub.h"
+#include "drv_dtcm.h"
 
 enum wdg_status {
     WDG_STATUS_STOP,
@@ -54,70 +57,44 @@ extern void os_clk_init(void);
 
 #if (RT_TICK_PER_SECOND != 1000)
 #error "RT_TICK_PER_SECOND of bk7221u can only be configured as 1000!!!"
-#endif 
-
-static struct rt_memheap tcm_heap; 
-
-void *tcm_malloc(unsigned long size)
-{
-    return rt_memheap_alloc(&tcm_heap, size);
-}
-
-void tcm_free(void *ptr)
-{
-    rt_memheap_free(ptr); 
-}
-
-void *tcm_calloc(unsigned int n, unsigned int size)
-{
-    void* ptr = NULL;
-    
-    ptr = tcm_malloc(n * size);
-    if (ptr)
-    {
-        memset(ptr, 0, n * size);
-    }
-    
-    return ptr;
-}
-
-void *tcm_realloc(void *ptr, unsigned long size)
-{
-    return rt_memheap_realloc(&tcm_heap, ptr, size);
-}
+#endif
 
 void rt_hw_board_init(void)
 {
+	/* init memory system */
 #ifdef RT_USING_HEAP
-    /* init memory system */
 #if(CFG_SOC_NAME == SOC_BK7221U)
-    rt_system_heap_init(RT_HW_SDRAM_BEGIN, RT_HW_SDRAM_END);
-	rt_sdram_heap_init(); 
-#endif
-    rt_memheap_init(&tcm_heap, "TCM", RT_HW_TCM_BEGIN, RT_HW_TCM_END-RT_HW_TCM_BEGIN); 
+	rt_kprintf("rt_system_heap_init:%x-%x len:%d\r\n", RT_HW_SDRAM_BEGIN, RT_HW_SDRAM_END, RT_HW_SDRAM_END - RT_HW_SDRAM_BEGIN);
+	rt_system_heap_init(RT_HW_SDRAM_BEGIN, RT_HW_SDRAM_END);
+	rt_dtcm_heap_init();
+#elif (CFG_SOC_NAME == SOC_BK7271)
+	rt_kprintf("rt_system_heap_init:%x-%x len:%d\r\n", RT_HW_HEAP_BEGIN, RT_HW_HEAP_END, RT_HW_HEAP_END - RT_HW_HEAP_BEGIN);
+	rt_system_heap_init(RT_HW_HEAP_BEGIN, RT_HW_HEAP_END);
 #endif
 
-    /* init hardware */
-    driver_init();
-    /* interrupt init */
-    rt_hw_interrupt_init();
-    /* init hardware interrupt */
-    rt_hw_uart_init();
-    /* init system tick */
-    os_clk_init();
+	rt_sdram_heap_init();
+#endif
+
+	/* init hardware */
+	driver_init();
+	/* interrupt init */
+	rt_hw_interrupt_init();
+	/* init hardware interrupt */
+	rt_hw_uart_init();
+	/* init system tick */
+	os_clk_init();
 
 #ifdef RT_USING_CONSOLE
-    /* set console device */
-    rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
+	/* set console device */
+	rt_console_set_device(RT_CONSOLE_DEVICE_NAME);
 #endif /* RT_USING_CONSOLE */
 
 #ifdef RT_USING_COMPONENTS_INIT
-    rt_components_board_init();
+	rt_components_board_init();
 #endif
-
 }
 
-#define WDT_DEV_NAME "wdt"
+
 /**
  * reset cpu by dog's time-out
  */
@@ -150,10 +127,9 @@ void rt_hw_wdg_start(int argc, char **argv)
     }
 
     device = rt_device_find(WDT_DEV_NAME);
-
     if (!device)
     {
-        rt_kprintf("Device %s not found \n");
+		rt_kprintf("Device %s not found \n", WDT_DEV_NAME);
         return ;
     }
 
@@ -176,23 +152,21 @@ FINSH_FUNCTION_EXPORT_ALIAS(rt_hw_wdg_start, __cmd_wdg_start, wdg_start);
  */
 void rt_hw_wdg_refresh(void)
 {
-    struct rt_device *device;
+	struct rt_device *device;
 
-    device = rt_device_find(WDT_DEV_NAME);
+	device = rt_device_find(WDT_DEV_NAME);
+	if (!device) {
+		rt_kprintf("Device %s not found \n", WDT_DEV_NAME);
+		return ;
+	}
 
-    if (!device)
-    {
-        rt_kprintf("Device %s not found \n");
-        return ;
-    }
+	if (WDG_STATUS_WATCH == g_wdg_context.wdg_flag) {
+		rt_kprintf("refresh watch dog\n");
+		rt_device_control(device, RT_DEVICE_CTRL_WDT_KEEPALIVE, RT_NULL);
+	}
 
-    if (WDG_STATUS_WATCH == g_wdg_context.wdg_flag)
-    {
-        rt_kprintf("refresh watch dog\n");
-        rt_device_control(device, RT_DEVICE_CTRL_WDT_KEEPALIVE, RT_NULL);
-    }
-    g_wdg_context.consumed_in_tick = 0;
-    g_wdg_context.last_fresh_in_tick = rt_tick_get();
+	g_wdg_context.consumed_in_tick = 0;
+	g_wdg_context.last_fresh_in_tick = rt_tick_get();
 }
 
 FINSH_FUNCTION_EXPORT_ALIAS(rt_hw_wdg_refresh, __cmd_wdg_refresh, wdg_refresh);
@@ -210,10 +184,9 @@ void rt_hw_wdg_stop(void)
     }
 
     device = rt_device_find(WDT_DEV_NAME);
-
     if (!device)
     {
-        rt_kprintf("Device %s not found \n");
+		rt_kprintf("Device %s not found \n", WDT_DEV_NAME);
         return ;
     }
 
@@ -226,17 +199,17 @@ void rt_hw_wdg_stop(void)
 
 FINSH_FUNCTION_EXPORT_ALIAS(rt_hw_wdg_stop, __cmd_wdg_stop, wdg_stop);
 
-void rt_hw_wdg_tick_proc()
+void rt_hw_wdg_tick_proc(void)
 {
     if (WDG_STATUS_WATCH != g_wdg_context.wdg_flag)
     {
         return;
     }
     g_wdg_context.consumed_in_tick++;
-    /**
-      * normal mode: using 120M RTC, 1 tick = 1ms
-      * ps mode: using 32K RTC, rt_tick is adapted
-      */
+	/**
+	* normal mode: using 120M RTC, 1 tick = 1ms
+	* ps mode: using 32K RTC, rt_tick is adapted
+	*/
     if ((g_wdg_context.consumed_in_tick >= g_wdg_context.threshold_in_tick)
       || ((int)(rt_tick_get() - g_wdg_context.last_fresh_in_tick) >= g_wdg_context.threshold_in_tick))
     {
@@ -247,7 +220,6 @@ void rt_hw_wdg_tick_proc()
 #ifdef BEKEN_USING_WLAN
 static int auto_func_init(void)
 {
-    func_init_basic();
     func_init_extended();  
     return 0;
 }
@@ -260,4 +232,4 @@ static int auto_enable_alignfault(void)
     cp15_enable_alignfault();
     return 0;
 }
-INIT_BOARD_EXPORT(auto_enable_alignfault);
+//INIT_BOARD_EXPORT(auto_enable_alignfault);

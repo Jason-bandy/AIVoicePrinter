@@ -1,6 +1,5 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "pwm.h"
 #include "pwm_pub.h"
 #include "bk_timer_pub.h"
@@ -12,6 +11,12 @@
 #include "wlan_ui_pub.h"
 #include "intc_pub.h"
 #include "co_math.h"
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include "../icu/icu_bk7271.h"
+#else
+#include "icu.h"
+#endif
 
 void ps_pwm_enable(void)
 {
@@ -96,7 +101,7 @@ void ps_pwm_resume_tick(void)
 
 UINT32 ps_pwm_int_status(void )
 {
-    return ((REG_READ(ICU_INT_STATUS) & (CO_BIT(IRQ_PWM)))&& (REG_READ(PWM_INTERRUPT_STATUS) & 0x1));
+    return ((REG_READ(ICU_INT_STATUS) & (CO_BIT(IRQ_PWM))) && (REG_READ(PWM_INTERRUPT_STATUS) & 0x1));
 }
 
 #if (CFG_SOC_NAME != SOC_BK7231)
@@ -118,7 +123,7 @@ void ps_timer02_restore(void)
 
 UINT32 ps_timer2_get(void)
 {
-    UINT32 reg;
+    UINT32 reg = 0;
 
 #if (CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)
     reg = REG_READ(TIMER0_2_READ_CTL);
@@ -133,10 +138,10 @@ UINT32 ps_timer2_get(void)
     delay(2);
 
     while(REG_READ(TIMER0_2_READ_CTL) & TIMER0_2_READ_OP_BIT);
-    reg = REG_READ(TIMER0_2_READ_VALUE);
-    return (reg/26000);
+    reg = REG_READ(TIMER0_2_READ_VALUE);    
 #endif
 
+    return (reg/26000);
 }
 
 

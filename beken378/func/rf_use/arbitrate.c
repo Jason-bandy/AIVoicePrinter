@@ -10,6 +10,8 @@
 #include "rw_pub.h"
 #include "arm_arch.h"
 #include "mem_pub.h"
+#include "drv_model_pub.h"
+#include "bk7011_cal_pub.h"
 
 beken_queue_t rf_msg_que = NULL;
 beken_thread_t rf_arbitrate_handle = NULL;
@@ -71,18 +73,20 @@ static void rf_switch_to_wifi(void)
 {
     sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_CLR, NULL);
 
+#if (CFG_SOC_NAME != SOC_BK7271)
     rwnx_cal_ble_recover_rfconfig();
-
     rwnx_cal_recover_txpwr_for_wifi();
+#endif
 }
 
 static void rf_switch_to_ble(void)
 {
     sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_SET, NULL);
-
+    
+#if (CFG_SOC_NAME != SOC_BK7271)
     rwnx_cal_ble_set_rfconfig();
-
     rwnx_cal_set_txpwr_for_ble_boardcast();
+#endif
 }
 
 void rf_thread_init(void)

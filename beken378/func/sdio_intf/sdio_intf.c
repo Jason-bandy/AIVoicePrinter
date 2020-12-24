@@ -439,7 +439,7 @@ UINT32 resp_conversion_connect_ind(struct ke_msg *msg, STM32_FRAME_HDR **frm_ppt
     UINT32 len;
     STM32_FRAME_HDR *frm;
     ASSOC_RESP_PTR assoc_rsp_ptr;
-    struct sm_connect_indication *conn_ind_ptr;
+    struct sm_connect_ind *conn_ind_ptr;
 #if CFG_REAL_SDIO
     len = sizeof(STM32_FRAME_HDR) + sizeof(STM32_CMD_HDR_S) + msg->param_len;
 #else
@@ -452,7 +452,7 @@ UINT32 resp_conversion_connect_ind(struct ke_msg *msg, STM32_FRAME_HDR **frm_ppt
     frm->type = MVMS_CMD;
     *frm_pptr = frm;
 
-    conn_ind_ptr = (struct sm_connect_indication *)msg->param;
+    conn_ind_ptr = (struct sm_connect_ind *)msg->param;
     SDIO_INTF_PRT("connect_ind:%x\r\n", conn_ind_ptr->status_code);
 
     assoc_rsp_ptr = (ASSOC_RESP_PTR)((UINT32)frm + sizeof(STM32_FRAME_HDR));
@@ -794,7 +794,7 @@ void cmd_conversion_add_wep_key(STM32_FRAME_HDR *frm_ptr, struct ke_msg **kmsg_p
     *kmsg_pptr = kmsg_dst;
     add_wep_key_ptr = (struct mm_key_add_req *)kmsg_dst->param;
 
-    add_wep_key_ptr->cipher_suite = MAC_RSNIE_CIPHER_WEP40;
+    add_wep_key_ptr->cipher_suite = MAC_RSNIE_CIPHER_WEP_40;
     add_wep_key_ptr->sta_idx = 0xff;
     add_wep_key_ptr->inst_nbr = 0;
 

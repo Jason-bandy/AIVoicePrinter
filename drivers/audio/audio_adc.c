@@ -7,6 +7,7 @@
 #include "sys_ctrl_pub.h"
 #include "mem_pub.h"
 #include "gpio_pub.h"
+#include "mailbox_pub.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -36,6 +37,12 @@ typedef struct aud_adc_desc
 
 void audio_adc_set_enable_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    rt_kprintf("%s %d\n", __FUNCTION__, enable);
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, enable, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUDIO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -46,10 +53,16 @@ void audio_adc_set_enable_bit(UINT32 enable)
     else
         reg_val &= ~(ADC_ENABLE | LINEIN_ENABLE);
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_adc_set_int_enable_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_INT_ENABLE, enable, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_FIFO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -58,8 +71,10 @@ void audio_adc_set_int_enable_bit(UINT32 enable)
     else
         reg_val &= ~ADC_INT_EN;
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
+#if (CFG_SOC_NAME != SOC_BK7271)
 void audio_adc_get_l_sample(INT16 *left)
 {
     UINT32 reg_addr = AUD_ADC_FIFO_PORT;
@@ -78,9 +93,15 @@ void audio_adc_get_l_and_r_samples(INT16 *left, INT16 *right)
     *left = (INT16)(reg_val & AD_ADC_L_FIFO_MASK);
     *right = (INT16)((reg_val >> AD_ADC_R_FIFO_POSI) & AD_ADC_R_FIFO_MASK);
 }
+#endif
 
 void audio_adc_set_hpf2_bypass_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_HPF2_BYPASS_SET, enable, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_ADC_CONFIG_0;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -89,10 +110,16 @@ void audio_adc_set_hpf2_bypass_bit(UINT32 enable)
     else
         reg_val &= ~ADC_HPF2_BYPASS;
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_adc_set_gain(UINT32 gain)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_GAIN_SET, gain, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_ADC_CONFIG_0;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -103,10 +130,16 @@ void audio_adc_set_gain(UINT32 gain)
     reg_val |= ((gain & ADC_SET_GAIN_MASK)  << ADC_SET_GAIN_POSI);
 
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_adc_set_write_thred_bit(UINT32 thred)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_WRITE_THRED_SET, thred, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_FIFO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -119,10 +152,16 @@ void audio_adc_set_write_thred_bit(UINT32 thred)
     reg_val |= ((thred & DTMF_WR_THRED_MASK) << DTMF_WR_THRED_POSI);
 
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_adc_set_sample_rate(UINT32 sample_rate)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_SAMPLE_RATE_SET, sample_rate, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg;
 
     /* disable adc handset bit again, to make sure this bit unset */
@@ -224,11 +263,14 @@ void audio_adc_set_sample_rate(UINT32 sample_rate)
         AUD_PRT("unsupported sample rate:%d\r\n", sample_rate);
         break;
     }
+#endif
 }
 
 #if CFG_GENERAL_DMA
 void audio_adc_set_dma(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+#else
     GDMA_CFG_ST en_cfg;
 
     en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
@@ -237,26 +279,39 @@ void audio_adc_set_dma(UINT32 enable)
     else
         en_cfg.param = 0;
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
+#endif
 }
 
 static void audio_adc_eixt_dma(void)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
     GDMA_CFG_ST en_cfg;
 
     en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
     en_cfg.param = 0;
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
+#endif
 }
 #endif // CFG_GENERAL_DMA
 
 void audio_adc_open_analog_regs(void)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_ADC_MIC_ANALOG, NULL);
+#endif
 }
 
 void audio_adc_close_analog_regs(void)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_CLOSE_ADC_MIC_ANALOG, NULL);
+#endif
 }
 
 void audio_adc_enable_linein(void)
@@ -286,6 +341,11 @@ static void audio_adc_linein_detect(void)
 
 void audio_adc_set_volume(UINT32 volume)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_VOLUME_SET, volume, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 act_vol;
     UINT8 high, low;
     UINT32 reg_addr = AUD_AGC_CONFIG_2;
@@ -308,6 +368,7 @@ void audio_adc_set_volume(UINT32 volume)
     REG_WRITE(reg_addr, reg_val);
 
     AUD_PRT("set adc vol: %d - %d\r\n", volume, act_vol);
+#endif
 }
 
 #endif // CFG_USE_AUD_ADC

@@ -40,6 +40,7 @@
 #include "ieee802_11_defs.h"
 #include "wlan_ui_pub.h"
 #include "net_param_pub.h"
+#include "role_launch.h"
 
 #define DRV_WLAN_DEBUG   1
 #if DRV_WLAN_DEBUG
@@ -417,7 +418,7 @@ int wlan_scan_done_handler(struct rt_wlan_scan_result **scan_result)
         return -RT_ERROR;
     }
 
-    bk_wlan_get_scan_ap_result(scan_rst_table, scan_rst_ap_num);
+    scan_rst_ap_num = bk_wlan_get_scan_ap_result(scan_rst_table, scan_rst_ap_num);
 
     if (rt_wlan_malloc_scan_result(scan_result, scan_rst_ap_num) != RT_EOK)
     {
@@ -618,17 +619,31 @@ static int _wifi_disconnect(rt_device_t dev)
 {
     struct rt_wlan_device *wlan = RT_NULL;
     rt_wlan_mode_t mode;
+#if CFG_ROLE_LAUNCH
+    LAUNCH_REQ param;
+#endif
 
     wlan = RT_WLAN_DEVICE(dev);
     mode = wlan->info->mode;
 
     if (mode == WIFI_STATION)
     {
+#if CFG_ROLE_LAUNCH
+        param.req_type = LAUNCH_REQ_DELIF_STA;
+        rl_sta_request_enter(&param, 0);
+#else
         bk_wlan_stop(BK_STATION);
+#endif
     }
     else if (mode == WIFI_AP)
     {
-        bk_wlan_stop(BK_SOFT_AP);
+#if CFG_ROLE_LAUNCH
+		param.req_type = LAUNCH_REQ_DELIF_AP;
+
+		rl_ap_request_enter(&param, 0);
+#else 
+		bk_wlan_stop(BK_SOFT_AP);
+#endif
     }
 
     return RT_EOK;
@@ -918,7 +933,12 @@ static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
         }
         wlan_scan_done_handler((struct rt_wlan_scan_result **)args);
         rt_wlan_indicate_event_handle(wlan, WIFI_EVT_SCAN_DONE, args);
-        mhdr_set_station_status(RW_EVT_STA_IDLE);
+        #if CFG_ROLE_LAUNCH
+        if(mhdr_get_station_status() == RW_EVT_STA_GOT_IP)
+        {
+            rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
+        }
+        #endif
         break;
     }
 

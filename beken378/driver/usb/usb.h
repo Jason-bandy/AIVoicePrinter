@@ -22,9 +22,18 @@
 typedef volatile unsigned char *VUINT8_PTR;
 typedef volatile unsigned long *VUINT32_PTR;
 
-#define USB_BASE_ADDR           (0x00804000)
-#define REG_USB_BASE_ADDR       USB_BASE_ADDR
+#if (SOC_BK7271 == CFG_SOC_NAME)
 
+#if (CFG_USE_USB_PORT == USE_USB1_PORT)
+#define USB_BASE_ADDR           (0x00804000)
+#else
+#define USB_BASE_ADDR           (0x00804800)
+#endif
+
+#else
+#define USB_BASE_ADDR           (0x00804000)
+#endif
+#define REG_USB_BASE_ADDR       USB_BASE_ADDR
 
 #define VREG_USB_FADDR          (*((VUINT8_PTR) (USB_BASE_ADDR + 0x00)))
 #define VREG_USB_POWER          (*((VUINT8_PTR) (USB_BASE_ADDR + 0x01)))
@@ -113,8 +122,13 @@ typedef volatile unsigned long *VUINT32_PTR;
 *******************************************************************************/
 extern UINT32 usb_open (UINT32 op_flag);
 extern UINT32 usb_close (void);
+#if (SOC_BK7271 == CFG_SOC_NAME)
+extern UINT32 usb_read (UINT32 pos, const void *buffer, UINT32 size);
+extern UINT32 usb_write (UINT32 pos, const void *buffer, UINT32 size);
+#else
 extern UINT32 usb_read (char *user_buf, UINT32 count, UINT32 op_flag);
 extern UINT32 usb_write (char *user_buf, UINT32 count, UINT32 op_flag);
+#endif
 extern UINT32 usb_ctrl(UINT32 cmd, void *param);
 extern void usb_event_post(void);
 extern void usb_isr(void);

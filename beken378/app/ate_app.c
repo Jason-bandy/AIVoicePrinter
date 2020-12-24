@@ -6,6 +6,7 @@
 #if (CFG_OS_FREERTOS)
 #include "app.h"
 #include "wlan_cli_pub.h"
+#include "sys_ctrl_pub.h"
 #endif
 
 char ate_mode_state = 0;
@@ -79,6 +80,8 @@ void ate_start(void)
     app_pre_start();
 
     cli_init();
+
+    sctrl_rf_ps_enable_clear();
 
     ATE_PRT("ate_start\r\n");
 

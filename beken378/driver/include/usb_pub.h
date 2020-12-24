@@ -111,7 +111,7 @@ extern uint32_t MUSB_HfiWrite( uint32_t first_block, uint32_t block_num, uint8_t
 extern void MGC_RegisterCBTransferComplete(FUNCPTR func);
 extern uint8_t MUSB_GetConnect_Flag(void);
 
-#if (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 #define USB_PLUG_FAILURE                (1)
 #define USB_PLUG_SUCCESS                (0)
 

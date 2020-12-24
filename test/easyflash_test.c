@@ -1,9 +1,6 @@
-
-
 #include "rtthread.h"
 #include <dfs.h>
 #include <dfs_fs.h>
-#include "player.h"
 #include "include.h"
 #include "driver_pub.h"
 #include "func_pub.h"
@@ -16,7 +13,6 @@
 #include "test_config.h"
 
 #ifdef EASY_FLASH_TEST
-
 static void easy_flash_set(char *key, char *value)
 {
 	EfErrCode result = EF_NO_ERR;

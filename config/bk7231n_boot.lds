@@ -104,6 +104,7 @@ SECTIONS
         *(.text.flash_ctrl)
         *queue.o(.text .text.*)
         *power_save.o(.text .text.*)
+        *(.text.sctrl_fix_dpll_div)
         *mcu_ps.o(.text .text.*)
         *rwip_driver.o(.text .text.*)
     } > itcm AT>flash

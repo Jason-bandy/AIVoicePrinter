@@ -72,7 +72,7 @@ void rs_init(UINT32 channel, UINT32 mode)
 	//UINT8 vif_idx;
 	//UINT8 vif_type = 2;
 	struct phy_cfg_tag cfg;
-	
+
 	/*reset mm*/
 	RS_PRT("[RS]reset_mm\r\n");
 	hal_machw_stop();
@@ -80,21 +80,25 @@ void rs_init(UINT32 channel, UINT32 mode)
 	me_init();
 	mm_init();
 	ke_state_set(TASK_MM, MM_IDLE);
-	
+
 	/*config me*/
 	RS_PRT("[RS]config_me\r\n");
-	
+
 	/*config me channel*/
 	RS_PRT("[RS]config_me_channel\r\n");
-	
+
 	/*start mm*/
 	RS_PRT("[RS]start_mm\r\n");
 	cfg.parameters[0] = 1;
 	cfg.parameters[1] = 0;
-    phy_init(&cfg);
-	
-    phy_set_channel(PHY_BAND_2G4, mode, channel, channel, 0, PHY_PRIM);
-	
+	phy_init(&cfg);
+
+#if CFG_IEEE80211AX
+	//TOOD
+#else
+	phy_set_channel(PHY_BAND_2G4, mode, channel, channel, 0, PHY_PRIM);
+#endif
+
 	/*add mm interface*/
 	//RS_PRT("[RS]add_mm_interface\r\n");
 	//vif_mgmt_register(&rs_mac_addr, vif_type, p2p, &vif_idx);

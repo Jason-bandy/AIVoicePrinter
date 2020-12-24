@@ -278,6 +278,8 @@ struct vif_info_tag;
 /// LMAC MAC Management Context
 struct mm_env_tag
 {
+    /// RX filtering requested by customer application
+    uint32_t rx_filter_app;
     /// RX filtering requested by the Upper MAC
     uint32_t rx_filter_umac;
     /// RX filtering forced to be enabled by the Lower MAC
@@ -329,7 +331,8 @@ extern struct mm_env_tag mm_env;
 __INLINE void mm_rx_filter_set(void)
 {
     // Configure the filtering of the HW
-    nxmac_rx_cntrl_set(mm_env.rx_filter_umac | mm_env.rx_filter_lmac_enable);
+    nxmac_rx_cntrl_set(mm_env.rx_filter_app | mm_env.rx_filter_umac
+                       | mm_env.rx_filter_lmac_enable);
 }
 /**
  ****************************************************************************************
@@ -350,6 +353,8 @@ __INLINE uint32_t mm_rx_filter_umac_get(void)
 {
     return mm_env.rx_filter_umac;
 }
+
+uint32_t mm_rx_filter_app_set(uint32_t filter);
 
 /**
  ****************************************************************************************

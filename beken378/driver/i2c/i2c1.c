@@ -1,16 +1,14 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "i2c1.h"
 #include "i2c_pub.h"
-
 #include "intc_pub.h"
 #include "icu_pub.h"
 #include "gpio_pub.h"
-
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 
+#if (CFG_SOC_NAME != SOC_BK7271)
 typedef struct i2c1_msg {
 	UINT8 TxMode;		//0: Read;  1: Write
 	UINT16 RegAddr;
@@ -239,8 +237,8 @@ static void i2c1_isr(void)
 				if(gi2c1.AddrWidth == ADDR_WIDTH_8)
 				{
 	                REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr&0xFF));
-                gi2c1.AddrFlag |= 0x13;
-            }
+                	gi2c1.AddrFlag |= 0x13;
+            	}
 				else if(gi2c1.AddrWidth == ADDR_WIDTH_16)
 				{
 	                REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr>>8));
@@ -362,7 +360,6 @@ void i2c1_exit(void)
 
 static UINT32 i2c1_open(UINT32 op_flag)
 {
-   // UINT32 reg;
     os_printf("i2c1_open\r\n");
     if(op_flag) {
         i2c1_set_freq_div(op_flag);
@@ -373,8 +370,6 @@ static UINT32 i2c1_open(UINT32 op_flag)
     i2c1_enable_interrupt();
     i2c1_power_up();
     i2c1_gpio_config();
-
-    //i2c1_set_ensmb(1);
 
     return I2C1_SUCCESS;
 }
@@ -534,4 +529,4 @@ static UINT32 i2c1_ctrl(UINT32 cmd, void *param)
     
     return ret;
 }
-
+#endif

@@ -23,7 +23,7 @@
 #include "ap/ap_drv_ops.h"
 #include "common/eapol_common.h"
 #include "signal.h"
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "wpa_ctrl.h"
 #endif
 
@@ -41,7 +41,7 @@ char *bss_iface = "wlan0";
 
 extern int ap_channel_switch(struct hostapd_iface *ap_iface, int new_freq);
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 struct hapd_interfaces *hostapd_ctrl_get_interfaces()
 {
 	return &g_hapd_interfaces;
@@ -152,7 +152,7 @@ struct hostapd_config *hostapd_config_read(const char *fname)
 	return conf;
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 static int hostapd_config_parse_key_mgmt(int line, const char *value)
 {
 	int val = 0, last;
@@ -601,7 +601,7 @@ int hostapd_set_iface(struct hostapd_config *conf,
 
 	return 0;
 }
-#endif /* CFG_NEW_SUPP */
+#endif /* CFG_WPA_CTRL_IFACE */
 
 /**
  * hostapd_driver_init - Preparate driver interface
@@ -1072,14 +1072,14 @@ static void hostapd_thread_main( void *arg )
 
 int hostapd_channel_switch(int new_freq)
 {
-#if CFG_NEW_SUPP
-	return wpa_ctrl_request_async(WPA_CTRL_CMD_AP_CHAN_SWITCH, &new_freq);
+#if CFG_WPA_CTRL_IFACE
+	return wpa_ctrl_request_async(WPA_CTRL_CMD_AP_CHAN_SWITCH, (void *)new_freq);
 #else
     return ap_channel_switch(g_hapd_interfaces.iface[0], new_freq);
 #endif
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 int wpa_hostapd_queue_command(wpah_msg_t *msg)
 {
 	int ret = -1;
@@ -1104,7 +1104,7 @@ uint32_t wpa_hostapd_queue_poll(uint32_t param)
 	if (NULL == wpah_queue)
 		goto poll_exit;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	msg.cmd = WPA_CTRL_CMD_SOCKET;;
 #endif
 	msg.argu = (u32)param;

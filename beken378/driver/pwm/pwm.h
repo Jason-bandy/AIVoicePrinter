@@ -17,6 +17,8 @@
 
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define PWM_BASE                                     (PWM_NEW_BASE)
+#elif (CFG_SOC_NAME == SOC_BK7271)
+#define PWM_BASE                                     (0x00802800)
 #else
 #define PWM_BASE                                     (PWM_NEW_BASE + 0x20 * 4 )
 #endif
@@ -228,9 +230,8 @@
 #define PWM5_CAP_OUT_MASK                            (0xFFFFFFFF)
 
 #define REG_APB_BK_PWMn_END_ADDR(n)         (PWM_BASE + 0x08 + 3 * 0x04 * (n))
-#define REG_APB_BK_PWMn_DC_ADDR(n)         (PWM_BASE + 0x0C + 3 * 0x04 * (n))
+#define REG_APB_BK_PWMn_DC_ADDR(n)          (PWM_BASE + 0x0C + 3 * 0x04 * (n))
 #define REG_APB_BK_PWMn_CAP_ADDR(n)         (PWM_BASE + 0x10 + 3 * 0x04 * (n))
-
 #endif
 
 #define CHANNEL_NO                                  6

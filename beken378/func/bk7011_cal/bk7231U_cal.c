@@ -1207,7 +1207,6 @@ void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g)
         }
         else
         {
-
         }
     }
 }  
@@ -1219,10 +1218,12 @@ void rwnx_cal_set_reg_mod_pa(UINT16 reg_mod, UINT16 reg_pa)
 
     gtx_dcorMod = (INT32)reg_mod,
     gtx_dcorPA = (INT32)reg_pa;
+    
     BK7011TRXONLY.REG0xB->bits.dcorMod30 = gtx_dcorMod;
     BK7011TRXONLY.REG0xC->bits.dcorPA30 = gtx_dcorPA;    
     bk7011_trx_val[11] = BK7011TRXONLY.REG0xB->value;
     bk7011_trx_val[12] = BK7011TRXONLY.REG0xC->value; 
+    
     power_save_check_clr_rf_prevent_flag();
 }
 
@@ -1329,7 +1330,6 @@ void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble)
 
 void rwnx_cal_set_txpwr_for_ble_boardcast(void)
 {
-    //rwnx_cal_set_txpwr_ble(12);
     rwnx_cal_set_txpwr_by_channel(19); // channel 2440
 }
 

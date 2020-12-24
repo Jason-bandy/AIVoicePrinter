@@ -8,6 +8,14 @@
 #include "wlan_ui_pub.h"
 #include "ate_app.h"
 #include "_reg_rc.h"
+#include "sys_ctrl.h"
+
+#if CFG_SUPPORT_BKREG
+#include "bk7011_cal_pub.h"
+#endif
+
+#include "drv_model_pub.h"
+#include "sys_ctrl_pub.h"
 
 #if CFG_UART_DEBUG
 /* find command table entry for a command */
@@ -417,8 +425,7 @@ int run_command(const char *cmd, int flag)
 }
 
 #if CFG_SUPPORT_BKREG
-#include "bk7011_cal_pub.h"
-int bkreg_run_command(const char *content, int cnt)
+static int bkreg_run_command_implement(const char *content, int cnt)
 {
     char tx_buf[BKREG_TX_FIFO_THRD];
     UINT32 uart_rx_index;
@@ -434,6 +441,14 @@ int bkreg_run_command(const char *content, int cnt)
     {
     case BEKEN_UART_REGISTER_WRITE_CMD:
         rx_param        = (REGISTER_PARAM *)pHCIrxBuf->param;
+#if (SOC_BK7271 == CFG_SOC_NAME)
+        if(rx_param->addr >= SCTRL_ANALOG_CTRL0 
+		&& rx_param->addr <= SCTRL_ANALOG_CTRL10)
+        {
+			sctrl_analog_set(rx_param->addr, rx_param->value);
+        } 
+		else
+#endif
         REG_WRITE(rx_param->addr, rx_param->value);
 
         pHCItxBuf->total = uart_rx_index - 1;
@@ -463,7 +478,15 @@ int bkreg_run_command(const char *content, int cnt)
         tx_param = (REGISTER_PARAM *)&pHCItxBuf->param[HCI_COMMAND_HEAD_LENGTH];
         tx_param->addr  = rx_param->addr;
 
-        if(rx_param->addr == 0x00800014) {
+#if (SOC_BK7271 == CFG_SOC_NAME)
+        if(rx_param->addr >= SCTRL_ANALOG_CTRL0 
+		&& rx_param->addr <= SCTRL_ANALOG_CTRL10)
+        {
+		tx_param->value = sctrl_analog_get(rx_param->addr);
+        } 
+	else
+#endif
+        if(rx_param->addr == SCTRL_REG_RESV5) {
             #if ATE_APP_FUN
             if(get_ate_mode_state())
                 tx_param->value = 0x1B190104;   // testmode flag[31:28] | bk7231U:B [27:24] | date
@@ -607,9 +630,6 @@ int bkreg_run_command(const char *content, int cnt)
 
     case BEKEN_SHOW_BT_STATUS:
     {
-        //extern void adc_detect_configuration(UINT32 channel);
-
-        //adc_detect_configuration((UINT32)pHCIrxBuf->param[0]);
         #if ((CFG_USE_AUD_DAC) && (CFG_SOC_NAME == SOC_BK7221U))
         extern void audio_intf_dac_set_volume(void);
         audio_intf_dac_set_volume();
@@ -647,6 +667,19 @@ int bkreg_run_command(const char *content, int cnt)
     bkreg_tx(pHCItxBuf);
 
     return 0;
+}
+
+int bkreg_run_command(const char *content, int cnt)
+{
+    UINT32 param;
+
+    param = RF_HOLD_BY_BKREG_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &param);
+
+    bkreg_run_command_implement(content, cnt);
+
+    param = RF_HOLD_BY_BKREG_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &param);
 }
 #endif // CFG_SUPPORT_BKREG
 #endif // CFG_UART_DEBUG

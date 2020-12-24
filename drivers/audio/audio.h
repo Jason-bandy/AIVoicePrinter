@@ -1,6 +1,9 @@
 #ifndef _BK_AUDIO_H_
 #define _BK_AUDIO_H_
 
+#include "include.h"
+
+#if (CFG_SOC_NAME == SOC_BK7221U)
 #define AUDIO_BASE                                   (0x00802B00)
 
 #define AUDIO_CONFIG                                 (AUDIO_BASE + 0x0 * 4)
@@ -279,6 +282,7 @@
 #define AUD_FLT_2_EXT_COEF                           (AUDIO_BASE + 0x2E * 4)
 
 #define AUD_FLT_3_EXT_COEF                           (AUDIO_BASE + 0x2F * 4)
+#endif
 
 #define CONST_DIV_441K               (0x049B2368)
 #define CONST_DIV_48K                (0x043B5554)
@@ -291,7 +295,6 @@ extern void audio_enable_interrupt(void);
 extern void audio_disable_interrupt(void);
 extern void audio_dac_software_init(void);
 extern void audio_dac_isr(void);
-
 extern void audio_adc_enable_linein(void);
 extern void audio_adc_disable_linein(void);
 extern void audio_adc_software_init(void);

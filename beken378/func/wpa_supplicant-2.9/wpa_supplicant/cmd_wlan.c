@@ -121,15 +121,18 @@
 //#include "wlan.h"
 #include "sys_config.h"
 #include "common.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "uart_pub.h"
 #include "wlan_ui_pub.h"
 #include "param_config.h"
 #include "ieee802_11_demo.h"
 #include "net.h"
+#include "dragonfly.h"
+#include "defs.h"
+
 #define CMD_WLAN_MAX_BSS_CNT	50
 
-#if (CFG_WFA_CERT || CFG_NEW_SUPP)
+#if (CFG_WFA_CERT || CFG_WPA_CTRL_IFACE)
 /* parse all argument vectors from a command string, return argument count */
 static int cmd_parse_argv(char *cmd, char *argv[], int size)
 {
@@ -540,11 +543,11 @@ static int cmd_wlan_sta_set(char *cmd)
 	} else if (os_strcmp(cmd, "sae_groups") == 0) {
 		int groups[16] = {0};
 		int num;
-		if ((num = cmd_parse_array_int(value, &groups, ARRAY_SIZE(groups))) > 0) {
+		if ((num = cmd_parse_array_int(value, groups, ARRAY_SIZE(groups))) > 0) {
 			int i;
 			int valid = 1;
 			for (i = 0; i < num; i++) {
-				if (sae_suitable_group(groups[i]) == 0) {
+				if (dragonfly_suitable_group(groups[i], 0) == 0) {
 					os_printf("Invalid sae group %d\n", groups[i]);
 					valid = 0;
 				}
@@ -740,7 +743,7 @@ int cmd_wlan_sta_exec(char *cmd)
 		ret = wlan_sta_bss_flush(age);
 	} else if (os_strcmp(cmd, "connect") == 0) {
 
-		ret = wlan_sta_connect();
+		ret = wlan_sta_connect(0);
 		ip_address_set(BK_STATION, DHCP_CLIENT, NULL, NULL, NULL, NULL);
 
 	} else if (os_strcmp(cmd, "disconnect") == 0) {

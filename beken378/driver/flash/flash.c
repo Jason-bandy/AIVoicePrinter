@@ -9,6 +9,7 @@
 #include "uart_pub.h"
 #include "sys_ctrl_pub.h"
 #include "mcu_ps_pub.h"
+#include "mem_pub.h"
 
 static const flash_config_t flash_config[] =
 {
@@ -687,8 +688,7 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
         break;
 
     case CMD_FLASH_SET_DPLL:
-        ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_FLASH_DPLL, 0);
-        ASSERT(DRV_FAILURE != ret);
+        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_FLASH_DPLL, 0);
 
         reg = REG_READ(REG_FLASH_CONF);
         reg &= ~(FLASH_CLK_CONF_MASK << FLASH_CLK_CONF_POSI);
@@ -697,9 +697,8 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
         break;
 
     case CMD_FLASH_SET_DCO:
-        ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_FLASH_DCO, 0);
-        ASSERT(DRV_FAILURE != ret);
-        
+        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_FLASH_DCO, 0);
+
         reg = REG_READ(REG_FLASH_CONF);
         reg &= ~(FLASH_CLK_CONF_MASK << FLASH_CLK_CONF_POSI);
         reg = reg | (9 << FLASH_CLK_CONF_POSI);

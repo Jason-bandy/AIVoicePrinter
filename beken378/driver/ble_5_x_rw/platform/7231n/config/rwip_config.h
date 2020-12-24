@@ -62,7 +62,7 @@
 // 		<3=> CENTRAL
 // 		<4=> ALLROLES
 //    <i> Select Role
-#define CFG_ROLE 2
+#define CFG_ROLE 4
 
 #if ( CFG_ROLE == 0)
   #define CFG_BROADCASTER
@@ -143,7 +143,7 @@
 //   <e> CFG_HCITL
 //   	<i> enable Host Controller Interface Support
 //   </e>
-#if ( 0 )
+#if ( 1 )
   #define CFG_HCITL
 #endif
 
@@ -182,7 +182,7 @@
 //   <e> CFG_SLEEP
 //   <i> enable DEEP_SLEEP
 //   </e>
-#if ( 0 )
+#if ( 1 )
   #define CFG_SLEEP
 #endif
 
@@ -555,18 +555,18 @@
 #define HZ32000                                     (GAIA_SUPPORT)
 
 /// Time to wake-up Radio Module (in us)
-#define SLEEP_RM_WAKEUP_DELAY                       2000 //625
+#define SLEEP_RM_WAKEUP_DELAY                       625
 /// Time for stabilization of the high frequency oscillator following a sleep-timer expiry (in us)
-#define SLEEP_OSC_NORMAL_WAKEUP_DELAY               2000//5000
+#define SLEEP_OSC_NORMAL_WAKEUP_DELAY               5000
 /// Time for stabilization of the high frequency oscillator following an external wake-up request (in us)
-#define SLEEP_OSC_EXT_WAKEUP_DELAY                  2000//5000
+#define SLEEP_OSC_EXT_WAKEUP_DELAY                  5000
 
 /******************************************************************************************/
 /* --------------------------   BASEBAND SETUP       -------------------------------------*/
 /******************************************************************************************/
 
 /// Default programming delay, margin for programming the baseband in advance of each activity (in half-slots)
-#define IP_PROG_DELAY_DFT  (3)
+#define IP_PROG_DELAY_DFT  (6)
 
 /**
  * Prefetch time (in us)

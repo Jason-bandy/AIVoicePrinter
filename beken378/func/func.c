@@ -6,6 +6,8 @@
 #include "lwip_intf.h"
 #include "param_config.h"
 #include "saradc_pub.h"
+#include "sys_ctrl_pub.h"
+#include "drv_model_pub.h"
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
@@ -38,20 +40,28 @@
 #include "bk_ef.h"
 #endif
 
+#if (!CFG_SUPPORT_RTT)
+#include "BkDriverFlash.h"
+#endif
+
 extern void rwnx_cal_initial_calibration(void);
 
 UINT32 func_init_extended(void)
 {
     char temp_mac[6];
-    
+
 	cfg_param_init();
     // load mac, init mac first
     wifi_get_mac_address(temp_mac, CONFIG_ROLE_NULL);
-	
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    manual_cal_load_bandgap_calm();
+#endif
+
     FUNC_PRT("[FUNC]rwnxl_init\r\n");
     rwnxl_init();
 
-#if CFG_UART_DEBUG 
+#if CFG_UART_DEBUG
 	#ifndef KEIL_SIMULATOR
     FUNC_PRT("[FUNC]uart_debug_init\r\n");   
     uart_debug_init();
@@ -130,13 +140,17 @@ UINT32 func_init_extended(void)
 	#endif
 #endif
 
-#ifdef BEKEN_START_WDT
+#if (CFG_SOC_NAME == SOC_BK7271)
 	bk_wdg_initialize(10000);
     bk_wdg_reload();
+    bk_wdg_finalize();
+    FUNC_PRT("[FUNC]disable watchdog of bk7271\r\n");
 #endif
 
     FUNC_PRT("[FUNC]func_init_extended OVER!!!\r\n\r\n");
     os_printf("start_type:%d\r\n",bk_misc_get_start_type());
+    UINT32 reg = 0;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
     return 0;
 }
 

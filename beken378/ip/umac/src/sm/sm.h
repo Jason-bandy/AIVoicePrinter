@@ -128,7 +128,7 @@ struct sm_env_tag
     /// GP DMA descriptors
     //struct hal_dma_desc_tag dma_desc;
 
-#ifdef CONFIG_SME
+#if NX_HOST_SME
 	/// the task id of SM_AUTH_REQ request
 	ke_task_id_t src_id;
 
@@ -140,7 +140,7 @@ struct sm_env_tag
     /// Pointer to the scanning parameters
     struct sm_connect_req *connect_param;
     /// Pointer to the structure used for the connect indication upload
-    struct sm_connect_indication *connect_ind;
+    struct sm_connect_ind *connect_ind;
 #endif
     /// List of BSS configuration messages to send
     struct co_list bss_config;
@@ -230,10 +230,12 @@ void sm_join_bss(struct mac_addr const *bssid,
 void sm_scan_bss(struct mac_addr const *bssid,
                  struct scan_chan_tag const *chan);
 void sm_connect_ind(uint16_t status);
+void sm_assoc_ind(uint16_t status);
 
 void sm_auth_handler(struct rxu_mgt_ind const *param);
 void sm_assoc_rsp_handler(struct rxu_mgt_ind const *param);
 int sm_deauth_handler(struct rxu_mgt_ind const *param);
+void sm_delete_resources(struct vif_info_tag *vif);
 
 /**
  ****************************************************************************************
@@ -378,6 +380,10 @@ void sm_build_broadcast_deauthenticate(void);
 void sm_auth_fail(uint16_t status);
 void sm_set_me_active(bool active);
 int sm_disassoc_handler(struct rxu_mgt_ind const *param);
+void sm_external_auth_start(uint32_t akm);
+void sm_external_auth_end(uint16_t status);
+bool sm_external_auth_in_progress(void);
+int sm_get_rsnie_pmkid_count(uint32_t ies, uint16_t ies_len);
 
 #if NX_ROAMING
 /**

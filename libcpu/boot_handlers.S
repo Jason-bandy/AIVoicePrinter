@@ -61,8 +61,6 @@
 /* ========================================================================
                     restore macro definitions
  * ======================================================================== */
-
-
     .macro PUSH_ALL_ARM_REG
         BOOT_CHANGE_MODE  BOOT_MODE_SYS BOOT_MODE_MASK
         LDR R1, =0x400044           // get backup top.
@@ -222,6 +220,7 @@ boot_reset:
 
     BOOT_CHANGE_MODE BOOT_MODE_UND BOOT_MODE_MASK
     BOOT_SET_STACK   boot_stack_base_UNUSED boot_stack_len_UNUSED BOOT_COLOR_UNUSED
+
 #if (CFG_SOC_NAME == SOC_BK7231N)
     B AFTER_FLAG
 
@@ -230,7 +229,16 @@ boot_reset:
 	.word 0x00003133
 
 AFTER_FLAG:
+#elif (CFG_SOC_NAME == SOC_BK7271)
+    B AFTER_FLAG
+
+	.org  0xc0 //0x100 - sizeof(section.vector) = 0x100 - 0x40
+	.word 0x32374B42
+	.word 0x00003137
+
+AFTER_FLAG:
 #endif
+
     BOOT_CHANGE_MODE BOOT_MODE_IRQ BOOT_MODE_MASK
     BOOT_SET_STACK   boot_stack_base_IRQ boot_stack_len_IRQ BOOT_COLOR_IRQ
 
@@ -250,7 +258,7 @@ AFTER_FLAG:
     //Stay in Supervisor Mode
     //copy data from binary to ram
     BL _sysboot_copy_data_to_ram
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7271))
     BL _sysboot_copy_code_to_itcm
 #endif
 
@@ -307,8 +315,8 @@ _sysboot_zi_init:
     STRLO R2, [R4], #4
     BLO 5b
     BX LR
-
-#if (CFG_SOC_NAME == SOC_BK7231N)
+    
+#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7271))
 /*FUNCTION:     _sysboot_copy_code_to_itcm*/
 /*DESCRIPTION:  copy itcm code from FLASH/ROM to SRAM*/
 _sysboot_copy_code_to_itcm:
@@ -321,7 +329,9 @@ _sysboot_copy_code_to_itcm:
     STRLO   R4, [R1], #4
     BLO     6b
     BX LR
-
+#endif
+    
+#if (CFG_SOC_NAME == SOC_BK7231N)
 /*FUNCTION:     _sysboot_sdbss_init*/
 /*DESCRIPTION:  Initialise Zero-Init Data Segment of SDRAM */
 _sysboot_tcmbss_init:
@@ -358,50 +368,50 @@ _sysboot_tcmbss_init:
     /* Interrupt */
         .align  5
 do_undefined:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	PUSH_SVC_REG
-    STMFD  sp!,{r0-r1}
-    PUSH_ALL_ARM_REG
-    BOOT_CHANGE_MODE  BOOT_MODE_UND BOOT_MODE_MASK
-    LDMFD   SP!, {R0-R1}
-    BL rt_hw_trap_udef
+	STMFD  sp!,{r0-r1}
+	PUSH_ALL_ARM_REG
+	BOOT_CHANGE_MODE  BOOT_MODE_UND BOOT_MODE_MASK
+	LDMFD   SP!, {R0-R1}
+	BL rt_hw_trap_udef
 	B       .
 
         .align  5
 do_swi:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	PUSH_SVC_REG
-    BL rt_hw_trap_swi
+	BL rt_hw_trap_swi
 	B       .
 
         .align  5
 do_pabort:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	PUSH_SVC_REG
-    STMFD  sp!,{r0-r1}
-    PUSH_ALL_ARM_REG
-    BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
-    LDMFD   SP!, {R0-R1}
-    BL rt_hw_trap_pabt
+	STMFD  sp!,{r0-r1}
+	PUSH_ALL_ARM_REG
+	BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
+	LDMFD   SP!, {R0-R1}
+	BL rt_hw_trap_pabt
 	B       .
 
         .align  5
 do_dabort:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	PUSH_SVC_REG
 
-    STMFD  sp!,{r0-r1}
-    PUSH_ALL_ARM_REG
-    BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
-    LDMFD   SP!, {R0-R1}
-    BL rt_hw_trap_dabt
+	STMFD  sp!,{r0-r1}
+	PUSH_ALL_ARM_REG
+	BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
+	LDMFD   SP!, {R0-R1}
+	BL rt_hw_trap_dabt
 	B       .
 
         .align  5
 do_reserved:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	PUSH_SVC_REG
-    BL rt_hw_trap_resv
+	BL rt_hw_trap_resv
 	B       .
 
         .align  5

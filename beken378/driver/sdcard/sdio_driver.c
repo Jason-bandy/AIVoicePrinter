@@ -2,9 +2,7 @@
 #include "arm_arch.h"
 
 #if CFG_USE_SDCARD_HOST
-
 #include "sdio_driver.h"
-
 #include "drv_model_pub.h"
 #include "sys_ctrl_pub.h"
 #include "mem_pub.h"
@@ -33,6 +31,7 @@ void sdio_set_clock(UINT8 clk_index)
 {
 	beken_sdcard_set_clk_div(clk_index);
 }
+
 void sdio_gpio_config(void)
 {
     UINT32 param;
@@ -42,6 +41,8 @@ void sdio_gpio_config(void)
 	#else
 	param = GFUNC_MODE_SD_HOST;
 	#endif
+ #elif (CFG_SOC_NAME == SOC_BK7271)
+    param = GFUNC_MODE_SD1_HOST;
  #else
  	param = GFUNC_MODE_SD_HOST;
  #endif
@@ -107,6 +108,7 @@ void sdio_register_reenable(void)
     REG_WRITE(REG_SDCARD_FIFO_THRESHOLD, reg);
 }
 #endif
+
 void sdio_sendcmd_function( UINT8 cmd_index, UINT32 flag,
                             UINT32 timeout, VOID *arg )
 {

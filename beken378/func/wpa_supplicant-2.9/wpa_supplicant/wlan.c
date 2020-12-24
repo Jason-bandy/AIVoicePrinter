@@ -1,13 +1,14 @@
 #include "includes.h"
 
 #include "wpa_ctrl.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "wlan_ui_pub.h"
-#include "notifier.h"
+#include "notifier_pub.h"
 #include "mem_pub.h"
 #include "str_pub.h"
+#include "defs.h"
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #define WLAN_CHECK_ARG	0
 
 #define WLAN_ERR bk_printf
@@ -204,32 +205,39 @@ int wlan_sta_disable(void)
 
 /**
  * @brief Station scan once according to the default parameters
- * @return 0 on success, -1 on failure
+ * @return 0 on success, <0 on failure
  */
 int wlan_sta_scan_once(void)
 {
-	int ret;
+	return wlan_sta_scan(NULL);
+}
+
+#define WLAN_SCAN_MAX_RETRIES 50
+/**
+ * @brief Station scan once according to the specified parameters
+ * @return 0 on success, <0 on failure
+ */
+int wlan_sta_scan(wlan_sta_scan_param_t *param)
+{
+	int ret = 0;
+	int max_tries = 0;
+
 	while (1) {
-		ret = wpa_ctrl_request(WPA_CTRL_CMD_STA_SCAN, NULL);
+		ret = wpa_ctrl_request(WPA_CTRL_CMD_STA_SCAN, param);
 		if (ret == -2) {
+			/* previous scan in progress */
+			if (++max_tries > WLAN_SCAN_MAX_RETRIES)
+				return ret;
+
 			//bk_printf("previous scan in progress, retry...\n");
-			rtos_delay_milliseconds(30);
+			rtos_delay_milliseconds(100);
 			continue;
 		} else {
 			break;
 		}
 	}
 
-	return 0;
-}
-
-/**
- * @brief Station scan once according to the specified parameters
- * @return 0 on success, -1 on failure
- */
-int wlan_sta_scan(wlan_sta_scan_param_t *param)
-{
-	return wpa_ctrl_request(WPA_CTRL_CMD_STA_SCAN, param);
+	return ret;
 }
 
 /**
@@ -280,13 +288,15 @@ int wlan_sta_bss_flush(int age)
 
 /**
  * @brief Request a new connection
+ * @freq  AP's freq, specify 0 if unknown
+ *
  * @return 0 on success, -1 on failure
  */
-int wlan_sta_connect(void)
+int wlan_sta_connect(int chan)
 {
 	//return wpa_ctrl_request(WPA_CTRL_CMD_STA_CONNECT, NULL);
-	int id = 0;
-	return wpa_ctrl_request(WPA_CTRL_CMD_SELECT_NETWORK, (void *)id);
+	//int id = 0;
+	return wpa_ctrl_request(WPA_CTRL_CMD_SELECT_NETWORK, (void *)chan);
 }
 
 /**
@@ -554,5 +564,5 @@ int wlan_unregister_notifier(notify_func func, void *arg)
 
 	return wpa_ctrl_request(WPA_CTLR_CMD_REMOVE_NOTIFIER, &req);
 }
-#endif //CFG_NEW_SUPP
+#endif //CFG_WPA_CTRL_IFACE
 

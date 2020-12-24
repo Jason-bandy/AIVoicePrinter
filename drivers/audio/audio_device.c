@@ -3,8 +3,9 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <drivers/audio.h>
-
 #include "audio_device.h"
+#include "sys_config.h"
+
 #if CONFIG_SOUND_MIXER
 #include "mixer.h"
 #endif
@@ -97,9 +98,8 @@ void pcm_fade_handle(void *buffer,int size)
 	}
 	rt_kprintf("---fade out end:size=%d----\r\n",size);
 }
-
 #endif
-///
+
 void *audio_device_get_buffer(int *bufsz)
 {
     if (bufsz)
@@ -243,7 +243,7 @@ int audio_device_init(void)
 
     if (!_audio_device)
     {
-        _audio_device = (struct audio_device *) rt_malloc(sizeof(struct audio_device) + AUDIO_DEVICE_DECODE_MP_SZ);
+        _audio_device = (struct audio_device *) sdram_malloc(sizeof(struct audio_device) + AUDIO_DEVICE_DECODE_MP_SZ);
         if (_audio_device == NULL)
         {
             rt_kprintf("malloc memeory for _audio_device failed! \n");
@@ -276,7 +276,7 @@ int audio_device_init(void)
             return -1;
         }
 
-        #if CONFIG_SOUND_MIXER
+        #if CONFIG_SOUND_MIXER && CFG_USE_AUD_ADC && (CFG_SOC_NAME != SOC_BK7271)
         mixer_init();
         #endif
     }
@@ -301,7 +301,7 @@ void audio_device_set_rate(int sample_rate)
     {
         int rate = sample_rate;
 
-		#if CONFIG_SOUND_MIXER
+		#if CONFIG_SOUND_MIXER && CFG_USE_AUD_ADC
 		audio_dac_eable_mute(1);
 		mixer_device_set_rate(sample_rate);
         #else
@@ -338,19 +338,21 @@ void audio_device_wait_free(void)
 
 void audio_device_open(void)
 {
+#if CFG_USE_AUD_ADC
     _audio_device->state = AUDIO_DEVICE_IDLE;
 
-	#if CONFIG_SOUND_MIXER
+	#if CONFIG_SOUND_MIXER && (CFG_SOC_NAME != SOC_BK7271)
     mixer_send_msg_audio_src_flow();
     #else
     rt_device_open(_audio_device->snd, RT_DEVICE_OFLAG_WRONLY);
 	#endif
+#endif
     rt_kprintf("audio_device_opened \n");
 }
 
 void audio_device_close(void)
 {
-#if CONFIG_SOUND_MIXER
+#if CONFIG_SOUND_MIXER && CFG_USE_AUD_ADC
 	mixer_send_msg_audio_src_static();
 #else
     rt_device_close(_audio_device->snd);

@@ -3,7 +3,53 @@
 
 #include "generic.h"
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define FIQ_MAX_COUNT                         8
+#define IRQ_MAX_COUNT                         32
+
+#define FIQ_MAC_WAKEUP                        (31) /* IRQ actually, compatible with legacy name */
+#define FIQ_MAC_GENERAL                       (30) 
+#define FIQ_MAC_PROT_TRIGGER                  (29) 
+#define FIQ_MAC_TX_TRIGGER                    (28) 
+#define FIQ_MAC_RX_TRIGGER                    (27) 
+#define FIQ_MAC_TX_RX_MISC                    (26) 
+#define FIQ_MAC_TX_RX_TIMER                   (25) 
+#define FIQ_MODEM                             (24) 
+#define FIQ_SECURITY                          (23) /* IRQ actually, compatible with legacy name */
+#define IRQ_MAILBOX2                          (22) 
+#define IRQ_MAILBOX1                          (21) 
+#define IRQ_GENERDMA                          (20) 
+#define FIQ_SDIO_DMA                          (19) /* IRQ actually, compatible with legacy name */
+#define IRQ_USB2                              (18) 
+#define IRQ_QSPI                              (17) 
+#define IRQ_SARADC                            (16) 
+#define IRQ_PWM2                              (15) 
+#define IRQ_PWM                               (14) 
+#define IRQ_TIMER                             (13) 
+#define IRQ_IRDA                              (12) 
+#define IRQ_GPIO                              (11) 
+#define IRQ_SPI3                              (10) 
+#define IRQ_SPI2                              (9) 
+#define IRQ_SPI                               (8) 
+#define IRQ_USB1                              (7) 
+#define IRQ_SDIO                              (6) 
+#define IRQ_I2C2                              (5) 
+#define IRQ_I2C1                              (4) 
+#define IRQ_FM_I2C                            (3) 
+#define IRQ_UART3                             (2) 
+#define IRQ_UART2                             (1) 
+#define IRQ_UART1                             (0) 
+
+#define ICU_FIQ_ENABLE                        (ICU_BASE + 17 * 4)
+#define FIQ_JPEG_ENCODER					  (IRQ_MAX_COUNT + 7) 
+#define FIQ_CEC                               (IRQ_MAX_COUNT + 6) 
+#define FIQ_TOUCH                             (IRQ_MAX_COUNT + 5)
+#define FIQ_RTC                               (IRQ_MAX_COUNT + 4) 
+#define FIQ_DSP_WATCHDOG                      (IRQ_MAX_COUNT + 3) 
+#define FIQ_BT_WATCHDOG                       (IRQ_MAX_COUNT + 2) 
+#define FIQ_USB_PLUG_INOUT                    (IRQ_MAX_COUNT + 1)  
+#define FIQ_DPLL_UNLOCK                       (IRQ_MAX_COUNT + 0) 
+#elif (CFG_SOC_NAME == SOC_BK7231N)
 #define FIQ_BT                           (31)
 #define FIQ_BLE                          (30)
 #define FIQ_BTDM                         (29)
@@ -61,11 +107,13 @@
 #define IRQ_SARADC                       (11) 
 #define IRQ_AUDIO                        (10) 
 #define IRQ_PWM                          (9) 
+
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define IRQ_TL410_WATCHDOG               (8) 
 #else
 #define IRQ_TIMER                        (8) 
 #endif
+
 #define IRQ_GPIO                         (7) 
 #define IRQ_SPI                          (6) 
 #define IRQ_I2C2                         (5) 
@@ -110,13 +158,15 @@
 #define PRI_FIQ_DPLL_UNLOCK                  (29) 
 #define PRI_FIQ_SPI_DMA                      (7) 
 #define PRI_FIQ_MAC_WAKEUP                   (9)
-#if (CFG_SOC_NAME == SOC_BK7221U)
+
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 #define PRI_FIQ_SECURITY                     (12) 
 #define PRI_FIQ_USB_PLUG_INOUT               (11) 
 #else
 #define PRI_FIQ_MAILBOX1                     (12) 
 #define PRI_FIQ_MAILBOX0                     (11) 
 #endif
+
 #define PRI_FIQ_SDIO_DMA                     (8) 
 #define PRI_FIQ_MAC_GENERAL                  (1) 
 #define PRI_FIQ_MAC_PROT_TRIGGER             (6) 
@@ -133,11 +183,13 @@
 #define PRI_IRQ_SARADC                       (16) 
 #define PRI_IRQ_AUDIO                        (27) 
 #define PRI_IRQ_PWM                          (17) 
+
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define PRI_IRQ_TL410_WATCHDOG               (18)
 #else
 #define PRI_IRQ_TIMER                        (18)
 #endif
+
 #define PRI_IRQ_GPIO                         (19) 
 #define PRI_IRQ_SPI                          (20) 
 #define PRI_IRQ_I2C2                         (21) 
@@ -148,7 +200,10 @@
 #define PRI_IRQ_UART1                        (26)
 #define PRI_IRQ_QSPI                         (27)
 
-#endif 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define PRI_IRQ_MAILBOX                      (11) 
+#endif
+#endif // (CFG_SOC_NAME == SOC_BK7231N)
 
 extern void intc_service_register(UINT8 int_num, UINT8 int_pri, FUNCPTR isr);
 extern void intc_spurious(void);
@@ -157,3 +212,4 @@ extern void intc_disable(int index);
 
 #endif // _INTC_PUB_H_
 // eof
+

@@ -67,7 +67,7 @@ DSTATUS disk_initialize (uint8 pdrv)
     int cnt = 5;
     UINT32 status;
 
-    os_printf("disk_initialize\r\n");
+    FAT_PRT("disk_initialize\r\n");
     if(pdrv == DISK_TYPE_SD)
     {
         while(cnt--)

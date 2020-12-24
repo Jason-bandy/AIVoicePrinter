@@ -11,6 +11,7 @@
 #include "k_api.h"
 #endif
 #include "power_save_pub.h"
+#include "mcu_ps_pub.h"
 
 static volatile UINT32 current_clock = 0;
 static volatile UINT32 current_seconds = 0;
@@ -161,7 +162,7 @@ UINT32 timer_cal_init(void)
 extern int increase_tick;
 UINT32 timer_cal_tick(void)
 {
-    UINT32 fclk, tmp2;
+    uint64_t fclk, tmp2;
     UINT32 machw = 0;
     INT32 lost;
     GLOBAL_INT_DECLARATION();
@@ -323,8 +324,8 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
 #endif
         param.end_value       = fclk_cal_endvalue((UINT32)param.cfg.bits.clk);
 
-        ret = sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
-        ASSERT(PWM_SUCCESS == ret);
+        sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
+        
     }
     else
     {   //timer
@@ -338,8 +339,8 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
         ASSERT(BK_TIMER_SUCCESS == ret);
         UINT32 timer_channel;
         timer_channel = param.channel;
-        ret = sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_ENABLE, &timer_channel);
-        ASSERT(BK_TIMER_SUCCESS == ret);
+        sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_ENABLE, &timer_channel);
+        
     }
 }
 
@@ -349,6 +350,8 @@ void fclk_init(void)
 
     #if (CFG_SOC_NAME == SOC_BK7231)
     fclk_timer_hw_init(BK_PWM_TIMER_ID0);
+    #elif (CFG_SOC_NAME == SOC_BK7271)
+    fclk_timer_hw_init(BK_TIMER_ID1);
     #else
     fclk_timer_hw_init(BK_TIMER_ID3);
     #endif

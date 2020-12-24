@@ -1,0 +1,9 @@
+#include "include.h"
+
+#if CFG_USE_LWIP_NETSTACK
+#if CFG_SUPPORT_TIANZHIHENG_DRONE
+
+#endif  // CFG_SUPPORT_TIANZHIHENG_DRONE
+#endif  // CFG_USE_LWIP_NETSTACK
+
+// EOF

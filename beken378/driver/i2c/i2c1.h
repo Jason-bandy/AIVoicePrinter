@@ -2,9 +2,12 @@
 #define _I2C1_H_
 
 #include "uart_pub.h"
-//#define I2C1_DEBUG
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include "i2c1_bk7271.h"
+#endif
 
-#ifdef I2C1_DEBUG
+#define I2C1_DEBUG              0
+#if I2C1_DEBUG
 #define I2C1_PRT                 os_printf
 #define I2C1_WPRT                warning_prf
 #define I2C1_EPRT                os_printf
@@ -13,7 +16,10 @@
 #define I2C1_WPRT                os_null_printf
 #define I2C1_EPRT                os_printf
 #endif
+#define I2C1_EPRT                os_printf
+#define I2C1_DEBUG_PRINTF		 os_null_printf
 
+#if (CFG_SOC_NAME != SOC_BK7271)
 #define I2C1_BASE_ADDR                       (0x0802300)
 
 #define REG_I2C1_CONFIG                      (I2C1_BASE_ADDR + 4 * 0)
@@ -37,6 +43,7 @@ static UINT32 i2c1_close(void);
 static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag);
 static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag);
 static UINT32 i2c1_ctrl(UINT32 cmd, void *param);
-
+#endif
 #endif  // _I2C1_H_
+// eof
 

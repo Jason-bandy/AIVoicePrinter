@@ -87,6 +87,11 @@
 #define BLE_XVR_REG4E											(BASEADDR_XVR + 0x4E * 4)
 #define BLE_XVR_REG4F											(BASEADDR_XVR + 0x4F * 4)
 
+#define BLE_XVR_CHAN_MASK										(0x7F)
+#define BLE_XVR_CHAN_POST										(0)
+#define BLE_XVR_AUTO_CHAN_MASK									(0xF)
+#define BLE_XVR_AUTO_CHAN_POST									(17)
+
 #define REG_READ(addr)          *((volatile uint32_t *)(addr))
 #define REG_WRITE(addr, _data)  (*((volatile uint32_t *)(addr)) = (_data))
 

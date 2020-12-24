@@ -32,7 +32,7 @@ enum sm_state_tag
 {
     /// IDLE state
     SM_IDLE,
-#ifdef CONFIG_SME
+#if NX_HOST_SME
     ///AUTHENTICATE state
     SM_AUTHENTICATING,
 #else
@@ -47,9 +47,11 @@ enum sm_state_tag
     SM_DISABLING_PS,
     /// Configuration of BSS parameters
     SM_BSS_PARAM_SETTING,
-#ifndef CONFIG_SME
+#if !NX_HOST_SME
     ///AUTHENTICATE state
     SM_AUTHENTICATING,
+    /// EXTERNAL AUTHENTICATE state
+    SM_EXTERNAL_AUTHENTICATING,
 #endif
     ///ASSOCIATE state
     SM_ASSOCIATING,
@@ -125,6 +127,10 @@ enum sm_msg_tag
     SM_DISASSOC_IND,
     /// Indicates that the SM associated the AP
     SM_ASSOC_FAILED_IND,
+    /// Request to start external authentication
+    SM_EXTERNAL_AUTH_REQUIRED_IND,
+    /// Response to external authentication request
+    SM_EXTERNAL_AUTH_REQUIRED_RSP,
 };
 
 struct sm_fail_stat
@@ -252,14 +258,13 @@ struct sm_connect_req
     uint8_t uapsd_queues;
     /// VIF index
     uint8_t vif_idx;
-	uint8_t driver_sme;
     /// Buffer containing the additional information elements to be put in the
     /// association request
     uint32_t ie_buf[64];
-    /// beacon ie
-    uint32_t bcn_buf[128];
-    /// bcn_ie_len
+	/// bcn_ie_len
     uint16_t bcn_len;
+    /// beacon ie
+	uint32_t bcn_buf[0];
 };
 
 /// Structure containing the parameters of @ref SM_CONNECT_REQ message.
@@ -280,8 +285,8 @@ struct sm_auth_req
 	uint16_t ie_len;
 
 	/// SAE data
-	uint8_t sae_data[512];
 	uint16_t sae_data_len;
+	uint32_t sae_data[0];
 };
 
 struct sm_set_oper_state_req {
@@ -323,7 +328,7 @@ struct sm_assoc_req
     uint32_t ie_buf[64];
 
 	uint16_t bcn_len;
-	uint32_t bcn_buf[160];
+	uint32_t bcn_buf[0];
 };
 
 /// Structure containing the parameters of the @ref SM_CONNECT_CFM message.
@@ -336,7 +341,7 @@ struct sm_connect_cfm
 };
 
 /// Structure containing the parameters of the @ref SM_CONNECT_IND message.
-struct sm_connect_indication
+struct sm_connect_ind
 {
     /// Status code of the connection procedure
     uint16_t status_code;
@@ -415,6 +420,28 @@ struct sm_assoc_ind
 {
     /// Mac of client
     uint8_t mac[6];
+};
+
+/// Structure containing the parameters of the @ref SM_EXTERNAL_AUTH_REQUIRED_IND
+struct sm_external_auth_required_ind
+{
+    /// Index of the VIF.
+    uint8_t vif_idx;
+    /// SSID to authenticate to
+    struct mac_ssid ssid;
+    /// BSSID to authenticate to
+    struct mac_addr bssid;
+    /// AKM suite of the respective authentication
+    uint32_t akm;
+};
+
+/// Structure containing the parameters of the @ref SM_EXTERNAL_AUTH_REQUIRED_RSP
+struct sm_external_auth_required_rsp
+{
+    /// Index of the VIF.
+    uint8_t vif_idx;
+    /// Authentication status
+    uint16_t status;
 };
 
 extern const struct ke_state_handler sm_default_handler;

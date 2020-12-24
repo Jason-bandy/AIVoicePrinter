@@ -1329,7 +1329,6 @@ void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble)
 
 void rwnx_cal_set_txpwr_for_ble_boardcast(void)
 {
-    //rwnx_cal_set_txpwr_ble(12);
     rwnx_cal_set_txpwr_by_channel(19); // channel 2440
 }
 

@@ -1,16 +1,16 @@
-
 #include "error.h"
 #include "include.h"
 
 #include <rthw.h>
 #include <rtthread.h>
 #include <rtdevice.h>
-
 #include <stdint.h>
 #include <stdlib.h>
 #include <finsh.h>
 #include <rtdef.h>
+
 #define SARADC_VBAT_DETECT
+
 #ifdef SARADC_VBAT_DETECT
 #include "saradc_intf.h"
 #include "sys_ctrl_pub.h"
@@ -75,10 +75,12 @@ int vbat_detect_test(void)
 {
 	Step_Flag = 1;
 	Adctest_Flag  = 1;
+	
 	saradc_work_create();
 	vbat_detect_config();
+	
 	return 0;
 }
-//INIT_APP_EXPORT(vbat_detect_test);
+
 MSH_CMD_EXPORT(vbat_detect_test,vbat_detect_test);
 #endif

@@ -41,6 +41,7 @@
 #include "intc_pub.h"
 #include "power_save_pub.h"
 
+#if (CFG_IEEE80211AX == 0)
 /*
  * STRUCTURES
  ****************************************************************************************
@@ -1909,7 +1910,7 @@ static void phy_agc_init(void)
     // ADC sat thd
     agc_rwnxagcsat_set(0x8373335);
 #else
-    REG_PL_WR(0x01000890, (REG_PL_RD(0x01000890) | 0x2));  // Enable AGC OPT
+    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, (REG_PL_RD(REG_AGC_BASE_ADDR + 0x890) | 0x2));  // Enable AGC OPT
     agc_rwnxagcevtsat_set(0x05044804);
     agc_rwnxagcevtdet_set(0x3D401008);
     agc_rwnxagcevtdis_set(0x3955B00B);
@@ -1951,7 +1952,7 @@ static void phy_agc_init(void)
 
     // AGC Power Estimate Bias
 #if (SOC_BK7231N == CFG_SOC_NAME)
-    agc_vpeakadcqdbv_setf((uint8_t) - 20);
+    agc_vpeakadcqdbv_setf((uint8_t) - 32); //change MDM_reg819<23:16> from 0xEC to 0xE0 by cunliang20201112
 #else
     agc_vpeakadcqdbv_setf((uint8_t) - 32);
 #endif
@@ -2522,6 +2523,12 @@ void phy_get_version(uint32_t *version_1, uint32_t *version_2)
 }
 
 extern void rwnx_cal_set_40M_setting(void);
+#if CFG_IEEE80211AX
+void phy_set_channel(const struct mac_chan_op *chan, uint8_t index)
+{
+    //TODO
+}
+#else
 void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
                      uint16_t center1_freq, uint16_t center2_freq, uint8_t index)
 {
@@ -2628,8 +2635,8 @@ void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
 #endif
         //agc_rwnxagcsat_set(0x8393537);
     }
-    
 }
+#endif //CFG_IEEE80211AX
 
 void phy_get_channel(struct phy_channel_info *info, uint8_t index)
 {
@@ -2649,6 +2656,10 @@ void phy_stop(void)
     //todo anything else?
 }
 
+uint32_t phy_get_channel_switch_dur(void)
+{
+    return 1500;
+}
 
 bool phy_has_radar_pulse(int rd_idx)
 {
@@ -2682,11 +2693,39 @@ void phy_agc_reset(void)
     mdm_swreset_set(mdm_reg);
 }
 
-bool phy_bfmee_supported(void)
+bool phy_uf_supported(void)
 {
     return false;
 }
 
+void phy_uf_enable(bool enable)
+{
+}
+
+bool phy_vht_supported(void)
+{
+    return true;
+}
+
+bool phy_he_supported(void)
+{
+    return false;
+}
+
+bool phy_ldpc_tx_supported(void)
+{
+    return false;
+}
+
+bool phy_ldpc_rx_supported(void)
+{
+    return false;
+}
+
+bool phy_bfmee_supported(void)
+{
+    return false;
+}
 
 bool phy_bfmer_supported(void)
 {
@@ -2703,6 +2742,7 @@ bool phy_mu_mimo_tx_supported(void)
     return false;
 }
 
+
 uint8_t phy_get_nss(void)
 {
     return 0;
@@ -2710,7 +2750,12 @@ uint8_t phy_get_nss(void)
 
 uint8_t phy_get_ntx(void)
 {
-    return (0);
+    return 0;
+}
+
+uint8_t phy_get_nrx(void)
+{
+    return 0;
 }
 
 //cca ctrl
@@ -2804,16 +2849,58 @@ void rc_reset_patch(void)
 void phy_init_after_wakeup(void)
 {
     uint16_t freq;
-	struct phy_cfg_tag cfg;
+    struct phy_cfg_tag cfg;
 
     freq = phy_env->chnl_center1_freq;
     phy_env->chnl_center1_freq = 0;
 
-	cfg.parameters[0] = 1;
-	cfg.parameters[1] = 0;
+    cfg.parameters[0] = 1;
+    cfg.parameters[1] = 0;
     phy_init(&cfg);
-    
-    phy_set_channel(PHY_BAND_2G4, PHY_CHNL_BW_20, freq, freq, 0, PHY_PRIM);
-}
-//eof
 
+#if CFG_IEEE80211AX
+    //TODO
+#else
+    phy_set_channel(PHY_BAND_2G4, PHY_CHNL_BW_20, freq, freq, 0, PHY_PRIM);
+#endif
+}
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+void phy_wakeup_rf_reinit(void)
+{
+    struct phy_env_tag phy_env_sleep;
+
+    phy_env_sleep.band                = phy_env->band;
+    phy_env_sleep.chnl_prim20_freq    = phy_env->chnl_prim20_freq;
+    phy_env_sleep.chnl_center1_freq   = phy_env->chnl_center1_freq;
+    phy_env_sleep.chnl_center2_freq   = phy_env->chnl_center2_freq;
+    phy_env_sleep.chnl_type           = phy_env->chnl_type;
+
+    phy_env->band                =
+    phy_env->chnl_prim20_freq    =
+    phy_env->chnl_center1_freq   =
+    phy_env->chnl_center2_freq   =
+    phy_env->chnl_type           = PHY_UNUSED;
+
+    // recover trx setting
+    rwnx_cal_recover_rf_setting();
+
+    // recover channel setting
+    phy_set_channel(phy_env_sleep.band, phy_env_sleep.chnl_type, phy_env_sleep.chnl_prim20_freq,
+                        phy_env_sleep.chnl_center1_freq, phy_env_sleep.chnl_center2_freq, PHY_PRIM);
+
+}
+
+void phy_wakeup_wifi_reinit(void)
+{
+    //MODEM - contains AGC?
+    phy_mdm_init(0);
+
+    //AGC - separate or in MDM?
+    phy_agc_init();
+
+    rwnx_cal_recover_wifi_setting();
+}
+#endif
+//eof
+#endif

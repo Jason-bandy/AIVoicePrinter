@@ -6,13 +6,12 @@
 #include "include.h"
 #include "rtos_pub.h"
 #include "rw_msg_pub.h"
-#if CFG_NEW_SUPP
-#include "wlan_defs.h"
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "wlan_defs_pub.h"
+#include "notifier_pub.h"
 #endif
 
 #define ICU_BASE                                     (0x00802000)
-#define ICU_INT_STATUS                               (ICU_BASE + 19 * 4)
 
 enum {
     WLAN_ENC_OPEN,
@@ -222,6 +221,18 @@ typedef struct
 	int8_t rssi;
 }wifi_link_info_t;
 
+//same with RL_BSSID_INFO_T{}
+struct wlan_fast_connect_info
+{
+	uint8_t ssid[33];
+	uint8_t bssid[6];
+	uint8_t security;
+	uint8_t channel;
+	uint8_t psk[65];
+	uint8_t pwd[65];
+};
+
+
 typedef struct vif_addcfg_st {
     char *ssid;
     char *key;
@@ -368,11 +379,8 @@ int bk_wlan_set_channel(int channel);
  *        Once received a 802.11 packet call the registered function to return the packet.
  */
 OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara);
-
 OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitPara);
-
 OSStatus bk_wlan_set_ip_status(IPStatusTypedef *inNetpara, WiFi_Interface inInterface);
-
 OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP);
 void bk_wlan_ap_para_info_get(network_InitTypeDef_ap_st *ap_info);
 void bk_wlan_register_monitor_cb(monitor_cb_t fn);
@@ -467,13 +475,22 @@ void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num);
 
 void bk_wlan_scan_ap_reg_cb(FUNC_2PARAM_PTR ind_cb);
 unsigned char bk_wlan_get_scan_ap_result_numbers(void);
-void bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num);
+int bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num);
 void bk_wlan_ap_set_default_channel(uint8_t channel);
 uint8_t bk_wlan_has_role(uint8_t role);
 void bk_wlan_phy_open_cca(void);
 void bk_wlan_phy_close_cca(void);
 void bk_wlan_phy_show_cca(void);
 
+/* @brief Send raw 802.11 frame
+ *
+ * @attention 1. This API can be used in WiFi station, softap, or monitor mode.
+ * @attention 2. Only support to send non-QoS frame.
+ * @attention 3. The frame sequence will be overwritten by WiFi driver.
+ * @attention 4. The API doesn't check the correctness of the raw frame, the
+ *               caller need to guarantee the correctness of the frame.
+ *
+ * */
 int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len);
 void bk_wlan_sta_init(network_InitTypeDef_st *inNetworkInitPara);
 void bk_wlan_ap_init_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP);
@@ -489,8 +506,9 @@ extern void power_save_bcn_callback(uint8_t *data, int len, wifi_link_info_t *in
 extern void bk_wlan_register_bcn_cb(monitor_cb_t fn);
 extern void mcu_ps_bcn_callback(uint8_t *data, int len, wifi_link_info_t *info);
 extern void rwnx_cal_set_max_twper(FP32 max_tx_pwr);
+extern void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy);
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 int wlan_sta_set(uint8_t *ssid, uint8_t ssid_len, uint8_t *psk);
 int wlan_sta_set_config(wlan_sta_config_t *config);
 int wlan_sta_get_config(wlan_sta_config_t *config);
@@ -506,7 +524,7 @@ int wlan_sta_scan_result(ScanResult_adv *results);
 int wlan_sta_scan_interval(int sec);
 int wlan_sta_bss_max_count(uint8_t count);
 int wlan_sta_bss_flush(int age);
-int wlan_sta_connect(void);
+int wlan_sta_connect(int chan);
 int wlan_sta_disconnect(void);
 int wlan_sta_state(wlan_sta_states_t *state);
 int wlan_sta_ap_info(struct ApListStruct *ap);

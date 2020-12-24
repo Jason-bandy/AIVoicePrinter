@@ -163,6 +163,17 @@ OSStatus rtos_create_thread( beken_thread_t* thread, uint8_t priority, const cha
   */
 OSStatus rtos_delete_thread( beken_thread_t* thread );
 
+/** @brief    Checks if a thread is the current thread
+  *
+  * @Details  Checks if a specified thread is the currently running thread
+  *
+  * @param    thread : the handle of the other thread against which the current thread 
+  *                    will be compared
+  *
+  * @return   true   : specified thread is the current thread
+  * @return   false  : specified thread is not currently running
+  */
+BOOL rtos_is_current_thread(beken_thread_t *thread);
 
 
 /** @brief    Suspend a thread
@@ -490,6 +501,11 @@ BOOL rtos_is_oneshot_timer_running( beken2_timer_t* timer );
 OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer );
 BOOL rtos_is_oneshot_timer_init( beken2_timer_t* timer );
 OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer );
+OSStatus rtos_oneshot_reload_timer_ex(beken2_timer_t *timer,
+													uint32_t time_ms,
+													timer_2handler_t function,
+													void *larg,
+													void *rarg);
 OSStatus rtos_change_period( beken_timer_t* timer, uint32_t time_ms);
 uint32_t rtos_get_timer_expiry_time( beken_timer_t* timer );
 
@@ -549,6 +565,15 @@ BOOL rtos_is_timer_running( beken_timer_t* timer );
   */
 
 uint32_t rtos_get_free_mem();
+
+#include "error.h"
+#define bk_rtos_create_thread rtos_create_thread
+#define bk_rtos_delete_thread rtos_delete_thread
+#define bk_rtos_init_queue rtos_init_queue
+#define bk_rtos_push_to_queue rtos_push_to_queue
+#define bk_rtos_pop_from_queue rtos_pop_from_queue
+#define bk_rtos_deinit_queue rtos_deinit_queue
+#define bk_rtos_delay_milliseconds rtos_delay_milliseconds
 
 #endif // __RTOS_PUB__
 // EOF

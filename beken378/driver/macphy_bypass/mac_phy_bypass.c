@@ -1,9 +1,7 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "mac_phy_bypass_pub.h"
 #include "mac_phy_bypass.h"
-
 #include "drv_model_pub.h"
 #include "uart_pub.h"
 
@@ -83,7 +81,6 @@ void mpb_tx_mode(void)
     mpb_regs.r143->value = 0xff;
     mpb_regs.r3->value   = 0x177; ///0xEA6;//0xEA6,177
     mpb_regs.r2->value   = 0x10;
-    //mpb_regs.r0->value   = 0x01;
 }
 
 void mpb_rx_mode(void)
@@ -101,20 +98,40 @@ void mpb_stop_trx(void)
 void mpb_start_trx(void)
 {
 	mpb_regs.r0->value |= 0x01;
-    //REG_WRITE((0x0802800 + (18 * 4)), 0x02);
 }
 
 void mpb_set_txdelay(UINT32 delay_us)
 {
     UINT32 delay_us_value;
 
-    delay_us_value = delay_us * 30;
-
     if(g_band == 1)
         delay_us_value = delay_us * 60;
+    else
+        delay_us_value = delay_us * 30;
 
     if(delay_us_value > 0xfffff)
     delay_us_value = 0xfffff;
+
+    mpb_regs.r3->value = delay_us_value;
+}
+
+void mpb_set_txdelay_precision(float delay_us)
+{
+    UINT32 delay_us_value;
+
+    if (g_band == 1)
+    {
+        delay_us_value = (UINT32)(delay_us * 60 + 0.5);
+    }
+    else
+    {
+        delay_us_value = (UINT32)(delay_us * 30 + 0.5);
+    }
+
+    if (delay_us_value > 0xfffff)
+    {
+        delay_us_value = 0xfffff;
+    }
 
     mpb_regs.r3->value = delay_us_value;
 }

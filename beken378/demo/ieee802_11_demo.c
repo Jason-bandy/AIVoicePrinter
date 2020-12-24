@@ -34,14 +34,18 @@
 
 static void scan_cb(void *ctxt, uint8_t param)
 {
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	struct scanu_rst_upload *scan_rst;
 	ScanResult apList;
 	int i;
-
+	GLOBAL_INT_DECLARATION();
+	
 	apList.ApList = NULL;
+	
+	GLOBAL_INT_DISABLE();
 	scan_rst = sr_get_scan_results();
 	if (scan_rst == NULL) {
+		GLOBAL_INT_RESTORE();
 		apList.ApNum = 0;
 		return;
 	} else {
@@ -49,11 +53,18 @@ static void scan_cb(void *ctxt, uint8_t param)
 	}
 	if (apList.ApNum > 0) {
 		apList.ApList = (void *)os_malloc(sizeof(*apList.ApList) * apList.ApNum);
+		if(apList.ApList == NULL){
+			GLOBAL_INT_RESTORE();
+			bk_printf("Got ap count: %d,but malloc failed\r\n", apList.ApNum);
+			return;
+		}
 		for (i = 0; i < scan_rst->scanu_num; i++) {
 			os_memcpy(apList.ApList[i].ssid, scan_rst->res[i]->ssid, 32);
 			apList.ApList[i].ApPower = scan_rst->res[i]->level;
 		}
 	}
+	GLOBAL_INT_RESTORE();
+	
 	if (apList.ApList == NULL)
 		apList.ApNum = 0;
 
@@ -76,15 +87,17 @@ static void scan_cb(void *ctxt, uint8_t param)
 	}
 
 #if CFG_ROLE_LAUNCH
-	rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
+    rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
 #endif
 
 	sr_release_scan_results(scan_rst);
 
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
 	rf_can_share_for_ble();
 #endif
-#else	/* CFG_NEW_SUPP */
+#endif
+#else	/* CFG_WPA_CTRL_IFACE */
 	static const char *crypto_str[] = {
 		"None",
 		"WEP",
@@ -111,7 +124,13 @@ static void scan_cb(void *ctxt, uint8_t param)
 					apList.ApList[i].channel);
 		os_free(apList.ApList);
 	}
-#endif /* CFG_NEW_SUPP */
+
+#if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
+	rf_can_share_for_ble();
+#endif
+#endif
+#endif /* CFG_WPA_CTRL_IFACE */
 }
 
 
@@ -494,7 +513,7 @@ int wifi_demo(int argc, char **argv)
 			demo_scan_app_init();
 		}else if(argc == 3)
 		{
-			demo_scan_adv_app_init(argv[2]);
+			demo_scan_adv_app_init((uint8_t *)argv[2]);
 		}else
 		{
 			os_printf("parameter invalid\r\n");

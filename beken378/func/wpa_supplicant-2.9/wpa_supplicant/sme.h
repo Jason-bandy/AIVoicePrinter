@@ -52,10 +52,6 @@ void sme_deinit(struct wpa_supplicant *wpa_s);
 
 int sme_proc_obss_scan(struct wpa_supplicant *wpa_s);
 void sme_sched_obss_scan(struct wpa_supplicant *wpa_s, int enable);
-void sme_external_auth_trigger(struct wpa_supplicant *wpa_s,
-			       union wpa_event_data *data);
-void sme_external_auth_mgmt_rx(struct wpa_supplicant *wpa_s,
-			       const u8 *auth_frame, size_t len);
 
 #else /* CONFIG_SME */
 
@@ -126,6 +122,14 @@ static inline void sme_sched_obss_scan(struct wpa_supplicant *wpa_s,
 {
 }
 
+#endif /* CONFIG_SME */
+
+#if defined(CONFIG_SAE) && defined(CONFIG_SAE_EXTERNAL)
+void sme_external_auth_trigger(struct wpa_supplicant *wpa_s,
+			       union wpa_event_data *data);
+void sme_external_auth_mgmt_rx(struct wpa_supplicant *wpa_s,
+			       const u8 *auth_frame, size_t len);
+#else
 static inline void sme_external_auth_trigger(struct wpa_supplicant *wpa_s,
 					     union wpa_event_data *data)
 {
@@ -136,6 +140,6 @@ static inline void sme_external_auth_mgmt_rx(struct wpa_supplicant *wpa_s,
 {
 }
 
-#endif /* CONFIG_SME */
+#endif
 
 #endif /* SME_H */

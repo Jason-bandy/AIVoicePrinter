@@ -63,8 +63,8 @@
 
 #include "errno-base.h"
 #include "str_pub.h"
-#if CFG_NEW_SUPP
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "notifier_pub.h"
 #endif
 #include "include.h"
 #include "uart_pub.h"
@@ -81,7 +81,7 @@ extern struct wpa_ssid_value *wpas_connect_ssid;
 extern void sta_ip_down(void);
 extern void sta_ip_start(void);
 extern uint32_t wpa_hostapd_queue_poll(uint32_t param);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 struct notifier *wlan_evt_notifer = NULL;
 #endif
 
@@ -174,7 +174,7 @@ static void wpa_supplicant_timeout(void *eloop_ctx, void *timeout_ctx)
 		bssid = wpa_s->pending_bssid;
 	wpa_msg(wpa_s, MSG_INFO, "Authentication with " MACSTR " timed out.",
 		MAC2STR(bssid));
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	notify(wlan_evt_notifer, WLAN_EVENT_4WAY_HANDSHAKE_FAILED, 0);
 #endif
 
@@ -793,12 +793,12 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		/* Reinitialize normal_scan counter */
 		wpa_s->normal_scans = 0;
         wpa_drv_sta_set_flags(wpa_s, wpa_s->bssid, ~0, WPA_STA_AUTHORIZED, ~0);
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		sta_ip_start();
 #endif
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(state == WPA_DISCONNECTED && state != wpa_s->wpa_state){
 		wpa_config_set_network_defaults(wpa_s->conf->ssid);
 		#if 1
@@ -861,7 +861,7 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 			ssid && ssid->id_str ? ssid->id_str : "",
 			fils_hlp_sent ? " FILS_HLP_SENT" : "");
 #endif /* CONFIG_CTRL_IFACE || !CONFIG_NO_STDOUT_DEBUG */
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		notify(wlan_evt_notifer, WLAN_EVENT_CONNECTED, 0);
 #endif
 		wpas_clear_temp_disabled(wpa_s, ssid, 1);
@@ -1492,10 +1492,10 @@ int wpa_supplicant_set_suites(struct wpa_supplicant *wpa_s,
 		wpa_s->mgmt_group_cipher = WPA_CIPHER_BIP_CMAC_256;
 		wpa_dbg(wpa_s, MSG_DEBUG, "WPA: using MGMT group cipher "
 			"BIP-CMAC-256");
+#endif
 	} else {
 		wpa_s->mgmt_group_cipher = 0;
 		wpa_dbg(wpa_s, MSG_DEBUG, "WPA: not using MGMT group cipher");
-#endif
 	}
 	wpa_sm_set_param(wpa_s->wpa, WPA_PARAM_MGMT_GROUP,
 			 wpa_s->mgmt_group_cipher);
@@ -3153,7 +3153,7 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 	}
 #endif
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(ssid->bssid_set){
 		params.bssid = ssid->bssid;
 #if CFG_SUPPORT_BSSID_CONNECT
@@ -3307,21 +3307,13 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 	/* append bcn ie */
 	//os_printf("%s: bss %p, ie_len %d\n", __func__, bss, bss ? bss->ie_len : -1);
 	if (bss && bss->ie_len) {
-		params.bcn_ie = os_malloc(bss->ie_len);
-		if (params.bcn_ie) {
-			params.bcn_len = bss->ie_len;
-			os_memcpy(params.bcn_ie, bss + 1, bss->ie_len);
-			//print_hex_dump("BCN: ", params.bcn_ie, bss->ie_len);
-		}
+		params.bcn_ie = (u8 *)(bss + 1);
+		params.bcn_len = bss->ie_len;
+		//print_hex_dump("BCN: ", params.bcn_ie, bss->ie_len);
 	}
 
 	ret = wpa_drv_associate(wpa_s, &params);
 	os_free(wpa_ie);
-	if (bss && bss->ie_len) {
-		os_free(params.bcn_ie);
-		params.bcn_ie = 0;
-		bss->ie_len = 0;
-	}
 	if (ret < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "
 			"failed");
@@ -5723,7 +5715,7 @@ static void wpa_supplicant_deinit_iface(struct wpa_supplicant *wpa_s,
 	}
 
 	os_free(wpa_s->ssids_from_scan_req);
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	wpa_s->ssids_from_scan_req = 0;
     wpas_connect_ssid = 0;
 #endif
@@ -6552,7 +6544,7 @@ void wpas_auth_failed(struct wpa_supplicant *wpa_s, char *reason)
 
 	ssid->auth_failures++;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	if (wpa_s->conf)
 		dur = wpa_s->conf->auth_dur;
 
@@ -6592,7 +6584,7 @@ void wpas_auth_failed(struct wpa_supplicant *wpa_s, char *reason)
 		dur += os_random() % (ssid->auth_failures * 10);
 #endif
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 dur_set:
 #endif
 

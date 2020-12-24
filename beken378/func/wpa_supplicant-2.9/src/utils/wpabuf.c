@@ -9,7 +9,7 @@
 #include "includes.h"
 
 #include "common.h"
-#include "trace.h"
+#include "wpa_trace.h"
 #include "wpabuf.h"
 
 #ifdef WPA_TRACE

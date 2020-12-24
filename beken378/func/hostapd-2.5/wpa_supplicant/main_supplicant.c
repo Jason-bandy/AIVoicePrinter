@@ -21,8 +21,8 @@
 #if CFG_SUPPORT_BSSID_CONNECT
 #include "param_config.h"
 #endif
-#if CFG_NEW_SUPP
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "notifier_pub.h"
 #endif
 #include "net.h"
 #include "wpa_psk_cache.h"
@@ -73,7 +73,7 @@ int wpa_get_psk(char *psk)
     return 0;
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 // XXX: put it wpas task? may be move to sys event task
 void wlan_internal_notify_func(void *ctx, int event, int extra)
 {
@@ -100,7 +100,7 @@ int supplicant_main_exit(void)
 	if (wpa_global_ptr == NULL)
 		return 0;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	remove_notifier(&wlan_evt_notifer, wlan_internal_notify_func, wpa_suppliant_ctrl_get_wpas());
 #endif
 
@@ -176,7 +176,7 @@ int supplicant_main_entry(char *oob_ssid)
 		}
 
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 #if CFG_SUPPORT_BSSID_CONNECT
 		if ((NULL == oob_ssid || 0 == os_strlen(oob_ssid))
 			&& !is_zero_ether_addr(g_sta_param_ptr->fast_connect.bssid)
@@ -205,9 +205,16 @@ int supplicant_main_entry(char *oob_ssid)
 			ASSERT(0 == wpa_s->ssids_from_scan_req);
 			oob_ssid_len = os_strlen(oob_ssid);
 
-			if (0 == wpas_connect_ssid) {
-				wpas_connect_ssid = (struct wpa_ssid_value *)os_malloc(sizeof(struct wpa_ssid_value));
-				ASSERT(wpas_connect_ssid);
+			if(0 == wpas_connect_ssid)
+			{
+	            wpas_connect_ssid = (struct wpa_ssid_value *)os_malloc(sizeof(struct wpa_ssid_value));
+
+				if(wpas_connect_ssid == NULL)
+				{
+					os_printf("wpas_connect_ssid is null\r\n");
+					exitcode = -1;
+					break;
+				}
 			}
 
 			len = MIN(SSID_MAX_LEN, oob_ssid_len);
@@ -226,7 +233,7 @@ int supplicant_main_entry(char *oob_ssid)
 		wpa_supplicant_deinit(wpa_global_ptr);
 	} else {
 		// Add event notifier chain
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		register_wlan_notifier(wlan_internal_notify_func, wpa_s);
 #endif
 		wpa_supplicant_run(wpa_global_ptr);

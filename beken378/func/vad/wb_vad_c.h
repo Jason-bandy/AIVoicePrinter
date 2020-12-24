@@ -4,7 +4,7 @@
 #define WB_VAD_DEBUG            1
 
 #if WB_VAD_DEBUG
-#define WB_VAD_PRF              rt_kprintf
+#define WB_VAD_PRF              os_printf
 #else
 #define WB_VAD_PRF              info
 #endif

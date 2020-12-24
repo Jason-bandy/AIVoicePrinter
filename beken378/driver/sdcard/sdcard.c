@@ -1,14 +1,13 @@
 #include "include.h"
-
 #include "sys_rtos.h"
 #include "error.h"
+
 #if CFG_USE_SDCARD_HOST
 #include "sdio_driver.h"
 #include "rtos_pub.h"
 #include "sys_rtos.h"
 #include "sdcard.h"
 #include "sdcard_pub.h"
-
 #include "drv_model_pub.h"
 #include "sys_ctrl_pub.h"
 #include "mem_pub.h"
@@ -129,6 +128,16 @@ static void sdcard_clock_set(uint8 clk_index)
 
 static void sdio_hw_init(void)
 {
+#if (SOC_BK7271 == CFG_SOC_NAME)
+    UINT32 param;
+
+    param = BLK_BIT_MIC_QSPI_RAM_OR_FLASH;
+    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLK_ENABLE, &param);
+
+    param = PSRAM_VDD_3_3V;
+    sddev_control(SCTRL_DEV_NAME, CMD_QSPI_VDDRAM_VOLTAGE, &param);
+#endif
+
     /* config sdcard gpio */
     sdio_gpio_config();
 
@@ -140,7 +149,6 @@ static void sdio_hw_init(void)
 
     /* set sdcard  clk enable*/
     sdio_clk_config(1);
-
 }
 
 static void sdio_send_cmd(SDIO_CMD_PTR sdio_cmd_ptr)
@@ -974,11 +982,13 @@ static SDIO_Error sdcard_rcv_data(UINT8 *read_buff, int block_num)
     }
 	return Ret;
 }
+
 #if 1
 SDIO_Error sdcard_read_multi_block(UINT8 *read_buffer, int first_block, int block_num)
 {
 	int ret = SD_OK;
 	UINT8 op_flag = 0;	
+	
 	if(SDIO_WR_flag == SDIO_WR_DATA)
 	{
 		op_flag = 1;	//write stop
@@ -993,10 +1003,11 @@ SDIO_Error sdcard_read_multi_block(UINT8 *read_buffer, int first_block, int bloc
 		{
 			op_flag = 2;//read stop
 		}
-
-		if(1 == no_need_send_cmd12_flag)
-			op_flag = 3;//stop has send
 	}
+	
+	if(1 == no_need_send_cmd12_flag)
+		op_flag = 3;//stop has send
+		
 	no_need_send_cmd12_flag = 0;
 	if(0 == op_flag)
 	{
@@ -1456,11 +1467,12 @@ SDIO_Error sdcard_write_multi_block(UINT8 *write_buff, UINT32 first_block, UINT3
 		{
 			op_flag = 2;//write stop
 		}
-
-		if(1 == no_need_send_cmd12_flag)
-			op_flag = 3;//stop has send
 	}
-//	rt_kprintf("===sd write: start = %x,block = %x,op_flag = %x=====\r\n",first_block,block_num,op_flag);
+
+	if(1 == no_need_send_cmd12_flag)
+		op_flag = 3;//stop has send
+		
+	os_null_printf("===sd write: start = %x,block = %x,op_flag = %x=====\r\n",first_block,block_num,op_flag);
 
 	no_need_send_cmd12_flag = 0;
 	if(0 == op_flag )//continue write

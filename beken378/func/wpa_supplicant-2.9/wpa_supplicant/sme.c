@@ -40,8 +40,10 @@ static void sme_obss_scan_timeout(void *eloop_ctx, void *timeout_ctx);
 #ifdef CONFIG_IEEE80211W
 static void sme_stop_sa_query(struct wpa_supplicant *wpa_s);
 #endif /* CONFIG_IEEE80211W */
+static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
+			u16 status_code, const u8 *data, size_t len,
+			int external, const u8 *sa);
 
-#ifdef CONFIG_SME
 
 #ifdef CONFIG_SAE
 
@@ -175,7 +177,7 @@ static struct wpabuf * sme_auth_build_sae_confirm(struct wpa_supplicant *wpa_s,
 
 #endif /* CONFIG_SAE */
 
-
+#ifdef CONFIG_SME
 #ifdef CONFIG_RRM
 /**
  * sme_auth_handle_rrm - Handle RRM aspects of current authentication attempt
@@ -915,9 +917,9 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 			   sme_auth_start_cb, cwork) < 0)
 		wpas_connect_work_free(cwork);
 }
+#endif /* CONFIG_SME */
 
-
-#ifdef CONFIG_SAE
+#if defined(CONFIG_SAE) && defined(CONFIG_SAE_EXTERNAL)
 
 static int sme_external_auth_build_buf(struct wpabuf *buf,
 				       struct wpabuf *params,
@@ -1070,6 +1072,48 @@ void sme_external_auth_trigger(struct wpa_supplicant *wpa_s,
 }
 
 
+void sme_external_auth_mgmt_rx(struct wpa_supplicant *wpa_s,
+			       const u8 *auth_frame, size_t len)
+{
+	const struct ieee80211_mgmt *header;
+	size_t auth_length;
+
+	header = (const struct ieee80211_mgmt *) auth_frame;
+	auth_length = IEEE80211_HDRLEN + sizeof(header->u.auth);
+
+	if (len < auth_length) {
+		/* Notify failure to the driver */
+		sme_send_external_auth_status(wpa_s,
+					      WLAN_STATUS_UNSPECIFIED_FAILURE);
+		return;
+	}
+
+	if (le_to_host16(header->u.auth.auth_alg) == WLAN_AUTH_SAE) {
+		int res;
+
+		res = sme_sae_auth(
+			wpa_s, le_to_host16(header->u.auth.auth_transaction),
+			le_to_host16(header->u.auth.status_code),
+			header->u.auth.variable,
+			len - auth_length, 1, header->sa);
+		if (res < 0) {
+			/* Notify failure to the driver */
+			sme_send_external_auth_status(
+				wpa_s, WLAN_STATUS_UNSPECIFIED_FAILURE);
+			return;
+		}
+		if (res != 1)
+			return;
+
+		wpa_printf(MSG_DEBUG,
+			   "SME: SAE completed - setting PMK for 4-way handshake");
+		wpa_sm_set_pmk(wpa_s->wpa, wpa_s->sme.sae.pmk, PMK_LEN,
+			       wpa_s->sme.sae.pmkid, wpa_s->pending_bssid);
+	}
+}
+#endif
+
+#ifdef CONFIG_SAE
 static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 			u16 status_code, const u8 *data, size_t len,
 			int external, const u8 *sa)
@@ -1217,49 +1261,9 @@ static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 }
 
 
-void sme_external_auth_mgmt_rx(struct wpa_supplicant *wpa_s,
-			       const u8 *auth_frame, size_t len)
-{
-	const struct ieee80211_mgmt *header;
-	size_t auth_length;
-
-	header = (const struct ieee80211_mgmt *) auth_frame;
-	auth_length = IEEE80211_HDRLEN + sizeof(header->u.auth);
-
-	if (len < auth_length) {
-		/* Notify failure to the driver */
-		sme_send_external_auth_status(wpa_s,
-					      WLAN_STATUS_UNSPECIFIED_FAILURE);
-		return;
-	}
-
-	if (le_to_host16(header->u.auth.auth_alg) == WLAN_AUTH_SAE) {
-		int res;
-
-		res = sme_sae_auth(
-			wpa_s, le_to_host16(header->u.auth.auth_transaction),
-			le_to_host16(header->u.auth.status_code),
-			header->u.auth.variable,
-			len - auth_length, 1, header->sa);
-		if (res < 0) {
-			/* Notify failure to the driver */
-			sme_send_external_auth_status(
-				wpa_s, WLAN_STATUS_UNSPECIFIED_FAILURE);
-			return;
-		}
-		if (res != 1)
-			return;
-
-		wpa_printf(MSG_DEBUG,
-			   "SME: SAE completed - setting PMK for 4-way handshake");
-		wpa_sm_set_pmk(wpa_s->wpa, wpa_s->sme.sae.pmk, PMK_LEN,
-			       wpa_s->sme.sae.pmkid, wpa_s->pending_bssid);
-	}
-}
-
 #endif /* CONFIG_SAE */
 
-
+#ifdef CONFIG_SME
 void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 {
 	struct wpa_ssid *ssid = wpa_s->current_ssid;
@@ -1822,16 +1826,12 @@ pfs_fail:
 	/* append bcn ie */
 	//bk_printf("%s: bss %p, ie_len %d\n", __func__, wpa_s->current_bss, wpa_s->current_bss ? wpa_s->current_bss->ie_len : -1);
 	if (wpa_s->current_bss && wpa_s->current_bss->ie_len) {
-		params.bcn_ie = os_malloc(wpa_s->current_bss->ie_len);
-		if (params.bcn_ie) {
-			params.bcn_len = wpa_s->current_bss->ie_len;
-			os_memcpy(params.bcn_ie, wpa_s->current_bss + 1, wpa_s->current_bss->ie_len);
-			//print_hex_dump("BCN: ", params.bcn_ie, wpa_s->current_bss->ie_len);
-		}
+		params.bcn_ie = (u8 *)(wpa_s->current_bss + 1);
+		params.bcn_len = wpa_s->current_bss->ie_len;
+		//print_hex_dump("BCN: ", params.bcn_ie, wpa_s->current_bss->ie_len);
 	}
 
 	if (wpa_drv_associate(wpa_s, &params) < 0) {
-		os_free(params.bcn_ie);
 		wpa_msg(wpa_s, MSG_INFO, "SME: Association request to the "
 			"driver failed");
 		wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
@@ -1839,7 +1839,6 @@ pfs_fail:
 		os_memset(wpa_s->pending_bssid, 0, ETH_ALEN);
 		return;
 	}
-	os_free(params.bcn_ie);
 
 	eloop_register_timeout(SME_ASSOC_TIMEOUT, 0, sme_assoc_timer, wpa_s,
 			       NULL);

@@ -1,0 +1,22 @@
+from building import *
+
+cwd = GetCurrentDir()
+
+src = Glob('*.c')
+path = []
+path += [cwd + '/']
+
+pcm_lib_name = 'pcm_resampler'
+
+libs = [pcm_lib_name]
+libpath = [cwd + '/']
+
+print 'using pcm_resampler: lib' + pcm_lib_name + '.a'
+
+group_use_lib = DefineGroup('pcm_resampler_lib', [], depend = [''], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
+
+group_build_lib = DefineGroup('beken_pcm_resampler', src, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + pcm_lib_name + '.a')
+
+group = group_use_lib + group_build_lib
+
+Return('group')

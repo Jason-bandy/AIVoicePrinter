@@ -32,6 +32,7 @@
 #include "error.h"
 #include "errno-base.h"
 #include "rw_ieee80211.h"
+#include "sys_ctrl_pub.h"
 
 extern struct mac_scan_result *scanu_search_by_ssid(struct mac_ssid const *ssid);
 
@@ -74,7 +75,7 @@ int sa_station_send_associate_cmd(CONNECT_PARAM_T *connect_param)
 	struct mac_scan_result *desired_ap_ptr;
 	struct sm_connect_cfm sm_connect_cfm;
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if (g_sta_param_ptr->fast_connect_set) {
 		g_sta_param_ptr->fast_connect_set = 0;
 		connect_param->chan.freq = rw_ieee80211_get_centre_frequency(g_sta_param_ptr->fast_connect.chann);

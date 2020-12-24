@@ -27,8 +27,19 @@
 #include "power_save_pub.h"
 #include "start_type_pub.h"
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+void intc_hdl_entry(UINT32 int_status) __SECTION(".itcm");
+void fiq_hdl_entry(UINT32 int_status) __SECTION(".itcm");
+#endif
+
+/* there are 32 irqs and 7 fiqs on BK7271, the first IRQ_MAX_COUNT(32) of _isrs for irqs */
 ISR_T _isrs[INTC_MAX_COUNT] = {{{0, 0}},};
 static UINT32 isrs_mask = 0;
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+static UINT32 fiqs_mask = 0;
+#endif
+
 static ISR_LIST_T isr_hdr = {{&isr_hdr.isr, &isr_hdr.isr},};
 
 void intc_hdl_entry(UINT32 int_status)
@@ -63,6 +74,41 @@ void intc_hdl_entry(UINT32 int_status)
         }
     }
 }
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+void fiq_hdl_entry(UINT32 int_status)
+{
+    UINT32 i;
+    ISR_T *f;
+    UINT32 status;
+    LIST_HEADER_T *n;
+    LIST_HEADER_T *pos;
+
+    status = int_status & fiqs_mask;
+    INTC_PRT("fiq:%x:%x\r\n", int_status, status);
+
+    #if CFG_USE_STA_PS
+    power_save_dtim_wake(status);
+    #endif
+
+    list_for_each_safe(pos, n, &isr_hdr.isr)
+    {
+        f = list_entry(pos, ISR_T, list);
+        i = f->int_num - IRQ_MAX_COUNT;
+
+        if ((BIT(i) & status))
+        {
+            f->isr_func();
+            status &= ~(BIT(i));
+        }
+
+        if(0 == status)
+        {
+            return;
+        }
+    }
+}
+#endif
 
 void intc_service_register(UINT8 int_num, UINT8 int_pri, FUNCPTR isr)
 {
@@ -112,7 +158,18 @@ void intc_service_register(UINT8 int_num, UINT8 int_pri, FUNCPTR isr)
     INTC_PRT("reg_isr_o2\r\n");
 
 ok:
+#if (CFG_SOC_NAME == SOC_BK7271)
+    if (int_num >= IRQ_MAX_COUNT)
+    {
+        fiqs_mask |= BIT(int_num - IRQ_MAX_COUNT);
+    }
+    else
+    {
+        isrs_mask |= BIT(int_num);
+    }
+#else
     isrs_mask |= BIT(int_num);
+#endif
     GLOBAL_INT_RESTORE();
 
     return;
@@ -215,7 +272,9 @@ void intc_irq(void)
     UINT32 irq_status;
 	
     irq_status = icu_ctrl(CMD_GET_INTR_STATUS, 0);
+#if (CFG_SOC_NAME != SOC_BK7271)
     irq_status = irq_status & 0xFFFF;
+#endif
 	if(0 == irq_status)
 	{
 	    #if (! CFG_USE_STA_PS)
@@ -232,11 +291,19 @@ void intc_fiq(void)
 {
     UINT32 fiq_status;
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+    fiq_status = icu_ctrl(CMD_GET_FIQ_REG_STATUS, 0);
+    fiq_status = fiq_status & 0x000000FF;
+    icu_ctrl(CMD_CLR_FIQ_REG_STATUS, &fiq_status);
+
+    fiq_hdl_entry(fiq_status);
+#else
     fiq_status = icu_ctrl(CMD_GET_INTR_STATUS, 0);
     fiq_status = fiq_status & 0xFFFF0000;
     icu_ctrl(CMD_CLR_INTR_STATUS, &fiq_status);
 
     intc_hdl_entry(fiq_status);
+#endif
 }
 
 #if (CFG_SUPPORT_ALIOS)

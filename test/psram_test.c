@@ -14,7 +14,6 @@ static void psram_mem_rw_test(uint32_t start_address, uint32_t size)
     uint32_t i;
     uint8_t *p_uint8_t = NULL;
 
-
     extern void rt_hw_wdg_stop(void);
     rt_hw_wdg_stop();
     

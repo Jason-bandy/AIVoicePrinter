@@ -88,7 +88,8 @@ static void pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
     case PWM3:
         prm = PWD_PWM3_CLK_BIT;
         break;
-
+		
+#if (CFG_SOC_NAME != SOC_BK7271)
     case PWM4:
         prm = PWD_PWM4_CLK_BIT;
         break;
@@ -96,6 +97,7 @@ static void pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
     case PWM5:
         prm = PWD_PWM5_CLK_BIT;
         break;
+#endif
 
     default:
 		PWM_WARN("pwm_iconfig_fail\r\n");

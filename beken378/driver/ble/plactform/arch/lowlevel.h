@@ -26,6 +26,7 @@
  * last one will close the brace that the current macro opens.  This means that both
  * macros must be located at the same scope level.
  */
+#if (!defined(CFG_SUPPORT_RTT))
 #define GLOBAL_INT_DIS(); 		\
 do { 								\
     uint32_t  fiq_tmp; 				\
@@ -42,7 +43,21 @@ do { 								\
 			{                      	\
 				portENABLE_IRQ();	\
 			}                     	\
-} while(0) ;                                       
+} while(0) ;
+
+#else
+extern long rt_hw_interrupt_disable(void);
+extern void rt_hw_interrupt_enable(long level);
+
+#define GLOBAL_INT_DIS();		\
+			do {								\
+				uint32_t  fiq_irq_tmp = rt_hw_interrupt_disable();
+
+#define GLOBAL_INT_RES();		\
+				rt_hw_interrupt_enable(fiq_irq_tmp);\
+			} while(0);
+
+#endif
 
 
 /** @brief Invoke the wait for interrupt procedure of the processor.

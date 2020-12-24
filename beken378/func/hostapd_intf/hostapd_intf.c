@@ -208,7 +208,7 @@ int hapd_get_sta_info(struct prism2_hostapd_param *param, int len)
 {
 	int delta_sec = 0;
 	struct sta_info_tag *entry;
-	uint32 tick_cnt;
+	uint64_t tick_cnt;
 
 	if(NULL == param)
 	{
@@ -269,12 +269,12 @@ int hapd_intf_add_key(struct prism2_hostapd_param *param, int len)
     if(os_strcmp((char *)param->u.crypt.alg, "WEP40") == 0)
     {
         WPAS_PRT("add WEP40\r\n");
-        key_param.cipher_suite = MAC_RSNIE_CIPHER_WEP40;
+        key_param.cipher_suite = MAC_RSNIE_CIPHER_WEP_40;
     }
     else if(os_strcmp((char *)param->u.crypt.alg, "WEP104") == 0)
     {
         WPAS_PRT("add WEP104\r\n");
-        key_param.cipher_suite = MAC_RSNIE_CIPHER_WEP104;
+        key_param.cipher_suite = MAC_RSNIE_CIPHER_WEP_104;
     }
     else if(os_strcmp((char *)param->u.crypt.alg, "TKIP") == 0)
     {
@@ -284,7 +284,7 @@ int hapd_intf_add_key(struct prism2_hostapd_param *param, int len)
     else if(os_strcmp((char *)param->u.crypt.alg, "CCMP") == 0)
     {
         WPAS_PRT("hapd_intf_add_key CCMP\r\n");
-        key_param.cipher_suite = MAC_RSNIE_CIPHER_CCMP;
+        key_param.cipher_suite = MAC_RSNIE_CIPHER_CCMP_128;
     }
 #if CFG_MFP
     else if(os_strcmp((char *)param->u.crypt.alg, "BIP") == 0)
@@ -316,7 +316,8 @@ int hapd_intf_add_key(struct prism2_hostapd_param *param, int len)
 
     ps_set_key_prevent();
     mcu_prevent_set(MCU_PS_ADD_KEY);
-
+    UINT32 reg = RF_HOLD_BY_KEY_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
 #if CFG_USE_STA_PS
     power_save_rf_dtim_manual_do_wakeup();
 #endif
@@ -492,7 +493,7 @@ void wpa_buffer_scan_results(void)
 
 void wpa_clear_scan_results(void)
 {
-    s_scan_result_upload_ptr = 0;
+    s_scan_result_upload_ptr = NULL;
 }
 
 int wpa_reg_assoc_cfm_callback(struct prism2_hostapd_param *param, int len)
@@ -507,7 +508,7 @@ int wpa_reg_assoc_cfm_callback(struct prism2_hostapd_param *param, int len)
 int wpa_reg_scan_cfm_callback(struct prism2_hostapd_param *param, int len)
 {
     ASSERT(param);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
     mhdr_scanu_reg_cb_for_wpa(param->u.reg_scan_cfm.cb,
                       param->u.reg_scan_cfm.arg);
 #else
@@ -556,43 +557,50 @@ int wpa_send_scan_req(struct prism2_hostapd_param *param, int len)
 #endif
     }
     scan_param.vif_idx = param->vif_idx;
+	os_memcpy(scan_param.freqs, param->u.scan_req.freqs, sizeof(scan_param.freqs));
 
     return rw_msg_send_scanu_req(&scan_param);
 }
 
 int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 {
-    struct wpa_scan_results *results = param->u.scan_rst;
-    struct sta_scan_res *scan_rst_ptr;
-    struct wpa_scan_res *r;
+	struct wpa_scan_results *results = param->u.scan_rst;
+	struct sta_scan_res *scan_rst_ptr;
+	struct wpa_scan_res *r;
 	FUNC_1PARAM_PTR fn;
-    int i, ret = 0;
+	int i, ret = 0;
 	u32 val;
+	GLOBAL_INT_DECLARATION();
 
-    if(NULL == s_scan_result_upload_ptr)
-    {
-        WPAS_PRT("get_scan_rst_null\r\n");
+	GLOBAL_INT_DISABLE();
+	wpa_buffer_scan_results();
+
+	if (NULL == s_scan_result_upload_ptr) {
+		GLOBAL_INT_RESTORE();
+		WPAS_PRT("get_scan_rst_null\r\n");
 
 		fn = bk_wlan_get_status_cb();
-		if(fn)
-		{
+		if (fn) {
 			val = RW_EVT_STA_NO_AP_FOUND;
-        	(*fn)(&val);
+			(*fn)(&val);
 		}
 		mhdr_set_station_status(RW_EVT_STA_NO_AP_FOUND);
 
 #if CFG_ROLE_LAUNCH
-		if(rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER))
-		{
+		if (rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER))
 			return -1;
-		}
 #endif
 
+#if CFG_WPA_CTRL_IFACE
+		/* Don't fail get scan result, but allow empty scan result */
+		return 0;
+#else
 		return -1;
+#endif
 	}
 
 	WPAS_PRT("wpa_get_scan_rst:%d\r\n", s_scan_result_upload_ptr->scanu_num);
-	for (i = 0; i < s_scan_result_upload_ptr->scanu_num; i++) {
+	for (i = 0; s_scan_result_upload_ptr && i < s_scan_result_upload_ptr->scanu_num; i++) {
 		scan_rst_ptr = s_scan_result_upload_ptr->res[i];
 		r = os_zalloc(sizeof(*r) + scan_rst_ptr->ie_len);
 		if (r == NULL) {
@@ -613,13 +621,16 @@ int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 		results->res[results->num++] = r;
 	}
 
-#if CFG_NEW_SUPP
+	GLOBAL_INT_RESTORE();
+
+#if CFG_WPA_CTRL_IFACE
 	/* doesn't need to keep, all info are stored in wpas */
- 	wpa_hostapd_release_scan_rst();
+	wpa_hostapd_release_scan_rst();
 #endif
 
 	return ret;
 }
+
 
 #ifdef CONFIG_SME
 int wpa_send_auth_req(struct prism2_hostapd_param *param, int len)
@@ -627,7 +638,7 @@ int wpa_send_auth_req(struct prism2_hostapd_param *param, int len)
 	AUTH_PARAM_T *auth_param;
 	int ret = 0;
 
-	auth_param = os_zalloc(sizeof(*auth_param) /*+ param->u.authen_req.ie_len + param->u.authen_req.sae_data_len*/);
+	auth_param = os_zalloc(sizeof(*auth_param) /*+ param->u.authen_req.ie_len*/ + param->u.authen_req.sae_data_len);
 	if (!auth_param) {
 		os_printf("%s: malloc failed\n", __func__);
 		return -1;
@@ -651,7 +662,7 @@ int wpa_send_auth_req(struct prism2_hostapd_param *param, int len)
 	if (auth_param->sae_data_len)
 		os_memcpy((UINT8 *)auth_param->sae_data, (UINT8 *)param->u.authen_req.sae_data, param->u.authen_req.sae_data_len);
 
-#if 0//CFG_NEW_SUPP
+#if 0//CFG_WPA_CTRL_IFACE
 	auth_param->chan.freq = param->u.authen_req.freq;	//5G??
 #endif
 
@@ -678,8 +689,7 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
     ASSOC_PARAM_T *assoc_param;
     int ret = 0;
 
-	//os_printf("%s %d: proto 0x%x\n", __func__, __LINE__, param->u.assoc_req.proto);
-	assoc_param = os_zalloc(sizeof(*assoc_param));
+	assoc_param = os_zalloc(sizeof(*assoc_param) + param->u.assoc_req.bcn_len);
 	if (!assoc_param) {
 		os_printf("%s: oom\n");
 		return -1;
@@ -699,12 +709,12 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
     os_memcpy(assoc_param->ssid.array, param->u.assoc_req.ssid, assoc_param->ssid.length);
     assoc_param->ie_len = param->u.assoc_req.ie_len;
     os_memcpy((UINT8 *)assoc_param->ie_buf, (UINT8 *)param->u.assoc_req.ie_buf, assoc_param->ie_len);
-#if 0//CFG_NEW_SUPP
+#if 0//CFG_WPA_CTRL_IFACE
 	assoc_param.chan.freq = param->u.assoc_req.freq;	//5G??
 #endif
 	assoc_param->bcn_len = param->u.assoc_req.bcn_len;
 	if (assoc_param->bcn_len) {
-		ASSERT(sizeof(assoc_param->bcn_buf) >= assoc_param->bcn_len);
+		//ASSERT(sizeof(assoc_param->bcn_buf) >= assoc_param->bcn_len);
 		os_memcpy(assoc_param->bcn_buf, param->u.assoc_req.bcn_buf, assoc_param->bcn_len);
 	}
 
@@ -713,7 +723,6 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 
 	os_free(assoc_param);
 
-//assoc_exit:
     if(s_scan_result_upload_ptr) {
         sr_release_scan_results(s_scan_result_upload_ptr);
         s_scan_result_upload_ptr = NULL;
@@ -726,7 +735,7 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 
 int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 {
-	CONNECT_PARAM_T connect_param = {0};
+	CONNECT_PARAM_T *connect_param;
 	int ret = 0;
 
 #if CFG_ROLE_LAUNCH
@@ -734,26 +743,31 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 		goto assoc_exit;
 #endif
 
-	os_memcpy((UINT8 *)&connect_param.bssid, param->u.assoc_req.bssid, ETH_ALEN);
-	connect_param.flags = CONTROL_PORT_HOST;
+	connect_param = os_zalloc(sizeof(*connect_param) + param->u.assoc_req.bcn_len);
+	if (!connect_param)
+		return -1;
+
+	os_memcpy((UINT8 *)&connect_param->bssid, param->u.assoc_req.bssid, ETH_ALEN);
+	connect_param->flags = CONTROL_PORT_HOST;
 	if (param->u.assoc_req.proto & (WPA_PROTO_WPA | WPA_PROTO_RSN))
-		connect_param.flags |= WPA_WPA2_IN_USE;
+		connect_param->flags |= WPA_WPA2_IN_USE;
 
 	if (param->u.assoc_req.mfp == MGMT_FRAME_PROTECTION_REQUIRED)
-		connect_param.flags |= MFP_IN_USE;
+		connect_param->flags |= MFP_IN_USE;
 
-	connect_param.vif_idx = param->vif_idx;
-	connect_param.ssid.length = param->u.assoc_req.ssid_len;
-	os_memcpy(connect_param.ssid.array, param->u.assoc_req.ssid, connect_param.ssid.length);
-	connect_param.ie_len = param->u.assoc_req.ie_len;
-	os_memcpy((UINT8 *)connect_param.ie_buf, (UINT8 *)param->u.assoc_req.ie_buf, connect_param.ie_len);
-	connect_param.bcn_len = param->u.assoc_req.bcn_len;
-	if (connect_param.bcn_len)
-		os_memcpy((UINT8 *)connect_param.bcn_buf, (UINT8 *)param->u.assoc_req.bcn_buf, connect_param.bcn_len);
+	connect_param->vif_idx = param->vif_idx;
+	connect_param->ssid.length = param->u.assoc_req.ssid_len;
+	os_memcpy(connect_param->ssid.array, param->u.assoc_req.ssid, connect_param->ssid.length);
+	connect_param->ie_len = param->u.assoc_req.ie_len;
+	os_memcpy((UINT8 *)connect_param->ie_buf, (UINT8 *)param->u.assoc_req.ie_buf, connect_param->ie_len);
+	connect_param->bcn_len = param->u.assoc_req.bcn_len;
+	if (connect_param->bcn_len)
+		os_memcpy((UINT8 *)connect_param->bcn_buf, (UINT8 *)param->u.assoc_req.bcn_buf, connect_param->bcn_len);
 
-	connect_param.auth_type = param->u.assoc_req.auth_alg;
-	ret = sa_station_send_associate_cmd(&connect_param);
+	connect_param->auth_type = param->u.assoc_req.auth_alg;
+	ret = sa_station_send_associate_cmd(connect_param);
 
+	os_free(connect_param);
 #if CFG_ROLE_LAUNCH
 assoc_exit:
 #endif
@@ -795,6 +809,18 @@ int wpa_send_set_operate(struct prism2_hostapd_param *param, int len)
 	oper_param.state = param->u.oper_state.state;
 
 	return rw_msg_send_sm_set_operstate_req(&oper_param);
+}
+#endif
+
+#ifdef CONFIG_SAE_EXTERNAL
+int wpa_send_external_auth_status(struct prism2_hostapd_param *param, int len)
+{
+	EXTERNAL_AUTH_PARAM_T oper_param = {0};
+
+	oper_param.vif_idx = param->vif_idx;
+	oper_param.status = param->u.external_auth_status.status;
+
+	return rw_msg_send_sm_external_auth_status(&oper_param);
 }
 #endif
 
@@ -858,53 +884,49 @@ is_connected_exit:
 
 int wpa_hostapd_set_sta_flag(struct prism2_hostapd_param *param, int len)
 {
-    u32 set_flag = param->u.set_flags_sta.flags_or;
-    u32 mask = param->u.set_flags_sta.flags_and;
-    u32 flag = 0;
-    bool opened = 0;
-    u8 sta_idx;
+	u32 set_flag = param->u.set_flags_sta.flags_or;
+	u32 mask = param->u.set_flags_sta.flags_and;
+	u32 flag = 0;
+	bool opened = 0;
+	u8 sta_idx;
 
-    flag |= set_flag;
-    flag &= mask;
+	flag |= set_flag;
+	flag &= mask;
 
-    if(!flag)
-        return 0;
+	if (!flag)
+		return 0;
 
-    if( !(flag & WPA_STA_AUTHENTICATED))
-    {
-        return 0;
-    }
+	if (!(flag & WPA_STA_AUTHENTICATED))
+		return 0;
 
 	// Port already open
-	if (rwm_mgmt_sta_mac2port(param->sta_addr))
-	{
-		if(wpa_hostapd_no_password_connected((struct mac_addr *)param->sta_addr))
-		{
+	if (rwm_mgmt_sta_mac2port(param->sta_addr)) {
+		if (wpa_hostapd_no_password_connected((struct mac_addr *)param->sta_addr)) {
 			os_printf("send connected msg\r\n"); // the position is for wangxuejun momentarily
 		}
 
-        {
-            FUNC_1PARAM_PTR fn = bk_wlan_get_status_cb();
-            uint32_t val;
-            
-    		if(fn)
-    		{
-    			val = RW_EVT_AP_CONNECTED;
-            	(*fn)(&val);
-    		}
-        }
-        
+		{
+			FUNC_1PARAM_PTR fn = bk_wlan_get_status_cb();
+			uint32_t val;
+
+			if (fn) {
+				val = RW_EVT_AP_CONNECTED;
+				(*fn)(&val);
+			}
+		}
+
 		return 0;
 	}
 
-    sta_idx = rwm_mgmt_sta_mac2idx(param->sta_addr);
-    if(sta_idx == 0xff)
-        return 0;
+	sta_idx = rwm_mgmt_sta_mac2idx(param->sta_addr);
+	if (sta_idx == 0xff)
+		return 0;
 
-    opened = 1;
+	opened = 1;
 
-    return rw_msg_me_set_control_port_req(opened, sta_idx);
+	return rw_msg_me_set_control_port_req(opened, sta_idx);
 }
+
 
 void wpa_hostapd_release_scan_rst(void)
 {
@@ -1008,6 +1030,8 @@ int hapd_intf_ioctl(unsigned long arg)
         {
             ret = hapd_intf_del_key(param, len);
             mcu_prevent_clear(MCU_PS_ADD_KEY);
+            UINT32 reg = RF_HOLD_BY_KEY_BIT;
+            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
         }
         else
         {
@@ -1099,6 +1123,11 @@ int hapd_intf_ioctl(unsigned long arg)
     case PRISM2_HOSTAPD_GET_BSS_INFO:
         ret = wpa_get_bss_info(param, len);
         break;
+
+#ifdef CONFIG_SAE_EXTERNAL
+	case PRISM2_HOSTAPD_EXTERNAL_AUTH_STATUS:
+		ret = wpa_send_external_auth_status(param, len);
+#endif
 
     default:
         break;

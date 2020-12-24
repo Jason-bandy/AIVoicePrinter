@@ -32,7 +32,6 @@
 #include "error.h"
 #include "pwm_pub.h"
 
-
 #if (CFG_SOC_NAME != SOC_BK7231N)
 OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle)
 {

@@ -24,6 +24,7 @@
 #include "ke_event.h"
 
 #include "arm_arch.h"
+#include "rtos_pub.h"
 
 #if CFG_TX_EVM_TEST
 #define TX_2_4_G_CHANNEL_NUM            (14)
@@ -125,15 +126,19 @@ void evm_bypass_mac_init(UINT32 channel, UINT32 bandwidth)
 	me_init();
 	mm_init();
 	ke_state_set(TASK_MM, MM_IDLE);
-		
+
 	/*start mm*/
 	EVM_PRT("[EVM]phy init\r\n");
 	cfg.parameters[0] = 1;
 	cfg.parameters[1] = 0;
-    phy_init(&cfg);
+	phy_init(&cfg);
 
-    EVM_PRT("[EVM]set channel:%d\r\n", channel);
-    phy_set_channel(PHY_BAND_2G4, bandwidth, channel, channel, 0, PHY_PRIM);
+	EVM_PRT("[EVM]set channel:%d\r\n", channel);
+#if CFG_IEEE80211AX
+	//TODO
+#else
+	phy_set_channel(PHY_BAND_2G4, bandwidth, channel, channel, 0, PHY_PRIM);
+#endif
 
 	/* Put the HW in active state*/
 	mm_active();
@@ -148,7 +153,7 @@ void evm_init(UINT32 channel, UINT32 bandwidth)
 	UINT8 vif_idx;
 	UINT8 vif_type = 2;
 	struct phy_cfg_tag cfg;
-	
+
 	/*reset mm*/
 	EVM_PRT("[EVM]reset_mm\r\n");
 	hal_machw_stop();
@@ -156,24 +161,27 @@ void evm_init(UINT32 channel, UINT32 bandwidth)
 	me_init();
 	mm_init();
 	ke_state_set(TASK_MM, MM_IDLE);
-	
+
 	/*config me*/
 	EVM_PRT("[EVM]config_me\r\n");
-	
+
 	/*config me channel*/
 	EVM_PRT("[EVM]config_me_channel\r\n");
-	
+
 	/*start mm*/
 	EVM_PRT("[EVM]start_mm\r\n");
 	cfg.parameters[0] = 1;
 	cfg.parameters[1] = 0;
-    phy_init(&cfg);
-	
-    phy_set_channel(PHY_BAND_2G4, bandwidth, channel, channel, 0, PHY_PRIM);
-    //if(bandwidth == PHY_CHNL_BW_40)
-    //   rs_set_trx_regs_extern();
-    
-	
+	phy_init(&cfg);
+
+#if CFG_IEEE80211AX
+	//TODO
+#else
+	phy_set_channel(PHY_BAND_2G4, bandwidth, channel, channel, 0, PHY_PRIM);
+#endif
+	//if(bandwidth == PHY_CHNL_BW_40)
+	//   rs_set_trx_regs_extern();
+
 	/*add mm interface*/
 	EVM_PRT("[EVM]add_mm_interface\r\n");
 	vif_mgmt_register(&evm_mac_addr, vif_type, p2p, &vif_idx);
@@ -190,7 +198,7 @@ UINT32 evm_bypass_mac_set_tx_data_length(UINT32 modul_format, UINT32 len, UINT32
 	UINT32 ret, is_legacy_mode = 1;
 	UINT32 param;
 
-    if(need_change)
+    if(0)//(need_change)
     {
         if(bandwidth == 0)
         {

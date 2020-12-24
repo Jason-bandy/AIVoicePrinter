@@ -272,7 +272,9 @@ static void wm_netif_status_callback(struct netif *n)
                 if (sta_connected_func != NULL)
                     (*sta_connected_func)();
 
+                #if CFG_USE_STA_PS
                 auto_check_dtim_rf_ps_mode();
+                #endif
             }
             else
             {
@@ -799,6 +801,7 @@ void net_wlan_add_netif(void *mac)
     wlan_if->ipaddr.addr = INADDR_ANY;
     wlan_if->netif->state = (void *)vif_entry;
     vif_entry->priv = wlan_if->netif;
+    os_memcpy(wlan_if->netif->hwaddr, mac, ETHARP_HWADDR_LEN);
 
     /* set link_up for this netif */
     netif_set_link_up(wlan_if->netif);

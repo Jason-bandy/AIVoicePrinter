@@ -12,6 +12,11 @@
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 #include "general_dma_pub.h"
+#include "video_transfer.h"
+
+#define JPEG_BITRATE_MAX_SIZE           (20 * 1024)
+#define JPEG_BITRATE_MIN_SIZE           (10 * 1024)
+
 
 #define JPEG_BITRATE_MAX_SIZE_320_240           (20 * 1024)
 #define JPEG_BITRATE_MIN_SIZE_320_240           (5 * 1024)
@@ -257,19 +262,27 @@ static void ejpeg_disable_interrupt(void)
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
 }
 
-static void ejpeg_set_target_bitrate_size(void)
+void ejpeg_set_target_bitrate_size(UINT32 ppi_type)
 {
-    if((p_ejpeg->x_pixel == X_PIXEL_320) && (p_ejpeg->y_pixel == Y_PIXEL_240))
+    switch (ppi_type)
     {
-        ejpeg_set_target_high_byte(JPEG_BITRATE_MAX_SIZE_320_240);
-        ejpeg_set_target_low_byte(JPEG_BITRATE_MIN_SIZE_320_240);
-        os_printf("set 320x240 bitrate size\r\n");
-    }
-    else
-    {
- 		ejpeg_set_target_high_byte(JPEG_BITRATE_MAX_SIZE_640_480);
-		ejpeg_set_target_low_byte(JPEG_BITRATE_MIN_SIZE_640_480);
-        os_printf("set 640x480 bitrate size\r\n");
+        case QVGA_320_240:
+    		ejpeg_set_target_high_byte(JPEG_BITRATE_MAX_SIZE_320_240);
+    		ejpeg_set_target_low_byte(JPEG_BITRATE_MIN_SIZE_320_240);
+            os_printf("set 320x240 bitrate size\r\n");
+            break;
+
+        case VGA_640_480:
+     		ejpeg_set_target_high_byte(JPEG_BITRATE_MAX_SIZE_640_480);
+    		ejpeg_set_target_low_byte(JPEG_BITRATE_MIN_SIZE_640_480);
+            os_printf("set 640x480 bitrate size\r\n");
+            break;
+
+        default:
+      		ejpeg_set_target_high_byte(JPEG_BITRATE_MAX_SIZE_640_480);
+    		ejpeg_set_target_low_byte(JPEG_BITRATE_MIN_SIZE_640_480);
+            os_printf("cm PPI unknown, use QVGA\r\n");
+            break;
     }	
 }
 
@@ -313,7 +326,7 @@ static void ejpeg_eixt_rxdma(void)
     GDMA_CFG_ST en_cfg;
 
     en_cfg.channel = p_ejpeg->dma_channel;
-    en_cfg.param = 1;
+    en_cfg.param = 0;
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
 }
 #endif
@@ -395,16 +408,12 @@ static UINT32 ejpeg_open(UINT32 op_flag)
     // this 4 byte size attched to the end of JPEG, use to check crc 
     ejpeg_enable_enc_size(1);
     ejpeg_set_video_byte_reverse(1);
-	
 
-	ejpeg_set_target_bitrate_size();
-	
+    ejpeg_set_target_high_byte(JPEG_BITRATE_MAX_SIZE);
+    ejpeg_set_target_low_byte(JPEG_BITRATE_MIN_SIZE);
     ejpeg_set_bitrate_step(7);
     ejpeg_enable_bitrate_ctrl(1);
-    
     ejpeg_enable_interrupt();
-    ejpeg_power_up();
-    ejpeg_gpio_config();
 
     #if CFG_GENERAL_DMA
     ejpeg_config_rxdma();
@@ -413,6 +422,14 @@ static UINT32 ejpeg_open(UINT32 op_flag)
     ejpeg_set_encoder_enable(1);
 
     return EJPEG_SUCCESS;
+}
+
+void camera_power_on()
+{
+    ejpeg_set_encoder_enable(0);
+    ejpeg_power_up();
+    ejpeg_gpio_config();
+    ejpeg_set_encoder_enable(1);
 }
 
 static UINT32 ejpeg_close(void)
@@ -491,4 +508,32 @@ static UINT32 ejpeg_ctrl(UINT32 cmd, void *param)
     return ret;
 }
 
+#if CFG_SUPPORT_RTT
+void jpegrate(int argc, char **argv)
+{
+    UINT16 len1,len2;
+
+    if(0 == os_strcmp(argv[1], "0"))
+    {
+
+    	ejpeg_enable_bitrate_ctrl(0);
+        os_printf(" ejpeg_enable_bitrate_ctrl(0)\r\n");
+
+    }
+    else if(0 == os_strcmp(argv[1], "1"))
+    {
+      ejpeg_enable_bitrate_ctrl(1);
+      os_printf(" ejpeg_enable_bitrate_ctrl(1)\r\n");
+
+    }
+    else
+    {
+        os_printf("jpegrate 0/1\r\n");
+    }
+}
+FINSH_FUNCTION_EXPORT_ALIAS(jpegrate, __cmd_jpegrate, jpegrate);
+
 #endif
+#endif
+// eof
+

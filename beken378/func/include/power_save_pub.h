@@ -6,10 +6,11 @@
 #include "rw_pub.h"
 #include "wlan_ui_pub.h"
 #include "sys_ctrl_pub.h"
+#include "drv_model_pub.h"
 
-//#define PS_DEBUG
+#define PS_DEBUG              0
 
-#ifdef PS_DEBUG
+#if PS_DEBUG
 #define PS_PRT                 os_printf
 #define PS_WPRT                os_printf
 #define PS_DBG                 os_printf
@@ -47,11 +48,16 @@ typedef enum {
 #define ICU_BASE                                     (0x00802000)
 #define ICU_INTERRUPT_ENABLE                         (ICU_BASE + 16 * 4)
 #define ICU_PERI_CLK_PWD                             (ICU_BASE + 2 * 4)
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define ICU_ARM_WAKEUP_EN                            (ICU_BASE + 23 * 4)
+#else
 #define ICU_ARM_WAKEUP_EN                            (ICU_BASE + 20 * 4)
+#endif
 
 #define   PS_WAKEUP_MOTHOD_RW     1
 
-enum {
+enum
+{
     NEED_DISABLE = 0,
     NEED_REBOOT = 1,
 };
@@ -111,6 +117,7 @@ extern int power_save_dtim_disable();
 extern void power_save_rf_dtim_manual_do_wakeup ( void );
 extern void power_save_rf_ps_wkup_semlist_set ( void );
 extern bool power_save_rf_sleep_check ( void );
+extern uint32_t ps_get_sleep_prevent(void);
 extern void ps_set_key_prevent ( void );
 extern void ps_clear_key_prevent ( void );
 extern void ps_set_data_prevent ( void );
@@ -163,6 +170,14 @@ extern void power_save_set_keep_timer_time ( UINT32 );
 
 extern void ps_set_rf_prevent(void);
 extern void ps_clear_rf_prevent(void);
+
+
+void ps_set_td_timer(void);
+UINT32 bk_unconditional_sleep_mode_get ( void );
+void ps_set_mac_reset_prevent(void);
+void ps_clear_mac_reset_prevent(void);
+UINT8 power_save_low_latency_get ( void );
+void power_save_set_low_latency ( UINT8 );
 
 /***************************************************************************/
 extern void power_save_wake_rf_if_in_sleep(void);

@@ -4,7 +4,6 @@
 #include "uart_pub.h"
 
 #define I2C2_DEBUG
-//#undef I2C2_DEBUG
 
 #define I2C2_PRT                 os_null_printf//os_printf
 
@@ -18,7 +17,11 @@
 #define I2C2_DEBUG_PRINTF		 os_null_printf
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define I2C2_BASE_ADDR                       (0x0802280)
+#else
 #define I2C2_BASE_ADDR                       (0x0802600)
+#endif
 
 #define REG_I2C2_CONFIG                      (I2C2_BASE_ADDR + 4 * 0)
 #define I2C2_IDLE_CR_POSI                      (0)

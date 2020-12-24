@@ -53,6 +53,12 @@ extern void sec_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #include "utils_httpc.h"
 #endif
 
+#ifdef monitor_printf_debug
+#define monitor_dbg(fmt, ...)   bk_printf(fmt, ##__VA_ARGS__)
+#else
+#define monitor_dbg(fmt, ...)
+#endif
+
 #ifndef MOC
 static void task_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv );
 #endif
@@ -750,12 +756,12 @@ void cli_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
     uint32_t count, i;
 
     count = MIN(32, len);
-    os_printf("cli_monitor_cb:%d:%d\r\n", count, len);
+    monitor_dbg("cli_monitor_cb:%d:%d\r\n", count, len);
     for(i = 0; i < count; i ++)
     {
-        os_printf("%x ", data[i]);
+        monitor_dbg("%x ", data[i]);
     }
-    os_printf("\r\n");
+    monitor_dbg("\r\n");
 
     channel_count ++;
 }
@@ -811,6 +817,7 @@ void mtr_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     channel_num = os_strtoul(argv[1], NULL, 10);
     if(99 == channel_num)
     {
+        cmd_printf("stop monitor\r\n");
         bk_wlan_stop_monitor();
     }
     else
@@ -901,7 +908,7 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     }
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 void wifi_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     char *oob_ssid = NULL;
@@ -948,21 +955,6 @@ void airkiss_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **
     start = strtoul(argv[1], NULL, 0);
 
     airkiss_process(start);
-}
-
-void air_kiss_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
-{
-    u8 start = 0;
-
-    if(argc != 2)
-    {
-        os_printf("need 2 parameters: airkiss 1(start), 0(stop)\r\n");
-        return;
-    }
-
-    start = strtoul(argv[1], NULL, 0);
-
-    bk_airkiss_process(start);
 }
 
 #endif
@@ -2236,6 +2228,118 @@ extern void cmd_rfcali_cfg_tssi_g(char *pcWriteBuffer, int xWriteBufferLen, int 
 extern void cmd_rfcali_cfg_tssi_b(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 extern void cmd_rfcali_show_data(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 
+static void wifi_mgmt_filter_cb(uint8_t *data, int len, void *info)
+{
+	if (!data) {
+		bk_printf("null data\n");
+		return;
+	}
+
+	uint16_t framectrl = co_read16(data);
+	uint16_t frame_type_subtype = framectrl & MAC_FCTRL_TYPESUBTYPE_MASK;
+
+	bk_printf("filter type=%x info=%u\n", frame_type_subtype, (uint32_t)info);
+}
+
+static void wifi_mgmt_filter_help(void)
+{
+	bk_printf("wifi_mgmt_filter 0(all)/1(probe req)/-1(stop)\n");
+}
+
+static void cmd_wifi_mgmt_filter(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+	OSStatus ret = kGeneralErr;
+	uint32_t filter = 0;
+
+	if (argc != 2){
+		wifi_mgmt_filter_help();
+		return;
+	}
+
+	filter = os_strtoul(argv[1], NULL, 0);
+	if (filter == -1) {
+		ret = bk_wlan_reg_rx_mgmt_cb(NULL, 0);
+	} else {
+		ret = bk_wlan_reg_rx_mgmt_cb(wifi_mgmt_filter_cb, filter);
+	}
+
+	bk_printf("set filter ret=%x\n", ret);
+}
+
+#if CFG_WIFI_RAW_TX_CMD
+
+typedef struct {
+	uint32_t interval;
+	uint32_t counter;
+} wifi_raw_tx_param_t;
+
+static void wifi_raw_tx_thread(void *arg)
+{
+	char frame[] = {
+		0xB0, //version, type, subtype
+		0x00, //frame control
+		0x3A, 0x01, //duration
+		0xC8, 0x47, 0x8C, 0x42, 0x00, 0x48, //Address1 - destination
+		0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address2 - source
+		0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address3 - bssid
+		0x20, 0xC0, //sequence
+
+		//Auth Response
+		0x00, 0x00, //Auth algorithm - open system
+		0x02, 0x00, //Auth seq num
+		0x00, 0x00, //Status code
+	};
+	wifi_raw_tx_param_t *tx_param;
+	int ret;
+
+	tx_param = (wifi_raw_tx_param_t *)arg;
+	os_printf("wifi raw tx begin, interval=%u counter=%d\n", tx_param->interval,
+			tx_param->counter);
+
+	for (uint32_t i = 0; i < tx_param->counter; i++) {
+		ret = bk_wlan_send_80211_raw_frame(frame, sizeof(frame));
+		if (ret != kNoErr) {
+			os_printf("raw tx error, ret=%d\n", ret);
+		}
+
+		rtos_delay_milliseconds(tx_param->interval);
+	}
+
+	os_free(arg);
+	os_printf("wifi raw tx end\n");
+	rtos_delete_thread(NULL);
+}
+
+static void wifi_raw_tx_command(char *pcWriteBuffer, int xWriteBufferLen,
+				int argc, char **argv)
+{
+	OSStatus ret;
+
+	if (argc != 3) {
+		bk_printf("param error");
+		bk_printf("usage: wifi_raw_tx interval counter");
+		return;
+	}
+
+	wifi_raw_tx_param_t *tx_param;
+	tx_param = (wifi_raw_tx_param_t *)os_malloc(sizeof(wifi_raw_tx_param_t));
+	if (!tx_param) {
+		bk_printf("out of memory\n");
+		return;
+	}
+
+	tx_param->interval = os_strtoul(argv[1], NULL, 10);
+	tx_param->counter = os_strtoul(argv[2], NULL, 10);
+	ret = rtos_create_thread(NULL, THD_CORE_PRIORITY, "raw_tx",
+				(beken_thread_function_t)wifi_raw_tx_thread,
+				2048, tx_param);
+	if (kNoErr != ret) {
+		os_free(tx_param);
+		os_printf("Create raw tx thread failed, ret=%d\r\n", ret);
+		return;
+	}
+}
+#endif
 
 static const struct cli_command built_ins[] =
 {
@@ -2250,8 +2354,8 @@ static const struct cli_command built_ins[] =
     {"softap", "softap ssid key", softap_Command},
     {"stopintf", "stopintf intfacename", stop_wlan_intface_Command},
     {"sta", "sta ap_ssid key", sta_Command},
-#if (CFG_WFA_CERT || CFG_NEW_SUPP)
-    {"net", "wifi net config", net_Command},
+#if (CFG_WFA_CERT || CFG_WPA_CTRL_IFACE)
+    {"net", "wifi net config", net_Command},           // 8k rom size
 #endif
     {"adv", "adv", sta_adv_Command},
     {"mtr", "mtr channel", mtr_Command},
@@ -2301,7 +2405,7 @@ static const struct cli_command built_ins[] =
     {"easylink", "start easylink", easylink_Command},
 #if CFG_AIRKISS_TEST
     {"airkiss", "start airkiss", airkiss_Command},
-    {"air_kiss", "control airkiss", air_kiss_command},
+
 #endif
 #if CFG_SUPPORT_OTA_TFTP
 	{"tftpota", "tftpota [ip] [file]", tftp_ota_get_Command},
@@ -2324,7 +2428,7 @@ static const struct cli_command built_ins[] =
     {"ble", "ble arg1 arg2",  ble_command},
 #endif
 
-#if (CFG_SOC_NAME != SOC_BK7231)
+#if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7271))
     {"rfcali_cfg_mode",      "1:manual, 0:auto",      cmd_rfcali_cfg_mode},
     {"rfcali_cfg_tssi_g",    "0-255",                 cmd_rfcali_cfg_tssi_g},
     {"rfcali_cfg_tssi_b",    "0-255",                 cmd_rfcali_cfg_tssi_b},
@@ -2334,7 +2438,10 @@ static const struct cli_command built_ins[] =
 #if CFG_WIFI_SENSOR
 	{"wifisensor", "wifi sensor", wifi_sensor_command},
 #endif
-
+    {"wifi_mgmt_filter", "wifi_mgmt_filter <0/1/-1>", cmd_wifi_mgmt_filter},
+#if CFG_WIFI_RAW_TX_CMD
+	{"wifi_raw_tx", "wifi_raw_tx", wifi_raw_tx_command},
+#endif
 };
 
 /* Built-in "help" command: prints all registered commands and their help
@@ -2461,12 +2568,12 @@ void monitor(uint8_t *data, int len, wifi_link_info_t *info)
 {
     int i;
 
-    os_printf("[%d]: ", len);
+    monitor_dbg("[%d]: ", len);
     for(i = 0; i < len; i++)
     {
-        os_printf("%02x ", data[i]);
+        monitor_dbg("%02x ", data[i]);
     }
-    os_printf("\r\n");
+    monitor_dbg("\r\n");
 }
 
 static void monitor_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -2524,7 +2631,7 @@ static void channel_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, 
         os_printf("Invalid channel number \r\n");
         return ;
     }
-    cmd_printf("set to channel %d\r\n", channel);
+    cmd_printf("monitor mode :set to channel %d\r\n", channel);
     bk_wlan_set_channel_sync(channel);
 }
 
@@ -2567,8 +2674,10 @@ static void Deep_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int arg
 					deep_sleep_param.gpio_last_edge_map,
 					deep_sleep_param.sleep_time,
 					deep_sleep_param.wake_up_way);
-		
+
+	#if (CFG_SOC_NAME != SOC_BK7271)
 		bk_enter_deep_sleep_mode(&deep_sleep_param);
+	#endif
 	}
 	else
 	{
@@ -2873,6 +2982,7 @@ static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
     saradc_cal_val_t p_ADC_cal;
     float voltage = 0.0;
     saradc_desc_t *p_ADC_drv_desc = NULL;
+    GLOBAL_INT_DECLARATION();
 
     if(argc < 2)
         goto IDLE_CMD_ERR;
@@ -2909,15 +3019,49 @@ static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
             return;
         }
 
-        saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
+        UINT32 ret = 0;
+        do {
+            GLOBAL_INT_DISABLE();
+            if(saradc_check_busy() == 0) {
+                saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
+                if(DD_HANDLE_UNVALID != saradc_handle)
+                {
+                    GLOBAL_INT_RESTORE();
+                    break;
+                }
+            }
+        GLOBAL_INT_RESTORE();
 
-        while (1)
+        rtos_delay_milliseconds(5);
+        ret++;
+        } while(ret<5);
+
+        if(ret == 5)
         {
-            if (p_ADC_drv_desc->current_sample_data_cnt == p_ADC_drv_desc->data_buff_size)
-            {
+            os_printf("saradc open failed!\r\n");
+            os_free(p_ADC_drv_desc->pData);
+            os_free(p_ADC_drv_desc);
+            return;
+        }
+
+        while (1) {
+            if (p_ADC_drv_desc->current_sample_data_cnt >=
+                p_ADC_drv_desc->data_buff_size) {
                 ddev_close(saradc_handle);
+                saradc_ensure_close();
                 break;
             }
+        }
+
+        {
+        UINT32 sum = 0, sum1, sum2;
+        UINT16 *pData = p_ADC_drv_desc->pData;
+        sum1 = pData[1] + pData[2];
+        sum2 = pData[3] + pData[4];
+        sum = sum1/ 2  + sum2 / 2;
+        sum = sum / 2;
+        sum = sum / 4;
+        p_ADC_drv_desc->pData[0] = sum;
         }
 
         if(0 == os_strcmp(argv[2], "low"))
@@ -2952,55 +3096,6 @@ static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
         os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
     }
-    /* for test
-    else if(0 == os_strcmp(argv[1], "get"))
-    {
-        p_ADC_drv_desc = (saradc_desc_t *)os_malloc(sizeof(saradc_desc_t));
-        if (p_ADC_drv_desc == NULL)
-        {
-        	os_printf("malloc1 failed!\r\n");
-            return;
-        }
-
-        os_memset(p_ADC_drv_desc, 0x00, sizeof(saradc_desc_t));
-        p_ADC_drv_desc->channel = 1;
-        p_ADC_drv_desc->data_buff_size = ADC_TEMP_BUFFER_SIZE;
-        p_ADC_drv_desc->mode = (ADC_CONFIG_MODE_CONTINUE << 0)
-                               | (ADC_CONFIG_MODE_36DIV << 2);
-
-        p_ADC_drv_desc->has_data                = 0;
-        p_ADC_drv_desc->current_read_data_cnt   = 0;
-        p_ADC_drv_desc->current_sample_data_cnt = 0;
-        p_ADC_drv_desc->pre_div = 0x10;
-        p_ADC_drv_desc->samp_rate = 0x20;
-        p_ADC_drv_desc->pData = (UINT16 *)os_malloc(p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
-        os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
-
-        if(p_ADC_drv_desc->pData == NULL)
-        {
-            os_printf("malloc1 failed!\r\n");
-            os_free(p_ADC_drv_desc);
-            return;
-        }
-
-        saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
-
-        while (1)
-        {
-            if (p_ADC_drv_desc->current_sample_data_cnt == p_ADC_drv_desc->data_buff_size)
-            {
-                ddev_close(saradc_handle);
-                break;
-            }
-        }
-        voltage = saradc_calculate(p_ADC_drv_desc->pData[4]);
-
-        os_printf("voltage is [%f]\r\n", voltage);
-        os_free(p_ADC_drv_desc->pData);
-        os_free(p_ADC_drv_desc);
-        return;
-
-    }*/
     else
     {
         goto IDLE_CMD_ERR;
@@ -3130,6 +3225,10 @@ int cli_init(void)
     }
 
     cli_register_commands(user_clis, sizeof(user_clis) / sizeof(struct cli_command));
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+	bk7271_dsp_cli_init();
+#endif
 
     ret = rtos_create_thread(&cli_thread_handle,
                              BEKEN_DEFAULT_WORKER_PRIORITY,

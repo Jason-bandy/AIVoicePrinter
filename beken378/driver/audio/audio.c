@@ -12,70 +12,68 @@
 #include "mem_pub.h"
 #include "ring_buffer.h"
 
-#if ((CFG_USE_AUDIO) && (CFG_SOC_NAME == SOC_BK7221U))
+#if (CFG_USE_AUDIO)
+#if (CFG_SOC_NAME == SOC_BK7221U)
 void audio_power_up(void)
 {
-    UINT32 param;
-    param = PWD_AUDIO_CLK_BIT;
-    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
+	UINT32 param;
+	param = PWD_AUDIO_CLK_BIT;
+	sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
 }
 
 void audio_power_down(void)
 {
-    UINT32 param;
-    param = PWD_AUDIO_CLK_BIT;
-    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, &param);
+	UINT32 param;
+	param = PWD_AUDIO_CLK_BIT;
+	sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, &param);
 }
 
 void audio_enable_interrupt(void)
 {
-    UINT32 param;
-    param = (IRQ_AUDIO_BIT);
-    sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
+	UINT32 param;
+	param = (IRQ_AUDIO_BIT);
+	sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
 }
 
 void audio_disable_interrupt(void)
 {
-    UINT32 param;
-    param = (IRQ_AUDIO_BIT);
-    sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
+	UINT32 param;
+	param = (IRQ_AUDIO_BIT);
+	sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
 }
 
 static void audio_isr(void)
 {
-    UINT32 status = REG_READ(AUD_AD_FIFO_STATUS);
-    //AUD_PRT("%x\r\n", status);
-    if (status & (DAC_R_INT_FLAG | DAC_L_INT_FLAG))
-    {
-        #if CFG_USE_AUD_DAC
-        audio_dac_isr();
-        #endif
+	UINT32 status = REG_READ(AUD_AD_FIFO_STATUS);
 
-        REG_WRITE(AUD_AD_FIFO_STATUS,
-                  DAC_R_NEAR_FULL | DAC_L_NEAR_FULL
-                  | DAC_R_NEAR_EMPTY | DAC_L_NEAR_EMPTY
-                  | DAC_R_FIFO_FULL | DAC_L_FIFO_FULL
-                  | DAC_R_FIFO_EMPTY | DAC_L_FIFO_EMPTY
-                  | DAC_R_INT_FLAG | DAC_L_INT_FLAG);
+	if (status & (DAC_R_INT_FLAG | DAC_L_INT_FLAG)) {
+#if CFG_USE_AUD_DAC
+		audio_dac_isr();
+#endif
 
-    }
-    if (status & ADC_INT_FLAG)
-    {
-        #if CFG_USE_AUD_ADC
-        audio_adc_isr();
-        #endif
+		REG_WRITE(AUD_AD_FIFO_STATUS,
+				  DAC_R_NEAR_FULL | DAC_L_NEAR_FULL
+				  | DAC_R_NEAR_EMPTY | DAC_L_NEAR_EMPTY
+				  | DAC_R_FIFO_FULL | DAC_L_FIFO_FULL
+				  | DAC_R_FIFO_EMPTY | DAC_L_FIFO_EMPTY
+				  | DAC_R_INT_FLAG | DAC_L_INT_FLAG);
 
-        REG_WRITE(AUD_AD_FIFO_STATUS,
-                  ADC_NEAR_FULL | ADC_NEAR_EMPTY | ADC_FIFO_FULL
-                  | ADC_FIFO_EMPTY | ADC_INT_FLAG);
-    }
-    if (status & DTMF_INT_FLAG)
-    {
-        //audio_dtmf_isr(status);
-        REG_WRITE(AUD_AD_FIFO_STATUS,
-                  DTMF_NEAR_FULL | DTMF_NEAR_EMPTY | DTMF_FIFO_FULL
-                  | DTMF_FIFO_EMPTY | DTMF_INT_FLAG);
-    }
+	}
+	if (status & ADC_INT_FLAG) {
+#if CFG_USE_AUD_ADC
+		audio_adc_isr();
+#endif
+
+		REG_WRITE(AUD_AD_FIFO_STATUS,
+				  ADC_NEAR_FULL | ADC_NEAR_EMPTY | ADC_FIFO_FULL
+				  | ADC_FIFO_EMPTY | ADC_INT_FLAG);
+	}
+	if (status & DTMF_INT_FLAG) {
+		//audio_dtmf_isr(status);
+		REG_WRITE(AUD_AD_FIFO_STATUS,
+				  DTMF_NEAR_FULL | DTMF_NEAR_EMPTY | DTMF_FIFO_FULL
+				  | DTMF_FIFO_EMPTY | DTMF_INT_FLAG);
+	}
 }
 
 void audio_hardware_init(void)
@@ -116,19 +114,19 @@ void audio_hardware_init(void)
 #endif
 }
 
-
 void audio_init(void)
 {
-    #if CFG_USE_AUD_DAC
-    audio_dac_software_init();
-    #endif
+#if CFG_USE_AUD_DAC
+	audio_dac_software_init();
+#endif
 
-    #if CFG_USE_AUD_ADC
-    audio_adc_software_init();
-    #endif
+#if CFG_USE_AUD_ADC
+	audio_adc_software_init();
+#endif
 
-    audio_hardware_init();
+	audio_hardware_init();
 }
+
 
 void audio_exit(void)
 {
@@ -158,4 +156,55 @@ void audio_exit(void)
     ddev_unregister_dev(AUD_DAC_DEV_NAME);
     #endif
 }
+#elif (CFG_SOC_NAME == SOC_BK7271)
+void audio_init(void)
+{
+	uint32_t ret;
+	uint32_t param;
+
+	param = AUDIO_DAC_VOL_DIFF_MODE;
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, &param);
+	if (ret) {
+		os_printf("set volume fail.\r\n");
+		return;
+	}
+
+	param = 8000;
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &param);
+	if (ret) {
+		os_printf("set audio PLL fail.\r\n");
+		return;
+	}
+
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_DAC_ANALOG, NULL);
+	if (ret) {
+		os_printf("open dac analog fail.\r\n");
+		return;
+	}
+
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_ADC_MIC_ANALOG, NULL);
+	if (ret) {
+		os_printf("open adc mic analog fail.\r\n");
+		return;
+	}
+}
+
+void audio_exit(void)
+{
+	uint32_t ret;
+
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_CLOSE_DAC_ANALOG, NULL);
+	if (ret) {
+		os_printf("close dac analog fail.\r\n");
+		return;
+	}
+
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_CLOSE_ADC_MIC_ANALOG, NULL);
+	if (ret) {
+		os_printf("open adc mic analog fail.\r\n");
+		return;
+	}
+}
+#endif
 #endif // CFG_USE_AUDIO
+

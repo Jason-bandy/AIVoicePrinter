@@ -341,22 +341,12 @@ typedef struct
 
 typedef struct
 {
-    ///Event type:
-    /// - ADV_CONN_UNDIR: Connectable Undirected advertising
-    /// - ADV_CONN_DIR: Connectable directed advertising
-    /// - ADV_DISC_UNDIR: Discoverable undirected advertising
-    /// - ADV_NONCONN_UNDIR: Non-connectable undirected advertising
-    uint8_t        evt_type;
-    ///Advertising address type: public/random
-    uint8_t        adv_addr_type;
-    ///Advertising address value
-    uint8_t        adv_addr[6];
-    ///Data length in advertising packet
-    uint8_t        data_len;
-    ///Data of advertising packet
-    uint8_t        data[MAX_ADV_DATA_LEN];
-    ///RSSI value for advertising packet
-    uint8_t        rssi;
+    uint8_t evt_type;
+    uint8_t adv_addr_type;
+    uint8_t adv_addr[6];
+    uint8_t data_len;
+    uint8_t *data;
+    uint8_t rssi;
 } recv_adv_t;
 
 typedef struct

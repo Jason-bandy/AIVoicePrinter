@@ -21,6 +21,7 @@
 
 #include "sys_rtos.h"
 #include "mem_pub.h"
+#include "uart_pub.h"
 
 /************** wrap C library functions **************/
 void * __wrap_malloc (size_t size)
@@ -71,5 +72,12 @@ void * __wrap_zalloc(size_t size)
 {
 	return os_zalloc(size);
 }
+
+void __assert_func(const char *file, int line, const char *func, const char *failedexpr)
+{
+	os_printf("%s %d func %s expr %s\n", file, line, func, failedexpr);
+	ASSERT(0);
+}
+
 // eof
 

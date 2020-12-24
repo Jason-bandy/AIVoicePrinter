@@ -13,8 +13,11 @@
 	#define IRDA_FATAL    null_prf
 #endif
 
-
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define IRDA_BASE                     (0x00802760)
+#else
 #define IRDA_BASE                     (0x00802400)
+#endif
 
 #define IRDA_CTRL                     (IRDA_BASE + 0 * 4)
 #define IRDA_NEC_EN                   (0x01UL << 0)

@@ -30,8 +30,6 @@ static struct uart_callback_des uart_receive_callback[2] = {{NULL}, {NULL}};
 static struct uart_callback_des uart_txfifo_needwr_callback[2] = {{NULL}, {NULL}};
 static struct uart_callback_des uart_tx_end_callback[2] = {{NULL}, {NULL}};
 
-#ifndef KEIL_SIMULATOR
-#if CFG_UART_DEBUG_COMMAND_LINE
 UART_S uart[2] =
 {
     {0, 0, 0},
@@ -55,7 +53,6 @@ static DD_OPERATIONS uart2_op =
     uart2_write,
     uart2_ctrl
 };
-#endif
 
 UINT8 uart_is_tx_fifo_empty(UINT8 uport)
 {
@@ -94,6 +91,7 @@ void bk_send_byte(UINT8 uport, UINT8 data)
 void bk_send_string(UINT8 uport, const char *string)
 {
 	const char *p = string;
+	
     while(*string)
     {
 		if (*string == '\n') {
@@ -307,8 +305,6 @@ void uart_hw_set_change(UINT8 uport, bk_uart_config_t *uart_config)
     REG_WRITE(intr_ena_reg_addr, reg);
 }
 
-
-#if CFG_UART_DEBUG_COMMAND_LINE
 UINT32 uart_sw_init(UINT8 uport)
 {
     uart[uport].rx = kfifo_alloc(RX_RB_LENGTH);
@@ -465,6 +461,7 @@ UINT32 uart_read_fifo_frame(UINT8 uport, KFIFO_PTR rx_ptr)
     UINT32 val;
     UINT32 rx_count, fifo_status_reg;
     UINT32 unused = kfifo_unused(rx_ptr);
+
     if(UART1_PORT == uport)
         fifo_status_reg = REG_UART1_FIFO_STATUS;
     else
@@ -473,16 +470,13 @@ UINT32 uart_read_fifo_frame(UINT8 uport, KFIFO_PTR rx_ptr)
     rx_count = 0;
     while(REG_READ(fifo_status_reg) & FIFO_RD_READY)
     {
+        UART_READ_BYTE(uport, val);
         if(unused > rx_count)
-        {
-        	UART_READ_BYTE(uport, val);
-        	rx_count += kfifo_put(rx_ptr, (UINT8 *)&val, 1);
-        }
-        else
-        {
-            break;
-        }
+            rx_count += kfifo_put(rx_ptr, (UINT8 *)&val, 1);
     }
+
+    if(unused <= rx_count)
+        bk_printf("uart rx fifo full\r\n");
 
     return rx_count;
 }
@@ -795,7 +789,6 @@ UINT32 uart1_ctrl(UINT32 cmd, void *parm)
 
 void uart2_isr(void)
 {
-#if CFG_UART_DEBUG_COMMAND_LINE
     UINT32 status;
     UINT32 intr_en;
     UINT32 intr_status;
@@ -859,9 +852,8 @@ void uart2_isr(void)
 	if(status & UART_RXD_WAKEUP_STA)
     {
     }
-
-#endif
 }
+
 void uart2_init(void)
 {
     UINT32 ret;
@@ -1069,9 +1061,6 @@ UINT32 uart_wait_tx_over()
 
     return uart_wait_us;
 }
-#endif // (!CFG_UART_DEBUG_COMMAND_LINE)
-
-#endif // KEIL_SIMULATOR
 
 INT32 os_null_printf(const char *fmt, ...)
 {

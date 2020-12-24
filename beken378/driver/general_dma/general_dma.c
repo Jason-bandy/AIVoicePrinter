@@ -4,10 +4,8 @@
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
 #include "general_dma.h"
-
 #include "intc_pub.h"
 #include "icu_pub.h"
-
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 
@@ -382,7 +380,7 @@ static void gdma_disable_interrupt(void)
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
 }
 
-#if (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 static void gdma_set_src_pause_addr(UINT32 channel, UINT32 addr)
 {
     UINT32 param = addr;
@@ -933,7 +931,8 @@ UINT32 gdma_ctrl(UINT32 cmd, void *param)
         ret = gdma_get_received_len((UINT32)param);
         break;
     #endif // (CFG_SOC_NAME != SOC_BK7231)
-    #if (CFG_SOC_NAME == SOC_BK7221U)
+	
+	#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
     case CMD_GDMA_SET_SRC_PAUSE_ADDR:
         gdma_set_src_pause_addr(dma_cfg->channel, dma_cfg->param);
         break;
@@ -953,6 +952,7 @@ UINT32 gdma_ctrl(UINT32 cmd, void *param)
         ret = gdma_get_dest_write_addr(dma_cfg->channel);
         break;         
     #endif // (CFG_SOC_NAME == SOC_BK7221U)
+	
     default:
         break;
     }

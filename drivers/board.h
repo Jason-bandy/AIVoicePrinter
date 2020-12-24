@@ -27,31 +27,28 @@
 
 #include <stdint.h>
 
-extern unsigned char _empty_ram;
-
-/* High Speed */ 
-#define RT_HW_TCM_BEGIN     (void*)&_empty_ram
-#if (CFG_SOC_NAME == SOC_BK7231N)
-#define RT_HW_TCM_END       (void*)(0x00400000 + 192 * 1024)
-#else
-#define RT_HW_TCM_END       (void*)(0x00400000 + 256 * 1024)
-#endif
+#define RT_HW_HEAP_BEGIN    (void*)&_empty_ram
+#define RT_HW_HEAP_END      (void*)(0x00400000 + 512 * 1024)
 
 /* Low Speed */ 
 #define RT_HW_SDRAM_BEGIN   (void*)(0x00900000)
 #define RT_HW_SDRAM_END     (void*)(0x00900000 + 256 * 1024) 
 
+/* shared memory*/ 
+#define RT_HW_SHRAM_BEGIN   (void*)(0x04000000)
+#define RT_HW_SHRAM_END     (void*)(RT_HW_SHRAM_BEGIN + 128 * 1024) 
+
 void rt_hw_board_init(void);
+void rt_shram_heap_init(void);
+void *shram_malloc(unsigned long size);
+void shram_free(void *ptr);
+void *shram_calloc(unsigned int n, unsigned int size);
+void *shram_realloc(void *ptr, unsigned long size);
 
 void rt_sdram_heap_init(void);
 void *sdram_malloc(unsigned long size);
 void sdram_free(void *ptr);
 void *sdram_calloc(unsigned int n, unsigned int size);
 void *sdram_realloc(void *ptr, unsigned long size);
-
-void *tcm_malloc(unsigned long size);
-void  tcm_free(void *ptr);
-void *tcm_calloc(unsigned int n, unsigned int size);
-void *tcm_realloc(void *ptr, unsigned long size);
-
 #endif
+

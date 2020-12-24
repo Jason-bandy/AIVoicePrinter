@@ -53,6 +53,7 @@ volatile i2s_trans_t i2s_trans;
 i2s_level_t  i2s_fifo_level;
 
 static struct bk_i2s_dev *spi_dev;
+#if (CFG_SOC_NAME != SOC_BK7271)
 static SDD_OPERATIONS i2s_op =
 {
     i2s_ctrl
@@ -65,16 +66,16 @@ static void i2s_active(UINT8 enable)
     UINT32 value_ctrl;
 
     value_ctrl = REG_READ(PCM_CTRL);
-	
+
     if(enable)
     {
         value_ctrl |= I2S_PCM_EN;
     }
     else
     {
-		value_ctrl &= ~I2S_PCM_EN;
+	value_ctrl &= ~I2S_PCM_EN;
     }
-	
+
     REG_WRITE(PCM_CTRL, value_ctrl);
 }
 
@@ -170,17 +171,7 @@ static void i2s_set_sck_synclen(UINT8 val)
 	value |= (val << SYNCLEN_POSI);
     REG_WRITE(PCM_CTRL, value);
 }
-/***
-static void i2s_set_data_length(UINT8 val)
-{
-    UINT32 value;
 
-    value = REG_READ(PCM_CTRL);
-    value &= ~ DATALEN_MASK;
-	value |= (val << DATALEN_POSI);    
-    REG_WRITE(PCM_CTRL, value);
-}
-***/
 static void i2s_set_pcm_dlen(UINT8 val)
 {
     UINT32 value;
@@ -267,7 +258,7 @@ static void i2s_set_freq_datawidth(i2s_rate_t *p_rate)
 	}
 	
 	/*set bit clock divd*/
-    bitratio = MAX((NUMBER_ROUND_UP((sys_clk / 2 ), (p_rate->freq  * 2 * (lrck_div + 1))) - 1), 5);
+	bitratio = MAX((NUMBER_ROUND_UP((sys_clk / 2 ), (p_rate->freq  * 2 * (lrck_div + 1))) - 1), 5);
 	value = value 	| ((p_rate->datawidth - 1) << DATALEN_POSI)
             		| (lrck_div << SMPRATIO_POSI)
             		| (bitratio << BITRATIO_POSI);//this value is unused in slave mode
@@ -384,8 +375,6 @@ static void i2s_txfifo_clr_enable(void)
 	REG_WRITE(PCM_CN, value);
 }
 
-
-
 static void i2s_icu_configuration(UINT32 enable)
 {
     UINT32 param;
@@ -450,13 +439,13 @@ static void i2s_master_enable(UINT32 enable)
 
 static void i2s_dma_master_enable(UINT32 enable)
 {
-    UINT32 value , ultemp;
-	
+	UINT32 value , ultemp;
+
 	ultemp = 1;
-	
-    value = REG_READ(PCM_CN);
-    value = value | (RX_INT_EN | TX_INT0_EN );
-    REG_WRITE(PCM_CN, value);
+
+	value = REG_READ(PCM_CN);
+	value = value | (RX_INT_EN | TX_INT0_EN );
+	REG_WRITE(PCM_CN, value);
 
 	/* enable i2s unit */
 	i2s_ctrl(I2S_CMD_UNIT_ENABLE, (void *) &ultemp);
@@ -473,10 +462,9 @@ static void i2s_dma_master_enable(UINT32 enable)
 	
 	bit_dbg("[-DMA-]I2S_DEBUG: pcm_ctrl=0x%X,pcm_cn =0x%08X,pcm_stat =0x%X\r\n",REG_READ(PCM_CTRL),REG_READ(PCM_CN),REG_READ(PCM_STAT));
 	
-	//i2s_icu_configuration(!enable);  //enable clock;
 	{
-        UINT32 param = PWD_I2S_PCM_CLK_BIT;
-	    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
+		UINT32 param = PWD_I2S_PCM_CLK_BIT;
+		sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
 	}
 }
 
@@ -897,6 +885,7 @@ void i2s_isr(void)
 	REG_WRITE(PCM_STAT,i2s_status);
 
 }
+#endif
 #endif
 // eof
 

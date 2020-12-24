@@ -1,7 +1,6 @@
 #include "ble_wifi_port.h"
 #include "sys_config.h"
 
-
 extern int sta_check_tim(uint32_t a_tim, uint16_t aid);
 void check_bcn_pm_on_rxl(uint32_t tim, struct vif_info_tag *vif_entry)
 {
@@ -22,8 +21,6 @@ void check_bcn_pm_on_rxl(uint32_t tim, struct vif_info_tag *vif_entry)
     wifi_beacon_info_sender((moredata == 0) ? BEACON_IND_NO_MOREDATA : BEACON_IND_MOREDATA, 0);
 #endif
 }
-
-
 
 int wifi_notice_ble_status(int evt,unsigned int param,unsigned int param2)
 {

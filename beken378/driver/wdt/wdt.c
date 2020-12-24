@@ -1,12 +1,11 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "wdt_pub.h"
 #include "wdt.h"
 #include "icu_pub.h"
-
 #include "drv_model_pub.h"
 #include "start_type_pub.h"
+#include "uart_pub.h"
 
 static SDD_OPERATIONS wdt_op = {
             wdt_ctrl
@@ -14,7 +13,6 @@ static SDD_OPERATIONS wdt_op = {
 static uint32_t g_wdt_period = 0;
 
 /*******************************************************************/
-#if 1
 void wdt_init(void)
 {
 	sddev_register_dev(WDT_DEV_NAME, &wdt_op);
@@ -41,18 +39,28 @@ UINT32 wdt_ctrl(UINT32 cmd, void *param)
 	{		
 		case WCMD_POWER_DOWN:
 			g_wdt_period = 0;
-			
+	
 			parameter = PWD_ARM_WATCHDOG_CLK_BIT;
-		    ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&parameter);
-		    ASSERT(ICU_SUCCESS == ret);	
+#if (CFG_SOC_NAME == SOC_BK7271)
+		    ret = icu_ctrl(CMD_FUNC_CLK_PWR_DOWN, (void *)&parameter);
+#else
+		    ret = icu_ctrl(CMD_CLK_PWR_DOWN, (void *)&parameter);
+#endif		    		    
+			if(ret !=0 )
+				os_printf("clk powerdown fail\r\n");
 			break;
-			
+
 		case WCMD_POWER_UP:
 			parameter = PWD_ARM_WATCHDOG_CLK_BIT;
-		    ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&parameter);
-		    ASSERT(ICU_SUCCESS == ret);	
+#if (CFG_SOC_NAME == SOC_BK7271)
+            ret = icu_ctrl(CMD_FUNC_CLK_PWR_UP, (void *)&parameter);
+#else
+		    ret = icu_ctrl(CMD_CLK_PWR_UP, (void *)&parameter);
+#endif		    
+		    if(ret !=0 )
+				os_printf("clk powerup fail\r\n");
 			break;
-			
+
 		case WCMD_RELOAD_PERIOD:
 			reg = WDT_1ST_KEY << WDT_KEY_POSI;
 			reg |= (g_wdt_period & WDT_PERIOD_MASK) << WDT_PERIOD_POSI;
@@ -87,6 +95,5 @@ ctrl_exit:
 #endif
     return ret;
 }
-#endif
-
 // EOF
+

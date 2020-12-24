@@ -1,16 +1,12 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "i2c2.h"
 #include "i2c_pub.h"
-
 #include "intc_pub.h"
 #include "icu_pub.h"
 #include "gpio_pub.h"
-
 #include "drv_model_pub.h"
 #include "mem_pub.h"
-
 
 static DD_OPERATIONS i2c2_op =
 {

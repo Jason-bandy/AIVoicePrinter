@@ -145,7 +145,7 @@ int hostapd_reload_config(struct hostapd_iface *iface)
 	struct hostapd_config *newconf, *oldconf;
 	size_t j;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	if (hostapd_csa_in_progress(iface)) {
 		return -2;
 	}

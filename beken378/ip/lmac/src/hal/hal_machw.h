@@ -275,6 +275,44 @@ __INLINE uint32_t hal_machw_rx_duration(struct rx_hd *rhd, uint16_t len)
 }
 #endif
 
+__INLINE uint32_t hal_machw_frame_duration(uint8_t bw, uint8_t modf, uint8_t rate, uint8_t long_preamble, uint8_t short_gi, uint16_t len)
+{
+    uint8_t pre_type;
+    int32_t retry_left = 10000;
+
+    if (modf == 0)
+    {
+        pre_type = long_preamble & 0x1;     //non ht
+    }
+    else
+    {
+        pre_type = modf;                     //htmm or htgf
+    }
+
+    // Fill-in the TimeOnAir parameter registers
+    nxmac_ppdu_mcs_index_setf(rate);
+    nxmac_time_on_air_param_1_pack(0, 0, short_gi, pre_type, bw, len);
+
+    // Compute the duration
+    nxmac_compute_duration_setf(1);
+    #ifdef CFG_RWTL
+    // Add a fake read to ensure previous write is performed
+    hal_machw_time();
+    #endif
+
+    for (; retry_left > 0; retry_left--)
+    {
+        if (nxmac_time_on_air_valid_getf() != 0)
+        {
+            // Retrieve the duration
+            return ((uint32_t)nxmac_time_on_air_getf());
+        }
+    }
+
+    os_printf("hal_machw_frame_duration timeout\r\n");
+    return 500;
+}
+
 /**
  ****************************************************************************************
  * @brief Check whether BFMEE is supported by the MAC and PHY HW.

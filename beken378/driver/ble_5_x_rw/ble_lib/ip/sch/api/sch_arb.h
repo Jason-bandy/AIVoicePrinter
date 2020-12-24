@@ -264,6 +264,7 @@ void sch_arb_event_start_isr(void);
  */
 void sch_arb_sw_isr(void);
 
+uint8_t sch_arb_prog_check(void);
 
 ///@} SCH_ARB
 

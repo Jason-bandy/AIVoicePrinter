@@ -49,6 +49,10 @@ enum
     IPC_DMA_CHANNEL_CTRL_TX,
     /// Download data channel
     IPC_DMA_CHANNEL_DATA_TX,
+#if CFG_IEEE80211AX
+    /// Internal transfer channel
+    IPC_DMA_CHANNEL_INTERNAL,
+#endif
     /// Number of DMA channels
     IPC_DMA_CHANNEL_MAX,
 };
@@ -92,6 +96,8 @@ enum
     IPC_DMA_LLI_GP_DL,
     /// LLI for debug dump uploads
     IPC_DMA_LLI_DBG_DUMP,
+    /// LLI for general purpose DMA uploads
+    IPC_DMA_LLI_GP_UL,
     /// LLI for radar pulses uploads
     IPC_DMA_LLI_RD,
     /// Number of LLI used

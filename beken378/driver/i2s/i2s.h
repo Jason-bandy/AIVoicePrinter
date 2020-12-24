@@ -67,11 +67,8 @@
 #define TX_FIFO2_ALMOST_FULL         (0x01UL << 15)
 
 #define PCM_DAT0                     (I2S_BASE + 3 * 4)
-
 #define PCM_DAT1                     (I2S_BASE + 4 * 4)
-
 #define PCM_DAT2                     (I2S_BASE + 5 * 4)
-
 #define	PCM_CFG2					 (I2S_BASE + 6 * 4)
 
 #define TXFIFO_TXFIFO_MODE       	 6
@@ -119,7 +116,6 @@
 * Function Declarations
 *******************************************************************************/
 UINT32 i2s_configure(UINT32 fifo_level, UINT32 sample_rate, UINT32 bits_per_sample, UINT32 mode);
-
 UINT32 i2s_transfer(UINT32 *i2s_send_buf , UINT32 *i2s_recv_buf, UINT32 count , UINT32 param );
 static UINT32 i2s_ctrl(UINT32 cmd, void *param);
 

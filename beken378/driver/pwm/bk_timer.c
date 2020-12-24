@@ -1,13 +1,15 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "bk_timer_pub.h"
 #include "bk_timer.h"
-
 #include "drv_model_pub.h"
 #include "intc_pub.h"
 #include "icu_pub.h"
 #include "uart_pub.h"
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+void bk_timer_isr(void) __SECTION(".itcm");
+#endif
 
 #if (CFG_SOC_NAME != SOC_BK7231)
 static SDD_OPERATIONS bk_timer_op =
@@ -62,7 +64,6 @@ static UINT32 init_timer_param(timer_param_t *timer_param)
     UINT32 value;	
 	GLOBAL_INT_DECLARATION();
     UINT32 ucChannel = timer_param->channel;	
-
 
     if (timer_param == NULL)
     {
@@ -231,7 +232,14 @@ UINT32 bk_timer_ctrl(UINT32 cmd, void *param)
         ret = init_timer_param_us(p_param);
         break;
 
-    case CMD_TIMER_READ_CNT:
+    case CMD_TIMER_READ_CNT:       
+        p_param = (timer_param_t *)param;
+        if(p_param)
+        {
+            p_param->period = 0;
+        }
+        
+#if (CFG_SOC_NAME == SOC_BK7231U)        
         p_param = (timer_param_t *)param;
         i_time_out = 0;
         if (p_param->channel < 3)
@@ -268,6 +276,7 @@ UINT32 bk_timer_ctrl(UINT32 cmd, void *param)
                 p_param->period = REG_READ(TIMER3_5_READ_VALUE);
             }
         }
+#endif        
         break;
     default:
         ret = BK_TIMER_FAILURE;

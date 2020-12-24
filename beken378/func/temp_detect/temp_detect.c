@@ -191,10 +191,18 @@ static UINT32 temp_detect_open(void)
     UINT32 status;
     GLOBAL_INT_DECLARATION();
 
-#if (CFG_SOC_NAME == SOC_BK7231)    
+#if (CFG_SOC_NAME == SOC_BK7231)
     turnoff_PA_in_temp_dect();
 #endif // (CFG_SOC_NAME == SOC_BK7231)
+
     GLOBAL_INT_DISABLE();
+
+    if(saradc_check_busy() == 1)
+    {
+        tmp_detect_hdl = DD_HANDLE_UNVALID;
+        GLOBAL_INT_RESTORE();
+        return SARADC_FAILURE;
+    }
     tmp_detect_hdl = ddev_open(SARADC_DEV_NAME, &status, (UINT32)&tmp_detect_desc);
     if ((DD_HANDLE_UNVALID == tmp_detect_hdl) || (SARADC_SUCCESS != status))
     {
@@ -307,16 +315,21 @@ static void temp_detect_polling_handler(void)
 
     TMP_DETECT_PRT("%d:%d seconds: last:%d, cur:%d, thr:%d\r\n",
                     g_temp_detect_config.detect_intval,
-                    ADC_TMEP_DETECT_INTVAL_CHANGE,
+                    ///ADC_TMEP_DETECT_INTVAL_CHANGE,
+					g_temp_detect_config.detect_intval_change,
                     g_temp_detect_config.last_detect_val,
                     cur_val,
                     g_temp_detect_config.detect_thre);
 
 #if CFG_USE_STA_PS
     ps_set_temp_prevent();
+    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
     bk_wlan_dtim_rf_ps_mode_do_wakeup();
     rwnx_cal_do_temp_detect(cur_val, thre, &g_temp_detect_config.last_detect_val);
     ps_clear_temp_prevent();
+    reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 #endif
 
     if(g_temp_detect_config.detect_intval_change == ADC_TMEP_DETECT_INTVAL_CHANGE) 
@@ -432,34 +445,57 @@ static void temp_detect_handler(void)
     
     if(tmp_detect_desc.current_sample_data_cnt >= tmp_detect_desc.data_buff_size) 
     {
-        #if (CFG_SOC_NAME != SOC_BK7231)
-        UINT32 sum = 0, sum1 = 0, sum2 = 0;
+#if (CFG_SOC_NAME == SOC_BK7231N)
+        UINT32 sum = 0, index, count = 0;
+
+        temp_detect_disable();
+        TMP_DETECT_PRT("buff:%p,%d,%d,%d,%d,%d\r\n", tmp_detect_desc.pData,
+                       tmp_detect_desc.pData[5], tmp_detect_desc.pData[6],
+                       tmp_detect_desc.pData[7], tmp_detect_desc.pData[8],
+                       tmp_detect_desc.pData[9]);
+        for (index = 5; index < ADC_TEMP_BUFFER_SIZE; index++)
+        {
+            /* 0 is invalid, but saradc may return 0 in power save mode */
+            if ((0 != tmp_detect_desc.pData[index]) && (2048 != tmp_detect_desc.pData[index]))
+            {
+                sum += tmp_detect_desc.pData[index];
+                count++;
+            }
+        }
+        if (count == 0)
+        {
+            tmp_detect_desc.pData[0] = 0;
+        }
+        else
+        {
+            sum = sum / count;
+            sum = sum / 4;
+            tmp_detect_desc.pData[0] = sum;
+        }
+#elif (CFG_SOC_NAME != SOC_BK7231)
+        UINT32 sum = 0, sum1, sum2;
         //turnon_PA_in_temp_dect();
         temp_detect_disable();
         TMP_DETECT_PRT("buff:%p,%d,%d,%d,%d,%d\r\n", tmp_detect_desc.pData,
                        tmp_detect_desc.pData[0], tmp_detect_desc.pData[1],
-                       tmp_detect_desc.pData[2], tmp_detect_desc.pData[3], 
+                       tmp_detect_desc.pData[2], tmp_detect_desc.pData[3],
                        tmp_detect_desc.pData[4]);
-#if (CFG_SOC_NAME == SOC_BK7231N)
-        sum1 = tmp_detect_desc.pData[6] + tmp_detect_desc.pData[7];
-        sum2 = tmp_detect_desc.pData[8] + tmp_detect_desc.pData[9];
-        sum = sum1 / 2 + sum2 / 2;
-#else
         sum1 = tmp_detect_desc.pData[1] + tmp_detect_desc.pData[2];
-        sum2 += tmp_detect_desc.pData[3] + tmp_detect_desc.pData[4];
-        sum = sum1 / 2 + sum1 / 2;        
-#endif
+        sum2 = tmp_detect_desc.pData[3] + tmp_detect_desc.pData[4];
+        sum = sum1 / 2 + sum2 / 2;
         sum = sum / 2;
         sum = sum / 4;
         tmp_detect_desc.pData[0] = sum;
-        #else
+#else
         turnon_PA_in_temp_dect();
-        TMP_DETECT_PRT("buff:%p,%d,%d,%d,%d,%d\r\n", tmp_detect_desc.pData,
-                       tmp_detect_desc.pData[0], tmp_detect_desc.pData[1],
-                       tmp_detect_desc.pData[2], tmp_detect_desc.pData[3], 
-                       tmp_detect_desc.pData[4]);
         temp_detect_disable();
-        #endif // (CFG_SOC_NAME != SOC_BK7231)
+
+        sum1 = tmp_detect_desc.pData[1] + tmp_detect_desc.pData[2];
+        sum2 = tmp_detect_desc.pData[3] + tmp_detect_desc.pData[4];
+        sum = sum1 / 2 + sum2 / 2;
+        sum = sum / 2;
+        sum = sum / 4;
+#endif // (CFG_SOC_NAME != SOC_BK7231)
         temp_detect_send_msg(TMPD_INT_POLL);
     }
 }
@@ -588,13 +624,12 @@ static void temp_single_detect_handler(void)
         sum = sum1 / 2 + sum2 / 2;
 #else
         sum1 = tmp_single_desc.pData[1] + tmp_single_desc.pData[2];
-        sum2 += tmp_single_desc.pData[3] + tmp_single_desc.pData[4];
-        sum = sum1 / 2 + sum1 / 2;        
+        sum2 = tmp_single_desc.pData[3] + tmp_single_desc.pData[4];
+        sum = sum1 / 2 + sum2 / 2;
 #endif
         sum = sum / 2;
-#if (CFG_SOC_NAME == SOC_BK7231N)
         sum = sum / 4;
-#endif
+
         tmp_single_desc.pData[0] = sum;
         #else
         turnon_PA_in_temp_dect();

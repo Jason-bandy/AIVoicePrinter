@@ -117,7 +117,7 @@ void fclk_reset_count(void)
     current_seconds = 0;
 }
 
-#if (CFG_SOC_NAME != SOC_BK7231)
+#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7271)
 UINT32 timer_cal_init(void)
 {
     UINT32 fclk;
@@ -170,7 +170,6 @@ UINT32 timer_cal_tick(void)
         }
     }
     #endif
-    //os_printf("tc:%d\r\n",lost);
     
 #if CFG_USE_MCU_PS
     mcu_ps_machw_init();
@@ -330,11 +329,11 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
         param.period = FCLK_DURATION_MS;
         param.t_Int_Handler= fclk_hdl;
 
-        ret = sddev_control(TIMER_DEV_NAME, CMD_TIMER_INIT_PARAM, &param);
+        ret = bk_timer_ctrl(CMD_TIMER_INIT_PARAM, &param);
         ASSERT(BK_TIMER_SUCCESS == ret);
         UINT32 timer_channel;
         timer_channel = param.channel;
-        ret = sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_ENABLE, &timer_channel);
+        ret = bk_timer_ctrl(CMD_TIMER_UNIT_ENABLE, &timer_channel);
         ASSERT(BK_TIMER_SUCCESS == ret);
     }
 }
@@ -345,11 +344,13 @@ void os_clk_init(void)
 
     #if (CFG_SOC_NAME == SOC_BK7231)
     fclk_timer_hw_init(BK_PWM_TIMER_ID0);
+    #elif (CFG_SOC_NAME == SOC_BK7271)
+    fclk_timer_hw_init(BK_TIMER_ID1);
     #else
     fclk_timer_hw_init(BK_TIMER_ID3);
     #endif
 
-    #if CFG_USE_TICK_CAL
+    #if (CFG_USE_TICK_CAL) && (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7271)
     bk_cal_init(0);
     #endif
 }

@@ -37,9 +37,12 @@ static STA_PS_INFO bk_ps_info = {
 
 #if (CFG_SOC_NAME == SOC_BK7231)
 static UINT16 r_wakeup_time = 50;
+#elif (CFG_SOC_NAME == SOC_BK7231N)
+static UINT16 r_wakeup_time = 90;
 #else
 static UINT16 r_wakeup_time = 66;
 #endif
+static UINT32 ps_wait_status = 0;
 
 static UINT32 int_enable_reg_save = 0;
 static UINT8 ps_lock = 1;
@@ -47,7 +50,7 @@ static PS_FORBID_STATUS bk_forbid_code = 0;
 static UINT16 bk_forbid_count = 0;
 static UINT32 ps_dis_flag = 0;
 static UINT16 beacon_len = 0;
-static UINT32 ps_wait_status = 0;
+static UINT8 ps_data_low_latency = 0;
 
 #if PS_USE_KEEP_TIMER
 static beken2_timer_t ps_keep_timer = {0};
@@ -166,7 +169,11 @@ bool power_save_sleep ( void )
 		bk_printf ( "XXXXXXXXXXXXXXXXXXXXXXXX TIME DEAD\r\n" );
 	}
 
+#if CFG_IEEE80211AX
+	//TODO
+#else
 	ret = rwnxl_sleep ( power_save_gops_wait_idle_int_cb, power_save_mac_idle_callback );
+#endif
 
 	if ( false == ret ) {
 		PS_PRT ( "can't ps\r\n" );
@@ -303,6 +310,8 @@ UINT8 power_save_clr_all_vif_prevent_sleep ( UINT32 prevent_bit )
 
 	return 0;
 }
+
+extern void ps_recover_ble_switch_mac_status(void);
 void power_save_wakeup ( void )
 {
 	UINT32 reg;
@@ -323,7 +332,11 @@ void power_save_wakeup ( void )
 	REG_WRITE ( ICU_ARM_WAKEUP_EN, reg );
 #endif
 #if NX_POWERSAVE
+#if CFG_IEEE80211AX
+	//TODO
+#else
 	rwnxl_wakeup ( power_save_wkup_wait_idle_int_cb );
+#endif
 #endif
 	reg = REG_READ ( ICU_INTERRUPT_ENABLE );
 	reg |= ( CO_BIT ( FIQ_MAC_TX_RX_MISC )
@@ -337,6 +350,9 @@ void power_save_wakeup ( void )
 	PS_DEBUG_UP_TRIGER;
 	ASSERT ( !ps_lock );
 	ps_lock ++;
+#if CFG_SUPPORT_BLE
+	ps_recover_ble_switch_mac_status();
+#endif
 }
 
 void power_save_dtim_exit_check()
@@ -438,6 +454,9 @@ void power_save_me_ps_first_set_state ( UINT8 state )
 			}
 
 			os_memset ( kmsg_dst, 0, ( sizeof ( struct ke_msg ) + param_len ) );
+#if CFG_IEEE80211AX
+			//TODO: umac doesn't handle `ME_PS_REQ' for ax
+#endif
 			kmsg_dst->id = ME_PS_REQ;
 			kmsg_dst->dest_id = TASK_ME;
 			kmsg_dst->src_id  = TASK_NONE;
@@ -681,6 +700,9 @@ int power_save_dtim_disable_handler ( void )
 
 	GLOBAL_INT_RESTORE();
 	os_printf ( "exit dtim ps!\r\n" );
+#if CFG_SUPPORT_BLE
+	ps_recover_ble_switch_mac_status();
+#endif
 	return 0;
 }
 
@@ -1240,41 +1262,55 @@ void power_save_dump ( void )
 #if CFG_USE_STA_PS
 	sctrl_ps_dump();
 #endif
-#if CFG_USE_BLE_PS
-	ble_ps_dump();
-#endif
 }
 
 void power_save_wake_mac_rf_if_in_sleep(void)
 {
-        ps_set_rf_prevent();
-        power_save_rf_dtim_manual_do_wakeup();
+    ps_set_rf_prevent();
+    power_save_rf_dtim_manual_do_wakeup();
 
-        if (sctrl_if_rf_sleep())
-        {
-            UINT32 reg = RF_HOLD_BY_STA_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
-        }
+    UINT32 reg = RF_HOLD_BY_MAC_USE_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
 }
 
-void power_save_check_clr_rf_prevent_flag(void)
+void power_save_wake_mac_rf_end_clr_flag(void)
 {
     if(ps_get_sleep_prevent() & PS_WAITING_RF_OPERATION)
     {
         ps_clear_rf_prevent();
     }
+    
+    UINT32 reg = RF_HOLD_BY_MAC_USE_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+}
+
+void power_save_check_clr_rf_prevent_flag(void)
+{
 }
 
 void power_save_wake_rf_if_in_sleep(void)
 {
-        ps_set_rf_prevent();
-
-        if (sctrl_if_rf_sleep())
-        {
-            UINT32 reg = RF_HOLD_BY_STA_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
-        }
 }
+
+void power_save_clr_temp_use_rf_flag(void)
+{
+    if(ps_get_sleep_prevent() & PS_WAITING_RF_OPERATION)
+    {
+        ps_clear_rf_prevent();
+    }
+
+    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+}
+
+void power_save_set_temp_use_rf_flag(void)
+{
+    ps_set_rf_prevent();
+
+    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+}
+
 
 
 UINT8 power_save_if_ps_rf_dtim_enabled ( void )
@@ -1316,6 +1352,16 @@ UINT32 power_save_time_to_sleep ( void )
 	less = 0;
 #endif
 	return less;
+}
+
+void power_save_set_low_latency ( UINT8 value )
+{
+	ps_data_low_latency = value;
+}
+
+UINT8 power_save_low_latency_get ( void )
+{
+	return ps_data_low_latency;
 }
 // eof
 

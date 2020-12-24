@@ -139,8 +139,12 @@ static void spi_set_clock(UINT32 max_hz)
             spi_clk = max_hz;
         }
         
-        source_clk = SPI_PERI_CLK_DCO;
-        param = PCLK_POSI_SPI;
+        source_clk = SPI_PERI_CLK_DCO;		
+#if (CFG_SOC_NAME == SOC_BK7271)
+        param = PCLK_POSI_SPI2;
+#else
+		param = PCLK_POSI_SPI;
+#endif
     	sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, &param);
     }
     else 
@@ -153,8 +157,12 @@ static void spi_set_clock(UINT32 max_hz)
 #else
         source_clk = SPI_PERI_CLK_26M;
 #endif
-            
-        param = PCLK_POSI_SPI;
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+		param = PCLK_POSI_SPI2;
+#else
+		param = PCLK_POSI_SPI;
+#endif
 	    sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, &param);
     }
 
@@ -311,18 +319,34 @@ static void spi_icu_configuration(UINT32 enable)
 
     if(enable) 
     {
-        param = PWD_SPI_CLK_BIT;
+#if (CFG_SOC_NAME == SOC_BK7271)
+		param = PWD_SPI2_CLK_BIT;
+#else
+		param = PWD_SPI_CLK_BIT;
+#endif
 	    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
-
-        param = (IRQ_SPI_BIT);
+		
+#if (CFG_SOC_NAME == SOC_BK7271)
+		param = (IRQ_SPI2_BIT);
+#else
+		param = (IRQ_SPI_BIT);
+#endif       
         sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
     }
     else
     {
-        param = (IRQ_SPI_BIT);
+#if (CFG_SOC_NAME == SOC_BK7271)
+		param = (IRQ_SPI2_BIT);
+#else
+		param = (IRQ_SPI_BIT);
+#endif 
         sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
-        
-        param = PWD_SPI_CLK_BIT;
+		
+#if (CFG_SOC_NAME == SOC_BK7271)
+		param = PWD_SPI2_CLK_BIT;
+#else
+		param = PWD_SPI_CLK_BIT;
+#endif        
 	    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, &param);
     }
 }

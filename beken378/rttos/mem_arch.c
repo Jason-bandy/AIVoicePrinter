@@ -1,7 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
 #include <string.h>
-
 #include <rtthread.h>
 
 INT32 os_memcmp(const void *s1, const void *s2, UINT32 n)
@@ -23,13 +22,7 @@ void *os_memset(void *b, int c, UINT32 len)
 {
     return (void *)memset(b, c, (unsigned int)len);
 }
-#if (CFG_SUPPORT_RTT) && (CFG_SOC_NAME == SOC_BK7221U)
-void *dtcm_malloc(size_t size)
-{
-	extern void *tcm_malloc(unsigned long size); 
-    return (void *)tcm_malloc(size);
-}
-#endif
+
 void *os_malloc(size_t size)
 {
     return (void *)rt_malloc(size);

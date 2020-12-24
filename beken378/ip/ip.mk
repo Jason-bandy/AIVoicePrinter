@@ -2,6 +2,13 @@ NAME := ip
 
 $(NAME)_TYPE := kernel
 
+-include $(SOURCE_ROOT)/platform/mcu/$(HOST_MCU_FAMILY)/.config
+
+WPA_VERSION := wpa_supplicant-2.9
+ifeq ($(CFG_USE_WPA_29),0)
+WPA_VERSION := hostapd-2.5
+endif
+
 $(NAME)_INCLUDES := ke \
 					mac \
 					lmac/src/hal \
@@ -55,14 +62,15 @@ $(NAME)_INCLUDES += ../app/standalone-ap \
 					../func/rf_test \
 					../func/joint_up
 					
-$(NAME)_INCLUDES += ../func/hostapd-2.5/src/utils \
-                    ../func/hostapd-2.5/src \
-                    ../func/hostapd-2.5/bk_patch \
-                    ../func/hostapd-2.5/src/ap \
-                    ../func/hostapd-2.5/hostapd \
-                    ../func/hostapd-2.5/src/common \
-                    ../func/hostapd-2.5/src/drivers 
+$(NAME)_INCLUDES += ../func/$(WPA_VERSION)/src/utils \
+                    ../func/$(WPA_VERSION)/src \
+                    ../func/$(WPA_VERSION)/bk_patch \
+                    ../func/$(WPA_VERSION)/src/ap \
+                    ../func/$(WPA_VERSION)/hostapd \
+                    ../func/$(WPA_VERSION)/src/common \
+                    ../func/$(WPA_VERSION)/src/drivers 
 
+ifeq ($(CFG_BLE_VERSION),1)
 $(NAME)_INCLUDES += ../driver/ble \
 					../driver/ble/beken_ble_sdk/controller/include \
 					../driver/ble/beken_ble_sdk/hci/include \
@@ -85,7 +93,58 @@ $(NAME)_INCLUDES += ../driver/ble \
 					../driver/ble/profiles/sdp/api \
 					../driver/ble/beken_ble_sdk/mesh/include \
 					../driver/ble/beken_ble_sdk/mesh/src/dbg \
-					../driver/ble/beken_ble_sdk/mesh/src/models/include 
+					../driver/ble/beken_ble_sdk/mesh/src/models/include
+else
+ifeq ($(CFG_BLE_VERSION),2)
+$(NAME)_INCLUDES += ../driver/ble_5_x_rw/ble_lib/ip/ble/hl/api \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/inc \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gap/gapc \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gap/gapm \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/attc \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/attm \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/atts \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/gattc \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/gattm \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/l2c/l2cc \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/l2c/l2cm \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/api \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/import/reg \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/llc \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/lld \
+					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/llm \
+					../driver/ble_5_x_rw/ble_lib/ip/em/api \
+					../driver/ble_5_x_rw/ble_lib/ip/hci/api \
+					../driver/ble_5_x_rw/ble_lib/ip/hci/src \
+					../driver/ble_5_x_rw/ble_lib/ip/sch/api \
+					../driver/ble_5_x_rw/ble_lib/ip/sch/import \
+					../driver/ble_5_x_rw/ble_lib/modules/aes/api \
+					../driver/ble_5_x_rw/ble_lib/modules/aes/src \
+					../driver/ble_5_x_rw/ble_lib/modules/common/api \
+					../driver/ble_5_x_rw/ble_lib/modules/dbg/api \
+					../driver/ble_5_x_rw/ble_lib/modules/dbg/src \
+					../driver/ble_5_x_rw/ble_lib/modules/ecc_p256/api \
+					../driver/ble_5_x_rw/ble_lib/modules/h4tl/api \
+					../driver/ble_5_x_rw/ble_lib/modules/ke/api \
+					../driver/ble_5_x_rw/ble_lib/modules/ke/src \
+					../driver/ble_5_x_rw/ble_pub/prf \
+					../driver/ble_5_x_rw/ble_pub/profiles/comm/api \
+					../driver/ble_5_x_rw/ble_pub/app/api \
+					../driver/ble_5_x_rw/ble_pub/ui \
+					../driver/ble_5_x_rw/platform/7231n/rwip/api \
+					../driver/ble_5_x_rw/platform/7231n/rwip/import/reg \
+					../driver/ble_5_x_rw/platform/7231n/nvds/api \
+					../driver/ble_5_x_rw/platform/7231n/config \
+					../driver/ble_5_x_rw/platform/7231n/driver/reg \
+					../driver/ble_5_x_rw/platform/7231n/driver/rf \
+					../driver/ble_5_x_rw/platform/7231n/driver/uart \
+					../driver/ble_5_x_rw/platform/7231n/entry \
+					../driver/ble_5_x_rw/arch/armv5 \
+					../driver/ble_5_x_rw/arch/armv5/ll \
+					../driver/ble_5_x_rw/arch/armv5/compiler
+endif
+endif					
 					
 $(NAME)_SOURCES	:=  common/co_dlist.c \
 					common/co_list.c \

@@ -30,7 +30,7 @@ extern void ble_set_recv_adv_cb(ble_recv_adv_cb_t func);
 extern void ble_event_cb_handler(ble_event_t event, void *param);
 extern void ble_write_cb_handler(write_req_t *write_req);
 extern int ble_read_cb_handler(read_req_t *read_req);
-extern void ble_recv_adv_cb_handler(uint8_t *buf, uint8_t len);
+extern void ble_recv_adv_cb_handler(recv_adv_t *recv_adv);
 
 extern void ble_appm_create_advertising(unsigned char chnl_map,uint32_t intv_min,uint32_t intv_max);
 extern void ble_appm_start_advertising(unsigned char adv_actv_idx,uint16 duration);

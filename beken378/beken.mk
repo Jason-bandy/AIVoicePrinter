@@ -34,6 +34,7 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					func/ethernet_intf \
 					func/rwnx_intf \
 					func/rf_test \
+					func/rf_use \
 					func/camera_intf \
 					func/video_transfer \
 					func/user_driver \
@@ -230,6 +231,7 @@ endif
 # for WPA3
 ifeq ($(CFG_WPA3), 1)
 $(NAME)_SOURCES +=  func/$(WPA_VERSION)/src/common/sae.c \
+					func/$(WPA_VERSION)/src/common/dragonfly.c \
 					func/$(WPA_VERSION)/src/crypto/aes-ctr.c \
 					func/$(WPA_VERSION)/src/crypto/aes-omac1.c \
 					func/$(WPA_VERSION)/src/crypto/aes-siv.c \
@@ -245,6 +247,7 @@ $(NAME)_SOURCES +=  func/$(WPA_VERSION)/src/crypto/crypto_ali.c \
 					alios/lwip-2.0.2/port/ethernetif.c \
 					alios/lwip-2.0.2/port/net.c \
 					alios/lwip-2.0.2/apps/ping/ping.c \
+					alios/lwip-2.0.2/apps/iperf/iperf.c \
 					alios/os/mem_arch.c \
 					alios/os/str_arch.c \
 					alios/flash_hal.c \

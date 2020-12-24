@@ -21,20 +21,16 @@
  * Date           Author       Notes
  * 2017-05-09     Urey      first version
  */
-
 #include <stdio.h>
 #include <rthw.h>
 #include <rtthread.h>
 #include <rtdevice.h>
-
 #include <drivers/audio.h>
-
 #include "audio_pipe.h"
-
 
 #define AUDIO_DEBUG   0
 #if AUDIO_DEBUG
-#define AUDIO_DBG(...)     printf("[AUDIO]:"),printf(__VA_ARGS__)
+#define AUDIO_DBG(...)     rt_kprintf("[AUDIO]:"),rt_kprintf(__VA_ARGS__)
 #else
 #define AUDIO_DBG(...)
 #endif
@@ -43,40 +39,40 @@ static struct rt_audio_pipe audio_pipe;
 
 static rt_err_t _audio_send_replay_frame(struct rt_audio_device *audio)
 {
-    rt_err_t result = RT_EOK;
-    rt_base_t level;
-    struct rt_audio_frame frame;
-
-    RT_ASSERT(audio != RT_NULL);
-
-    //check repaly queue is empty
-    if (rt_data_queue_peak(&audio->replay->queue, &frame.data_ptr, &frame.data_size) != RT_EOK)
-    {
-        AUDIO_DBG("TX queue is empty\n");
-        result = -RT_EEMPTY;
-
-        level = rt_hw_interrupt_disable();
-        audio->replay->activated = RT_FALSE;
-        rt_hw_interrupt_enable(level);
-
-        goto _exit;
-    }
-
-    if (audio->ops->transmit != RT_NULL)
-    {
-        AUDIO_DBG("audio transmit...\n");
-        if (audio->ops->transmit(audio, frame.data_ptr, RT_NULL, frame.data_size) != frame.data_size)
-        {
-            result = -RT_EBUSY;
-
-            goto _exit;
-        }
-    }
-
-    //pop the head frame...
-    rt_data_queue_pop(&audio->replay->queue, &frame.data_ptr, &frame.data_size, RT_WAITING_FOREVER);
-
-    _exit: return result;
+	rt_err_t result = RT_EOK;
+	rt_base_t level;
+	struct rt_audio_frame frame;
+	
+	RT_ASSERT(audio != RT_NULL);
+	
+	//check repaly queue is empty
+	if (rt_data_queue_peak(&audio->replay->queue, &frame.data_ptr, &frame.data_size) != RT_EOK)
+	{
+		AUDIO_DBG("TX queue is empty\n");
+		result = -RT_EEMPTY;
+	
+		level = rt_hw_interrupt_disable();
+		audio->replay->activated = RT_FALSE;
+		rt_hw_interrupt_enable(level);
+	
+		goto _exit;
+	}
+	
+	if (audio->ops->transmit != RT_NULL)
+	{
+		AUDIO_DBG("audio transmit...\n");
+		if (audio->ops->transmit(audio, frame.data_ptr, RT_NULL, frame.data_size) != frame.data_size) {
+			result = -RT_EBUSY;
+	
+			goto _exit;
+		}
+	}
+	
+	//pop the head frame...
+	rt_data_queue_pop(&audio->replay->queue, &frame.data_ptr, &frame.data_size, RT_WAITING_FOREVER);
+	
+_exit: 
+	return result;
 }
 
 static rt_err_t _audio_flush_replay_frame(struct rt_audio_device *audio)
@@ -85,6 +81,7 @@ static rt_err_t _audio_flush_replay_frame(struct rt_audio_device *audio)
 
     if (audio->replay == RT_NULL)
         return -RT_EIO;
+	
     while (rt_data_queue_peak(&audio->replay->queue, &frame.data_ptr, &frame.data_size) == RT_EOK)
     {
         //pop the head frame...

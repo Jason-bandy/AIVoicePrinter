@@ -148,7 +148,7 @@ int os_memcmp_const(const void *a, const void *b, size_t len)
 
 void * os_memdup(const void *src, size_t len)
 {
-	void *r = os_malloc(len);
+	void *r = os_malloc(len == 0 ? 1 : len);
 
 	if (r && src)
 		os_memcpy(r, src, len);

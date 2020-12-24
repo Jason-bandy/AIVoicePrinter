@@ -2,6 +2,9 @@
 #define _GPIO_H_
 
 #include "sys_config.h"
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include "icu.h"
+#endif
 
 #define GPIO_PRT                        os_printf
 #define WARN_PRT                        os_printf
@@ -14,7 +17,11 @@
 #define GPIO_INIT_FLAG                   ((UINT32)1)
 #define GPIO_UNINIT_FLAG                 ((UINT32)-1)
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define GPIO_BASE_ADDR                       (0x0800300)
+#else
 #define GPIO_BASE_ADDR                       (0x0802800)
+#endif
 
 #define REG_GPIO_0_CONFIG                    (GPIO_BASE_ADDR + 0*4)
 #define REG_GPIO_1_CONFIG                    (GPIO_BASE_ADDR + 1*4)
@@ -51,7 +58,6 @@
 
 #define REG_GPIO_CFG_BASE_ADDR               (REG_GPIO_0_CONFIG)
 
-
 #define GCFG_INPUT_POS                       0
 #define GCFG_OUTPUT_POS                      1
 #define GCFG_INPUT_ENABLE_POS                2
@@ -60,7 +66,6 @@
 #define GCFG_PULL_ENABLE_POS                 5
 #define GCFG_FUNCTION_ENABLE_POS             6
 #define GCFG_INPUT_MONITOR_POS               7
-
 
 #define GCFG_INPUT_BIT                       (1 << 0)
 #define GCFG_OUTPUT_BIT                      (1 << 1)
@@ -71,8 +76,15 @@
 #define GCFG_FUNCTION_ENABLE_BIT             (1 << 6)
 #define GCFG_INPUT_MONITOR_BIT               (1 << 7)
 
-
-
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define REG_GPIO_INTEN                       (GPIO_BASE_ADDR + 51*4)
+#define REG_GPIO_INTEN1                      (GPIO_BASE_ADDR + 52*4)
+#define REG_GPIO_INTLV0                      (GPIO_BASE_ADDR + 48*4)
+#define REG_GPIO_INTLV1                      (GPIO_BASE_ADDR + 49*4)
+#define REG_GPIO_INTLV2                      (GPIO_BASE_ADDR + 50*4)
+#define REG_GPIO_INTSTA                      (GPIO_BASE_ADDR + 53*4)
+#define REG_GPIO_INTSTA1                     (GPIO_BASE_ADDR + 54*4)
+#else
 #define REG_GPIO_FUNC_CFG                    (GPIO_BASE_ADDR + 32*4)
 #define PERIAL_MODE_1                         (0)
 #define PERIAL_MODE_2                         (1)
@@ -92,7 +104,7 @@
 #define AUDIO_DPLL_UNLOCK_INT_EN              (1 << 1)
 #define DPLL_UNLOCK_INT                       (1 << 2)
 #define AUDIO_DPLL_UNLOCK_INT                 (1 << 3)
-#if (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 #define USB_PLUG_IN_INT_EN                    (1 << 4)
 #define USB_PLUG_OUT_INT_EN                   (1 << 5)
 #define USB_PLUG_IN_INT                       (1 << 6)
@@ -116,10 +128,17 @@
 
 #define REG_GPIO_MODULE_SELECT               (GPIO_BASE_ADDR + 45*4)
 #define GPIO_MODUL_NONE                      0xff
+#endif
 
-#if (CFG_SOC_NAME != SOC_BK7231)
-#define GPIO_SD_DMA_MODULE                   (0 << 2)
-#define GPIO_SD_HOST_MODULE                  (1 << 2)
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define GPIO_SD_MODULE_POS                    2
+#define GPIO_SD_DMA_MODULE                   (1 << GPIO_SD_MODULE_POS)
+#define GPIO_SD_HOST_PERIAL1_MODULE          (2 << GPIO_SD_MODULE_POS)
+#define GPIO_SD_HOST_PERIAL4_MODULE          (3 << GPIO_SD_MODULE_POS)
+#define GPIO_SD_MODULE_MASK                  (3 << GPIO_SD_MODULE_POS)
+#elif (CFG_SOC_NAME != SOC_BK7231)
+#define GPIO_SD_DMA_MODULE                    (0 << 2)
+#define GPIO_SD_HOST_MODULE                   (1 << 2)
 #define GPIO_SD1_DMA_MODULE                   (2 << 2)
 #define GPIO_SD1_HOST_MODULE                  (3 << 2)
 #define GPIO_SD_MODULE_POS                    2
@@ -154,6 +173,15 @@
 #define REG_A5_CONFIG                        (GPIO_BASE_ADDR + 53*4)
 #define REG_A6_CONFIG                        (GPIO_BASE_ADDR + 54*4)
 #define REG_A7_CONFIG                        (GPIO_BASE_ADDR + 55*4)
+#elif (CFG_SOC_NAME == SOC_BK7271)
+#define REG_GPIO_32_CONFIG                   (GPIO_BASE_ADDR + 32*4)
+#define REG_GPIO_33_CONFIG                   (GPIO_BASE_ADDR + 33*4)
+#define REG_GPIO_34_CONFIG                   (GPIO_BASE_ADDR + 34*4)
+#define REG_GPIO_35_CONFIG                   (GPIO_BASE_ADDR + 35*4)
+#define REG_GPIO_36_CONFIG                   (GPIO_BASE_ADDR + 36*4)
+#define REG_GPIO_37_CONFIG                   (GPIO_BASE_ADDR + 37*4)
+#define REG_GPIO_38_CONFIG                   (GPIO_BASE_ADDR + 38*4)
+#define REG_GPIO_39_CONFIG                   (GPIO_BASE_ADDR + 39*4)
 #else
 // for GPIO 16-31
 #define REG_GPIO_FUNC_CFG_2                  (GPIO_BASE_ADDR + 46*4)

@@ -42,8 +42,29 @@ uint32_t cal_get_usec_tu_field(void)
 uint32_t cal_get_time_us(void)
 {
 	uint32_t val;
+	uint32_t cnt_s, pre_cnt_s;
+	uint32_t cnt_us, pre_cnt_us;
+	uint32_t diff_s, diff_us;
 
-	val = cal_get_sec_field() * 1000 + cal_get_usec_tu_field() * CAL_3125_TU_VAL / 100;
+	pre_cnt_s = 0;
+	pre_cnt_us = 0;
+	while(1)
+	{
+		cnt_s = cal_get_sec_field();
+		cnt_us = cal_get_usec_tu_field();
+		diff_s = cnt_s - pre_cnt_s;
+		diff_us = cnt_us - pre_cnt_us;
+		if((0 == diff_s) && (0 == diff_us))
+		{
+			break;
+		}
+
+		pre_cnt_s = cnt_s;
+		pre_cnt_us = cnt_us;
+	}
+
+	val = cnt_s * 1000000 + cnt_us * CAL_3125_TU_VAL / 100;
+	
 	return val; 
 }
 

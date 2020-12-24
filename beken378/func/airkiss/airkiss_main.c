@@ -91,12 +91,16 @@ void airkiss_count_usefull_packet(const unsigned char *frame, int size)
         cur_chan->bcn_cnt++;
         var_part_addr = CPU2HW(frm->variable);
         var_part_len = size - MAC_BEACON_VARIABLE_PART_OFT;
-        elmt_addr = mac_ie_find(var_part_addr, var_part_len, MAC_ELTID_DS);
+        elmt_addr = mac_ie_find(var_part_addr, var_part_len, MAC_ELTID_DS
+#if CFG_IEEE80211AX
+                                , 0
+#endif
+                    );
         if (elmt_addr != 0)
         {
             channel = co_read8p(elmt_addr + MAC_DS_CHANNEL_OFT);
         }
-		
+
         for(i = 0; i < g_macs.mac_cnt; i++)
         {
             if((mac_crc == g_macs.mac[i].mac_crc))
@@ -261,8 +265,10 @@ void airkiss_switch_channel_callback(void *data)
     bk_wlan_set_channel_sync(channel);
     airkiss_change_channel(ak_contex);
 
-    ret = rtos_change_period(&ak_chan_timer, timer_cnt);
-    ASSERT(kNoErr == ret);
+    if (!airkiss_exit) {
+        ret = rtos_change_period(&ak_chan_timer, timer_cnt);
+        ASSERT(kNoErr == ret);
+    }
 
 }
 
@@ -284,12 +290,14 @@ void airkiss_doing_timeout_callback(void *data)
     {
         AIRKISS_FATAL("re-airkiss init failed!!\r\n");
     }
-	
+
     airkiss_set_scan_all_channel();
     g_chans.cur_chan_idx = 0;  // set channel 1
     bk_wlan_set_channel_sync(g_chans.chan[g_chans.cur_chan_idx].channel);
-    ret = rtos_change_period(&ak_chan_timer, AIRKISS_SWITCH_TIMER);
-    ASSERT(kNoErr == ret);
+    if (!airkiss_exit) {
+        ret = rtos_change_period(&ak_chan_timer, AIRKISS_SWITCH_TIMER);
+        ASSERT(kNoErr == ret);
+    }
 }
 
 void airkiss_monitor_callback(uint8_t *data, int len, wifi_link_info_t *info)
@@ -405,13 +413,13 @@ void airkiss_main( void *arg )
     int airkiss_read_size;
     u8 *airkiss_read_buf = NULL;
 
-	result = pingpong_init();    
-	if(0 != result)
+    result = pingpong_init();
+    if(0 != result)
     {
         AIRKISS_FATAL("Airkiss pingpong_init failed!!\r\n");
         goto kiss_exit;
     }
-	
+
     result = rtos_init_timer(&ak_chan_timer,
                              AIRKISS_SWITCH_TIMER,
                              airkiss_switch_channel_callback,
@@ -443,6 +451,14 @@ void airkiss_main( void *arg )
 
     AIRKISS_WARN("Airkiss version: %s\r\n", airkiss_version());
 
+#if CFG_ROLE_LAUNCH
+	rl_status_set_pause(1);
+	while(!rl_status_is_idle())
+	{
+		bk_printf("rl_get_ap_and_sta_idle delay\r\n");
+		rtos_delay_milliseconds(150);
+	}
+#endif
     // stop monitor mode
     bk_wlan_stop_monitor();
     bk_wlan_register_monitor_cb(NULL);
@@ -497,6 +513,9 @@ void airkiss_main( void *arg )
     // stop monitor mode
     bk_wlan_stop_monitor();
     bk_wlan_register_monitor_cb(NULL);
+#if CFG_ROLE_LAUNCH
+	rl_status_set_pause(0);
+#endif
 
     if(ak_result.ssid)
     {
@@ -541,6 +560,24 @@ void airkiss_main( void *arg )
 kiss_exit:
     AIRKISS_WARN("Airkiss exit.\r\n");
 
+    result = rtos_stop_timer(&ak_chan_timer);
+    ASSERT(kNoErr == result);
+    result = rtos_stop_timer(&ak_doing_timer);
+    ASSERT(kNoErr == result);
+
+    do {
+        rtos_delay_milliseconds(10);
+    } while (rtos_is_timer_running(&ak_chan_timer) || (rtos_is_timer_running(&ak_doing_timer)));
+
+    result = rtos_deinit_timer(&ak_chan_timer);
+    ASSERT(kNoErr == result);
+
+    result = rtos_deinit_timer(&ak_doing_timer);
+    ASSERT(kNoErr == result);
+
+    rtos_deinit_semaphore(&ak_semaphore);
+    ak_semaphore = NULL;
+
     if(ak_contex)
     {
         os_free(ak_contex);
@@ -553,19 +590,9 @@ kiss_exit:
         airkiss_read_buf = NULL;
     }
 
-    result = rtos_deinit_timer(&ak_chan_timer);
-    ASSERT(kNoErr == result);
-
-    result = rtos_deinit_timer(&ak_doing_timer);
-    ASSERT(kNoErr == result);
-
-    rtos_deinit_semaphore(&ak_semaphore);
-    ak_semaphore = NULL;
-
     ak_thread_handle = NULL;
+    pingpong_free();
     rtos_delete_thread(NULL);
-
-	pingpong_free();
 }
 
 u32 airkiss_process(u8 start)

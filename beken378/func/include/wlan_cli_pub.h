@@ -65,7 +65,11 @@ struct cli_st
 
 #define CLI_ARGS char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 
-#define is_print(c)           ((u8_t)c >= 0x20 && (u8_t)c <= 0x7f)
+#define is_print(c)           ((uint8_t)c >= 0x20 && (uint8_t)c <= 0x7f)
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+void bk7271_dsp_cli_init(void);
+#endif
 
 /** Register a CLI command
  *

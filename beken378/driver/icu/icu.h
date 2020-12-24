@@ -13,6 +13,10 @@
 #define ICU_FATAL    null_prf
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include "pmu.h"
+#include "icu_bk7271.h"
+#else
 #define ICU_BASE                                     (0x00802000)
 
 #define ICU_PERI_CLK_MUX                             (ICU_BASE + 0 * 4)
@@ -41,14 +45,25 @@
 #define QSPI_CLK_MUX_DCO                             (0)
 #define QSPI_CLK_MUX_26M                             (1)
 #define QSPI_CLK_MUX_120M                            (2)
-#if (CFG_SOC_NAME == SOC_BK7221U)
+
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 #define DCO_CLK_DIV_POSI                             (18)
 #define DCO_CLK_DIV_MASK                             (0x3)
 #define DCO_CLK_DIV_1                                (0)
 #define DCO_CLK_DIV_2                                (1)
 #define DCO_CLK_DIV_4                                (2)
 #define DCO_CLK_DIV_8                                (3)
-#endif // (CFG_SOC_NAME == SOC_BK7221U)
+#endif // (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define 26M_CLK_DIV_POSI                             (20)
+#define 26M_CLK_DIV_MASK                             (0x3)
+#define 26M_CLK_DIV_1                                (0)
+#define 26M_CLK_DIV_2                                (1)
+#define 26M_CLK_DIV_4                                (2)
+#define 26M_CLK_DIV_8                                (3)
+#endif // (CFG_SOC_NAME == SOC_BK7271)
+
 #endif // (CFG_SOC_NAME == SOC_BK7231)
 
 #define ICU_PWM_CLK_MUX                              (ICU_BASE + 1 * 4)
@@ -349,6 +364,6 @@
 /*******************************************************************************
 * Function Declarations
 *******************************************************************************/
-
+#endif
 #endif //_ICU_H_ 
 

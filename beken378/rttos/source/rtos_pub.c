@@ -60,6 +60,13 @@ OSStatus rtos_delete_thread( beken_thread_t* thread )
 
 }
 
+BOOL rtos_is_current_thread(beken_thread_t *thread)
+{
+	rt_thread_t t = (rt_thread_t)*thread;
+
+	return rt_thread_self() == t;
+}
+
 void rtos_thread_sleep(uint32_t seconds)
 {
     rt_thread_delay(rt_tick_from_millisecond(seconds * 1000));
@@ -254,6 +261,10 @@ OSStatus rtos_push_to_queue(beken_queue_t* queue, void* message, uint32_t timeou
 		ret = rt_mb_send_wait(mq->handle, (rt_uint32_t)msg_tmp, rt_tick_from_millisecond(timeout_ms));
 		if(ret != RT_EOK)
 		{
+			if(msg_tmp)
+			{
+				rt_mp_free(msg_tmp);
+			}
 			RTOS_DBG("%s rt_mb_send_wait ret:%d!\r\n", __FUNCTION__, ret);
 			return kGeneralErr;
 		}
@@ -441,6 +452,35 @@ OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer)
         RTOS_DBG("timer is stop, start timer \r\n");
     }
     return kNoErr;
+}
+
+OSStatus rtos_oneshot_reload_timer_ex(beken2_timer_t *timer,
+													uint32_t time_ms,
+													timer_2handler_t function,
+													void *larg,
+													void *rarg)
+{
+	rt_uint32_t timeout_value;
+	RTOS_DBG("reload oneshot callback %x\n", timer->handle);
+
+	if (BEKEN_MAGIC_WORD != timer->beken_magic) {
+		RTOS_DBG("magic word error %x\n", timer->beken_magic);
+		return kGeneralErr;
+	}
+
+	if (rtos_is_oneshot_timer_running(timer)) {
+		rt_timer_stop(timer->handle);
+		RTOS_DBG("timer is runing, stop it \r\n");
+	}
+
+	timeout_value = rt_tick_from_millisecond(time_ms);
+	rt_timer_control(timer->handle, RT_TIMER_CTRL_SET_TIME, (void *)&timeout_value);
+	timer->function = function;
+	timer->left_arg = larg;
+	timer->right_arg = rarg;
+	rt_timer_start(timer->handle);
+	RTOS_DBG("timer is stop, start timer \r\n");
+	return kNoErr;
 }
 
 OSStatus rtos_init_oneshot_timer( beken2_timer_t *timer, 

@@ -17,8 +17,8 @@
 #include "wps/wps_defs.h"
 #include "config_ssid.h"
 #include "wmm_ac.h"
-#if CFG_NEW_SUPP
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "notifier_pub.h"
 #endif
 
 extern const char *const wpa_supplicant_version;

@@ -28,6 +28,8 @@
 #include "uart_pub.h"
 #include "param_config.h"
 #include "mcu_ps_pub.h"
+#include "sys_ctrl_pub.h"
+#include "drv_model_pub.h"
 
 #if 0
 static void wpa_supplicant_gen_assoc_event(struct wpa_supplicant *wpa_s)
@@ -706,7 +708,7 @@ static int wpa_set_ssids_from_scan_req(struct wpa_supplicant *wpa_s,
 	}
 
 	params->num_ssids = wpa_s->num_ssids_from_scan_req;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->num_ssids_from_scan_req = 0;
 #endif
 	return 1;
@@ -779,7 +781,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 		}
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(g_sta_param_ptr->fast_connect_set) {
 		connect_without_scan = 1;
 		ssid = wpa_s->conf->ssid;
@@ -823,7 +825,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 #endif
 	wpa_s->last_scan_req = wpa_s->scan_req;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->scan_req = NORMAL_SCAN_REQ;
 #endif
 	if (connect_without_scan) {
@@ -1020,7 +1022,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 
 	if (ssid && max_ssids == 1) {
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		/*
 		 * If the driver is limited to 1 SSID at a time interleave
 		 * wildcard SSID scans with specific SSID scans to avoid
@@ -1039,7 +1041,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 			wpa_dbg(wpa_s, MSG_DEBUG,
 				"Starting AP scan for specific SSID: %s",
 				wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		}
 #endif
 	} else if (ssid) {
@@ -1066,7 +1068,7 @@ ssid_list_set:
 	wpa_supplicant_optimize_freqs(wpa_s, &params);
 	extra_ie = wpa_supplicant_extra_ies(wpa_s);
 
-#ifdef CONFIG_FULL_SUPPLICANT
+#if 1//def CONFIG_FULL_SUPPLICANT
 	if (wpa_s->last_scan_req == MANUAL_SCAN_REQ &&
 	    wpa_s->manual_scan_only_new) {
 		wpa_printf(MSG_DEBUG,
@@ -1096,6 +1098,7 @@ ssid_list_set:
 		os_free(wpa_s->next_scan_freqs);
 	wpa_s->next_scan_freqs = NULL;
 #endif /* CONFIG_FULL_SUPPLICANT */
+
 	wpa_setband_scan_freqs(wpa_s, &params);
 
 #ifdef CONFIG_FULL_SUPPLICANT
@@ -1287,8 +1290,14 @@ void wpa_supplicant_req_scan(struct wpa_supplicant *wpa_s, int sec, int usec)
 
 	os_printf("wpa_supplicant_req_scan\r\n");
     mcu_prevent_set(MCU_PS_CONNECT);
+
+    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+
 #if CFG_USE_BLE_PS
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rf_not_share_for_ble();
+#endif
 #endif
 
 	if (wpa_s->p2p_mgmt) {

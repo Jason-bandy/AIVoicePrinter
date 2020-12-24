@@ -30,4 +30,4 @@ Export('rtconfig')
 objs = PrepareBuilding(env, RTT_ROOT, has_libcpu=True)
 
 # make a building
-DoBuilding(TARGET, objs)
+DoBuilding(env, TARGET, objs)

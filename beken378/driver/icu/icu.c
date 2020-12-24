@@ -23,6 +23,9 @@ void icu_init(void)
     param = PCLK_POSI;
     #else
     param = PCLK_POSI_UART1 | PCLK_POSI_UART2
+		#if (CFG_SOC_NAME == SOC_BK7231N)
+			| PCLK_POSI_SARADC
+		#endif
             | PCLK_POSI_PWMS | PCLK_POSI_SDIO
             | PCLK_POSI_I2C1 | PCLK_POSI_I2C2;
     #endif // (CFG_SOC_NAME == SOC_BK7231)
@@ -132,6 +135,42 @@ UINT32 icu_ctrl(UINT32 cmd, void *param)
         REG_WRITE(ICU_INTERRUPT_ENABLE, reg);
         break;
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+    case CMD_FUNC_CLK_PWR_UP:
+        reg = REG_READ(ICU_FUNC_CLK_PWD);
+        reg &= ~(*(UINT32 *)param);
+        REG_WRITE(ICU_FUNC_CLK_PWD, reg);
+        break;
+
+    case CMD_FUNC_CLK_PWR_DOWN:
+        reg = REG_READ(ICU_FUNC_CLK_PWD);
+        reg |= (*(UINT32 *)param);
+        REG_WRITE(ICU_FUNC_CLK_PWD, reg);
+        break;
+
+    case CMD_ICU_FIQ_DISABLE:
+        reg = REG_READ(ICU_FIQ_ENABLE);
+        reg &= ~(*(UINT32 *)param);
+        REG_WRITE(ICU_FIQ_ENABLE, reg);
+        break;
+    
+    case CMD_ICU_FIQ_ENABLE:
+        reg = REG_READ(ICU_FIQ_ENABLE);
+        reg |= (*(UINT32 *)param);
+        REG_WRITE(ICU_FIQ_ENABLE, reg);
+        break;
+
+    case CMD_GET_FIQ_REG_STATUS:
+        ret = REG_READ(ICU_FIQ_STATUS);
+        break;
+
+    case CMD_CLR_FIQ_REG_STATUS:
+        ASSERT(param);
+        reg = REG_READ(ICU_FIQ_STATUS);
+        REG_WRITE(ICU_FIQ_STATUS, (reg | *(UINT32 *)param));
+        break;
+#endif
+
     case CMD_ICU_GLOBAL_INT_DISABLE:
         reg = REG_READ(ICU_GLOBAL_INT_EN);
         reg &= ~(*(UINT32 *)param);
@@ -170,6 +209,11 @@ UINT32 icu_ctrl(UINT32 cmd, void *param)
             REG_WRITE(ICU_JTAG_SELECT, JTAG_SEL_WR_ARM);
         else if(JTAG_TL410_MODE == (*(UINT32 *)param))
             REG_WRITE(ICU_JTAG_SELECT, JTAG_SEL_WR_TL4);
+			
+#if (CFG_SOC_NAME == SOC_BK7271)
+        else if(JTAG_BT_MODE == (*(UINT32 *)param))
+            REG_WRITE(ICU_JTAG_SELECT, JTAG_SEL_WR_BT);
+#endif
         break;
 
     case CMD_GET_JTAG_MODE:

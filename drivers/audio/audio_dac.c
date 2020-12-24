@@ -7,6 +7,7 @@
 #include "sys_ctrl_pub.h"
 #include "gpio_pub.h"
 #include "mem_pub.h"
+#include "mailbox_pub.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -69,6 +70,11 @@ static const AUD_VOL_ST aud_vol_table[AUD_DAC_VOL_TABLE_LEN] =
 
 void audio_dac_set_enable_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_ENABLE, enable, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUDIO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -77,20 +83,30 @@ void audio_dac_set_enable_bit(UINT32 enable)
     else
         reg_val &= ~DAC_ENABLE;
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 UINT32 audio_dac_is_enable_bit(void)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
     UINT32 reg_addr = AUDIO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
     reg_val = (reg_val & DAC_ENABLE);
 
     return reg_val ? 1 : 0;
+#endif
 }
 
 void audio_dac_set_int_enable_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_INT_ENABLE, enable, enable, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_FIFO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -99,10 +115,14 @@ void audio_dac_set_int_enable_bit(UINT32 enable)
     else
         reg_val &= ~(DAC_R_INT_EN | DAC_L_INT_EN);
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_dac_set_read_thred_bit(UINT32 thred)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
     UINT32 reg_addr = AUD_FIFO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -113,10 +133,16 @@ void audio_dac_set_read_thred_bit(UINT32 thred)
     reg_val |= ((thred & DAC_L_RD_THRED_MASK) << DAC_L_RD_THRED_POSI);
 
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_dac_set_hpf1_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_HPF1_BYPASS_SET, enable, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_DAC_CONFIG_0;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -125,10 +151,16 @@ void audio_dac_set_hpf1_bit(UINT32 enable)
     else
         reg_val &= ~DAC_HPF1_BYPASS;
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_dac_set_hpf2_bit(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_HPF2_BYPASS_SET, enable, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_DAC_CONFIG_0;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -137,10 +169,16 @@ void audio_dac_set_hpf2_bit(UINT32 enable)
     else
         reg_val &= ~DAC_HPF2_BYPASS;
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_dac_set_gain(UINT32 gain)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_VOLUME_SET, gain, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg_addr = AUD_DAC_CONFIG_0;
     UINT32 reg_val = REG_READ(reg_addr);
 
@@ -151,10 +189,14 @@ void audio_dac_set_gain(UINT32 gain)
     reg_val |= ((gain & DAC_SET_GAIN_MASK)  << DAC_SET_GAIN_POSI);
 
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_dac_set_sample(INT16 left, INT16 right)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
     UINT32 reg_addr = AUD_DAC_FIFO_PORT;
     UINT32 reg_val;
 
@@ -162,10 +204,16 @@ void audio_dac_set_sample(INT16 left, INT16 right)
               | ((right & AD_DAC_R_FIFO_MASK) << AD_DAC_R_FIFO_POSI);
 
     REG_WRITE(reg_addr, reg_val);
+#endif
 }
 
 void audio_dac_set_sample_rate(UINT32 sample_rate)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    mailbox_t mailbox;
+    mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_SAMPLE_RATE_SET, sample_rate, 0, 0);
+    mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+#else
     UINT32 reg;
 
     /* disable dac handset bit again, to make sure this bit unset */
@@ -267,6 +315,7 @@ void audio_dac_set_sample_rate(UINT32 sample_rate)
         AUD_PRT("unsupported sample rate:%d\r\n", sample_rate);
         break;
     }
+#endif
 }
 
 #if CFG_GENERAL_DMA
@@ -302,8 +351,7 @@ void audio_dac_volume_use_single_port(void)
     UINT32 param;
 
     param = AUDIO_DAC_VOL_SINGLE_MODE;
-    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, 
-        &param);
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, &param);
 }
 
 void audio_dac_volume_diff_port(void)
@@ -313,8 +361,7 @@ void audio_dac_volume_diff_port(void)
     UINT32 param;
 
     param = AUDIO_DAC_VOL_DIFF_MODE;
-    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, 
-        &param);
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, &param);
 }
 
 void audio_dac_open_analog_regs(void)
@@ -342,6 +389,10 @@ void audio_dac_set_analog_mute(UINT32 enable)
 #if AUD_USE_EXT_PA
 void audio_dac_init_mute_pin(void)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+#else
+#endif
     UINT32 param;
 
     ASSERT(AUD_DAC_MUTE_PIN < GPIONUM);
@@ -352,6 +403,10 @@ void audio_dac_init_mute_pin(void)
 
 void audio_dac_eable_mute(UINT32 enable)
 {
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d %d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__, enable);
+#else
+#endif
 	static uint8_t mute_flg = 0xFF;
     UINT32 param;
 	UINT32 cur_tick, delay_tick;
@@ -386,7 +441,38 @@ void audio_dac_eable_mute(UINT32 enable)
 	}
 	
 }
+void audio_dac_set_volume(UINT32 percent)
+{
+	UINT32 param = percent, idx;
+	AUD_VOL_PTR vol;
+	
+	if (percent > 99)
+		percent = 99;
+	
+	idx = percent * AUD_DAC_VOL_TABLE_LEN / 100;
+	
+	vol = (AUD_VOL_PTR)&aud_vol_table[idx];
+	
+#if (CFG_SOC_NAME == SOC_BK7271)
+	audio_dac_set_gain(idx);
+#else
+	audio_dac_set_gain(vol->dig_gain);
+	
+	param = vol->ana_gain;
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_DAC_VOLUME_ANALOG, &param);
 #endif
+	
+	AUD_PRT("set dac vol:%d - indx:%d,dig:%d,ana:%02x\r\n", percent, idx, vol->dig_gain, vol->ana_gain);
+}
+#else
+void audio_dac_eable_mute(UINT32 enable)
+{
+#if (CFG_SOC_NAME == SOC_BK7271)
+    rt_kprintf("%s:%d %d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__, enable);
+#else
+    audio_dac_set_analog_mute(enable);
+#endif
+}
 
 void audio_dac_set_volume(UINT32 percent)
 {
@@ -400,27 +486,17 @@ void audio_dac_set_volume(UINT32 percent)
 
     vol = (AUD_VOL_PTR)&aud_vol_table[idx];
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+    audio_dac_set_gain(idx);
+#else
     audio_dac_set_gain(vol->dig_gain);
+#endif
 
     param = vol->ana_gain;
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_DAC_VOLUME_ANALOG, &param);
 
-    if (percent == 0)
-    {
-        // no volume, so do mute(disable extral PA)
-#if AUD_USE_EXT_PA
-        audio_dac_eable_mute(1);
-#endif
-    }
-    else
-    {
-#if AUD_USE_EXT_PA
-        if(audio_dac_is_enable_bit())
-            audio_dac_eable_mute(0);
-#endif
-    }
-
     AUD_PRT("set dac vol:%d - indx:%d,dig:%d,ana:%02x\r\n", percent, idx, vol->dig_gain, vol->ana_gain);
 }
+#endif
 #endif // CFG_USE_AUD_DAC
 

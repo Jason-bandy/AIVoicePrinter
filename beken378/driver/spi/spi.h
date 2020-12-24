@@ -13,7 +13,11 @@
 #define SPI_FATAL    null_prf
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define SPI_BASE                           (0x00802500) 
+#else
 #define SPI_BASE                           (0x00802700)
+#endif
 
 #define SPI_CTRL                           (SPI_BASE + 0 * 4)
 #define TXINT_MODE_POSI                    (0)

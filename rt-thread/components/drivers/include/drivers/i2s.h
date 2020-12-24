@@ -12,11 +12,11 @@ extern "C" {
 #endif
 #define RT_I2S_DEBUG
 
-#define RT_DEVICE_CTRL_I2S_DMA_RX_ENABLE 1
-#define RT_DEVICE_CTRL_I2S_DMA_TX_ENABLE 2
+#define RT_DEVICE_CTRL_I2S_DMA_RX_ENABLE     1
+#define RT_DEVICE_CTRL_I2S_DMA_TX_ENABLE     2
 #define RT_DEVICE_CTRL_I2S_DMA_MASTER_ENABLE 3
-#define RT_DEVICE_CTRL_I2S_SAMPLE_RATE_SET 4
-#define RT_DEVICE_CTRL_I2S_BIT_LENGTH_SET 5
+#define RT_DEVICE_CTRL_I2S_SAMPLE_RATE_SET   4
+#define RT_DEVICE_CTRL_I2S_BIT_LENGTH_SET    5
 
 struct rt_i2s_msg
 {
@@ -25,7 +25,6 @@ struct rt_i2s_msg
 };
 
 struct rt_i2s_bus_device;
-
 struct rt_i2s_bus_device_ops
 {
     rt_size_t (*master_xfer)(struct rt_i2s_bus_device *bus,

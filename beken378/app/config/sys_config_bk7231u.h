@@ -8,12 +8,14 @@
 
 /* uart2 for debug, and generally, uart1 is used for communication.
    what is more, uart1 maybe is not bound out*/
-#define CFG_USE_UART1                              0
+#define CFG_USE_UART1                              1
+#define CFG_USE_UART2                              1
 #define CFG_JTAG_ENABLE                            0
 #define OSMALLOC_STATISTICAL                       0
 
 /*section 0-----app macro config-----*/
 #define CFG_IEEE80211N                             1
+#define CFG_IEEE80211AX                            0
 
 /*section 1-----OS macro config-----*/
 #define THD_APPLICATION_PRIORITY                   3
@@ -23,43 +25,42 @@
 #define THD_LWIP_PRIORITY                          4
 #define THD_INIT_PRIORITY                          4
 #define THD_RECONNECT_PRIORITY                     4
-#define THD_MEDIA_PRIORITY						   4
+#define THD_MEDIA_PRIORITY                         4
 #define THD_WPAS_PRIORITY                          5
 #define THD_EXTENDED_APP_PRIORITY                  5
 #define THD_HOSTAPD_PRIORITY                       5
-#define THDD_KEY_SCAN_PRIORITY					   7
+#define THDD_KEY_SCAN_PRIORITY                     7
 
 /*section 2-----function macro config-----*/
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
-#define CFG_AP_MONITOR_COEXIST					   0
-#define CFG_ROLE_LAUNCH                            1
-#define CFG_USE_WPA_29							   1
-#define CFG_NEW_SUPP							   0
+#define CFG_AP_MONITOR_COEXIST                     0
+#define CFG_ROLE_LAUNCH                            0
+#define CFG_USE_WPA_29                             1
+#define CFG_WPA_CTRL_IFACE                         1
 #define CFG_RWNX_QOS_MSDU                          0
-
+#define CFG_WLAN_FAST_CONNECT                      0
 /* PMF */
-#define CFG_IEEE80211W							   0
-#if CFG_NEW_SUPP
+#define CFG_IEEE80211W                             0
+#if CFG_WPA_CTRL_IFACE
 #undef CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 #endif
-#define CFG_WPA3								   0
+#define CFG_WPA3                                   0
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
-#define CFG_USE_WPA_29							   1
+#define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
-#define CFG_IEEE80211W							   1
-/* if WPA3 is enabled, define CONFIG_SME */
-#define CONFIG_SME								   1
+#define CFG_IEEE80211W                             1
+#define CFG_SME                                    1
 #endif
-//#define CFG_MESH								   0
-#define CFG_WFA_CERT							   0
+//#define CFG_MESH                                 0
+#define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             1
 #define CFG_AP_SUPPORT_HT_IE                       0
-#define CFG_SUPPORT_BSSID_CONNECT				   0
+#define CFG_SUPPORT_BSSID_CONNECT                  0
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
@@ -88,7 +89,6 @@
 
 /*section 4-----DEBUG macro config-----*/
 #define CFG_UART_DEBUG                             0
-#define CFG_UART_DEBUG_COMMAND_LINE                1
 #define CFG_BACKGROUND_PRINT                       0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
@@ -97,6 +97,7 @@
 #define CFG_AIRKISS_TEST                           0
 #define CFG_ENABLE_DEMO_TEST                       0
 #define CFG_WIFI_SENSOR                            0
+#define CFG_WIFI_RAW_TX_CMD                        0
 
 /*section 5-----PRODUCT macro config-----*/
 #define CFG_RELEASE_FIRMWARE                       0
@@ -168,7 +169,7 @@
 #define CFG_USE_SDCARD_HOST                        0
 
 /*section 20 ----- support mp3 decoder*/
-#define CONFIG_APP_MP3PLAYER 			           0
+#define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
 #define CFG_SUPPORT_OTA_HTTP                       0
@@ -216,7 +217,7 @@
 #undef  CFG_JTAG_ENABLE
 #define CFG_JTAG_ENABLE                            0
 #undef  CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 #undef  CFG_EASY_FLASH
 #define CFG_EASY_FLASH                             0
 #undef  CFG_USE_MCU_PS

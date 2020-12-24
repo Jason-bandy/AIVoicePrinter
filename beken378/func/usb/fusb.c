@@ -9,7 +9,9 @@
 #include "task.h"
 #include "diskio.h"
 #include "usb_pub.h"
+#if CFG_USE_SDCARD_HOST
 #include "sdcard_pub.h"
+#endif
 
 #if CFG_USB
 

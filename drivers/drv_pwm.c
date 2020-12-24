@@ -3,12 +3,10 @@
 #include <rtdevice.h>
 
 #include "drivers/rt_drv_pwm.h"
-
 #include "typedef.h"
 #include "drv_pwm.h"
 #include "pwm.h"
 #include "generic.h"
-
 #include "drv_model_pub.h"
 
 #define MAX_PERIOD              (65535 / 26)
@@ -89,7 +87,11 @@ static rt_err_t drv_pwm_set(pwm_param_t *param, struct rt_pwm_configuration *con
         return ret;
     }
 
+    #if (CFG_SOC_NAME != SOC_BK7231N)
     param->duty_cycle = configuration->pulse * 26;
+    #else
+    rt_kprintf("drv_pwm_set NOT implemented\r\n");
+    #endif
     param->end_value = configuration->period * 26;
     ret = sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, param);
 
@@ -109,8 +111,6 @@ static rt_err_t drv_pwm_control(struct rt_device_pwm *device, int cmd, void *arg
         return drv_pwm_enable(param, configuration, RT_FALSE);
     case PWM_CMD_SET:
         return drv_pwm_set(param, configuration);
-    // case PWM_CMD_GET:
-    //     return drv_pwm_get(param, configuration);
     default:
         return -RT_EINVAL;
     }
@@ -129,7 +129,11 @@ static void rt_pwm_init(void)
     pwm_param.cfg.bits.mode   = PMODE_PWM;
     pwm_param.cfg.bits.clk    = PWM_CLK_26M;
     pwm_param.p_Int_Handler   = 0;
+    
+    #if (CFG_SOC_NAME != SOC_BK7231N)
     pwm_param.duty_cycle      = 0;
+    #endif
+    
     pwm_param.end_value       = 0x00;
 }
 #endif /* RT_USING_PWM */

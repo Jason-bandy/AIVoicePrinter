@@ -16,9 +16,15 @@ $(NAME)_INCLUDES +=./ \
 					./src/hid \
 					./src/lib \
 					./src/msc \
-					./src/systems/none/afs \
-					./src/systems/none \
-					./src/uvc \
+					./src/uvc
+
+ifeq ($(CFG_USE_USB_DEVICE),1)
+$(NAME)_INCLUDES += ./src/systems/none/afs \
+					./src/systems/none
+else
+$(NAME)_INCLUDES += ./src/systems/os/afs \
+					./src/systems/os
+endif
 
 #usb lib
 ifeq ($(CFG_USB),1)
@@ -49,10 +55,17 @@ $(NAME)_SOURCES += 	src/cd/mu_cntlr.c \
 					src/lib/mu_stack.c \
 					src/lib/mu_stdio.c \
 					src/lib/mu_strng.c \
-					src/msc/usb_msd.c \
-					src/systems/none/afs/board.c \
+					src/msc/usb_msd.c
+ifeq ($(CFG_USE_USB_DEVICE),1)
+$(NAME)_SOURCES += 	src/systems/none/afs/board.c \
 					src/systems/none/plat_uds.c \
 					src/uvc/usb_uvc.c \
 					src/uvc/uvc_driver.c
+else
+ifeq ($(CFG_USE_USB_HOST), 1)
+$(NAME)_SOURCES +=  src/systems/os/afs/board.c \
+					src/systems/os/mu_sys.c
+endif
+endif
 endif
 

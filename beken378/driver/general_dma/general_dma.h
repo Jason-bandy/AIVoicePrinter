@@ -1,12 +1,12 @@
 #ifndef __GENER_DMA_H__
 #define __GENER_DMA_H__
 
+#include "uart_pub.h"
+
 #if CFG_GENERAL_DMA
 
-//#define GENER_DMA_DEBUG
-
-#include "uart_pub.h"
-#ifdef GENER_DMA_DEBUG
+#define GENER_DMA_DEBUG                0
+#if GENER_DMA_DEBUG
 #define GENER_DMA_PRT                   os_printf
 #define GENER_DMA_WPRT                  os_printf
 #else
@@ -14,7 +14,11 @@
 #define GENER_DMA_WPRT                  null_prf
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define GENER_DMA_BASE                      (0x00805000)
+#else
 #define GENER_DMA_BASE                      (0x00809000)
+#endif
 
 // DMA 0
 #define GENER_DMA0_REG0_CONF                (GENER_DMA_BASE + 0x00*4)
@@ -61,12 +65,14 @@
 #define GDMA_X_SRC_REQ_MASK               (0xfU)
 #define GDMA_X_DST_REQ_POSI               (4)
 #define GDMA_X_DST_REQ_MASK               (0xfU)
-#if (CFG_SOC_NAME == SOC_BK7221U)
+
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 #define GDMA_X_SRC_RD_INTVAL_POSI         (12)
 #define GDMA_X_SRC_RD_INTVAL_MASK         (0xfU)
 #define GDMA_X_DST_WR_INTVAL_POSI         (16)
 #define GDMA_X_DST_WR_INTVAL_MASK         (0xfU)
 #endif // (CFG_SOC_NAME == SOC_BK7221U)
+
 #define GDMA_X_DTCM_WR_WAIT_WORD          (1 << 8)
 #endif // (CFG_SOC_NAME == SOC_BK7231)
 
@@ -201,7 +207,7 @@
 #define GENER_DMA_HFIN_INT_STATUS_POSI      (8)
 #define GENER_DMA_HFIN_INT_STATUS_MASK      (0x3f)
 
-#if (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 #define GENER_DMA0_REG40_SRC_PAUSE_ADDR     (GENER_DMA_BASE + 0x40*4)
 
 #define GENER_DMA1_REG41_SRC_PAUSE_ADDR     (GENER_DMA_BASE + 0x41*4)

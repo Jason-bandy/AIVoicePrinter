@@ -1,4 +1,5 @@
-
+#ifndef __START_TYPE_PUB_H_
+#define __START_TYPE_PUB_H_
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
 #define     START_TYPE_ADDR        (0x00800000 + 84 * 4)
@@ -33,3 +34,8 @@ typedef enum {
 
 } RESET_SOURCE_STATUS;
 
+RESET_SOURCE_STATUS bk_misc_get_start_type();
+RESET_SOURCE_STATUS bk_misc_init_start_type(void);
+void bk_misc_update_set_type(RESET_SOURCE_STATUS type);
+
+#endif //__START_TYPE_PUB_H_

@@ -1,13 +1,14 @@
 #include <rtthread.h>
+#include "test_config.h"
+
+#ifdef PLAY_LIST_TEST
 #include "codec_helixmp3.h" 
 #include "player_init.h"
 #include "player.h"
-#include "test_config.h"
-#ifdef PLAY_LIST_TEST
 
 #define PLAY_LIST_SIZE  3
 
-struct music_list 
+struct music_list
 {
     int list_size;
     int cur_index;
@@ -117,5 +118,6 @@ static void play_list(int argc, char **argv)
     }
 }
 MSH_CMD_EXPORT(play_list, play_list);
-
 #endif
+// eof
+

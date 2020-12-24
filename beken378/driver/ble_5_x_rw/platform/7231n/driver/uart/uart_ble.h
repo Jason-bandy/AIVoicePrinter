@@ -18,7 +18,20 @@ enum
 
 enum
 {
-    EXIT_DUT_CMD			= 0xFF,
+	EXIT_DUT_CMD			= 0x0E,
+	EXIT_DUT_ACT			= 0xA0,
+	TX_PWR_SET_CMD			= 0x10,
+	TX_PWR_SAVE_CMD			= 0x11,
+	XTAL_SET_CMD			= 0x12,
+	USER_SEND_CMD			= 0x21,
+	USER_STOP_CMD			= 0x2F,
+};
+
+enum
+{
+	IDLE_MODE			= 0,
+	USER_TX_MODE		= 1,
+	DUT_MODE			= 2,
 };
 
 /// UART TX RX Channel

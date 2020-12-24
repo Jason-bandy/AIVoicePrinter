@@ -122,7 +122,11 @@ static void l2_packet_receive(int sock, void *eloop_ctx, void *sock_ctx)
 	struct l2_packet_data *l2 = eloop_ctx;
 
 	buf = os_malloc(TMP_BUF_LEN);
-	ASSERT(buf);
+	if(!buf)
+	{
+		os_printf("buf malloc fail\r\n");
+		goto recv_exit;
+	}
 	
 	len = fsocket_recv(sock, buf, TMP_BUF_LEN, 0);
 	if (len < 0) {

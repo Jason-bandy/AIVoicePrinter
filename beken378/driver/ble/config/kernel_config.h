@@ -48,7 +48,7 @@
  * CONSTANT DEFINITIONS
  ****************************************************************************************
  */
-#define KERNEL_MEM_RW       0
+#define KERNEL_MEM_RW       1
 #define KERNEL_MEM_LINUX    0
 #define KERNEL_MEM_LIBC     0
 

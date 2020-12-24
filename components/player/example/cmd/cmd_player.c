@@ -1,6 +1,5 @@
 #include "rtthread.h"
 #include "optparse.h"
-
 #include <stdlib.h>
 #include "player_system.h"
 #include "player.h"
@@ -61,27 +60,22 @@ int stream_buffer(int argc, char **argv)
 
 int stream_pipe_dump(void)
 {
-    rt_uint32_t total_size, used_size, remain_size;
+	rt_uint32_t total_size, used_size, remain_size;
 	struct stream_pipe *pipe = netstream_get_pipe();
 
-    total_size = pipe->ringbuffer.buffer_size;
-    used_size = rb_buffer_data_len(&pipe->ringbuffer);
-    remain_size = total_size - used_size;
+	total_size = pipe->ringbuffer.buffer_size;
+	used_size = rb_buffer_data_len(&pipe->ringbuffer);
+	remain_size = total_size - used_size;
 
-    rt_kprintf("\nPlayer NetCache:\n"); 
-    rt_kprintf("total size   - %d \n", total_size);
-    rt_kprintf("used size    - %d \n", used_size);
-    // rt_kprintf("remain size  - %d \n", remain_size);
-    // rt_kprintf("read_mirror  - %d \n", pipe->ringbuffer.read_mirror);
-    // rt_kprintf("read_index   - %d \n", pipe->ringbuffer.read_index);
-    // rt_kprintf("write_mirror - %d \n", pipe->ringbuffer.write_mirror); 
-    // rt_kprintf("write_index  - %d \n", pipe->ringbuffer.write_index);
-    rt_kprintf("ready_wm     - %d \n", pipe->reader_ready_wm); 
-    rt_kprintf("resume_wm    - %d \n", pipe->writer_resume_wm);
+	rt_kprintf("\nPlayer NetCache:\n");
+	rt_kprintf("total size   - %d \n", total_size);
+	rt_kprintf("used size    - %d \n", used_size);
+	rt_kprintf("ready_wm     - %d \n", pipe->reader_ready_wm);
+	rt_kprintf("resume_wm    - %d \n", pipe->writer_resume_wm);
 
-    return 0;
+	return 0;
 }
-#endif 
+#endif
 
 static void dump_status(void)
 {
@@ -116,173 +110,143 @@ static void dump_status(void)
 
 int player(int argc, char **argv)
 {
-    int ch; 
-    int option_index; 
-    struct optparse options;
+	int ch;
+	int option_index;
+	struct optparse options;
+	rt_bool_t  help    = RT_FALSE;
+	rt_bool_t  start   = RT_FALSE;
+	rt_bool_t  stop    = RT_FALSE;
+	rt_bool_t  pause   = RT_FALSE;
+	rt_bool_t  resume  = RT_FALSE;
+	rt_bool_t  seek    = RT_FALSE;
+	rt_int32_t second  = (-1);
+	rt_int8_t  volume  = (-1);
+	rt_bool_t  dump    = RT_FALSE;
+	rt_bool_t  version = RT_FALSE;
+	rt_uint8_t action_cnt = 0;
+	char *uri = RT_NULL;
 
-    rt_bool_t  help    = RT_FALSE; 
-    rt_bool_t  start   = RT_FALSE; 
-    rt_bool_t  stop    = RT_FALSE; 
-    rt_bool_t  pause   = RT_FALSE; 
-    rt_bool_t  resume  = RT_FALSE; 
-    rt_bool_t  seek    = RT_FALSE; 
-    rt_int32_t second  = (-1); 
-    rt_int8_t  volume  = (-1); 
-    rt_bool_t  dump    = RT_FALSE; 
-    rt_bool_t  version = RT_FALSE; 
+	if (argc == 1) {
+		usage();
+		return RT_EOK;
+	}
 
-    rt_uint8_t action_cnt = 0; 
+	optparse_init(&options, argv);
+	while ((ch = optparse_long(&options, opts, &option_index)) != -1) {
+		switch (ch) {
+		case 'h':   /* 帮助 */
+			help = RT_TRUE;
+			break;
 
-    char *uri = RT_NULL; 
+		case 's':   /* 播放 */
+			start = RT_TRUE;
+			uri = (options.optarg == RT_NULL) ? (RT_NULL) : rt_strdup(options.optarg);
+			action_cnt++;
+			break;
 
-    if(argc == 1)
-    {
-        usage(); 
-        return RT_EOK; 
-    }
-    
-    /* Parse cmd */ 
-    optparse_init(&options, argv); 
-    while((ch = optparse_long(&options, opts, &option_index)) != -1)
-    {
-        switch(ch)
-        {
-        case 'h':   /* 帮助 */ 
-            help = RT_TRUE; 
-            break; 
+		case 't':   /* 停止 */
+			stop = RT_TRUE;
+			action_cnt++;
+			break;
 
-        case 's':   /* 播放 */ 
-            start = RT_TRUE; 
-            uri = (options.optarg == RT_NULL) ? (RT_NULL) : rt_strdup(options.optarg); 
-            action_cnt++; 
-            break; 
+		case 'p':   /* 暂停 */
+			pause = RT_TRUE;
+			action_cnt++;
+			break;
 
-        case 't':   /* 停止 */ 
-            stop = RT_TRUE; 
-            action_cnt++; 
-            break; 
+		case 'r':   /* 恢复 */
+			resume = RT_TRUE;
+			action_cnt++;
+			break;
 
-        case 'p':   /* 暂停 */ 
-            pause = RT_TRUE; 
-            action_cnt++; 
-            break; 
+		case 'k':   /* 移动 */
+			seek = RT_TRUE;
+			second = (options.optarg == RT_NULL) ? (-1) : atoi(options.optarg);
+			break;
 
-        case 'r':   /* 恢复 */ 
-            resume = RT_TRUE; 
-            action_cnt++; 
-            break; 
+		case 'v':   /* 音量 */
+			volume = (options.optarg == RT_NULL) ? (-1) : atoi(options.optarg);
+			break;
 
-        case 'k':   /* 移动 */ 
-            seek = RT_TRUE; 
-            second = (options.optarg == RT_NULL) ? (-1) : atoi(options.optarg); 
-            break; 
+		case 'd':   /* 信息 */
+			dump = RT_TRUE;
+			break;
 
-        case 'v':   /* 音量 */ 
-            volume = (options.optarg == RT_NULL) ? (-1) : atoi(options.optarg);
-            break; 
+		case 'V':   /* 版本 */
+			version = RT_TRUE;
+			break;
+		}
+	}
 
-        case 'd':   /* 信息 */ 
-            dump = RT_TRUE; 
-            break; 
+	// 判断 播放 暂停 停止 恢复 移动 命令是否多次使用 不能共存使用
+	if (action_cnt > 1) {
+		rt_kprintf("START STOP PAUSE RESUME SEEK parameter can't be used at the same time.\n");
+		return RT_EINVAL;
+	}
 
-        case 'V':   /* 版本 */ 
-            version = RT_TRUE; 
-            break; 
-        }
-    }
+	if (help == RT_TRUE) {
+		usage();
+		return RT_EOK;
+	}
 
-    // 判断 播放 暂停 停止 恢复 移动 命令是否多次使用 不能共存使用
-    if(action_cnt > 1)
-    {
-        rt_kprintf("START STOP PAUSE RESUME SEEK parameter can't be used at the same time.\n"); 
-        return RT_EINVAL; 
-    }
+	// 播放器动作
+	if ((start == RT_TRUE) && (uri != RT_NULL) && (seek != RT_TRUE)) {
+		rt_kprintf("//////////////////////////// player_play \n");
+		player_stop();
+		player_set_uri(uri);
+		player_play();
+		rt_kprintf("//////////////////////////// player_playing\n");
 
-    if(help == RT_TRUE)
-    {
-        usage(); 
-        return RT_EOK;
-    }
+		if (uri)
+			rt_free(uri);
+	}
+	if ((start == RT_TRUE) && (uri != RT_NULL) && (seek == RT_TRUE)) {
+		rt_kprintf("//////////////////////////// player_play_position \n");
+		player_stop();
+		player_set_uri(uri);
+		player_play_position(second);
+		rt_kprintf("//////////////////////////// player_playing_position\n");
 
-    // 播放器动作
-    if((start == RT_TRUE) && (uri != RT_NULL) && (seek != RT_TRUE))
-    {
-        rt_kprintf("//////////////////////////// player_play \n"); 
-        player_stop(); 
-        player_set_uri(uri); 
-        player_play(); 
-        rt_kprintf("//////////////////////////// player_play end \n"); 
-        
-        if(uri)
-        {
-            rt_free(uri); 
-        }
-    }
-    if((start == RT_TRUE) && (uri != RT_NULL) && (seek == RT_TRUE))
-    {
-        rt_kprintf("//////////////////////////// player_play_position \n"); 
-        player_stop(); 
-        player_set_uri(uri); 
-        player_play_position(second); 
-        rt_kprintf("//////////////////////////// player_play_position end \n"); 
-        
-        if(uri)
-        {
-            rt_free(uri); 
-        }
-    }
-    else if(stop == RT_TRUE)
-    {
-        rt_kprintf("//////////////////////////// player_stop \n"); 
-        player_stop(); 
-        rt_kprintf("//////////////////////////// player_stop end \n"); 
-        rt_kprintf("stop play.\n"); 
-    }
-    else if(pause == RT_TRUE)
-    {
-        rt_kprintf("//////////////////////////// player_pause \n"); 
-        player_pause(); 
-        rt_kprintf("//////////////////////////// player_pause end \n"); 
-        rt_kprintf("pause play.\n"); 
-    }
-    else if(resume == RT_TRUE)
-    {
-        rt_kprintf("//////////////////////////// player_play(resume) \n"); 
-        player_play(); 
-        rt_kprintf("//////////////////////////// player_play(resume) end \n"); 
-        rt_kprintf("resume play.\n"); 
-    }
-    else if((seek == RT_TRUE) && (second != (-1)))
-    {
-        rt_kprintf("//////////////////////////// player_do_seek \n"); 
-        player_do_seek(second); 
-        rt_kprintf("//////////////////////////// player_do_seek end \n"); 
-        rt_kprintf("seek %dsec.\n", second); 
-    }
+		if (uri)
+			rt_free(uri);
+	} else if (stop == RT_TRUE) {
+		rt_kprintf("//////////////////////////// player_stop \n");
+		player_stop();
+		rt_kprintf("//////////////////////////// player_stop end \n");
+		rt_kprintf("stop play.\n");
+	} else if (pause == RT_TRUE) {
+		rt_kprintf("//////////////////////////// player_pause \n");
+		player_pause();
+		rt_kprintf("//////////////////////////// player_pause end \n");
+		rt_kprintf("pause play.\n");
+	} else if (resume == RT_TRUE) {
+		rt_kprintf("//////////////////////////// player_play(resume) \n");
+		player_play();
+		rt_kprintf("//////////////////////////// player_play(resume) end \n");
+		rt_kprintf("resume play.\n");
+	} else if ((seek == RT_TRUE) && (second != (-1))) {
+		rt_kprintf("//////////////////////////// player_do_seek \n");
+		player_do_seek(second);
+		rt_kprintf("//////////////////////////// player_do_seek end \n");
+		rt_kprintf("seek %dsec.\n", second);
+	}
 
-    if(volume != (-1))
-    {
-        if((volume < 0) || (volume > 99))
-        {
-            rt_kprintf("set volume failed. volume needs to be set to 0~99.\n", volume); 
-        }
-        else
-        {
-            player_set_volume(volume); 
-            rt_kprintf("set play volume %d%%.\n", volume); 
-        }
-    }
+	if (volume != (-1)) {
+		if ((volume < 0) || (volume > 99))
+			rt_kprintf("set volume failed. volume needs to be set to 0~99.\n", volume);
+		else {
+			player_set_volume(volume);
+			rt_kprintf("set play volume %d%%.\n", volume);
+		}
+	}
 
-    if(dump == RT_TRUE)
-    {
-        dump_status(); 
-    }
+	if (dump == RT_TRUE)
+		dump_status();
 
-    if(version == RT_TRUE)
-    {
-        player_get_version(); 
-    }
-    
-    return RT_EOK; 
+	if (version == RT_TRUE)
+		player_get_version();
+
+	return RT_EOK;
 }
+
 MSH_CMD_EXPORT(player, player func test cmd.); 

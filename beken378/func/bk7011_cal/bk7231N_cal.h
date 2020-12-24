@@ -6,16 +6,12 @@
 #define INCLUDE_OS
 
 //#define SCAN_IQ_FILTER_CORNER
+//#define _11MBPS_MAX_POWER
 
 ////Difference between pieces
 #define DIFFERENCE_PIECES_CFG        0
 
-//#define _11MBPS_MAX_POWER
-
 void delay05us(INT32 num);
-
-
-
 
 #define trx_reg_is_write(st_trxreg)     while(BK7231N_RC_REG.REG0x1->value & st_trxreg) 	{cpu_delay(1);}
 
@@ -43,19 +39,6 @@ void delay05us(INT32 num);
 #define cal_delay_100us(val)      delay100us(MAX(1, val))	// 200us
 #define CAL_DELAY100US			  1  //20160804  1:100us 2:200us		// 20170503 1:150us 2:300us
 
-
-//#define BK7011TRXREG0xD 		  0xDDFF0339
-//#define BK7011TRXREG0xC		      0x01A147EE//0x01A183FD
-/*
-#define DGAINPA20 				  3
-#define DGAINBUF20				  3
-#define GCTRLPGA40				  0xf
-#define GCTRLMOD30        		  0x04
-#define TSSI_DELTA				 (2)  // 10
-#define TSSI_IS_VALID(val)	  (((val)  0xf0 ) && ((val) > 0x20))?1:0)
-#define TSSI_IS_TOO_LOW(val)  (((val)<(0x00 * SUMNUMBERS))?1:0)  //0x37
-#define TSSI_IS_TOO_HIGH(val) (((val)> (0xff * SUMNUMBERS))?1:0) //0xe0
-*/
 #define st_TRXREG00			(1<<0)
 #define st_TRXREG01			(1<<1)
 #define st_TRXREG02			(1<<2)
@@ -729,9 +712,7 @@ typedef union
         volatile unsigned long Dtau             : 4; //PA bias settling time programming; 1000:400ns; ~50n/LSB
         volatile unsigned long Dvldo            : 2; //Gm LDO output programming: (00,01,10) =>  [1.2, 1.3, 1.4]
         volatile unsigned long Dvnlo            : 2; //Mixer LO dc bias programming: 0.8*Vrefm + Vrefm*Dvnlo/16;
-        volatile unsigned long vstxloldo        : 3; //tx lo ldo voltage selection
-        volatile unsigned long ldo_dac          : 2; //tx dac ldo voltage selection
-        volatile unsigned long tspi             : 3; //Reserved control bits;
+        volatile unsigned long tspi             : 8; //Reserved control bits;
     } bits;
     volatile unsigned int value;
 }BK7011_TRxV2A_REG0x0_TypeDef;
@@ -1397,13 +1378,11 @@ typedef struct
     UINT32 cali_mode;
     INT32 gtx_tssi_thred_b;
     INT32 gtx_tssi_thred_g;
+    INT32 power_cali_shift_b;
+    INT32 power_cali_shift_g;
 
     UINT32 is_tpc_used;
 
-#if CFG_USE_TEMPERATURE_DETECT
-    INT16 ble_pwr_indx;
-    INT16 ble_pwr_shift;
-#endif
 } BK7011_CALI_CONTEXT;
 
 typedef struct

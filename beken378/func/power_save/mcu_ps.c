@@ -101,13 +101,7 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 
 	if ( ( mcu_ps_info.mcu_ps_on == 1 )
 	     && ( peri_busy_count_get() == 0 )
-	     && ( mcu_prevent_get() == 0 )
-#if CFG_USE_STA_PS
-#if NX_POWERSAVE
-	     && ( txl_sleep_check() )
-#endif
-#endif
-	   ) {
+	     && ( mcu_prevent_get() == 0 )) {
 		do {
 			sleep_ms = BK_TICKS_TO_MS ( sleep_tick );
 
@@ -210,7 +204,9 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 
 	mcu_ps_cal_increase_tick ( & miss_ticks );
 	GLOBAL_INT_RESTORE();
-	ASSERT ( miss_ticks >= 0 );
+	if(miss_ticks <0){
+		os_printf("miss_ticks error\r\n");
+	}
 	return miss_ticks;
 }
 

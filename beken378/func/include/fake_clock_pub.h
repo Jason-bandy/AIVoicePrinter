@@ -5,7 +5,7 @@
 
 typedef enum
 {
-    BK_TIMER_ID0     = 0,//BKTIMER0
+    BK_TIMER_ID0        = 0,//BKTIMER0
     BK_TIMER_ID1,
     BK_TIMER_ID2,
     BK_TIMER_ID3,
@@ -22,7 +22,11 @@ typedef enum
 
 #define FCLK_PWM_ID           PWM0
 
-#if (CFG_SOC_NAME != SOC_BK7231)
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define FCLK_TIMER_ID          BKTIMER1
+#define CAL_TIMER_ID           BKTIMER2
+#elif (CFG_SOC_NAME != SOC_BK7231)
+#define FCLK_TIMER_ID          BKTIMER3
 #define CAL_TIMER_ID           BKTIMER2
 #endif
 
@@ -53,7 +57,7 @@ extern void fclk_reset_count(void);
 extern void fclk_init(void);
 extern UINT32 fclk_from_sec_to_tick(UINT32 sec);
 extern UINT32 fclk_cal_endvalue(UINT32 mode);
-
+BK_HW_TIMER_INDEX fclk_get_tick_id(void);
 #endif // _FAKE_CLOCK_PUB_H_
 // eof
 

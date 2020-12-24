@@ -55,6 +55,7 @@ extern UINT32 mcu_ps_machw_cal ( void );
 extern UINT32 mcu_ps_machw_reset ( void );
 extern UINT32 mcu_ps_machw_init ( void );
 extern UINT32 mcu_ps_is_on ( void );
+uint32 mcu_ps_need_pstick ( void );
 
 #define  PS_PWM_ID  FCLK_PWM_ID
 #if (PS_PWM_ID == PWM0)

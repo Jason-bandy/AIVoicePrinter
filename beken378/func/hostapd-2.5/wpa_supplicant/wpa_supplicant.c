@@ -49,8 +49,8 @@
 #include "mesh.h"
 #include "errno-base.h"
 #include "str_pub.h"
-#if CFG_NEW_SUPP
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "notifier_pub.h"
 #endif
 #include "include.h"
 #include "uart_pub.h"
@@ -60,7 +60,7 @@ extern struct wpa_ssid_value *wpas_connect_ssid;
 extern void sta_ip_down(void);
 extern void sta_ip_start(void);
 extern uint32_t wpa_hostapd_queue_poll(uint32_t param);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 struct notifier *wlan_evt_notifer = NULL;
 #endif
 
@@ -149,7 +149,7 @@ static void wpa_supplicant_timeout(void *eloop_ctx, void *timeout_ctx)
 		bssid = wpa_s->pending_bssid;
 	wpa_msg(wpa_s, MSG_INFO, "Authentication with " MACSTR " timed out.",
 		MAC2STR(bssid));
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	notify(wlan_evt_notifer, WLAN_EVENT_4WAY_HANDSHAKE_FAILED, 0);
 #endif
 
@@ -683,12 +683,12 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		/* Reinitialize normal_scan counter */
 		wpa_s->normal_scans = 0;
         wpa_drv_sta_set_flags(wpa_s, wpa_s->bssid, ~0, WPA_STA_AUTHORIZED, ~0);
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		sta_ip_start();
 #endif
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(state == WPA_DISCONNECTED && state != wpa_s->wpa_state){
 		wpa_config_set_network_defaults(wpa_s->conf->ssid);
 		#if 1
@@ -738,7 +738,7 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 			ssid ? ssid->id : -1,
 			ssid && ssid->id_str ? ssid->id_str : "");
 #endif /* CONFIG_CTRL_IFACE || !CONFIG_NO_STDOUT_DEBUG */
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		notify(wlan_evt_notifer, WLAN_EVENT_CONNECTED, 0);
 #endif
 		wpas_clear_temp_disabled(wpa_s, ssid, 1);
@@ -2250,7 +2250,7 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 	} else {
 		params.ssid = ssid->ssid;
 		params.ssid_len = ssid->ssid_len;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		if (wpa_s->fast_connect) {
 			params.freq.freq = ssid->frequency;
 			params.freq_hint = ssid->frequency;
@@ -2264,7 +2264,7 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 		params.fixed_bssid = 1;
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(ssid->bssid_set){
 		params.bssid = ssid->bssid;
 #if CFG_SUPPORT_BSSID_CONNECT
@@ -2403,16 +2403,12 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 
 	/* append bcn ie */
 	if (bss && bss->ie_len) {
-		params.bcn_ie = os_malloc(bss->ie_len);
-		if (params.bcn_ie) {
-			params.bcn_len = bss->ie_len;
-			os_memcpy(params.bcn_ie, bss + 1, bss->ie_len);
-		}
+		params.bcn_ie = (u8 *)(bss + 1);
+		params.bcn_len = bss->ie_len;
+		//print_hex_dump("BCN: ", params.bcn_ie, bss->ie_len);
 	}
 
 	ret = wpa_drv_associate(wpa_s, &params);
-	if (bss && bss->ie_len)
-		os_free(params.bcn_ie);
 	if (ret < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "
 			"failed");
@@ -2477,7 +2473,7 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 		 */
 		eapol_sm_invalidate_cached_session(wpa_s->eapol);
 	}
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->fast_connect = 0;
 #endif
 	old_ssid = wpa_s->current_ssid;
@@ -4590,7 +4586,7 @@ static void wpa_supplicant_deinit_iface(struct wpa_supplicant *wpa_s,
 	}
 
 	os_free(wpa_s->ssids_from_scan_req);
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	wpa_s->ssids_from_scan_req = 0;
     wpas_connect_ssid = 0;
 #endif
@@ -5320,7 +5316,7 @@ int wpas_network_disabled(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid)
 		return 1; /* invalid WEP key */
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	/* always enable network */
 	if (wpa_key_mgmt_wpa_psk(ssid->key_mgmt) && !ssid->psk_set &&
 	    (!ssid->passphrase || ssid->ssid_len != 0) && !ssid->ext_psk &&
@@ -5396,7 +5392,7 @@ void wpas_auth_failed(struct wpa_supplicant *wpa_s, char *reason)
 
 	ssid->auth_failures++;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	if (wpa_s->conf)
 		dur = wpa_s->conf->auth_dur;
 
@@ -5434,7 +5430,7 @@ void wpas_auth_failed(struct wpa_supplicant *wpa_s, char *reason)
 	    wpa_key_mgmt_wpa_ieee8021x(ssid->key_mgmt))
 		dur += os_random() % (ssid->auth_failures * 10);
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 dur_set:
 #endif
 

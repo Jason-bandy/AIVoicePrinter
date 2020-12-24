@@ -5889,20 +5889,20 @@ __INLINE void nxmac_timers_int_un_mask_set(uint32_t value)
 extern void rwnxl_set_nxmac_timer_value_set_bit(uint32_t bit);
 extern void rwnxl_set_nxmac_timer_value_clear_bit(uint32_t bit);
 extern UINT32 nxmac_timer_saved;
+
 __INLINE void nxmac_timers_int_un_mask_set_bit(uint32_t bit)
 {
     uint32_t timer_msk;
 	
-	///bk_printf("[%d]:%d %d\r\n",bit,nxmac_timer_saved,__LINE__);
 	timer_msk = nxmac_timers_int_un_mask_get();
 	nxmac_timers_int_un_mask_set(timer_msk | bit);
     rwnxl_set_nxmac_timer_value_set_bit(bit);
 }
+
 __INLINE void nxmac_timers_int_un_mask_clear_bit(uint32_t bit)
 {
     uint32_t timer_msk;
 	
-	///bk_printf("[%d]:%d %d\r\n",bit,nxmac_timer_saved,__LINE__);
 	timer_msk = nxmac_timers_int_un_mask_get();
 	nxmac_timers_int_un_mask_set(timer_msk  & (~ bit));
     rwnxl_set_nxmac_timer_value_clear_bit(bit);

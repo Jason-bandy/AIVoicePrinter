@@ -161,11 +161,11 @@ static int bk_airkiss_check_channel(uint8_t * frame)
     return channel; 
 } 
 
-static void get_channel_to_switch()
+static void get_channel_list_to_switch()
 {
     uint8_t index=0;
     channel_tab.channel_num=0;
-    for(uint8_t i=0;i<14;i++)
+    for(uint8_t i=1;i<=13;i++)
     {
         if(channel_tab.channel_bit[i]==1)
         {
@@ -173,21 +173,22 @@ static void get_channel_to_switch()
             channel_tab.channel_num++;
         }
     }
+
     if(0==index)
     {
-        for(uint8_t i=0;i<14;i++)
+        for(uint8_t i=0;i<13;i++)
         {
-            channel_tab.switch_channel[i++]=i+1;
+            channel_tab.switch_channel[i]=i+1;
         }
-        channel_tab.channel_num=14;
+        channel_tab.channel_num=13;
     }
+
     AIRKISS_PRINTF("switch channel: ");   
     for(uint8_t i=0;i<channel_tab.channel_num;i++)
         AIRKISS_PRINTF("%d  ",channel_tab.switch_channel[i]);
     AIRKISS_PRINTF("\r\n");   
 
 }
-
 
 static void airkiss_switch_channel(void *parameter)
 {
@@ -367,7 +368,7 @@ static void airkiss_thread_entry(void *parameter)
     }
     memset(&channel_tab,0,sizeof(SWITCH_CHANNEL_ST));
     bk_wifi_scan();
-    get_channel_to_switch();
+    get_channel_list_to_switch();
 
     g_switch_timer = rt_timer_create("switch_channel",
                                      airkiss_switch_channel,
@@ -520,7 +521,13 @@ _exit:
 int start_airkiss(void)
 {
     
-    int result = 0;
+    int result = -1;
+
+    if(airkiss_tid)
+    {
+        AIRKISS_PRINTF("airkiss have been init\r\n");
+        return -1;
+    }
 
     airkiss_tid = rt_thread_create("airkiss",
                            airkiss_thread_entry,
@@ -532,12 +539,20 @@ int start_airkiss(void)
     if (airkiss_tid != NULL)
     {
         rt_thread_startup(airkiss_tid);
-        result = 1;
+        result = 0;
     }
     return result;
 }
 
+int stop_airkiss(void)
+{
+
+    if(!airkiss_tid)
+        return -1;
+    
+    rt_sem_release(g_cfg_done_sem);
+}
 
 MSH_CMD_EXPORT(start_airkiss, start_ariksss);
-
+MSH_CMD_EXPORT(stop_airkiss, stop_airkiss);
 #endif

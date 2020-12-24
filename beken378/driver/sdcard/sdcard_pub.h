@@ -6,9 +6,7 @@
 
 #define SDCARD_DEV_NAME                ("sdcard")
 
-
 #define SDCARD_CMD_MAGIC               (0x8709000)
-
 enum
 {
     CMD_SDCARD_SEND_BACKGROUND         = SDCARD_CMD_MAGIC + 0,
@@ -20,6 +18,6 @@ enum
 *******************************************************************************/
 extern void sdcard_init(void);
 extern void sdcard_exit(void);
-
 #endif
+// eof
 

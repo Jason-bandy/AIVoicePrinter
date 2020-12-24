@@ -3,6 +3,7 @@
 
 #include "generic.h"
 #include "drv_model_pub.h"
+#include "uart_pub.h"
 
 #define GPIO_FAILURE                (1)
 #define GPIO_SUCCESS                (0)
@@ -179,27 +180,30 @@ typedef struct gpio_int_st
 	UINT32 mode;
 	void * phandler;
 }GPIO_INT_ST;
-				
+
 __inline static void bk_gpio_config_input(GPIO_INDEX id)
 {
     UINT32 ret;
     UINT32 param;
-    
+
     param = GPIO_CFG_PARAM(id, GMODE_INPUT);
     ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-    
-    ASSERT(GPIO_SUCCESS == ret);
+
+	if(ret !=0 )
+		os_printf("gpio config fail\r\n");
 }
-								
+
 __inline static void bk_gpio_config_input_pup(GPIO_INDEX id)
 {
     UINT32 ret;
     UINT32 param;
-    
+
     param = GPIO_CFG_PARAM(id, GMODE_INPUT_PULLUP);
     ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-    
-    ASSERT(GPIO_SUCCESS == ret);
+
+	if(ret !=0 )
+		os_printf("gpio config fail\r\n");
+
 }
 								
 __inline static void bk_gpio_config_input_pdwn(GPIO_INDEX id)
@@ -210,17 +214,19 @@ __inline static void bk_gpio_config_input_pdwn(GPIO_INDEX id)
 	param = GPIO_CFG_PARAM(id, GMODE_INPUT_PULLDOWN);
 	ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
     
-	ASSERT(GPIO_SUCCESS == ret);
+	if(ret !=0 )
+		os_printf("gpio config fail\r\n");
+
 }
 
 __inline static uint32_t bk_gpio_input(GPIO_INDEX id)
 {
-    UINT32 ret;                                             
-    UINT32 param = id;   
-    
-    ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_INPUT, &param); 
-    
-    return ret;                      
+    UINT32 ret;
+    UINT32 param = id;
+
+    ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_INPUT, &param);
+
+    return ret;
 }
 
 __inline static void bk_gpio_config_output(GPIO_INDEX id)
@@ -258,9 +264,19 @@ __inline static void bk_gpio_output_reverse(GPIO_INDEX id)
 #define GPIO_USB_DN_PIN               GPIO28
 
 extern void gpio_usb_second_function(void);
+#elif (SOC_BK7271 == CFG_SOC_NAME)
+
+#if (CFG_USE_USB_PORT == USE_USB1_PORT)
+#define GPIO_USB_DP_PIN				GPIO0
+#define GPIO_USB_DN_PIN				GPIO1
+#else
+#define GPIO_USB_DP_PIN				GPIO6
+#define GPIO_USB_DN_PIN				GPIO7
 #endif
 
-#if(SOC_BK7221U == CFG_SOC_NAME)
+#endif
+
+#if (SOC_BK7221U == CFG_SOC_NAME) || (SOC_BK7271 == CFG_SOC_NAME)
 #define USB_PLUG_NO_EVENT            0
 #define USB_PLUG_IN_EVENT            1
 #define USB_PLUG_OUT_EVENT           2

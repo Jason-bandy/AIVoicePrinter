@@ -1,6 +1,8 @@
 #ifndef _PWM_PUB_H_
 #define _PWM_PUB_H_
 
+#include "sys_config.h"
+
 #define PWM_FAILURE                (1)
 #define PWM_SUCCESS                (0)
 
@@ -46,7 +48,12 @@ typedef void (*PFUNC)(UINT8);
 #define PWM_INT_EN               (0x01)
 #define PWM_INT_DIS              (0x00)
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define PWM_PWM_MODE                   (0x01)
+#define PWM_TIMER_MODE              (0x02)
+#define PWM_CAP_POS_MODE            (0x04)
+#define PWM_CAP_NEG_MODE            (0x05)
+#elif (CFG_SOC_NAME == SOC_BK7231N)
 #define PWM_IDLE_MODE               (0x00)
 #define PWM_PWM_MODE                (0x01)
 #define PWM_TIMER_MODE              (0x02)
@@ -69,6 +76,25 @@ typedef struct
 {
     UINT8 channel;
 
+
+    /* cfg--PWM config
+     * bit[0]:   PWM enable
+     *          0:  PWM disable
+     *          1:  PWM enable
+     * bit[1]:   PWM interrupt enable
+     *          0:  PWM interrupt disable
+     *          1:  PWM interrupt enable
+     * bit[3:2]: PWM mode selection
+     *          00: PWM mode
+     *          01: TIMER
+     *          10: Capture Posedge
+     *          11: Capture Negedge
+     * bit[5:4]: PWM clock select
+     *          00: PWM clock 32KHz
+     *          01: PWM clock 26MHz
+     *          10/11: PWM clock DPLL
+     * bit[7:6]: reserved
+     */
     union
     {
         UINT8 val;
@@ -97,6 +123,12 @@ typedef struct
             UINT8 mode: 3;
             UINT8 en: 1;
             UINT8 int_en: 1;
+            UINT8 clk: 2;
+            UINT8 rsv: 1;
+#elif (CFG_SOC_NAME == SOC_BK7271)
+            UINT8 en: 1;
+            UINT8 int_en: 1;
+            UINT8 mode: 3;
             UINT8 clk: 2;
             UINT8 rsv: 1;
 #else

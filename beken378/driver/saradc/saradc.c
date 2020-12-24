@@ -8,6 +8,7 @@
 #include "gpio_pub.h"
 #include "uart_pub.h"
 #include "mcu_ps_pub.h"
+#include "sys_ctrl_pub.h"
 #include <string.h>
 
 saradc_desc_t *saradc_desc = NULL;
@@ -60,14 +61,10 @@ void saradc_exit(void)
 
 static void saradc_enable_sysctrl(void)
 {
-    //UINT32 param = 0;
-    //sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_GADC_SEL, &param);
 }
 
 static void saradc_disable_sysctrl(void)
 {
-    //UINT32 param = 1;
-    //sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_GADC_SEL, &param);
 }
 
 static void saradc_enable_icu_config(void)
@@ -104,6 +101,14 @@ static void saradc_gpio_config(void)
     
     switch (saradc_desc->channel)
     {
+#if (SOC_BK7271 == CFG_SOC_NAME)
+        case 0:
+        {
+            param = PARAM_SARADC_BT_TXSEL_BIT;
+	        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_ANALOG_CTRL4_SET, &param);
+            break;
+        }
+#endif
         case 1:
         {
             param = GFUNC_MODE_ADC1;
@@ -122,10 +127,43 @@ static void saradc_gpio_config(void)
 	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
             break;
         }
+
+#if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
+        case 4:
+        {
+            param = GFUNC_MODE_ADC4;
+	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+            break;
+        }
+		case 5:
+        {
+            param = GFUNC_MODE_ADC5;
+	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+            break;
+        }
+		case 6:
+        {
+            param = GFUNC_MODE_ADC6;
+	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+            break;
+        }
+		case 7:
+        {
+            param = GFUNC_MODE_ADC7;
+	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+            break;
+        }
+#endif  // ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
+        
         default:    
             break;
     }
 
+}
+
+UINT32 saradc_check_busy(void)
+{
+    return (saradc_is_busy == 1)? 1 : 0;
 }
 
 static UINT32 saradc_open(UINT32 op_flag)
@@ -133,6 +171,11 @@ static UINT32 saradc_open(UINT32 op_flag)
 	UINT32 config_value = 0;
 	UINT32 sat_config_value = 0;
     saradc_desc_t *p_saradc_desc;
+	
+#if (SOC_BK7271 == CFG_SOC_NAME)
+    UINT32 status = BLK_BIT_SARADC;
+    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLK_ENABLE, &status);
+#endif
 
     p_saradc_desc = (saradc_desc_t*)op_flag;
 
@@ -212,15 +255,12 @@ static UINT32 saradc_pause()
 {
     UINT32 value;
 
-    //saradc_disable_interrupt();
     saradc_disable_sysctrl();
 
 	value = REG_READ(SARADC_ADC_CONFIG);
     value &= ~(SARADC_ADC_CHNL_EN); 
     value |= SARADC_ADC_INT_CLR;
 	REG_WRITE(SARADC_ADC_CONFIG, value);
-
-    //saradc_disable_icu_config();
 
     // clear fifo
     value = REG_READ(SARADC_ADC_CONFIG);
@@ -299,6 +339,11 @@ static UINT32 saradc_close(void)
 
     saradc_is_busy = 0;
     GLOBAL_INT_RESTORE();
+
+#if (SOC_BK7271 == CFG_SOC_NAME)
+    UINT32 status = BLK_BIT_SARADC;
+    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLK_DISABLE, &status);
+#endif
 
 	return SARADC_SUCCESS;
 }

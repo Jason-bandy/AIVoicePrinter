@@ -1,7 +1,11 @@
 #ifndef _RC_BEKEN_H_
 #define _RC_BEKEN_H_
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define BASEADDR_RC_BEKEN                                       0x00950000
+#else
 #define BASEADDR_RC_BEKEN                                       0x01050000
+#endif
 
 //ADDRC_BEKEN_REG0x0
 #define ADDRC_BEKEN_REG0x0                                      *((volatile unsigned long *) (BASEADDR_RC_BEKEN+0x0*4))

@@ -297,7 +297,7 @@ int wpa_psk_request(u8 *ssid, size_t ssid_len, char *passphrase, u8 *psk, size_t
 
 	if (os_strlen(passphrase) == 2 * PMK_LEN) {
 		/* passphrase is hex string of psk, convert it to binary */
-		if (!hexstr2bin(passphrase, cache->item.psk, 2 * PMK_LEN))
+		if (!hexstr2bin(passphrase, cache->item.psk, PMK_LEN))
 			complete = 1;
 	}
 
@@ -308,7 +308,7 @@ int wpa_psk_request(u8 *ssid, size_t ssid_len, char *passphrase, u8 *psk, size_t
 			complete = 1;
 		} else if (psk_len == 2 * PMK_LEN) {
 			/* hex string of PMK */
-			if (!hexstr2bin((char*)(cache->item.psk), psk, 2 * PMK_LEN))
+			if (!hexstr2bin((char *)psk, cache->item.psk, PMK_LEN))
 				complete = 1;
 		}
 	}

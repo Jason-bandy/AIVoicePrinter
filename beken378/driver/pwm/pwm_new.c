@@ -1,9 +1,8 @@
 #include "include.h"
 #include "arm_arch.h"
+
 #if (CFG_SOC_NAME == SOC_BK7231N)
-
 #include "pwm_pub.h"
-
 #include "drv_model_pub.h"
 #include "intc_pub.h"
 #include "icu_pub.h"
@@ -20,7 +19,6 @@ static SDD_OPERATIONS pwm_op =
 };
 
 void (*p_PWM_Int_Handler[CHANNEL_NO])(UINT8);
-
 
 static void pwm_gpio_configuration(UINT8 chan, UINT8 enable)
 {

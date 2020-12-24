@@ -1,6 +1,8 @@
 #ifndef __AUDIO_PUB_H__
 #define __AUDIO_PUB_H__
 
+#include "gpio_pub.h"
+
 #define AUD_FAILURE                  (1)
 #define AUD_SUCCESS                  (0)
 
@@ -42,11 +44,16 @@ enum
     AUD_DAC_CMD_SET_VOLUME,    
 };
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define AUD_DAC_VOL_TABLE_LEN       (16)
+#define AUD_USE_EXT_PA              1
+#else
 #define AUD_DAC_VOL_TABLE_LEN       (17)
 #define AUD_USE_EXT_PA              1
-#include "gpio_pub.h"
+#endif
+
 #if AUD_USE_EXT_PA
-#define AUD_DAC_MUTE_PIN            GPIO9
+#define AUD_DAC_MUTE_PIN            GPIO6
 #define AUD_DAC_MUTE_ENA_LEVEL      GPIO_INT_LEVEL_LOW
 
 /*adjust  delay according to different PA*/
@@ -59,10 +66,7 @@ enum
 #define AUD_DAC_DIFF_PORT           2
 #define AUD_DAC_USE_PORT_SET        AUD_DAC_SINGLE_PORT
 
-
 ///////////////////////////////////////////////////////////////////////////////
-
-
 #define AUD_ADC_DEV_NAME             "aud_adc"
 #define AUD_ADC_CMD_MAGIC            (0x2EBC0000)
 typedef struct aud_adc_cfg_st
@@ -130,8 +134,6 @@ void audio_dac_volume_diff_port(void);
 /* ADC Interface */
 void audio_adc_open_analog_regs(void);
 void audio_adc_close_analog_regs(void);
-
 void audio_init(void);
 void audio_exit(void);
-
 #endif // __AUDIO_PUB_H__

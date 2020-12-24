@@ -13,9 +13,13 @@
 	#define WDT_FATAL    null_prf
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define WDT_BASE                                     (0x00802700)
+#else
 #define WDT_BASE                                     (0x00802900)
+#endif
 
-#define WDT_CTRL_REG                                     (WDT_BASE + 0 * 4)
+#define WDT_CTRL_REG                                 (WDT_BASE + 0 * 4)
 #define WDT_KEY_POSI                                              (16)
 #define WDT_KEY_MASK                                              (0xFF)
 #define WDT_1ST_KEY                                               (0x5A)

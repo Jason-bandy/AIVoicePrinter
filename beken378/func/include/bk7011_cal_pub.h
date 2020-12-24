@@ -117,6 +117,18 @@ struct temp_cal_pwr_st {
     INT16 shift_g;
 };
 
+typedef enum
+{
+    TEMPERATURE_TYPE_UNKNOWN = 0,
+    TEMPERATURE_TYPE_LOW,
+    TEMPERATURE_TYPE_NORMAL,
+    TEMPERATURE_TYPE_HIGH,
+} temperature_type;
+
+
+extern void manual_cal_load_bandgap_calm(void);
+void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type);
+
 extern void calibration_main(void);
 extern INT32 rwnx_cal_load_trx_rcbekn_reg_val(void);
 extern void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode);
@@ -192,7 +204,10 @@ extern void rwnx_cal_set_txpwr_for_ble_boardcast(void);
 extern void bk7011_set_rf_config_tssithred_b(int tssi_thred_b);
 extern void bk7011_set_rf_config_tssithred_g(int tssi_thred_g);
 extern void rwnx_cal_recover_txpwr_for_wifi(void);
-
+#if (CFG_SOC_NAME == SOC_BK7231N)
+extern void rwnx_cal_recover_rf_setting(void);
+extern void rwnx_cal_recover_wifi_setting(void);
+#endif
 extern void rwnx_cal_initial_calibration(void);
 
 extern UINT32 rwnx_tpc_pwr_idx_translate(UINT32 pwr_gain, UINT32 rate, UINT32 print_log );

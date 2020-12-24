@@ -148,9 +148,12 @@ void phy_get_version(uint32_t *version_1, uint32_t *version_2);
  *                          secondary RF is available in the system
  ****************************************************************************************
  */
+#if defined(CFG_IEEE80211AX) && (CFG_IEEE80211AX == 1)
+void phy_set_channel(const struct mac_chan_op *chan, uint8_t index);
+#else
 void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
                      uint16_t center1_freq, uint16_t center2_freq, uint8_t index);
-
+#endif
 /**
  ****************************************************************************************
  * @brief Get channel function.
@@ -400,5 +403,19 @@ void phy_get_diag_state(struct dbg_debug_info_tag *dbg_info);
 void phy_enable_rx_switch(void);
 void phy_large_signal_support(int8_t rssi);
 /// @}
+
+/**
+ ****************************************************************************************
+ * @brief RC Beken Interface
+ *
+ * @return NULL
+ ****************************************************************************************
+ */
+#define SET_REG_FIELD(reg, field, val)  reg = ((reg) & ~ BIT_##field) | ((val) << POS_##field)
+#define GET_REG_FIELD(reg, field)       ((reg & BIT_##field) >> POS_##field)
+
+void rcb_tx_sinwave(uint8_t enable, uint8_t freq);
+void rcb_tx_triangle(uint8_t enable, uint8_t amp);
+int phy_check_mem_rw(void);
 
 #endif //_PHY_H_

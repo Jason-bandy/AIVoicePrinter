@@ -49,28 +49,30 @@
 /// RWIP Environment structure
 struct rwip_env_tag
 {
-    #if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
-    /// Half slot target timer (in half slots)
-    uint32_t timer_hs_target;
-    /// Half us target timer (integer part, in half slots)
-    uint32_t timer_hus_target;
-    #endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
-    /// 1 ms target timer (in rwip_time_t)
-    rwip_time_t timer_1ms_target;
-    #if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
-    /// Contains sleep duration accumulated timing error (32kHz: 1/2 half us | 32.768kHz: 1/256 half-us)
-    uint32_t sleep_acc_error;
-    /// Power_up delay (in LP clock cycle unit, depends on Low power clock frequency)
-    uint32_t lp_cycle_wakeup_delay;
-    /// Duration of sleep and wake-up algorithm (depends on CPU speed) expressed in half us.
-    uint16_t sleep_algo_dur;
-    #endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
-    /// Prevent sleep bit field
-    uint16_t prevent_sleep;
-    #if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
-    /// External wake-up support
-    bool     ext_wakeup_enable;
-    #endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+#if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+	/// Half slot target timer (in half slots)
+	uint32_t timer_hs_target;
+	/// Half us target timer (integer part, in half slots)
+	rwip_time_t timer_hus_target;
+#endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+	/// 1 ms target timer (in rwip_time_t)
+	rwip_time_t timer_1ms_target;
+#if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+	/// Contains sleep duration accumulated timing error (32kHz: 1/2 half us | 32.768kHz: 1/256 half-us)
+	uint32_t sleep_acc_error;
+	/// Power_up delay (in LP clock cycle unit, depends on Low power clock frequency)
+	uint32_t lp_cycle_wakeup_delay;
+	/// Duration of sleep and wake-up algorithm (depends on CPU speed) expressed in half us.
+	uint16_t sleep_algo_dur;
+#endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+	/// Prevent sleep bit field
+	uint16_t prevent_sleep;
+#if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+	/// External wake-up support
+	bool     ext_wakeup_enable;
+#endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
+
+	uint32_t irq_mask;
 };
 
 

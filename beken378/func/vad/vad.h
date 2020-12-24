@@ -5,7 +5,7 @@
 
 #define VAD_DEBUG_PRTF
 #ifdef VAD_DEBUG_PRTF
-#define VAD_PRTF                                 rt_kprintf
+#define VAD_PRTF                                 os_printf
 #else
 #define VAD_PRTF                                 info
 #endif //VAD_DEBUG_PRTF

@@ -34,11 +34,15 @@ typedef struct cfg80211_connect_params
 	uint8_t auth_type;
     struct mac_addr bssid;
     struct mac_ssid ssid;
+#if CFG_IEEE80211AX
+    struct mac_chan_def chan;
+#else
     struct scan_chan_tag chan;
+#endif
     uint16_t ie_len;
     uint32_t ie_buf[64];
     uint16_t bcn_len;
-    uint32_t bcn_buf[128];
+    uint32_t bcn_buf[0];
 } CONNECT_PARAM_T;
 
 typedef struct cfg80211_auth_params
@@ -47,12 +51,22 @@ typedef struct cfg80211_auth_params
 	uint8_t auth_type;
     struct mac_addr bssid;
     struct mac_ssid ssid;
+#if CFG_IEEE80211AX
+    struct mac_chan_def chan;
+#else
     struct scan_chan_tag chan;
+#endif
     uint16_t ie_len;
     uint8_t ie_buf[128];
 	uint16_t sae_data_len;
-	uint8_t sae_data[512];
+	uint8_t sae_data[0];
 } AUTH_PARAM_T;
+
+typedef struct cfg80211_external_auth_params
+{
+    uint32_t vif_idx;
+    uint16_t status;
+} EXTERNAL_AUTH_PARAM_T;
 
 typedef struct cfg80211_associate_params {
 	uint32_t flags;
@@ -60,11 +74,15 @@ typedef struct cfg80211_associate_params {
 	uint8_t auth_type;
 	struct mac_addr bssid;
 	struct mac_ssid ssid;
+#if CFG_IEEE80211AX
+    struct mac_chan_def chan;
+#else
 	struct scan_chan_tag chan;
+#endif
 	uint16_t ie_len;
 	uint32_t ie_buf[64];
 	uint16_t bcn_len;
-	uint32_t bcn_buf[160];
+	uint32_t bcn_buf[0];
 } ASSOC_PARAM_T;
 
 typedef struct cfg80211_scan_params
@@ -73,6 +91,7 @@ typedef struct cfg80211_scan_params
     uint8_t vif_idx;
     struct mac_ssid ssids[SCAN_SSID_MAX];
     struct mac_addr bssid;
+	int freqs[14];	//FIXME: 5G
 } SCAN_PARAM_T;
 
 typedef struct cfg80211_fast_scan_params
@@ -163,7 +182,11 @@ struct add_sta_st {
 
 typedef struct cfg80211_key_params
 {
+#if CFG_IEEE80211AX
+    uint32_t cipher_suite;
+#else
     uint8_t cipher_suite;
+#endif
     uint8_t sta_idx;
     uint8_t inst_nbr;
     uint8_t key_idx;
@@ -218,8 +241,7 @@ extern UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void
 extern void* rwm_transfer_pre(UINT8 vif_idx, UINT8 *buf, UINT32 len);
 extern UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len);
 extern UINT32 rwm_get_rx_valid_node_len(void);
-
-
+extern void rw_evt_set_callback(rw_evt_type evt_type, rw_event_handler handler);
 extern int rw_msg_send(const void *msg_params, uint16_t reqid, void *cfm);
 extern int rw_msg_send_reset(void);
 extern int rw_msg_send_start(void);
@@ -250,9 +272,9 @@ extern int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm);
 extern int rw_msg_send_tim_update(u8 vif_idx, u16 aid, u8 tx_status);
 extern int rw_msg_send_apm_stop_req(u8 vif_index);
 extern int rw_msg_set_power(u8 vif_idx, u8 power);
-int rw_msg_send_sm_auth_req(AUTH_PARAM_T *auth_param);
-
-
+extern int rw_msg_send_sm_auth_req(AUTH_PARAM_T *auth_param);
+extern int rw_msg_send_sm_external_auth_status(EXTERNAL_AUTH_PARAM_T *auth_param);
+extern int rw_msg_send_sm_set_operstate_req(SET_OPERATE_PARAM_T *param);
 
 VIF_INF_PTR rwm_mgmt_vif_idx2ptr(UINT8 vif_idx);
 VIF_INF_PTR rwm_mgmt_vif_type2ptr(UINT8 vif_type);
@@ -267,7 +289,6 @@ struct netif *rwm_mgmt_get_vif2netif(UINT8 vif_idx);
 UINT8 rwm_mgmt_get_netif2vif(struct netif *netif);
 UINT8 rwm_mgmt_tx_get_staidx(UINT8 vif_idx, void *dstmac);
 u8 rwn_mgmt_is_only_sta_role_add(void);
-
 void rwm_msdu_init(void);
 void rwm_flush_txing_list(UINT8 sta_idx);
 void rwm_msdu_ps_change_ind_handler(void *msg) ;

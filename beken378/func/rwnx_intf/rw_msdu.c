@@ -140,6 +140,7 @@ void rwm_txdesc_copy(struct txdesc *dst_local, ETH_HDR_PTR eth_hdr_ptr)
 
 int rwm_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param)
 {
+#if !CFG_IEEE80211AX
 	int ret = 0;
 	uint8_t *pkt = buffer;
 	MSDU_NODE_T *node;
@@ -195,13 +196,18 @@ int rwm_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param)
 
 exit:
 	return ret;
+#else /* CFG_IEEE80211AX */
+	/* TODO: BK7236 */
+	return 0;
+#endif
 }
 
 MSDU_NODE_T *rwm_tx_node_alloc(UINT32 len)
 {
     UINT8 *buff_ptr;
     MSDU_NODE_T *node_ptr = 0;
-#if (CFG_SUPPORT_RTT) && (CFG_SOC_NAME == SOC_BK7221U)
+	
+#if (CFG_SUPPORT_RTT) && (CFG_SOC_NAME == SOC_BK7221U || CFG_SOC_NAME == SOC_BK7271)
     node_ptr = (MSDU_NODE_T *)dtcm_malloc(sizeof(MSDU_NODE_T)
                                         + CFG_MSDU_RESV_HEAD_LEN
                                         + len
@@ -722,14 +728,14 @@ int qos_need_enabled(struct sta_info_tag *sta)
 
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 {
+#if !CFG_IEEE80211AX
     UINT8 tid;
     UINT32 ret = 0;
     UINT8 *content_ptr;
-
     UINT32 queue_idx;
-
     ETH_HDR_PTR eth_hdr_ptr;
     struct txdesc *txdesc_new;
+	
 #if CFG_RWNX_QOS_MSDU
 	struct sta_info_tag *sta;
 	struct vif_info_tag *vif;
@@ -832,6 +838,10 @@ tx_exit:
     txl_cntrl_dec_pck_cnt();
 #endif
     return ret;
+#else /* CFG_IEEE80211AX */
+	/* TODO: BK7236 */
+	return 0;
+#endif
 }
 
 UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len)
@@ -982,9 +992,9 @@ UINT8 rwm_mgmt_sta_mac2port(void *mac)
 UINT8 rwm_mgmt_vif_mac2idx(void *mac)
 {
     VIF_INF_PTR vif_entry = NULL;
-    UINT8 vif_idx = 0xff;
+    UINT8 vif_idx = INVALID_VIF_IDX;
     UINT32 i;
-
+	
     for(i = 0; i < NX_VIRT_DEV_MAX; i++)
     {
         vif_entry = &vif_info_tab[i];

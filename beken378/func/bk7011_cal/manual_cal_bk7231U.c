@@ -2,14 +2,13 @@
 
 #if (CFG_SOC_NAME != SOC_BK7231)
 #include "arm_arch.h"
+
 #if CFG_SUPPORT_MANUAL_CALI
 #include "target_util_pub.h"
 #include "mem_pub.h"
-
 #include "drv_model_pub.h"
 #include "sys_ctrl_pub.h"
 #include "phy.h"
-
 #include "bk7011_cal_pub.h"
 #include "bk7011_cal.h"
 
@@ -23,6 +22,10 @@
 #include "BkDriverFlash.h"
 #include "power_save_pub.h"
 #include "cmd_evm.h"
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include "net_param_pub.h"
+#endif
 
 #define TXPWR_DEFAULT_TAB                 1
 
@@ -175,6 +178,23 @@ const TXPWR_ST gtxpwr_tab_def_b[WLAN_2_4_G_CHANNEL_NUM] = {
     INIT_TXPWR_VALUE(24, TXPWR_ELEM_INUSED),  // ch13  inused
     INIT_TXPWR_VALUE(24, TXPWR_ELEM_UNUSED),
 };
+#else
+const TXPWR_ST gtxpwr_tab_def_b[WLAN_2_4_G_CHANNEL_NUM] = {   
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_INUSED),  // ch1  inused  
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),  // ch4         
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),  // ch7         
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),  // ch10        
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                 
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_INUSED),  // ch13  inused
+    INIT_TXPWR_VALUE(15, TXPWR_ELEM_UNUSED),                          
+ };
 #endif // (CFG_SOC_NAME == SOC_BK7231U)
 
 #if (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U)
@@ -245,7 +265,42 @@ const TXPWR_ST gtxpwr_tab_def_n_40[WLAN_2_4_G_CHANNEL_NUM] = {
     INIT_TXPWR_VALUE(45, TXPWR_ELEM_UNUSED),
     INIT_TXPWR_VALUE(45, TXPWR_ELEM_UNUSED),
 };
+#else
+const TXPWR_ST gtxpwr_tab_def_g[WLAN_2_4_G_CHANNEL_NUM] = {
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_INUSED),  // ch1  inused
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),    
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),  // ch4
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),  // ch7
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED), 
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),  // ch10
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_INUSED),  // ch13  inused
+    INIT_TXPWR_VALUE(17, TXPWR_ELEM_UNUSED),
+};                                                              
+                                                              
+const TXPWR_ST gtxpwr_tab_def_n_40[WLAN_2_4_G_CHANNEL_NUM] = {       
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),  // ch3                 
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),  // ch7                 
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),  // ch11                
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                         
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                          
+    INIT_TXPWR_VALUE(13, TXPWR_ELEM_UNUSED),                          
+};
 #endif // (CFG_SOC_NAME == SOC_BK7231)
+
 const TXPWR_ST gtxpwr_tab_def_ble[BLE_2_4_G_CHANNEL_NUM] = {  
     INIT_TXPWR_VALUE(20, TXPWR_ELEM_UNUSED),  // ch0 2402  inused 
     INIT_TXPWR_VALUE(20, TXPWR_ELEM_UNUSED),  // ch1 2404
@@ -300,6 +355,10 @@ UINT32 g_cur_temp = DEFAULT_TXID_THERMAL;
 UINT32 g_cur_temp_flash = DEFAULT_TXID_THERMAL;
 UINT32 g_lpf_cal_i = DEFAULT_TXID_LPF_CAP_I, g_lpf_cal_q = DEFAULT_TXID_LPF_CAP_Q;
 UINT32 g_xtal = DEFAULT_TXID_XTAL;
+static unsigned char ble_cal_bit = 0;
+#if (CFG_SOC_NAME == SOC_BK7231N)
+static UINT32 ble_diff_to_wifi = 32;
+#endif
 
 int g_dif_g_ble_ch0 = MOD_DIST_G_BW_BLE_CH0;
 int g_dif_g_ble_ch19 = MOD_DIST_G_BW_BLE_CH19;
@@ -328,7 +387,6 @@ static int manual_cal_fit_txpwr_tab_n_40(UINT32 differ);
 static void manual_cal_adjust_fitting(TXPWR_PTR ptr, UINT16 dist);
 static UINT32 manual_cal_g_rfcali_status(void);
 extern void manual_cal_init_xtal_cali(UINT16 init_temp, UINT16 init_xtal);
-unsigned char cal_11b_2_ble_flag = 0;
 
 #define RF_CALI_FLAG_SET0        (0x1)
 #define RF_CALI_FLAG_SET1        (0x2)
@@ -363,6 +421,112 @@ static UINT32 manual_cal_is_in_rfcali_mode(void)
     // include rf calibration and test
     return ((g_rfcali_mode & RF_CALI_FLAG) == RF_CALI_FLAG) ? 1 : 0;
 }
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+void manual_cal_set_rate_dist_for_txpwr(int dist_b, int dist_g, 
+                            int dist_n40, int dist_ble)
+{
+    UINT32 dist;
+
+    if((dist_b > 31) || (dist_g > 31) || (dist_n40 > 31) || (dist_ble > 31))
+    {
+        goto set_err;
+    }
+
+    if((dist_b < -31) || (dist_g < -31) || (dist_n40 < -31) || (dist_ble < -31))
+    {
+        goto set_err;
+    }
+
+    dist = ((((UINT8)dist_b) << 24) | (((UINT8)dist_g) << 16)
+        | (((UINT8)dist_n40) << 8) | ((UINT8)dist_ble));
+    
+    save_info_item(RF_CFG_DIST_ITEM, (UINT8 *)&dist, NULL, NULL);
+    
+    os_printf("set dist-- b:%d, g:%d, n40:%d, ble:%d\r\n", dist_b,
+        dist_g, dist_n40, dist_ble);
+
+    return;
+    
+set_err:
+    os_printf("rate_dist range:-31 - 31, b:%d, g:%d, n40:%d, ble:%d\r\n",
+        dist_b, dist_g, dist_n40, dist_ble);
+}
+
+#define PWR_INIT_VAL        17
+const INT8 pwr_idx_2_dbm[] = {
+    PWR_INIT_VAL,   // 00  1Mbps
+    17,   // 01  2Mbps 
+    17,   // 02  5.5Mbps 
+    17,	  // 03  11Mbps
+                 
+    17,	  // 04  6Mbps  
+    17,   // 05  9Mbps  
+    17,   // 06  12Mbps
+    17,   // 07  18Mbps 
+    16,   // 08  24Mbps  
+    15,   // 09  36Mbps  
+    14,   // 10  48Mbps 
+    14,   // 11  54Mbps 
+                 
+    17,   // 12  mcs0 N20 
+    17,   // 13  mcs1 N20
+    17,   // 14  mcs2 N20
+    16,   // 15  mcs3 N20
+    15,   // 16  mcs4 N20
+    14,   // 17  mcs5 N20
+    13,   // 18  mcs6 N20
+    13,   // 19  mcs7 N20
+                 
+    15,   // 20  mcs0 N40
+    15,   // 21  mcs1 N40
+    15,   // 22  mcs2 N40
+    14,   // 23  mcs3 N40
+    13,   // 24  mcs4 N40
+    13,   // 25  mcs5 N40
+    12,   // 26  mcs6 N40
+    12    // 27  mcs7 N40
+};
+
+INT8 g_cur_txpwr_dbm = PWR_INIT_VAL;
+
+INT8 manual_cal_get_dbm_by_rate(UINT32 rate, UINT32 bandwidth)
+{
+    const INT8 *dbm_ptr;
+    
+    if(bandwidth == PHY_CHNL_BW_20) 
+    {
+        if(rate <= 3){
+            dbm_ptr = &pwr_idx_2_dbm[rate];
+        }
+        else if(rate <= 11 ){  // for g: 6-54M -- 4-11
+            dbm_ptr = &pwr_idx_2_dbm[rate];
+        }else if((rate >= 128) && (rate <= 135)){ // for n20 MCS0-7
+            dbm_ptr = &pwr_idx_2_dbm[12 + rate - 128];
+        }else{
+            MCAL_FATAL("\r\n manual_cal_get_dbm_by_rate err %d\r\n", rate);
+            return 0;
+        }
+    }
+    else {
+        if((rate >= 128) && (rate <= 135)){
+            dbm_ptr = &pwr_idx_2_dbm[20 + rate - 128];          
+        }else{
+            MCAL_FATAL("\r\n manual_cal_get_dbm_by_rate err %d\r\n", rate);
+            return 0;
+        }        
+    }
+
+    g_cur_txpwr_dbm = *dbm_ptr;
+    
+    return *dbm_ptr;
+}
+
+INT8 manual_cal_get_cur_txpwr_dbm(void)
+{
+    return g_cur_txpwr_dbm;
+}
+#endif
 
 UINT32 manual_cal_is_in_rftest_mode(void)
 {
@@ -403,16 +567,23 @@ void manual_cal_save_txpwr(UINT32 rate, UINT32 channel, UINT32 pwr_gain)
     // for ble
     if(rate == EVM_DEFUALT_BLE_RATE)
     {
-        if(channel >= BLE_2_4_G_CHANNEL_NUM) {
+        if(channel > BLE_2_4_G_CHANNEL_NUM) {
             MCAL_WARN("ble wrong channel:%d\r\n", channel);
             return;
         }
         
         txpwr_tab_ptr = &gtxpwr_tab_ble[channel];
-        
-        cal_11b_2_ble_flag = 1;
+
         SET_TXPWR_GAIN(txpwr_tab_ptr, pwr_gain);
         SET_TXPWR_FLAG(txpwr_tab_ptr, TXPWR_ELEM_INUSED);
+
+        if (channel == 0) {
+            ble_cal_bit |= 0x1;
+        } else if (channel == 19) {
+            ble_cal_bit |= 0x2;
+        } else if (channel == 39) {
+            ble_cal_bit |= 0x4;
+        }
 
         MCAL_FATAL("save c:%d, gain:%d\r\n", channel, pwr_gain);
         
@@ -457,10 +628,10 @@ const UINT16 shift_tab_n[1] = {0}; // for MCS7
 #elif (CFG_SOC_NAME == SOC_BK7231N)
 const UINT16 shift_tab_b[4] = {0, 0, 0, 0}; // 11M base,5.5M,2M,1M
 // 54M base -                 54M,48M,36M,24M,18M,12M,9M,6M
-const UINT16 shift_tab_g[8] = {0,  2,  2,  2,  6,  6,  10, 10/*4*/}; // 54M base -  12M,9M,6M//do
-const UINT16 shift_tab_n20[8] = {0,  2,  2,  2,  6,  6,  10, 10/*4*/};; // n20 mcs7base -  mcs0
+const UINT16 shift_tab_g[8] = {0,  2,  2,  2,  3,  3,  4, 4/*4*/}; // 54M base -  12M,9M,6M//do
+const UINT16 shift_tab_n20[8] = {0,  2,  2,  2,  3,  3,  4, 4/*4*/};; // n20 mcs7base -  mcs0
 
-const UINT16 shift_tab_n40[8] = {0,  2,  2,  2,  6,  6,  10, 10/*4*/}; // n40 mcs7base -  mcs0
+const UINT16 shift_tab_n40[8] = {0,  2,  2,  2,  3,  3,  4, 4/*4*/}; // n40 mcs7base -  mcs0
 #else
 const UINT16 shift_tab_b[4] = {0, 0, 0, 0}; // 11M base,5.5M,2M,1M
 // 54M base -                 54M,48M,36M,24M,18M,12M,9M,6M
@@ -573,6 +744,18 @@ int manual_cal_get_txpwr(UINT32 rate, UINT32 channel, UINT32 bandwidth, UINT32 *
      return 1;
 }
 
+uint8_t manual_cal_get_ble_pwr_idx(uint8_t channel)
+{
+	TXPWR_PTR txpwr_tab_ptr = NULL;
+
+	if (channel > 39)
+		channel = 39;
+
+	txpwr_tab_ptr = &gtxpwr_tab_ble[channel];
+
+	return (GET_TXPWR_GAIN(txpwr_tab_ptr));
+}
+
 void manual_cal_show_txpwr_tab(void)
 {
     TXPWR_PTR txpwr_tab_ptr = NULL;
@@ -624,7 +807,11 @@ void manual_cal_show_txpwr_tab(void)
     MCAL_PRT("\r\nsys temper:%d\r\n", g_cur_temp);
     MCAL_PRT("sys xtal:%d\r\n", g_xtal);
     MCAL_PRT("Mod: 0x%x, PA: 0x%x\r\n", gtx_dcorMod, gtx_dcorPA);
+
+    #if (CFG_SOC_NAME != SOC_BK7271)
     bk7011_get_tx_tssi_thred(&tx_tssi_thred_b, &tx_tssi_thred_g);
+    #endif
+    
     MCAL_PRT("TSSI:b-%d,g-%d\r\n", tx_tssi_thred_b, tx_tssi_thred_g);
     MCAL_PRT("DIST_g n20:%d, n40:%d, ble-ch0:%d, ch19:%d, ch39:%d\r\n", 
         g_dif_g_n20, g_dif_g_n40, g_dif_g_ble_ch0, g_dif_g_ble_ch19, g_dif_g_ble_ch39);
@@ -766,9 +953,84 @@ static void manual_cal_do_fitting(TXPWR_PTR dst, TXPWR_PTR srclow, TXPWR_PTR src
 
 void manual_cal_11b_2_ble(void)
 {	
-    TXPWR_PTR tab_ptr = NULL;
-    if(cal_11b_2_ble_flag == 0)
-    {		
+	TXPWR_PTR tab_ptr = NULL;
+	unsigned char gain;
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+	tab_ptr = gtxpwr_tab_g;
+	if (ble_cal_bit == 0) {
+		if (GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED) {
+			gain = GET_TXPWR_GAIN(&tab_ptr[0]);
+
+			// think ble power need to be 7db
+			if ((gain + 3) > ble_diff_to_wifi) {
+				gain = gain + 3 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[0],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[0],TXPWR_ELEM_INUSED);
+		}
+		if (GET_TXPWR_FLAG(&tab_ptr[6]) == TXPWR_ELEM_INUSED) {
+			gain = GET_TXPWR_GAIN(&tab_ptr[6]);
+
+			// think ble power need to be 7db
+			if ((gain + 2) > ble_diff_to_wifi) {
+				gain = gain + 2 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[19],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[19],TXPWR_ELEM_INUSED);
+		} else if ((GET_TXPWR_FLAG(&tab_ptr[12]) == TXPWR_ELEM_INUSED)
+			&& (GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED)) {
+			gain = (GET_TXPWR_GAIN(&tab_ptr[0]) + GET_TXPWR_GAIN(&tab_ptr[12])) / 2;
+
+			if ((gain + 2) > ble_diff_to_wifi) {
+				gain = gain + 2 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[19],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[19],TXPWR_ELEM_INUSED);
+		}
+		if (GET_TXPWR_FLAG(&tab_ptr[12]) == TXPWR_ELEM_INUSED) {
+			gain = GET_TXPWR_GAIN(&tab_ptr[12]);
+
+			// think ble power need to be 7db
+			if ((gain + 0) > ble_diff_to_wifi) {
+				gain = gain + 0 - ble_diff_to_wifi;
+			} else {
+				gain = 0;
+			}
+
+			SET_TXPWR_GAIN(&gtxpwr_tab_ble[39],gain);
+			SET_TXPWR_FLAG(&gtxpwr_tab_ble[39],TXPWR_ELEM_INUSED);
+		}
+	} else if ((ble_cal_bit & 0x2) == 0x2) {
+		if ((ble_cal_bit & 0x1) == 0) {
+			if ((GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED)
+				&& (GET_TXPWR_FLAG(&tab_ptr[6]) == TXPWR_ELEM_INUSED)) {
+				gain = (char)GET_TXPWR_GAIN(&gtxpwr_tab_ble[19]) - ((char)GET_TXPWR_GAIN(&tab_ptr[6]) - (char)GET_TXPWR_GAIN(&tab_ptr[0]));
+				SET_TXPWR_GAIN(&gtxpwr_tab_ble[0],gain);
+				SET_TXPWR_FLAG(&gtxpwr_tab_ble[0],TXPWR_ELEM_INUSED);
+			}
+		}
+		if ((ble_cal_bit & 0x4) == 0) {
+			if ((GET_TXPWR_FLAG(&tab_ptr[6]) == TXPWR_ELEM_INUSED)
+				&& (GET_TXPWR_FLAG(&tab_ptr[12]) == TXPWR_ELEM_INUSED)) {
+				gain = (char)GET_TXPWR_GAIN(&gtxpwr_tab_ble[19]) - ((char)GET_TXPWR_GAIN(&tab_ptr[6]) - (char)GET_TXPWR_GAIN(&tab_ptr[12]));
+				SET_TXPWR_GAIN(&gtxpwr_tab_ble[39],gain);
+				SET_TXPWR_FLAG(&gtxpwr_tab_ble[39],TXPWR_ELEM_INUSED);
+			}
+		}
+	}
+
+#else
+    if (ble_cal_bit == 0) {
         tab_ptr = gtxpwr_tab_g;	
         
         if((GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED)	
@@ -812,6 +1074,7 @@ void manual_cal_11b_2_ble(void)
             SET_TXPWR_FLAG(&gtxpwr_tab_ble[39],TXPWR_ELEM_INUSED);	
         }	
     }
+#endif
 }
 
 UINT32 manual_cal_fitting_txpwr_tab(void)
@@ -1188,6 +1451,13 @@ void manual_cal_set_dif_g_ble(int dif_ch0, int dif_ch19, int dif_ch39)
     g_dif_g_ble_ch19 = dif_ch19;
     g_dif_g_ble_ch39 = dif_ch39;
 }
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+void manual_cal_set_dif_ble(UINT32 diff)
+{
+	ble_diff_to_wifi = diff;
+}
+#endif
 
 ////////////////////////////////////////////////////////////////////////////////
 static UINT32 manual_cal_search_opt_tab(UINT32 *len)
@@ -2299,8 +2569,10 @@ void manual_cal_load_lpf_iq_tag_flash(void)
 	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
     TAG_LPF_IQ_ST lpf;
 
+    #if (CFG_SOC_NAME != SOC_BK7271)
     bk7011_get_tx_filter_corner((INT32 *)&lpf.lpf_i, (INT32 *)&lpf.lpf_q);
-
+    #endif
+    
     addr_start = manual_cal_search_txpwr_tab(TXID, pt->partition_start_addr);//TXPWR_TAB_FLASH_ADDR); 
     if(!addr_start) {
         MCAL_FATAL("NO TXID found in flash, use lpf i&q:%d, %d\r\n",
@@ -2532,11 +2804,12 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
     
     ddev_close(flash_handle);
 
+    #if (CFG_SOC_NAME != SOC_BK7271)
     bk7011_get_tx_filter_corner(&gtx_ifilter_corner, &gtx_qfilter_corner);
     bk7011_get_tx_dc_comp(&gtx_i_dc_comp, &gtx_q_dc_comp);
     bk7011_get_tx_gain_comp(&gtx_i_gain_comp, &gtx_q_gain_comp);
     bk7011_get_tx_phase(&gtx_phase_comp, &gtx_phase_ty2);
-    //bk7011_get_tx_tssi_thred(&gtx_tssi_thred_b, &gtx_tssi_thred_g);
+    #endif
     
     // for tag CALI_MAIN_TX
     tag_txpwr_ptr = (TAG_TXPWR_PTR)txpwr_buf;
@@ -2718,8 +2991,11 @@ int manual_cal_save_cailmain_rx_tab_to_flash(void)
     tag_txpwr.head.len = txpwr_len - sizeof(TAG_TXPWR_ST);
     os_memcpy(tag_txpwr_ptr, &tag_txpwr, sizeof(TAG_TXPWR_ST));
     txpwr_buf = (UINT8*)(txpwr_buf + sizeof(TAG_TXPWR_ST));
-    
+
+    #if (CFG_SOC_NAME != SOC_BK7271)
     bk7011_get_rx_err_wr(&rx_amp_err_wr, &rx_phase_err_wr, rx_dc_gain_tab);
+    #endif
+    
     // for tag rx_dc_gain_tab
     tag_rx_dc_ptr = (TAG_RX_DC_PTR)(txpwr_buf);
     tag_rx_dc.head.type = CM_RX_DC_GAIN_TAB;
@@ -2862,6 +3138,8 @@ UINT32 manual_cal_txpwr_tab_ready_in_flash(void)
 
 typedef struct tmp_set_pwr_st {
     UINT8 indx;
+    UINT8 indx_cali_bias;
+    UINT8 indx_cali_dpll;
     UINT8 flag;
     UINT16 temp_tab[TMP_PWR_TAB_LEN];
     TMP_PWR_PTR pwr_ptr;
@@ -3004,7 +3282,10 @@ void manual_cal_temp_pwr_unint(void)
 {
     rwnx_cal_set_txpwr_by_tmpdetect(0, 0);
     rwnx_set_tpc_txpwr_by_tmpdetect(0, 0);
+
+#if (CFG_SOC_NAME != SOC_BK7231N)
     rwnx_cal_set_ble_txpwr_by_tmpdetect(0);
+#endif
 
 	manual_cal_do_xtal_temp_delta_set(0);
     manual_cal_do_xtal_cali(0, 0, 0, 0);
@@ -3064,6 +3345,8 @@ void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dis
 
     os_memset(&g_tmp_pwr.temp_tab[0], 0, sizeof(UINT16)*TMP_PWR_TAB_LEN);
     g_tmp_pwr.indx = idx;
+    g_tmp_pwr.indx_cali_bias = idx;
+    g_tmp_pwr.indx_cali_dpll = idx;
     g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[idx];
     g_tmp_pwr.temp_tab[idx] = init_temp;
 
@@ -3105,13 +3388,19 @@ void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dis
     temp_detect_init(init_temp);
 }
 
+#define ATE_PRINT_DEBUG
+extern uint32_t get_ate_mode_state(void);
 #if (CFG_SOC_NAME == SOC_BK7231N)
+extern void bk7011_cal_bias_low_temprature(UINT8 low_temprature);
 TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 {
     #define DO_SETP     (10)
     //change thre from ADC_TMEP_LSB_PER_10DEGREE to ADC_TMEP_LSB_PER_5DEGREE first
-    UINT32 dist = 0, thre_1 = (thre >> 2) + 2, thre_2 = thre_1 + (DO_SETP-1)*(thre >> 1);
-    UINT8 need_cal_dpll = 0, need_cal_bais = 0;
+    UINT32 dist = 0;
+    UINT32 thre_2_5_degree = (thre >> 2) + 2; /* -2.5 ~ +2.5 ===> 5, for tmp_pwr_tab */
+    UINT32 thre_5_degree = (thre >> 1);
+    UINT32 thre_50_degree = DO_SETP * thre_5_degree;
+    UINT8 dist_cal_dpll = 0, dist_cal_bias = 0;
     UINT16 last_val = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
 
     UINT8 indx = g_tmp_pwr.indx;
@@ -3119,89 +3408,122 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if(cur_val > last_val)
     {
         dist = cur_val - last_val;
-        if(dist >= thre_2)
+        if(dist >= thre_50_degree)
         {
             indx = ((indx-DO_SETP) > 0)? (indx - DO_SETP) : 0;
-            need_cal_dpll = 1;
-            need_cal_bais = 1;
         }
-        else if(dist >= thre_1)
+        else if(dist >= thre_2_5_degree)
         {
             //round down to find step index
-            int i = (dist - thre_1) / (thre >> 1);
+            int i = (dist - thre_2_5_degree) / thre_5_degree;
             indx = ((indx-(i+1)) > 0)? (indx-(i+1)) : 0;
-
-            need_cal_bais = 1;
-
-            if(i >= 1)
-            {
-                need_cal_dpll = 1;
-            }
         }
     }
     else if(cur_val < last_val)
     {
         dist = last_val - cur_val;
-        if(dist >= thre_2)
+        if(dist >= thre_50_degree)
         {
             indx = (indx+DO_SETP<TMP_PWR_TAB_LEN)? (indx+DO_SETP):(TMP_PWR_TAB_LEN);
-            need_cal_dpll = 1;
-            need_cal_bais = 1;
         }
-        else if(dist >= thre_1)
+        else if(dist >= thre_2_5_degree)
         {
             //round down to find step index
-            int i = (dist - thre_1) / (thre >> 1);
+            int i = (dist - thre_2_5_degree) / thre_5_degree;
             indx = ((indx +i+1)<TMP_PWR_TAB_LEN)? (indx+i+1) : (TMP_PWR_TAB_LEN);
-
-            need_cal_bais = 1;
-
-            if(i >= 1)
-            {
-                need_cal_dpll = 1;
-            }
         }
     }
 
     if(g_tmp_pwr.indx == indx)
         return NULL;
 
-    if(need_cal_dpll)
+    if (indx > g_tmp_pwr.indx_cali_dpll)
     {
-        if(ble_in_dut_mode() == 0)
-            os_printf("cal dpll!\r\n");
+        dist_cal_dpll = indx - g_tmp_pwr.indx_cali_dpll;
+    }
+    else
+    {
+        dist_cal_dpll = g_tmp_pwr.indx_cali_dpll - indx;
+    }
 
+    if (indx > g_tmp_pwr.indx_cali_bias)
+    {
+        dist_cal_bias = indx - g_tmp_pwr.indx_cali_bias;
+    }
+    else
+    {
+        dist_cal_bias = g_tmp_pwr.indx_cali_bias - indx;
+    }
+
+    /* cali bias each 4*5degree */
+    if (dist_cal_bias >= 4)
+    {
+#ifdef ATE_PRINT_DEBUG
+        if (!get_ate_mode_state())
+        {
+            os_printf("cal_bias!\r\n");
+        }
+#endif
+        g_tmp_pwr.indx_cali_bias = indx;
+        bk7011_cal_bias();
+    }
+
+    /* cali dpll each 4*5degree */
+    if (dist_cal_dpll >= 4)
+    {
+#ifdef ATE_PRINT_DEBUG
+        if (!get_ate_mode_state())
+        {
+            os_printf("cal dpll!\r\n");
+        }
+#endif
+
+        g_tmp_pwr.indx_cali_dpll = indx;
         power_save_wake_rf_if_in_sleep();
         sctrl_cali_dpll(0);
         sctrl_dpll_int_open();
         power_save_check_clr_rf_prevent_flag();
     }
 
-    if(need_cal_bais)
+    // bk7231U need dist>60, then do tx pwr.
+    if(g_tmp_pwr.flag)
     {
-        if(ble_in_dut_mode() == 0)
-            os_printf("cal_bias!\r\n");
-        bk7011_cal_bias();
+        UINT8 last_idx = g_tmp_pwr.indx;
+	#if 1   ////tuya merge
+        temperature_type new_temperature_type;
+
+        if (g_cur_temp_flash >= 7 * thre + cur_val)
+        {
+            // normal_temp_25C + 7 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C + 70C = 95C
+            new_temperature_type = TEMPERATURE_TYPE_HIGH;
+        }
+        else if (cur_val >= 5 * thre_5_degree + g_cur_temp_flash)
+        {
+            // cur_temp >= normal_temp_25C - 5 * ADC_TMEP_LSB_PER_5DEGREE = normal_temp_25C - 25C = 0C
+            new_temperature_type = TEMPERATURE_TYPE_LOW;
+        }
+        else
+        {
+            new_temperature_type = TEMPERATURE_TYPE_NORMAL;
+        }
+        bk7011_cal_vdddig_by_temperature(new_temperature_type);
+	#else
+        temperature_type new_temperature_type;
 
         // normal_temp_25C + 7 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C + 70C = 95C
         bk7011_cal_bias_high_temprature(g_cur_temp_flash >= 7 * thre + cur_val);
 
         // normal_temp_25C - 2 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C - 20C = 5C
-        bk7011_cal_bias_low_temprature(cur_val >= 2 * thre + g_cur_temp_flash);
-    }
-
-    // bk7231U need dist>60, then do tx pwr.
-    if(g_tmp_pwr.flag)
-    {
-        UINT8 last_idx = g_tmp_pwr.indx;
-
+        //bk7011_cal_bias_low_temprature(cur_val >= 2 * thre + g_cur_temp_flash);
+	#endif
         g_tmp_pwr.indx = indx;
         g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[indx];
         *last = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
 
         ///os_printf("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
         //    g_tmp_pwr.pwr_ptr->mod, g_tmp_pwr.pwr_ptr->pa, *last);
-        if(ble_in_dut_mode() == 0)
+#ifdef ATE_PRINT_DEBUG
+        if (!get_ate_mode_state())
         {
             bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
                 cur_val,
@@ -3214,8 +3536,10 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
                 g_tmp_pwr.pwr_ptr->p_index_delta_g,
                 g_tmp_pwr.pwr_ptr->xtal_c_dlta);
         }
+#endif
 
         return g_tmp_pwr.pwr_ptr;
+		(void)last_idx;
     }
     else
     {
@@ -3294,9 +3618,6 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
             }
         }
     }
-
-    if(get_ate_mode_state() == 0)
-        os_printf("td cur:%d, last:%d, flag:%d\r\n", cur_val, last_val, g_tmp_pwr.flag);
     
     if(g_tmp_pwr.indx == indx)
         return NULL;
@@ -3398,13 +3719,12 @@ void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 i
 	param = g_xcali.init_xtal + g_xcali.xtal_c_delta;
     if(g_xcali.last_xtal != param) 
     {
-        if(ble_in_dut_mode() ==0 )
-        {
-    		os_printf("init_xtal:%d, delta:%d, last_xtal:%d\r\n",
-                            g_xcali.init_xtal,
-                            g_xcali.xtal_c_delta,
-                            g_xcali.last_xtal);
-        }
+#ifdef ATE_PRINT_DEBUG
+		os_printf("init_xtal:%d, delta:%d, last_xtal:%d\r\n",
+                        g_xcali.init_xtal,
+                        g_xcali.xtal_c_delta,
+                        g_xcali.last_xtal);
+#endif
 		
         if(param > PARAM_XTALH_CTUNE_MASK)
             param = PARAM_XTALH_CTUNE_MASK;

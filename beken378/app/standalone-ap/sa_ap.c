@@ -20,6 +20,7 @@
 #if CFG_USE_TEMPERATURE_DETECT
 #include "temp_detect_pub.h"
 #endif
+#include "sys_ctrl_pub.h"
 
 extern void mm_bcn_init(void);
 void sa_ap_init(void)
@@ -38,7 +39,7 @@ void sa_ap_init(void)
         SAAP_PRT("[saap]MM_START_REQ\r\n");
         rw_msg_send_start();
     }
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
     else
     {
         SAAP_PRT("[saap]mm_bcn_init\r\n");

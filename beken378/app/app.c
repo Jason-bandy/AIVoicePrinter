@@ -46,6 +46,7 @@
 #include "demos_start.h"
 #endif
 #include "ap_idle_pub.h"
+#include "arbitrate.h"
 
 beken_thread_t  init_thread_handle;
 beken_thread_t  app_thread_handle;
@@ -55,6 +56,12 @@ uint32_t  app_stack_size = 4096;
 beken_semaphore_t app_sema = NULL;
 WIFI_CORE_T g_wifi_core = {0};
 volatile int32_t bmsg_rx_count = 0;
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+void bmsg_null_sender(void) __SECTION(".itcm");
+void bmsg_tx_handler(BUS_MSG_T *msg) __SECTION(".itcm");
+static void core_thread_main( void *arg ) __SECTION(".itcm");
+#endif
 
 extern void net_wlan_initial(void);
 extern void wpas_thread_start(void);
@@ -189,6 +196,7 @@ int bmsg_tx_raw_cb_sender(uint8_t *buffer, int length, void *cb, void *param)
 
 void bmsg_tx_raw_handler(BUS_MSG_T *msg)
 {
+#if !CFG_IEEE80211AX
 	uint8_t *pkt = (uint8_t *)msg->arg;
 	uint16_t len = msg->len;
 	MSDU_NODE_T *node;
@@ -241,6 +249,7 @@ void bmsg_tx_raw_handler(BUS_MSG_T *msg)
 
 exit:
 	os_free(pkt);
+#endif //!CFG_IEEE80211AX
 }
 
 void bmsg_ioctl_handler(BUS_MSG_T *msg)
@@ -629,10 +638,9 @@ static void core_thread_main( void *arg )
                 break;
 
 #if (SUPPORT_LSIG_MONITOR)
-				case BMSG_RX_LSIG:
-					bmsg_rx_lsig_handler(&msg);
-					break;
-
+			case BMSG_RX_LSIG:
+				bmsg_rx_lsig_handler(&msg);
+				break;
 #endif
             default:
                 APP_PRT("unknown_msg\r\n");

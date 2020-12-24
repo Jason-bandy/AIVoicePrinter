@@ -141,7 +141,6 @@
 /*
  *  DRC register access macros
  */
-
 /* Get offset for a given FIFO */
 #ifdef MUSB_FDRC_AHB
 #define MGC_FIFO_OFFSET(_bEnd) (MGC_M_FIFO_EP0 + (_bEnd * 4))
@@ -149,7 +148,7 @@
 #define MGC_FIFO_OFFSET(_bEnd) (MGC_M_FIFO_EP0 + _bEnd)
 #endif
 
-__inline uint16_t MGC_ReadRxCount(MGC_Controller *pController)
+static inline uint16_t MGC_ReadRxCount(MGC_Controller *pController)
 {
     uint16_t count = 0;
 

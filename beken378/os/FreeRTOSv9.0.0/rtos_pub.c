@@ -7,7 +7,6 @@
 #include "timers.h"
 #include "rtos_pub.h"
 #include "generic.h"
-#include "includes.h"
 #include "fake_clock_pub.h"
 #include "mem_pub.h"
 #include "uart_pub.h"
@@ -677,6 +676,33 @@ OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer )
     }
 
     return kNoErr;
+}
+
+OSStatus rtos_oneshot_reload_timer_ex(beken2_timer_t *timer,
+										uint32_t time_ms,
+										timer_2handler_t function,
+										void *larg,
+										void *rarg)
+{
+	OSStatus ret;
+
+	if (rtos_is_oneshot_timer_running(timer)) {
+		ret = rtos_stop_oneshot_timer(timer);
+		if (ret != kNoErr) {
+			return ret;
+		}
+	}
+
+	ret = rtos_change_period(timer, time_ms);
+	if (ret != kNoErr) {
+		return ret;
+	}
+
+	timer->function = function;
+	timer->left_arg = larg;
+	timer->right_arg = rarg;
+	ret = rtos_oneshot_reload_timer(timer);
+	return ret;
 }
 
 OSStatus rtos_init_oneshot_timer( beken2_timer_t *timer, 

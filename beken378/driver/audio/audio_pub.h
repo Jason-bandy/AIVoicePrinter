@@ -35,6 +35,7 @@ enum
 #include "gpio_pub.h"
 #include "sys_ctrl_pub.h"
 #define AUD_USE_EXT_PA                      0
+
 #if AUD_USE_EXT_PA
 #define AUD_DAC_MUTE_PIN                    GPIO9
 #define AUD_DAC_MUTE_ENA_LEVEL              0
@@ -44,10 +45,7 @@ enum
 #define AUD_DAC_DIFF_PORT           2
 #define AUD_DAC_USE_PORT_SET        AUD_DAC_SINGLE_PORT
 
-
 ///////////////////////////////////////////////////////////////////////////////
-
-
 #define AUD_ADC_DEV_NAME             "aud_adc"
 #define AUD_ADC_CMD_MAGIC            (0x2EBC0000)
 typedef struct aud_adc_cfg_st
@@ -70,11 +68,9 @@ enum
     AUD_ADC_CMD_SET_VOLUME
 };
 
-
 #define AUD_ADC_LINEIN_DETECT_PIN           GPIO8
 #define AUD_ADC_LINEIN_ENABLE_LEVEL         0
 #define AUD_ADC_DAC_HARDWARD_LOOPBACK       0
-
 #define AUD_ADC_MODE_DMA_BIT                (1 << 0)  // 1: DMA MODE, 0: ISR MODE
 #define AUD_ADC_MODE_LINEIN                 (1 << 1)  // 1: LINEIN, 0: MIC 
 #define AUD_ADC_DEF_WR_THRED                (8)
@@ -84,7 +80,6 @@ enum
 
 void audio_init(void);
 void audio_exit(void);
-
-
-
 #endif // __AUDIO_PUB_H__
+// eof
+

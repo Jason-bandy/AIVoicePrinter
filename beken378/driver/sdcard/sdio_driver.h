@@ -16,8 +16,12 @@
 #define SDCARD_FATAL    null_prf
 #endif
 
-// SDCARD REG
+/* SDCARD Register*/
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define SDCARD_BASE_ADDR                    (0x00802300)
+#else
 #define SDCARD_BASE_ADDR                    (0x00802D00)
+#endif
 
 #define REG_SDCARD_CMD_SEND_CTRL            (SDCARD_BASE_ADDR + 0*4)
 #define SDCARD_CMD_SEND_CTRL_CMD_START        (1 << 0)

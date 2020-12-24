@@ -220,6 +220,7 @@ void rt_application_init(void)
     (void)result;
 #endif
 
+	rt_hw_wdg_stop();
     rt_thread_startup(tid);
 }
 

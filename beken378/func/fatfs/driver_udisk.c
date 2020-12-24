@@ -5,6 +5,7 @@
 #include "rtos_pub.h"
 #include "uart_pub.h"
 #include "usb_msd.h"
+#include "diskio.h"
 
 #if CFG_USE_USB_HOST
 extern uint8_t MUSB_GetConnect_Flag(void);
@@ -20,7 +21,7 @@ uint8 udisk_init(void)
     uint32 ret = USB_RET_ERROR;
     int ret_val;
 
-	os_printf("udisk_init_wzl\r\n");
+	FAT_PRT("udisk_init_wzl\r\n");
 
 	while(1)
 	{
@@ -42,7 +43,7 @@ int udisk_rd_blk_sync(uint32 first_block, uint32 block_num, uint8 *dest )
 {
     int ret = USB_RET_ERROR;
 
-	os_printf("disk_rd:%d:%d\r\n", first_block, block_num);
+	FAT_PRT("disk_rd:%d:%d\r\n", first_block, block_num);
     if (!MGC_MsdGetMediumstatus())
     {
     	os_printf("disk_rd_failed\r\n");
@@ -60,7 +61,7 @@ int udisk_wr_blk_sync(uint32 first_block, uint32 block_num, uint8 *dest)
 {
     int ret = USB_RET_ERROR;
 	
-	os_printf("disk_wr:%d:%d\r\n", first_block, block_num);
+	FAT_PRT("disk_wr:%d:%d\r\n", first_block, block_num);
     if (!MGC_MsdGetMediumstatus())
     {
     	os_printf("disk_wr_failed\r\n");
