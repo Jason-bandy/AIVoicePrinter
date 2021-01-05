@@ -2,11 +2,11 @@
 #if ATE_APP_FUN
 
 #include "include.h"
-#include "sys_ctrl.h"
 
 #if (CFG_OS_FREERTOS)
 #include "app.h"
 #include "wlan_cli_pub.h"
+#include "sys_ctrl_pub.h"
 #endif
 
 char ate_mode_state = 0;

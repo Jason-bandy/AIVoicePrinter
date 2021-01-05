@@ -62,17 +62,27 @@ sys_config = os.path.join(cwd, '..', '..', '..', 'config', 'sys_config.h')
 options = LocalOptions(sys_config)
 
 usb_lib_name = 'usb'
+platform_match = 'yes'
+
+if (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7231U'):
+    usb_lib_name += '_7231u'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7221U'):
+    usb_lib_name += '_7251'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7271'):
+    usb_lib_name += '_7271'
+else:
+    usb_lib_name += '_unknown'
+    platform_match = 'no'
 
 libs = [usb_lib_name]
 libpath = [cwd + '/']
 
-if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231N')) or (GetLocalDepend(options, 'CFG_USB') == 0):
-    group = []
-else:
+if (platform_match == 'yes') and (GetLocalDepend(options, 'CFG_USB') == 1):
+    print 'using usb: lib' + usb_lib_name + '.a'
     group_use_lib = DefineGroup('beken_usb_lib', [], depend = [''], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
-
     group_build_lib = DefineGroup('beken_usb', src, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + usb_lib_name + '.a')
-
     group = group_use_lib + group_build_lib
+else:
+    group = []
 
 Return('group')

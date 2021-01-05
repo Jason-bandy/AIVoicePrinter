@@ -1147,9 +1147,13 @@ int bk_wlan_stop(char mode)
         mm_hw_ap_disable();
 
 #if !CFG_NEW_SUPP
+#if 0
         uap_ip_down();
         net_wlan_remove_netif(&g_ap_param_ptr->bssid);
         hostapd_main_exit();
+#else
+		wlan_ap_disable();
+#endif
 #if CFG_ROLE_LAUNCH
         rl_set_csa_switched();
 #endif

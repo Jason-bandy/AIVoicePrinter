@@ -126,7 +126,8 @@ enum
 	#endif // (CFG_SOC_NAME == SOC_BK7221)
     CMD_SCTRL_SET_LOW_PWR_CLK,
     CMD_SCTRL_SET_GADC_SEL,
-    CMD_SCTRL_SET_VDD_VALUE,
+	CMD_SCTRL_SET_VDD_VALUE,
+	CMD_SCTRL_GET_VDD_VALUE,
     CMD_RF_HOLD_BIT_SET,
     CMD_RF_HOLD_BIT_CLR,
 };
@@ -373,5 +374,5 @@ extern UINT32 charger_is_full(void);
 extern UINT32 usb_power_is_pluged(void);
 extern void sctrl_rf_ps_enable_set(void);
 extern void sctrl_rf_ps_enable_clear(void);
-extern void sctrl_rf_ps_enabled(void);
+extern int sctrl_rf_ps_enabled(void);
 #endif // _SCTRL_PUB_H_

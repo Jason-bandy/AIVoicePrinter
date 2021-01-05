@@ -566,7 +566,7 @@
 /******************************************************************************************/
 
 /// Default programming delay, margin for programming the baseband in advance of each activity (in half-slots)
-#define IP_PROG_DELAY_DFT  (3)
+#define IP_PROG_DELAY_DFT  (6)
 
 /**
  * Prefetch time (in us)

@@ -1,1 +1,1 @@
-#define BEKEN_SDK_REV	"3.0.12"
+#define BEKEN_SDK_REV	"3.0.19"

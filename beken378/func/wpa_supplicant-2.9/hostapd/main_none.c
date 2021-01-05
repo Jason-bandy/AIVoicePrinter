@@ -47,6 +47,12 @@ struct hapd_interfaces *hostapd_ctrl_get_interfaces()
 	return &g_hapd_interfaces;
 }
 #endif
+#if !CFG_NEW_SUPP
+int hostap_interfaces_is_valid(void)
+{
+	return ((g_hapd_interfaces.iface) && (0 < g_hapd_interfaces.count));
+}
+#endif
 
 struct hostapd_config *hostapd_config_read(const char *fname)
 {

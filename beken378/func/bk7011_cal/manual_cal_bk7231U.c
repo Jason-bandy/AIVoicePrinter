@@ -3217,7 +3217,10 @@ void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dis
     temp_detect_init(init_temp);
 }
 
+#define ATE_PRINT_DEBUG
+extern uint32_t get_ate_mode_state(void);
 #if (CFG_SOC_NAME == SOC_BK7231N)
+extern void bk7011_cal_bias_low_temprature(UINT8 low_temprature);
 TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 {
     #define DO_SETP     (10)
@@ -3288,7 +3291,10 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if (dist_cal_bias >= 4)
     {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("cal_bias!\r\n");
+        if (!get_ate_mode_state())
+        {
+            os_printf("cal_bias!\r\n");
+        }
 #endif
         g_tmp_pwr.indx_cali_bias = indx;
         bk7011_cal_bias();
@@ -3298,7 +3304,10 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if (dist_cal_dpll >= 4)
     {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("cal dpll!\r\n");
+        if (!get_ate_mode_state())
+        {
+            os_printf("cal dpll!\r\n");
+        }
 #endif
 
         g_tmp_pwr.indx_cali_dpll = indx;
@@ -3312,13 +3321,33 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if(g_tmp_pwr.flag)
     {
         UINT8 last_idx = g_tmp_pwr.indx;
+	#if 1   ////tuya merge
+        temperature_type new_temperature_type;
+
+        if (g_cur_temp_flash >= 7 * thre + cur_val)
+        {
+            // normal_temp_25C + 7 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C + 70C = 95C
+            new_temperature_type = TEMPERATURE_TYPE_HIGH;
+        }
+        else if (cur_val >= 5 * thre_5_degree + g_cur_temp_flash)
+        {
+            // cur_temp >= normal_temp_25C - 5 * ADC_TMEP_LSB_PER_5DEGREE = normal_temp_25C - 25C = 0C
+            new_temperature_type = TEMPERATURE_TYPE_LOW;
+        }
+        else
+        {
+            new_temperature_type = TEMPERATURE_TYPE_NORMAL;
+        }
+        bk7011_cal_vdddig_by_temperature(new_temperature_type);
+	#else
+        temperature_type new_temperature_type;
 
         // normal_temp_25C + 7 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C + 70C = 95C
         bk7011_cal_bias_high_temprature(g_cur_temp_flash >= 7 * thre + cur_val);
 
         // normal_temp_25C - 2 * ADC_TMEP_LSB_PER_10DEGREE = normal_temp_25C - 20C = 5C
         //bk7011_cal_bias_low_temprature(cur_val >= 2 * thre + g_cur_temp_flash);
-
+	#endif
         g_tmp_pwr.indx = indx;
         g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[indx];
         *last = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
@@ -3326,19 +3355,24 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
         ///os_printf("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
         //    g_tmp_pwr.pwr_ptr->mod, g_tmp_pwr.pwr_ptr->pa, *last);
 #ifdef ATE_PRINT_DEBUG
-        bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
-            cur_val,
-            last_idx, g_tmp_pwr.temp_tab[last_idx],
-            g_tmp_pwr.indx, g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
+        if (!get_ate_mode_state())
+        {
+            bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
+                cur_val,
+                last_idx, g_tmp_pwr.temp_tab[last_idx],
+                g_tmp_pwr.indx, g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
 
-        bk_printf("--0xc:%02x, shift_b:%d, shift_g:%d, X:%d\n",
-            g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
-            g_tmp_pwr.pwr_ptr->p_index_delta,
-            g_tmp_pwr.pwr_ptr->p_index_delta_g,
-            g_tmp_pwr.pwr_ptr->xtal_c_dlta);
+            bk_printf("--0xc:%02x, shift_b:%d, shift_g:%d, shift_ble:%d X:%d\n",
+                g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
+                g_tmp_pwr.pwr_ptr->p_index_delta,
+                g_tmp_pwr.pwr_ptr->p_index_delta_g,
+                g_tmp_pwr.pwr_ptr->p_index_delta_ble,
+                g_tmp_pwr.pwr_ptr->xtal_c_dlta);
+        }
 #endif
 
         return g_tmp_pwr.pwr_ptr;
+		(void)last_idx;
     }
     else
     {
@@ -3513,7 +3547,7 @@ void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 i
     if(g_tmp_pwr.flag == 0) 
         return;
     
-	UINT32 param;
+	INT32 param;
 
 	param = g_xcali.init_xtal + g_xcali.xtal_c_delta;
     if(g_xcali.last_xtal != param) 
@@ -3525,8 +3559,14 @@ void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 i
                         g_xcali.last_xtal);
 #endif
 		
-        if(param > PARAM_XTALH_CTUNE_MASK)
+        if (param > PARAM_XTALH_CTUNE_MASK)
+        {
             param = PARAM_XTALH_CTUNE_MASK;
+        }
+        else if (param < 0)
+        {
+            param = 0;
+        }
         
         sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_XTALH_CTUNE, &param);
         g_xcali.last_xtal = param;

@@ -110,6 +110,7 @@
 #define SOC_BK7231                                 1
 #define SOC_BK7231U                                2
 #define SOC_BK7221U                                3
+#define SOC_BK7271                                 4
 #define SOC_BK7231N                                5
 #define CFG_SOC_NAME                               SOC_BK7231N
 

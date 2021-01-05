@@ -106,6 +106,7 @@ SECTIONS
         *power_save.o(.text .text.*)
         *mcu_ps.o(.text .text.*)
         *rwip_driver.o(.text .text.*)
+        *(.text.sctrl_fix_dpll_div)
     } > itcm AT>flash
     _itcmcode_flash_begin = LOADADDR(.itcm.code);
     _itcmcode_ram_begin = ADDR(.itcm.code);

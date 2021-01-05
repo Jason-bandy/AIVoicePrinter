@@ -44,7 +44,11 @@ enum
 #define PCLK_POSI_SPI                        (1 << 6)
 #define PCLK_POSI_PWMS                       (1 << 7)
 #define PCLK_POSI_SDIO                       (1 << 8)
+#if (CFG_SOC_NAME == SOC_BK7231N)
+#define PCLK_POSI_EFUSE                      (1 << 9)
+#else
 #define PCLK_POSI_SARADC_AUD                 (1 << 9)
+#endif
 
 #define PCLK_POSI_QSPI_DCO				 	 (0 << 16)
 #define PCLK_POSI_QSPI_26M				 	 (1 << 16)

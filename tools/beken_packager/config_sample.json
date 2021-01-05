@@ -4,18 +4,18 @@
     "count": 2,
     "section": [
         {
-            "firmware": "bootloader_7251_4M_ROMFS_uart2_20181220.bin",
-            "version": "4M.1220",
+            "firmware": "bootloader.bin",
+            "version": "2M.1220",
             "partition": "bootloader",
             "start_addr": "0x00000000",
             "size": "65280"
         },
         {
             "firmware": "../../rtthread.bin",
-            "version": "4M_ROMFS.1220",
+            "version": "2M.1220",
             "partition": "app",
             "start_addr": "0x00011000",
-            "size": "2244K"
+            "size": "1156K"
         }
     ]
 }

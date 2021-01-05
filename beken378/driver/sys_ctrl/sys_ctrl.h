@@ -209,6 +209,8 @@
 #if (CFG_SOC_NAME == SOC_BK7231N)
 #define XTALH_CTUNE_POSI                         (2)
 #define XTALH_CTUNE_MASK                         (0x7FU)
+#define BANDGAP_CAL_MANUAL_POSI                  (23)
+#define BANDGAP_CAL_MANUAL_MASK                  (0x3FU)
 #elif (CFG_SOC_NAME != SOC_BK7231)
 #define XTALH_CTUNE_POSI                         (2)
 #define XTALH_CTUNE_MASK                         (0x3FU)

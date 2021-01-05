@@ -115,6 +115,7 @@ static UINT32 evm_translate_tx_rate(UINT32 rate)
 
 /*txevm [-m mode] [-c channel] [-l packet-length] [-r physical-rate]*/
 UINT32 gmode = EVM_DEFUALT_MODE;
+UINT32 gtest_mode = 0;
 static int do_evm_implement(int argc, char *const argv[])
 {
 #if CFG_TX_EVM_TEST
@@ -385,8 +386,10 @@ static int do_evm_implement(int argc, char *const argv[])
                             g_single_carrier= 0;
                         }
                         evm_stop_bypass_mac();
-                        //manual_cal_clear_setp();
-                    } 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+                        rwnx_cal_dis_extra_txpa();
+#endif
+                    }
                     #if CFG_SUPPORT_MANUAL_CALI
                     else if(op == TXEVM_E_DOFITTING) {
                         
@@ -541,6 +544,8 @@ static int do_evm_implement(int argc, char *const argv[])
     {
         return 1;
     }
+
+	gtest_mode = test_mode;
 
     /*step2, handle*/
     if(!is_ble_test)

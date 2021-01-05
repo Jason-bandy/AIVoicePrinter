@@ -74,8 +74,10 @@
 #define CFG_USB                                    0
 #define CFG_USE_USB_HOST                           0
 #define CFG_USE_USB_DEVICE                         1
+#if CFG_USB
 #if (!(CFG_USE_USB_HOST || CFG_USE_USB_DEVICE))
-#undef CFG_USB
+#error "Must select one USB mode for enabling USB!"
+#endif
 #endif
 #if CFG_USE_USB_DEVICE
 #define CFG_USE_USB_DEVICE_CARD_READER              1

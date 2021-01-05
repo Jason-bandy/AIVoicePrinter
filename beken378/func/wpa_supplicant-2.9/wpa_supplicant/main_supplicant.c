@@ -91,26 +91,41 @@ void wlan_internal_notify_func(void *ctx, int event, int extra)
 #if !CFG_NEW_SUPP
 #include "param_config.h"
 extern sta_param_t *g_sta_param_ptr;
-unsigned char  wlan_sta_disable_flag = 0;
+#define WLAN_STA_DISABLE_FLAG      (0x01U)
+#define WLAN_AP_DISABLE_FLAG       (0x02U)
+unsigned char  wlan_sta_ap_disable_flag = 0;
 void wlan_sta_disable_eloop_signal_handler(int sig, void *signal_ctx)
 {
 	int flag = 0;
 	GLOBAL_INT_DECLARATION();
 	bk_printf("%s\r\n",__FUNCTION__);
 	GLOBAL_INT_DISABLE();
-	if(wlan_sta_disable_flag)
+	if(wlan_sta_ap_disable_flag&WLAN_STA_DISABLE_FLAG)
 	{
-		flag = 1;
+		flag |= WLAN_STA_DISABLE_FLAG;
+	}
+	if(wlan_sta_ap_disable_flag&WLAN_AP_DISABLE_FLAG)
+	{
+		flag |= WLAN_AP_DISABLE_FLAG;
 	}
 	GLOBAL_INT_RESTORE();
 	
-	if(flag)
+	if(flag & WLAN_STA_DISABLE_FLAG)
 	{
 		net_wlan_remove_netif(&g_sta_param_ptr->own_mac);
-    	supplicant_main_exit();
-    	wpa_hostapd_release_scan_rst();
+		supplicant_main_exit();
+		wpa_hostapd_release_scan_rst();
 		GLOBAL_INT_DISABLE();
-		wlan_sta_disable_flag = 0;
+		wlan_sta_ap_disable_flag &= (~ (WLAN_STA_DISABLE_FLAG));
+		GLOBAL_INT_RESTORE();
+	}
+	if(flag & WLAN_AP_DISABLE_FLAG)
+	{
+		uap_ip_down();
+		net_wlan_remove_netif(&g_ap_param_ptr->bssid);
+		hostapd_main_exit();
+		GLOBAL_INT_DISABLE();
+		wlan_sta_ap_disable_flag &= (~(WLAN_AP_DISABLE_FLAG));
 		GLOBAL_INT_RESTORE();
 	}
 }
@@ -125,9 +140,9 @@ int wlan_sta_disable(void)
 	if(wpa_global_ptr && wpas_ifaces)
 	{
 		GLOBAL_INT_DISABLE();
-		if(wlan_sta_disable_flag == 0)
+		if((wlan_sta_ap_disable_flag&WLAN_STA_DISABLE_FLAG) == 0)
 		{
-			wlan_sta_disable_flag = 1;
+			wlan_sta_ap_disable_flag |= WLAN_STA_DISABLE_FLAG;
 			flag = 1;
 		}
 		GLOBAL_INT_RESTORE();
@@ -138,7 +153,7 @@ int wlan_sta_disable(void)
 			wpa_hostapd_queue_poll(0xFF);
 		}
 	}
-	while(wlan_sta_disable_flag)
+	while(wlan_sta_ap_disable_flag&WLAN_STA_DISABLE_FLAG)
 	{
 		rtos_delay_milliseconds(10);
 		delay_total += 10;
@@ -146,6 +161,42 @@ int wlan_sta_disable(void)
 	}
 	return 0;
 }
+
+extern int hostap_interfaces_is_valid(void);
+int wlan_ap_disable(void)
+{
+	unsigned int delay_total = 0;
+	int flag = 0;
+	GLOBAL_INT_DECLARATION();
+
+	bk_printf("%s\r\n",__FUNCTION__);
+
+	if(hostap_interfaces_is_valid())
+	{
+		GLOBAL_INT_DISABLE();
+		if((wlan_sta_ap_disable_flag&WLAN_AP_DISABLE_FLAG) == 0)
+		{
+			wlan_sta_ap_disable_flag |= WLAN_AP_DISABLE_FLAG;
+			flag = 1;
+		}
+		GLOBAL_INT_RESTORE();
+		if(flag)
+		{
+			eloop_register_signal(SIGABOART,wlan_sta_disable_eloop_signal_handler,NULL);
+			eloop_handle_signal(SIGABOART);
+			wpa_hostapd_queue_poll(0xFF);
+		}
+	}
+
+	while(wlan_sta_ap_disable_flag&WLAN_AP_DISABLE_FLAG)
+	{
+		rtos_delay_milliseconds(20);
+		delay_total += 20;
+		bk_printf("[%s]delay:%d\r\n",__FUNCTION__,delay_total);
+	}
+	return 0;
+}
+
 #endif
 
 

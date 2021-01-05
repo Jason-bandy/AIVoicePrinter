@@ -10,21 +10,19 @@ sys_config = os.path.join(cwd, '..', '..', '..', 'config', 'sys_config.h')
 options = LocalOptions(sys_config)
 
 ble_lib_name = 'ble'
+platform_match = 'yes'
 
-if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231N')):
+if (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7231N'):
     ble_lib_name += '_7231n'
-elif (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231U')):
-    ble_lib_name += '_7231u'
-elif(0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7221U')):
-    ble_lib_name += '_7221u'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7236'):
+    ble_lib_name += '_7236'
 else:
     ble_lib_name += '_unknown'
+    platform_match = 'no'
 
 if (GetLocalDepend(options, 'CFG_USE_BLE_PS') == 1):
     ble_lib_name += '_ps'
 
-if (GetDepend('CFG_SUPPORT_BLE')):
-    print 'using rwnx_ble: lib' + ble_lib_name + '.a'
 if ((GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1)
     and (GetLocalDepend(options, 'CFG_BLE_VERSION') == 'BLE_VERSION_5_x')):
     src_lib += ["ble_lib/ip/ble/hl/src/gap/gapc/gapc.c"]
@@ -206,10 +204,12 @@ if ((GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1)
 libs = [ble_lib_name]
 libpath = [cwd + '/']
 
-group_use_lib = DefineGroup('beken_ble_pub', src_pub, depend = [], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
-
-group_build_lib = DefineGroup('beken_ble', src_lib, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + ble_lib_name + '.a')
-
-group = group_use_lib + group_build_lib
+if (platform_match == 'yes') and (GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1):
+    print 'using ble_5_x: lib' + ble_lib_name + '.a'
+    group_use_lib = DefineGroup('beken_ble_lib', src_pub, depend = [], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
+    group_build_lib = DefineGroup('beken_ble', src_lib, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + ble_lib_name + '.a')
+    group = group_use_lib + group_build_lib
+else:
+    group = []
 
 Return('group')

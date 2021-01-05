@@ -23,6 +23,9 @@ void icu_init(void)
     param = PCLK_POSI;
     #else
     param = PCLK_POSI_UART1 | PCLK_POSI_UART2
+		#if (CFG_SOC_NAME == SOC_BK7231N)
+			| PCLK_POSI_SARADC
+		#endif
             | PCLK_POSI_PWMS | PCLK_POSI_SDIO
             | PCLK_POSI_I2C1 | PCLK_POSI_I2C2;
     #endif // (CFG_SOC_NAME == SOC_BK7231)

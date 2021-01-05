@@ -10,21 +10,18 @@ sys_config = os.path.join(cwd, '..', '..', '..', 'config', 'sys_config.h')
 options = LocalOptions(sys_config)
 
 ble_lib_name = 'ble'
+platform_match = 'yes'
 
-if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231N')):
-    ble_lib_name += '_7231n'
-elif (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231U')):
+if (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7231U'):
     ble_lib_name += '_7231u'
-elif(0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7221U')):
-    ble_lib_name += '_7221u'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7221U'):
+    ble_lib_name += '_7251'
 else:
     ble_lib_name += '_unknown'
+    platform_match = 'no'
 
 if (GetLocalDepend(options, 'CFG_USE_BLE_PS') == 1):
     ble_lib_name += '_ps'
-
-if (GetDepend('CFG_SUPPORT_BLE')):
-    print 'using rwnx_ble: lib' + ble_lib_name + '.a'
 
 if ((GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1)
     and (GetLocalDepend(options, 'CFG_BLE_VERSION') == 'BLE_VERSION_4_2')):
@@ -250,13 +247,14 @@ if ((GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1)
 
 libs = [ble_lib_name]
 libpath = [cwd + '/']
-
 cppdefines = ['WIFI_BLE_COEXIST']
 
-group_use_lib = DefineGroup('beken_ble_lib', src_pub, CPPDEFINES = cppdefines, depend = [], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
-
-group_build_lib = DefineGroup('beken_ble', src_lib, CPPDEFINES = cppdefines, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + ble_lib_name + '.a')
-
-group = group_use_lib + group_build_lib
+if (platform_match == 'yes') and (GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1):
+    print 'using ble: lib' + ble_lib_name + '.a'
+    group_use_lib = DefineGroup('beken_ble_lib', src_pub, CPPDEFINES = cppdefines, depend = [], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
+    group_build_lib = DefineGroup('beken_ble', src_lib, CPPDEFINES = cppdefines, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + ble_lib_name + '.a')
+    group = group_use_lib + group_build_lib
+else:
+    group = []
 
 Return('group')

@@ -465,6 +465,7 @@ UINT32 uart_read_fifo_frame(UINT8 uport, KFIFO_PTR rx_ptr)
     UINT32 val;
     UINT32 rx_count, fifo_status_reg;
     UINT32 unused = kfifo_unused(rx_ptr);
+
     if(UART1_PORT == uport)
         fifo_status_reg = REG_UART1_FIFO_STATUS;
     else
@@ -473,16 +474,13 @@ UINT32 uart_read_fifo_frame(UINT8 uport, KFIFO_PTR rx_ptr)
     rx_count = 0;
     while(REG_READ(fifo_status_reg) & FIFO_RD_READY)
     {
+        UART_READ_BYTE(uport, val);
         if(unused > rx_count)
-        {
-        	UART_READ_BYTE(uport, val);
-        	rx_count += kfifo_put(rx_ptr, (UINT8 *)&val, 1);
-        }
-        else
-        {
-            break;
-        }
+            rx_count += kfifo_put(rx_ptr, (UINT8 *)&val, 1);
     }
+
+    if(unused <= rx_count)
+        bk_printf("uart rx fifo full\r\n");
 
     return rx_count;
 }

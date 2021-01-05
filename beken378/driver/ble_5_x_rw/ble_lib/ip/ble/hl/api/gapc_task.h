@@ -357,7 +357,7 @@ enum gapc_features_list
     /// LE encryption
     GAPC_ENCRYPT_FEAT_MASK              = (1 << 0),
     /// Connection Parameters Request Procedure
-    GAPC_CONN_PARAM_REQ_FEAT_MASK       = (0 << 1),
+    GAPC_CONN_PARAM_REQ_FEAT_MASK       = (1 << 1),
     /// Extended Reject Indication
     GAPC_EXT_REJECT_IND_FEAT_MASK       = (1 << 2),
     /// Slave-initiated Features Exchange

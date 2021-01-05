@@ -37,6 +37,8 @@ static STA_PS_INFO bk_ps_info = {
 
 #if (CFG_SOC_NAME == SOC_BK7231)
 static UINT16 r_wakeup_time = 50;
+#elif (CFG_SOC_NAME == SOC_BK7231N)
+static UINT16 r_wakeup_time = 90;
 #else
 static UINT16 r_wakeup_time = 66;
 #endif

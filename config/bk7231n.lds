@@ -102,6 +102,7 @@ SECTIONS
         *(.text.flash_get_line_mode)
         *(.text.flash_write)
         *(.text.flash_ctrl)
+        *(.text.sctrl_fix_dpll_div)
         *queue.o(.text .text.*)
         *power_save.o(.text .text.*)
         *mcu_ps.o(.text .text.*)

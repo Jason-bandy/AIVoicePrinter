@@ -1,7 +1,7 @@
 #! /bin/bash
 # Clean up the sourcce files after libs are generated
 # example:
-# clean_lib_files.sh [SDK_path]
+# clean_src_files.sh [SDK_path]
 
 if [ "$1" == "" ]; then
 	BEKEN_SDK_DIR=./beken378

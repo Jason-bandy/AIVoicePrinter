@@ -104,7 +104,12 @@ void sctrl_ps_dpll_delay(UINT32 time)
 void sctrl_cali_dpll(UINT8 flag)
 {
     UINT32 param;
-   
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    extern void bk7011_update_tx_power_when_cal_dpll(int start_or_stop);
+
+	bk7011_update_tx_power_when_cal_dpll(1);
+#endif
     param = sctrl_analog_get(SCTRL_ANALOG_CTRL0);
     param &= ~(SPI_TRIG_BIT);
     sctrl_analog_set(SCTRL_ANALOG_CTRL0, param);
@@ -129,13 +134,17 @@ void sctrl_cali_dpll(UINT8 flag)
     param = sctrl_analog_get(SCTRL_ANALOG_CTRL0);
     param |= (SPI_DET_EN);
     sctrl_analog_set(SCTRL_ANALOG_CTRL0, param);
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    bk7011_update_tx_power_when_cal_dpll(0);
+#endif
 }
 
 void sctrl_dpll_isr(void)
 {
 #if (CFG_SOC_NAME == SOC_BK7231N)
+	os_printf("BIAS Cali\r\n");
     bk7011_cal_bias();
-    os_printf("BIAS Cali\r\n");
 #endif
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);    
     sctrl_cali_dpll(0);
@@ -334,7 +343,11 @@ void sctrl_init(void)
     #endif // (CFG_SOC_NAME == SOC_BK7221U)
     #if CFG_SYS_REDUCE_NORMAL_POWER
     param |= ((MCLK_DIV_7 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
-    #else // CFG_SYS_REDUCE_NORMAL_POWER 
+	#elif (CFG_SOC_NAME == SOC_BK7231N)
+    param |= ((MCLK_DIV_5 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+    #elif (CFG_SOC_NAME == SOC_BK7271)
+    param |= ((MCLK_DIV_3 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+	#else // CFG_SYS_REDUCE_NORMAL_POWER 
     param |= ((MCLK_DIV_3 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
     #endif // CFG_SYS_REDUCE_NORMAL_POWER
     param |= ((MCLK_FIELD_DPLL & MCLK_MUX_MASK) << MCLK_MUX_POSI);
@@ -381,15 +394,17 @@ void sctrl_init(void)
     sctrl_set_cpu_clk_dco();
     #endif
 
-    #if (CFG_SOC_NAME == SOC_BK7231)
+#if (CFG_SOC_NAME == SOC_BK7231)
     param = 0x24006000;
 #elif (CFG_SOC_NAME == SOC_BK7231N)
-    param = 0x480020E2;//0x400020E0; //wangjian20200822 0x40032030->0x48032030->0x48022032//wangjian20200903<17:16>=0
+    param = 0x500020E2;//0x400020E0; //wangjian20200822 0x40032030->0x48032030->0x48022032//wangjian20200903<17:16>=0//qunshan20201127<28:23>=20
+#elif (CFG_SOC_NAME == SOC_BK7271)
+    param = 0x80208B00; //for 32k if enable BLK_BIT_ROSC32K
 #else
     param = 0x24006080;   // xtalh_ctune   // 24006080
     param &= ~(XTALH_CTUNE_MASK<< XTALH_CTUNE_POSI);
     param |= ((0x10&XTALH_CTUNE_MASK) << XTALH_CTUNE_POSI);
-    #endif // (CFG_SOC_NAME == SOC_BK7231)
+#endif // (CFG_SOC_NAME == SOC_BK7231)
     sctrl_analog_set(SCTRL_ANALOG_CTRL2, param);
 
     #if (CFG_SOC_NAME == SOC_BK7221U)
@@ -419,10 +434,7 @@ void sctrl_init(void)
     sctrl_sub_reset();
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
-    // This feature may cause crash, so close it
-#ifdef FIX_DPLL_DIV
     sctrl_fix_dpll_div();
-#endif
 #endif
 
 	/*sys ctrl clk gating, for rx dma dead*/
@@ -781,7 +793,7 @@ void sctrl_rf_ps_enable_clear(void)
     GLOBAL_INT_RESTORE();
 }
 
-void sctrl_rf_ps_enabled(void)
+int sctrl_rf_ps_enabled(void)
 {
     uint32_t value = 0;
     GLOBAL_INT_DECLARATION();
@@ -791,10 +803,16 @@ void sctrl_rf_ps_enabled(void)
     return (value > 0) ? 1 : 0;
 }
 
+int sctrl_rf_wakeup_enabled(void)
+{
+    // as none case need disable rf wakeup until now, always enable rf wakeup
+    return 1;
+}
+
 static void sctrl_rf_sleep(void)
 {
     #if (!CFG_USE_PTA)
-    if(sctrl_rf_ps_enabled == 1)
+    if(sctrl_rf_ps_enabled() == 1)
     {
     UINT32 reg;
     GLOBAL_INT_DECLARATION();
@@ -824,30 +842,41 @@ static void sctrl_rf_sleep(void)
 static void sctrl_rf_wakeup(void)
 {
     #if (!CFG_USE_PTA)
-    if(sctrl_rf_ps_enabled == 1)
+    if(sctrl_rf_wakeup_enabled() == 1)
     {
-    UINT32 reg;
-    GLOBAL_INT_DECLARATION();
-    GLOBAL_INT_DISABLE();
-    if(rf_sleeped == 1)
-    {
-        /* Modem AHB clock enable*/
-        reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-        REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | PHY_HCLK_EN_BIT);
-        
-        /* Modem Subsystem clock 480m enable*/
-        reg = REG_READ(SCTRL_CONTROL);
-        reg &= ~MODEM_CLK480M_PWD_BIT;
-        REG_WRITE(SCTRL_CONTROL, reg);
+	    UINT32 reg;
+	    GLOBAL_INT_DECLARATION();
+	
+	    GLOBAL_INT_DISABLE();
+	    if(rf_sleeped == 1)
+	    {
+			/* Modem AHB clock enable*/
+			#if (CFG_SOC_NAME == SOC_BK7271)
+			reg = REG_READ(SCTRL_CONTROL);
+			REG_WRITE(SCTRL_CONTROL, reg | PHY_HCLK_EN_BIT);
+			#else
+			reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
+			REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | PHY_HCLK_EN_BIT);
+			#endif
+	
+			/* Modem Subsystem clock 480m enable*/
+			reg = REG_READ(SCTRL_CONTROL);
+			reg &= ~MODEM_CLK480M_PWD_BIT;
+			REG_WRITE(SCTRL_CONTROL, reg);
 
-    	/*Enable BK7011:rc_en,ch0_en*/
-        rc_cntl_stat_set(0x09);
-        PS_DEBUG_UP_TRIGER;
+			/*Enable BK7011:rc_en,ch0_en*/
+			rc_cntl_stat_set(0x09);
+			PS_DEBUG_UP_TRIGER;
 
-        rf_sleeped = 0;
-    }
-    GLOBAL_INT_RESTORE();
-    }
+#if (CFG_SOC_NAME == SOC_BK7231N)
+			sctrl_fix_dpll_div();
+			phy_wakeup_rf_reinit();
+#endif
+
+			rf_sleeped = 0;
+    	}
+	    GLOBAL_INT_RESTORE();
+	}
     #endif
 }
 
@@ -909,6 +938,11 @@ void sctrl_sta_rf_wakeup(void)
         
         reg = RF_HOLD_BY_STA_BIT;
         sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+
+    #if (CFG_SOC_NAME == SOC_BK7231N)
+        phy_wakeup_wifi_reinit();
+    #endif
+		
         sta_rf_sleeped = 0;
     }
     GLOBAL_INT_RESTORE();
@@ -1175,21 +1209,40 @@ void sctrl_subsys_reset(UINT32 cmd)
 }
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
-#ifdef FIX_DPLL_DIV
 void sctrl_fix_dpll_div(void)
 {
 	volatile INT32   i;
-	REG_WRITE(CMD_SCTRL_MODEM_SUBCHIP_RESET, MODEM_SUBCHIP_RESET_WORD);
+	uint32 reg;
+	uint32 cpu_clock;
+
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+
+	reg = REG_READ(SCTRL_CONTROL);
+	cpu_clock = reg & 0xFF;
+	reg = (reg & 0xFFFFFF00) | 0x52;
+	REG_WRITE(SCTRL_CONTROL, reg);
+
+	for(i = 0; i < 100; i ++);
+
+	REG_WRITE(SCTRL_MODEM_SUBCHIP_RESET_REQ, MODEM_SUBCHIP_RESET_WORD);
 	REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) | (1 << 14));
 
 	for(i = 0; i < 100; i ++);
 
-	REG_WRITE(CMD_SCTRL_MODEM_SUBCHIP_RESET, 0);
+	REG_WRITE(SCTRL_MODEM_SUBCHIP_RESET_REQ, 0);
 	REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) & ~(1 << 14));
 
 	for(i = 0; i < 100; i ++);
+
+	reg = REG_READ(SCTRL_CONTROL);
+	reg = (reg & 0xFFFFFF00) | cpu_clock;
+	REG_WRITE(SCTRL_CONTROL, reg);
+
+	for(i = 0; i < 100; i ++);
+
+	GLOBAL_INT_RESTORE();
 }
-#endif
 #endif
 
 #if CFG_USE_FAKERTC_PS
@@ -3169,6 +3222,10 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
     	reg &= (~(DIG_VDD_ACTIVE_MASK << DIG_VDD_ACTIVE_POSI));
         reg |=((*(UINT32 *)param) << DIG_VDD_ACTIVE_POSI);
     	REG_WRITE(SCTRL_DIGTAL_VDD, reg);
+        break;
+    case CMD_SCTRL_GET_VDD_VALUE:
+        reg = REG_READ(SCTRL_DIGTAL_VDD);
+        ret = (reg >> DIG_VDD_ACTIVE_POSI) & DIG_VDD_ACTIVE_MASK;
         break;
 
     case CMD_GET_SCTRL_RETETION:

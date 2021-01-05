@@ -375,7 +375,7 @@ const uint32_t agc_ram_parameter[] =
 	0x04000131,
 	0x00000000,
 	0x8432028f,
-	0x8400013f,
+	0x84000163, //huaming20201224 for rx sens
 	0x80104963,
 	0x08104937,
 	0x8810493b,
@@ -2441,12 +2441,27 @@ void phy_unsupported_modulation_check(void)
     } while(0);
 }
 
-void phy_enable_rx_switch()
+void phy_enable_rx_switch(void)
 {
     uint32_t rege_val = rc_trx_reg14_get();
     rege_val |= BIT(25);
     rc_trx_reg14_set(rege_val);
 }
+
+void phy_disable_rx_switch(void)
+{
+    uint32_t rege_val = rc_trx_reg14_get();
+    rege_val &= ~ BIT(25);
+    rc_trx_reg14_set(rege_val);
+}
+
+static uint8_t large_singal_status;
+
+uint8_t check_large_singal_status(void)
+{
+    return large_singal_status;
+}
+
 
 int large_signal_cnt;
 int small_signal_cnt;
@@ -2480,6 +2495,7 @@ void phy_large_signal_support(int8_t rssi)
 
     if (rxswitch_en && (large_signal_cnt >= 10))
     {
+        large_singal_status = 1;
         //close rx switch
         rege_val &= ~ BIT(25);
         rc_trx_reg14_set(rege_val);
@@ -2487,6 +2503,7 @@ void phy_large_signal_support(int8_t rssi)
 
     if(!rxswitch_en && (small_signal_cnt >= 10))
     {
+        large_singal_status = 0;
         //open rx switch
         rege_val |= BIT(25);
         rc_trx_reg14_set(rege_val);
@@ -2815,5 +2832,43 @@ void phy_init_after_wakeup(void)
     
     phy_set_channel(PHY_BAND_2G4, PHY_CHNL_BW_20, freq, freq, 0, PHY_PRIM);
 }
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+void phy_wakeup_rf_reinit(void)
+{
+    struct phy_env_tag phy_env_sleep;
+
+    phy_env_sleep.band                = phy_env->band;
+    phy_env_sleep.chnl_prim20_freq    = phy_env->chnl_prim20_freq;
+    phy_env_sleep.chnl_center1_freq   = phy_env->chnl_center1_freq;
+    phy_env_sleep.chnl_center2_freq   = phy_env->chnl_center2_freq;
+    phy_env_sleep.chnl_type           = phy_env->chnl_type;
+
+    phy_env->band                =
+    phy_env->chnl_prim20_freq    =
+    phy_env->chnl_center1_freq   =
+    phy_env->chnl_center2_freq   =
+    phy_env->chnl_type           = PHY_UNUSED;
+
+    // recover trx setting
+    rwnx_cal_recover_rf_setting();
+
+    // recover channel setting
+    phy_set_channel(phy_env_sleep.band, phy_env_sleep.chnl_type, phy_env_sleep.chnl_prim20_freq,
+                        phy_env_sleep.chnl_center1_freq, phy_env_sleep.chnl_center2_freq, PHY_PRIM);
+
+}
+
+void phy_wakeup_wifi_reinit(void)
+{
+    //MODEM - contains AGC?
+    phy_mdm_init(0);
+
+    //AGC - separate or in MDM?
+    phy_agc_init();
+
+    rwnx_cal_recover_wifi_setting();
+}
+#endif
 //eof
 

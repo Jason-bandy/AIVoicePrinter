@@ -44,15 +44,18 @@ extern void rwnx_cal_initial_calibration(void);
 UINT32 func_init_extended(void)
 {
     char temp_mac[6];
-    
+
 	cfg_param_init();
     // load mac, init mac first
     wifi_get_mac_address(temp_mac, CONFIG_ROLE_NULL);
 	
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    manual_cal_load_bandgap_calm();
+#endif
     FUNC_PRT("[FUNC]rwnxl_init\r\n");
     rwnxl_init();
 
-#if CFG_UART_DEBUG 
+#if CFG_UART_DEBUG
 	#ifndef KEIL_SIMULATOR
     FUNC_PRT("[FUNC]uart_debug_init\r\n");   
     uart_debug_init();

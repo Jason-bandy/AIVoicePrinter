@@ -254,6 +254,10 @@ OSStatus rtos_push_to_queue(beken_queue_t* queue, void* message, uint32_t timeou
 		ret = rt_mb_send_wait(mq->handle, (rt_uint32_t)msg_tmp, rt_tick_from_millisecond(timeout_ms));
 		if(ret != RT_EOK)
 		{
+			if(msg_tmp)
+			{
+				rt_mp_free(msg_tmp);
+			}
 			RTOS_DBG("%s rt_mb_send_wait ret:%d!\r\n", __FUNCTION__, ret);
 			return kGeneralErr;
 		}

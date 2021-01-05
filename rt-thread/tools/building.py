@@ -138,6 +138,14 @@ def GenCconfigFile(env, BuildOptions):
                 # add HAVE_CCONFIG_H definition
                 env.AppendUnique(CPPDEFINES = ['HAVE_CCONFIG_H'])
 
+def DoSystemCall(command_string):
+    result = os.system(command_string)
+    if (result>>8) != 0:
+        print 'system(%s) error!' % command_string
+        exit (1)
+    else:
+        print 'system(%s) succeed' % command_string
+
 def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = []):
     import rtconfig
 
@@ -182,8 +190,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
                       help = 'building library of a component')
     AddOption('--cleanlib',
                       dest = 'cleanlib',
-                      action = 'store_true',
-                      default = False,
+                      type = 'string',
                       help = 'clean up the library by --buildlib')
     AddOption('--target',
                       dest = 'target',
@@ -209,68 +216,88 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
                 type = 'string',
                 default = 'bk7251',
                 help = 'set beken project: bk7231u/bk7231n/etc...')
-    AddOption('--release',
-                dest = 'release',
-                action = 'store_true',
-                default = False,
-                help = 'build libraries, remove confidential source, package the project')
     AddOption('--buildlibs',
                 dest = 'buildlibs',
                 action = 'store_true',
                 default = False,
                 help = 'building libraries of all components')
-
-    if GetOption('release'):
-        os.system("scons --beken=bk7231n --buildlib=beken_ip")
-        os.system("scons --beken=bk7231n --buildlib=beken_ble")
-        os.system("scons --beken=bk7231n --buildlib=beken_vad")
-        os.system("rm -rf build")
-#        os.system("scons --beken=bk7231u --buildlib=beken_ip")
-#        os.system("scons --beken=bk7231u --buildlib=beken_ble")
-#        os.system("scons --beken=bk7231u --buildlib=beken_vad")
-#        os.system("rm -rf build")
-#        os.system("scons --beken=bk7251 --buildlib=beken_ip")
-#        os.system("scons --beken=bk7251 --buildlib=beken_ble")
-#        os.system("scons --beken=bk7251 --buildlib=beken_vad")
-#        os.system("scons --beken=bk7251 --buildlib=beken_usb")
-#        os.system("scons --beken=bk7251 --buildlib=beken_sensor")
-        #os.system("scons --beken=bk7251 --buildlib=player")
-#        os.system("rm -rf build")
-
-        if sys.platform == 'win32':
-            os.system("tool\\scripts\\make_sdk.sh")
-        else:
-            os.system("tool/scripts/make_sdk.sh")
-        exit(0)
+    AddOption('--cleanlibs',
+                dest = 'cleanlibs',
+                action = 'store_true',
+                default = False,
+                help = 'clean up libraries by --buildlib')
 
     if GetOption('buildlibs'):
         if GetOption('beken') == 'bk7231n':
-            os.system("scons --beken=bk7231n --buildlib=beken_ip")
-            os.system("scons --beken=bk7231n --buildlib=beken_ble")
-            os.system("scons --beken=bk7231n --buildlib=beken_vad")
-            os.system("rm -rf build")
+            DoSystemCall("scons --beken=bk7231n --buildlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7231n --buildlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7231n --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231n --buildlib=beken_sensor -j8")
         elif GetOption('beken') == 'bk7231u':
-            os.system("scons --beken=bk7231u --buildlib=beken_ip")
-            os.system("scons --beken=bk7231u --buildlib=beken_ble")
-            os.system("scons --beken=bk7231u --buildlib=beken_vad")
-            os.system("rm -rf build")
+            DoSystemCall("scons --beken=bk7231u --buildlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7231u --buildlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7231u --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231u --buildlib=beken_sensor -j8")
+        elif GetOption('beken') == 'bk7236':
+            DoSystemCall("scons --beken=bk7236 --buildlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7236 --buildlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7236 --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7236 --buildlib=beken_sensor -j8")
+        elif GetOption('beken') == 'bk7271':
+            DoSystemCall("scons --beken=bk7271 --buildlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7271 --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7271 --buildlib=beken_usb -j8")
+            DoSystemCall("scons --beken=bk7271 --buildlib=beken_sensor -j8")
+            #DoSystemCall("scons --beken=bk7271 --buildlib=player")
         else:
-            os.system("scons --beken=bk7251 --buildlib=beken_ip")
-            os.system("scons --beken=bk7251 --buildlib=beken_ble")
-            os.system("scons --beken=bk7251 --buildlib=beken_vad")
-            os.system("scons --beken=bk7251 --buildlib=beken_usb")
-            os.system("scons --beken=bk7251 --buildlib=beken_sensor")
-            #os.system("scons --beken=bk7251 --buildlib=player")
-            os.system("rm -rf build")
+            DoSystemCall("scons --beken=bk7251 --buildlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7251 --buildlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7251 --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7251 --buildlib=beken_usb -j8")
+            DoSystemCall("scons --beken=bk7251 --buildlib=beken_sensor -j8")
+            #DoSystemCall("scons --beken=bk7251 --buildlib=player")
 
+        exit(0)
+
+    if GetOption('cleanlibs'):
+        if GetOption('beken') == 'bk7231n':
+            DoSystemCall("scons --beken=bk7231n --cleanlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7231n --cleanlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7231n --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231n --cleanlib=beken_sensor -j8")
+        elif GetOption('beken') == 'bk7231u':
+            DoSystemCall("scons --beken=bk7231u --cleanlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7231u --cleanlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7231u --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231u --cleanlib=beken_sensor -j8")
+        elif GetOption('beken') == 'bk7236':
+            DoSystemCall("scons --beken=bk7236 --cleanlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7236 --cleanlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7236 --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7236 --cleanlib=beken_sensor -j8")
+        elif GetOption('beken') == 'bk7271':
+            DoSystemCall("scons --beken=bk7271 --cleanlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7271 --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7271 --cleanlib=beken_usb -j8")
+            DoSystemCall("scons --beken=bk7271 --cleanlib=beken_sensor -j8")
+            #DoSystemCall("scons --beken=bk7271 --cleanlib=player")
+        else:
+            DoSystemCall("scons --beken=bk7251 --cleanlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7251 --cleanlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7251 --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7251 --cleanlib=beken_usb -j8")
+            DoSystemCall("scons --beken=bk7251 --cleanlib=beken_sensor -j8")
+            #DoSystemCall("scons --beken=bk7251 --cleanlib=player")
+
+        os.system("rm -rf build")
         exit(0)
 
     beken_target = GetOption('beken')
     if sys.platform == 'win32':
-        os.system("tool\\scripts\\generate_sys_config.bat " + beken_target)
+        os.system("tools\\scripts\\generate_sys_config.bat " + beken_target)
     else:
-        os.system("tool/scripts/generate_sys_config.sh " + beken_target)
-    rtconfig.POST_ACTION += 'python tool/scripts/post_action.py ' + beken_target + '\n'
+        os.system("tools/scripts/generate_sys_config.sh " + beken_target)
+    rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + '\n'
 
     Env = env
     Rtt_Root = os.path.abspath(root_directory)
@@ -390,7 +417,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
 
     # include beken system config
     # define BUILD_LIB if build library
-    if GetOption('buildlib'):
+    if GetOption('buildlib') or GetOption('cleanlib'):
         AddDepend('BUILD_LIB')
 
     # auto append '_REENT_SMALL' when using newlib 'nano.specs' option
@@ -489,8 +516,7 @@ def PrepareModuleBuilding(env, root_directory, bsp_directory):
               help='building library of a component')
     AddOption('--cleanlib',
               dest='cleanlib',
-              action='store_true',
-              default=False,
+              type='string',
               help='clean up the library by --buildlib')
 
     # add program path
@@ -651,12 +677,11 @@ def DefineGroup(name, src, depend, **parameters):
         Env.AppendUnique(ASFLAGS = group['ASFLAGS'])
 
     # check whether to clean up library
-    if GetOption('cleanlib') and os.path.exists(os.path.join(group['path'], GroupLibFullName(name, Env))):
-        if group['src'] != []:
+    if GetOption('cleanlib') and (GetOption('cleanlib') == name):
+        fn = os.path.join(group['path'], GroupLibFullName(name, Env))
+        if os.path.exists(fn) and (group['src'] != []):
             print 'Remove library:', GroupLibFullName(name, Env)
-            fn = os.path.join(group['path'], GroupLibFullName(name, Env))
-            if os.path.exists(fn):
-                os.unlink(fn)
+            os.unlink(fn)
 
     # check whether exist group library
     if not GetOption('buildlib') and os.path.exists(os.path.join(group['path'], GroupLibFullName(name, Env))):
@@ -733,7 +758,7 @@ def BuildLibInstallAction(target, source, env):
             do_copy_file(lib_name, dst_name)
             break
 
-def DoBuilding(target, objects):
+def DoBuilding(env, target, objects):
 
     # merge all objects into one list
     def one_list(l):
@@ -765,12 +790,13 @@ def DoBuilding(target, objects):
 
     program = None
     # check whether special buildlib option
-    lib_name = GetOption('buildlib')
-    if lib_name:
+    if GetOption('buildlib'):
+        lib_name = GetOption('buildlib')
         objects = [] # remove all of objects
         # build library with special component
         for Group in Projects:
             if Group['name'] == lib_name:
+                print 'buildlib %s ' % lib_name
                 lib_name = GroupLibName(Group['name'], Env)
                 if not local_group(Group, objects):
                     objects = Env.Object(Group['src'])
@@ -780,6 +806,21 @@ def DoBuilding(target, objects):
                 # add library copy action
                 Env.BuildLib(lib_name, program)
 
+                break
+    elif GetOption('cleanlib'):
+        lib_name = GetOption('cleanlib')
+        for Group in Projects:
+            if Group['name'] == lib_name:
+                if Group['src'] != []:
+                    if Group.has_key('LIBNAME'):
+                        dst_name = os.path.join(Group['path'], Group['LIBNAME'])
+                        if os.path.exists(dst_name):
+                            print 'Remove library: %s' % dst_name
+                            os.unlink(dst_name)
+                    dst_name = GroupLibFullName(Group['name'], env)
+                    if os.path.exists(dst_name):
+                        print 'Remove library: %s' % dst_name
+                        os.unlink(dst_name)
                 break
     else:
         # remove source files with local flags setting
