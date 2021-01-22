@@ -25,6 +25,7 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
+#include "sys_config.h"
 #include <stdint.h>
 
 extern unsigned char _empty_ram;

@@ -289,6 +289,7 @@ void ps_msg_process(UINT8 ps_msg)
         break;
 
     case PS_BMSG_IOCTL_RF_DISANABLE:
+        bmsg_ps_handler_rf_ps_mode_real_wakeup();
         power_save_dtim_disable();
         break;
 #endif

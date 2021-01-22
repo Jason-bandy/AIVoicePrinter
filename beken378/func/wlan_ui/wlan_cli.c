@@ -2266,6 +2266,81 @@ static void cmd_wifi_mgmt_filter(char *pcWriteBuffer, int xWriteBufferLen, int a
 	bk_printf("set filter ret=%x\n", ret);
 }
 
+#if CFG_WIFI_RAW_TX_CMD
+
+typedef struct {
+	uint32_t interval;
+	uint32_t counter;
+} wifi_raw_tx_param_t;
+
+static void wifi_raw_tx_thread(void *arg)
+{
+	char frame[] = {
+		0xB0, //version, type, subtype
+		0x00, //frame control
+		0x3A, 0x01, //duration
+		0xC8, 0x47, 0x8C, 0x42, 0x00, 0x48, //Address1 - destination
+		0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address2 - source
+		0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address3 - bssid
+		0x20, 0xC0, //sequence
+
+		//Auth Response
+		0x00, 0x00, //Auth algorithm - open system
+		0x02, 0x00, //Auth seq num
+		0x00, 0x00, //Status code
+	};
+	wifi_raw_tx_param_t *tx_param;
+	int ret;
+
+	tx_param = (wifi_raw_tx_param_t *)arg;
+	os_printf("wifi raw tx begin, interval=%u counter=%d\n", tx_param->interval,
+			tx_param->counter);
+
+	for (uint32_t i = 0; i < tx_param->counter; i++) {
+		ret = bk_wlan_send_80211_raw_frame(frame, sizeof(frame));
+		if (ret != kNoErr) {
+			os_printf("raw tx error, ret=%d\n", ret);
+		}
+
+		rtos_delay_milliseconds(tx_param->interval);
+	}
+
+	os_free(arg);
+	os_printf("wifi raw tx end\n");
+	rtos_delete_thread(NULL);
+}
+
+static void wifi_raw_tx_command(char *pcWriteBuffer, int xWriteBufferLen,
+				int argc, char **argv)
+{
+	OSStatus ret;
+
+	if (argc != 3) {
+		bk_printf("param error");
+		bk_printf("usage: wifi_raw_tx interval counter");
+		return;
+	}
+
+	wifi_raw_tx_param_t *tx_param;
+	tx_param = (wifi_raw_tx_param_t *)os_malloc(sizeof(wifi_raw_tx_param_t));
+	if (!tx_param) {
+		bk_printf("out of memory\n");
+		return;
+	}
+
+	tx_param->interval = os_strtoul(argv[1], NULL, 10);
+	tx_param->counter = os_strtoul(argv[2], NULL, 10);
+	ret = rtos_create_thread(NULL, THD_CORE_PRIORITY, "raw_tx",
+				(beken_thread_function_t)wifi_raw_tx_thread,
+				2048, tx_param);
+	if (kNoErr != ret) {
+		os_free(tx_param);
+		os_printf("Create raw tx thread failed, ret=%d\r\n", ret);
+		return;
+	}
+}
+#endif
+
 static const struct cli_command built_ins[] =
 {
     {"help", NULL, help_command},
@@ -2364,6 +2439,9 @@ static const struct cli_command built_ins[] =
 	{"wifisensor", "wifi sensor", wifi_sensor_command},
 #endif
     {"wifi_mgmt_filter", "wifi_mgmt_filter <0/1/-1>", cmd_wifi_mgmt_filter},
+#if CFG_WIFI_RAW_TX_CMD
+	{"wifi_raw_tx", "wifi_raw_tx", wifi_raw_tx_command},
+#endif
 };
 
 /* Built-in "help" command: prints all registered commands and their help

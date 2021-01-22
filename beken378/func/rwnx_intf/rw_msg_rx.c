@@ -36,8 +36,8 @@ uint8_t *ind_buf_ptr = 0;
 struct co_list rw_msg_rx_head;
 struct co_list rw_msg_tx_head;
 rw_evt_type connect_flag = RW_EVT_STA_IDLE;
-
 SCAN_RST_UPLOAD_T *scan_rst_set_ptr = 0;
+
 #if CFG_NEW_SUPP
 IND_CALLBACK_T scan_cfm_cb_user = {0};
 #endif
@@ -105,31 +105,83 @@ void sr_free_all(SCAN_RST_UPLOAD_T *scan_rst)
         scan_rst->res[i] = 0;
     }
     scan_rst->scanu_num = 0;
+	scan_rst->ref = 0;
 
     sr_free_shell((UINT8 *)scan_rst);
 }
 
-void *sr_get_scan_results(void)
+uint32_t sr_get_scan_number(void)
 {
-    return scan_rst_set_ptr;
+	uint32_t count = 0;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	if(scan_rst_set_ptr)
+	{
+		count = scan_rst_set_ptr->scanu_num;
+	}
+	GLOBAL_INT_RESTORE();
+
+	return count;
 }
 
+/* Attention: sr_get_scan_results and sr_release_scan_results have to come in pairs*/
+void *sr_get_scan_results(void)
+{
+	void *ptr;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	ptr = scan_rst_set_ptr;
+	scan_rst_set_ptr->ref += 1;
+	GLOBAL_INT_RESTORE();
+	
+    return ptr;
+}
+
+void sr_flush_scan_results(SCAN_RST_UPLOAD_PTR ptr)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	ptr->ref = 1;
+	sr_release_scan_results(ptr);
+	GLOBAL_INT_RESTORE();
+}
+
+/* Attention: sr_get_scan_results and sr_release_scan_results have to come in pairs*/
 void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 {
 	GLOBAL_INT_DECLARATION();
 
-    GLOBAL_INT_DISABLE();
-	if(ptr && scan_rst_set_ptr == ptr)
+	GLOBAL_INT_DISABLE();
+	if((0 == ptr) || (0 == ptr->ref))
 	{
-		scan_rst_set_ptr = 0;
-		wpa_clear_scan_results();
+		os_printf("released_scan_results\r\n");
+		goto release_exit;
 	}
-	GLOBAL_INT_RESTORE();
+	
+	ptr->ref -= 1;
+
+	if(ptr->ref)
+	{
+		os_printf("release_scan_results later\r\n");
+		goto release_exit;
+	}
 	
     if(ptr)
     {
         sr_free_all(ptr);
     }
+
+    scan_rst_set_ptr = 0;
+	resultful_scan_cfm = 0;
+	
+	wpa_clear_scan_results();
+	
+release_exit:	
+	GLOBAL_INT_RESTORE();
+	return;
 }
 
 void mr_kmsg_init(void)
@@ -393,12 +445,6 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
 
     UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
-        
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-	rf_can_share_for_ble();
-#endif
-#endif
 }
 
 /* SM_AUTH_IND handler, send it to wpa_s */
@@ -446,12 +492,6 @@ void mhdr_connect_ind(void *msg, UINT32 len)
     mcu_prevent_clear(MCU_PS_CONNECT);
     UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
-    
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-    rf_can_share_for_ble();
-#endif
-#endif
 }
 #endif
 
@@ -689,7 +729,10 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER);
 #endif
 		if (scan_rst_set_ptr)
+		{
+			/* scan activity has valid result*/
 			resultful_scan_cfm = 1;
+		}
 
 		mhdr_scanu_start_cfm(rx_msg, scan_rst_set_ptr);
         UINT32 reg = RF_HOLD_BY_SCAN_BIT;
@@ -699,7 +742,8 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 	case SCANU_RESULT_IND:
 		/* scan result indication */
 		if (resultful_scan_cfm && scan_rst_set_ptr) {
-			sr_release_scan_results(scan_rst_set_ptr);
+			sr_flush_scan_results(scan_rst_set_ptr);
+			
 			scan_rst_set_ptr = 0;
 			resultful_scan_cfm = 0;
 		}
@@ -740,7 +784,9 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		/* connect indication */
 		if (scan_rst_set_ptr) {
 			sr_release_scan_results(scan_rst_set_ptr);
+			
 			scan_rst_set_ptr = 0;
+			resultful_scan_cfm = 0;
 		}
 
 		mhdr_connect_ind(rx_msg, rx_msg->param_len);
@@ -781,12 +827,6 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		break;
 
 	case SM_BEACON_LOSE_IND:
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-		rf_not_share_for_ble();
-#endif
-#endif
-
 		if (fn) {
 			param = RW_EVT_STA_BEACON_LOSE;
 			(*fn)(&param);
@@ -883,11 +923,14 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 			param = RW_EVT_STA_CONNECTED;
 			(*fn)(&param);
 		}
-		mhdr_set_station_status(RW_EVT_STA_CONNECTED);
+		if (mhdr_get_station_status() < RW_EVT_STA_CONNECTED)
+		{
+			mhdr_set_station_status(RW_EVT_STA_CONNECTED);
 
 #if (RF_USE_POLICY == BLE_DEFAULT_WIFI_REQUEST)
-		wifi_station_status_event_notice(0, RW_EVT_STA_CONNECTED);
+			wifi_station_status_event_notice(0, RW_EVT_STA_CONNECTED);
 #endif
+		}
 		break;
 
 	case APM_ASSOC_IND:

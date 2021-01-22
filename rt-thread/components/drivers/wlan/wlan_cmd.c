@@ -425,7 +425,7 @@ int wifi(int argc, char **argv)
     else if (strcmp(argv[2], "up") == 0)
     {
         /* the key was saved in wlan device */
-        rt_wlan_connect(wlan, RT_NULL, wlan->key);
+        rt_wlan_up(wlan, RT_NULL, wlan->key);
     }
     else if (strcmp(argv[2], "down") == 0)
     {

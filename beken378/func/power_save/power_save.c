@@ -306,6 +306,9 @@ UINT8 power_save_clr_all_vif_prevent_sleep ( UINT32 prevent_bit )
 
 	return 0;
 }
+#if	CFG_BLE_VERSION == BLE_VERSION_4_2
+extern void ps_recover_ble_switch_mac_status(void);
+#endif
 void power_save_wakeup ( void )
 {
 	UINT32 reg;
@@ -340,6 +343,9 @@ void power_save_wakeup ( void )
 	PS_DEBUG_UP_TRIGER;
 	ASSERT ( !ps_lock );
 	ps_lock ++;
+#if	(CFG_BLE_VERSION == BLE_VERSION_4_2)
+	ps_recover_ble_switch_mac_status();
+#endif
 }
 
 void power_save_dtim_exit_check()
@@ -684,6 +690,9 @@ int power_save_dtim_disable_handler ( void )
 
 	GLOBAL_INT_RESTORE();
 	os_printf ( "exit dtim ps!\r\n" );
+#if	CFG_BLE_VERSION == BLE_VERSION_4_2
+	ps_recover_ble_switch_mac_status();
+#endif
 	return 0;
 }
 

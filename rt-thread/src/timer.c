@@ -575,8 +575,9 @@ void rt_soft_timer_check(void)
     /* lock scheduler */
     rt_enter_critical();
 
-    for (n = rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1].next;
-         n != &(rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1]);)
+    n = rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1].next;
+
+    while (n != &(rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1]))
     {
         t = rt_list_entry(n, struct rt_timer, row[RT_TIMER_SKIP_LIST_LEVEL - 1]);
 
@@ -588,25 +589,11 @@ void rt_soft_timer_check(void)
         {
             RT_OBJECT_HOOK_CALL(rt_timer_timeout_hook, (t));
 
-            /* move node to the next */
-            n = n->next;
-
             /* remove timer from timer list firstly */
             _rt_timer_remove(t);
 
             /*set running*/
             t->parent.flag |= RT_TIMER_FLAG_RUNNING;
-
-            if( n != &(rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1]))
-            {
-                t_next = rt_list_entry(n, struct rt_timer, row[RT_TIMER_SKIP_LIST_LEVEL - 1]);
-                /*set running*/
-                t_next->parent.flag |= RT_TIMER_FLAG_RUNNING;
-            }
-            else
-            {
-                t_next = NULL;
-            }
 
             /* not lock scheduler when performing timeout function */
             rt_exit_critical();
@@ -629,10 +616,6 @@ void rt_soft_timer_check(void)
 
             /*clear running*/
             t->parent.flag &= ~RT_TIMER_FLAG_RUNNING;
-            if(t_next)
-            {
-                t_next->parent.flag &= ~RT_TIMER_FLAG_RUNNING;
-            }
 
             if(t->parent.flag & RT_TIMER_FLAG_FREE_PENDING)
             {
@@ -652,38 +635,10 @@ void rt_soft_timer_check(void)
                 /* stop timer */
                 t->parent.flag &= ~RT_TIMER_FLAG_ACTIVATED;
             }
-
-            if(t_next)
-            {
-                if(t_next->parent.flag & RT_TIMER_FLAG_FREE_PENDING)
-                {
-                    int out_flag = 0;
-
-                    if(n == n->next)
-                    {
-                        /*have aready been removed from list*/
-                        out_flag = 1;
-                    }
-                    else
-                    {
-                        /* move node to the next */
-                        n = n->next;
-                    }
-
-                    /* remove timer from timer list firstly */
-                    _rt_timer_remove(t_next);
-
-                    t_next->parent.flag &= ~(RT_TIMER_FLAG_FREE_PENDING|RT_TIMER_FLAG_ACTIVATED);
-                    rt_object_delete((rt_object_t)t_next);
-                    rtos_deinit_free_beken_timer(t_next);
-
-                    if(1 == out_flag)
-                        break;
-                }
-            }
-
         }
         else break; /* not check anymore */
+
+        n = rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1].next;
     }
 
     /* unlock scheduler */

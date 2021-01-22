@@ -221,7 +221,7 @@ int hapd_get_sta_info(struct prism2_hostapd_param *param, int len)
 	if(entry && entry->pre_rx_timepoint)
 	{
 		tick_cnt = fclk_get_tick();
-		if(tick_cnt > entry->pre_rx_timepoint)
+		if(tick_cnt >= entry->pre_rx_timepoint)
 		{
 			delta_sec = (tick_cnt - entry->pre_rx_timepoint) / TICK_PER_SECOND;
 		}
@@ -493,7 +493,7 @@ void wpa_buffer_scan_results(void)
 
 void wpa_clear_scan_results(void)
 {
-    s_scan_result_upload_ptr = 0;
+    s_scan_result_upload_ptr = NULL;
 }
 
 int wpa_reg_assoc_cfm_callback(struct prism2_hostapd_param *param, int len)
@@ -720,7 +720,6 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 
 	os_free(assoc_param);
 
-//assoc_exit:
     if(s_scan_result_upload_ptr) {
         sr_release_scan_results(s_scan_result_upload_ptr);
         s_scan_result_upload_ptr = NULL;

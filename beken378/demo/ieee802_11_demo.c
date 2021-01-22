@@ -92,11 +92,6 @@ static void scan_cb(void *ctxt, uint8_t param)
 
 	sr_release_scan_results(scan_rst);
 
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-	rf_can_share_for_ble();
-#endif
-#endif
 #else	/* CFG_NEW_SUPP */
 	static const char *crypto_str[] = {
 		"None",

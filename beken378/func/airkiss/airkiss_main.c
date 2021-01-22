@@ -263,8 +263,10 @@ void airkiss_switch_channel_callback(void *data)
     bk_wlan_set_channel_sync(channel);
     airkiss_change_channel(ak_contex);
 
-    ret = rtos_change_period(&ak_chan_timer, timer_cnt);
-    ASSERT(kNoErr == ret);
+    if (!airkiss_exit) {
+        ret = rtos_change_period(&ak_chan_timer, timer_cnt);
+        ASSERT(kNoErr == ret);
+    }
 
 }
 
@@ -286,12 +288,14 @@ void airkiss_doing_timeout_callback(void *data)
     {
         AIRKISS_FATAL("re-airkiss init failed!!\r\n");
     }
-	
+
     airkiss_set_scan_all_channel();
     g_chans.cur_chan_idx = 0;  // set channel 1
     bk_wlan_set_channel_sync(g_chans.chan[g_chans.cur_chan_idx].channel);
-    ret = rtos_change_period(&ak_chan_timer, AIRKISS_SWITCH_TIMER);
-    ASSERT(kNoErr == ret);
+    if (!airkiss_exit) {
+        ret = rtos_change_period(&ak_chan_timer, AIRKISS_SWITCH_TIMER);
+        ASSERT(kNoErr == ret);
+    }
 }
 
 void airkiss_monitor_callback(uint8_t *data, int len, wifi_link_info_t *info)
@@ -407,13 +411,13 @@ void airkiss_main( void *arg )
     int airkiss_read_size;
     u8 *airkiss_read_buf = NULL;
 
-	result = pingpong_init();    
-	if(0 != result)
+    result = pingpong_init();
+    if(0 != result)
     {
         AIRKISS_FATAL("Airkiss pingpong_init failed!!\r\n");
         goto kiss_exit;
     }
-	
+
     result = rtos_init_timer(&ak_chan_timer,
                              AIRKISS_SWITCH_TIMER,
                              airkiss_switch_channel_callback,
@@ -561,6 +565,24 @@ void airkiss_main( void *arg )
 kiss_exit:
     AIRKISS_WARN("Airkiss exit.\r\n");
 
+    result = rtos_stop_timer(&ak_chan_timer);
+    ASSERT(kNoErr == result);
+    result = rtos_stop_timer(&ak_doing_timer);
+    ASSERT(kNoErr == result);
+
+    do {
+        rtos_delay_milliseconds(10);
+    } while (rtos_is_timer_running(&ak_chan_timer) || (rtos_is_timer_running(&ak_doing_timer)));
+
+    result = rtos_deinit_timer(&ak_chan_timer);
+    ASSERT(kNoErr == result);
+
+    result = rtos_deinit_timer(&ak_doing_timer);
+    ASSERT(kNoErr == result);
+
+    rtos_deinit_semaphore(&ak_semaphore);
+    ak_semaphore = NULL;
+
     if(ak_contex)
     {
         os_free(ak_contex);
@@ -573,17 +595,8 @@ kiss_exit:
         airkiss_read_buf = NULL;
     }
 
-    result = rtos_deinit_timer(&ak_chan_timer);
-    ASSERT(kNoErr == result);
-
-    result = rtos_deinit_timer(&ak_doing_timer);
-    ASSERT(kNoErr == result);
-
-    rtos_deinit_semaphore(&ak_semaphore);
-    ak_semaphore = NULL;
-
     ak_thread_handle = NULL;
-	pingpong_free();
+    pingpong_free();
     rtos_delete_thread(NULL);
 }
 

@@ -93,6 +93,7 @@
 #define CFG_AIRKISS_TEST                           0
 #define CFG_ENABLE_DEMO_TEST                       0
 #define CFG_WIFI_SENSOR                            0
+#define CFG_WIFI_RAW_TX_CMD                        0
 
 #define ASSERT_HALT                       1
 #define ASSERT_IGNORE                   2

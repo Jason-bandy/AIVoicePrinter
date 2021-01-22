@@ -508,7 +508,10 @@
                                                         + CELL_COUNT * CELL_GRANULARITY \
                                                         + 20 * 1024)
 
-extern int rwnx_get_noht_rssi_thresold(void) __attribute__ ((weak));                                                    
+#define BK_NX_RC                    1
+#define BK_NX_CHAN                  1
+
+extern int rwnx_get_noht_rssi_thresold(void) __attribute__ ((weak));
 extern UINT32 rwnx_setting_for_single_rate(UINT32 att_value) __attribute__ ((weak));
 extern INT32 rwnx_printf_fun(const char *fmt, ...) __attribute__ ((weak));
                                                         

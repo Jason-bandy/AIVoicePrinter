@@ -30,6 +30,7 @@
 #endif
 
 #include "error.h"
+#include "mcu_ps_pub.h"
 
 extern int bmsg_ioctl_sender(void *arg);
 
@@ -519,7 +520,12 @@ int rw_msg_send_key_add(KEY_PARAM_T *param, struct mm_key_add_cfm *cfm)
     key_add_req = ke_msg_alloc(MM_KEY_ADD_REQ, TASK_MM, TASK_API,
                                sizeof(struct mm_key_add_req));
     if (!key_add_req)
+	{
+        ps_clear_key_prevent();
+        mcu_prevent_clear(MCU_PS_ADD_KEY);
+        bk_printf("rw_msg_send_key_add NULL\r\n");
         return -1;
+	}
 
     /* Set parameters for the MM_KEY_ADD_REQ message */
     if (param->sta_idx != 0xFF)

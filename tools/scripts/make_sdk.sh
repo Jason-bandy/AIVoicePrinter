@@ -32,6 +32,7 @@ rm -rf config/sys_config.h
 rm -rf build
 rm -rf bugzilla
 rm -f README.md
+rm -f .platform
 rm -rf ./beken378/bugzilla
 rm -rf ./beken378/ip_ax
 rm -f ./beken378/README.md

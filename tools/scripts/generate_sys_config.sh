@@ -62,6 +62,9 @@ fi
 
 cp -f $new_linkscript link.lds
 
+rm -f .platform
+echo $1 > .platform
+
 # scons is used for rtt building, so skip .config generation
 exit 0
 

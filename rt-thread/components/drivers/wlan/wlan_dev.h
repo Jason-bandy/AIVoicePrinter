@@ -177,6 +177,8 @@ int rt_wlan_disconnect(struct rt_wlan_device *device);
 
 int rt_wlan_softap(struct rt_wlan_device *device, struct rt_wlan_info *info,
                    char *password);
+int rt_wlan_up(struct rt_wlan_device *device, struct rt_wlan_info *info,
+                    char *password);
 
 /* set wifi information for AP */
 int rt_wlan_set_info(struct rt_wlan_device *device, struct rt_wlan_info *info);

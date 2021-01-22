@@ -96,6 +96,7 @@
 #define CFG_AIRKISS_TEST                           0
 #define CFG_ENABLE_DEMO_TEST                       0
 #define CFG_WIFI_SENSOR                            0
+#define CFG_WIFI_RAW_TX_CMD                        0
 
 /*section 5-----PRODUCT macro config-----*/
 #define CFG_RELEASE_FIRMWARE                       0

@@ -158,7 +158,7 @@ enum rwble_pti_config_idx
 /******************************************************************************************/
 
 /// EA programming latency for only 1 activity
-#define RWBLE_PROG_LATENCY_DFT         (2)
+#define RWBLE_PROG_LATENCY_DFT         (4)
 /// EA asap latency
 #define RWBLE_ASAP_LATENCY             (2)
 /// Instant value mask

@@ -51,7 +51,8 @@ typedef struct sta_scan_res
 
 typedef struct scanu_rst_upload
 {
-    UINT8 scanu_num;
+    UINT16 ref;
+    UINT16 scanu_num;
     struct sta_scan_res **res;
 }SCAN_RST_UPLOAD_T, *SCAN_RST_UPLOAD_PTR;
 

@@ -474,6 +474,15 @@ void bk_wlan_phy_open_cca(void);
 void bk_wlan_phy_close_cca(void);
 void bk_wlan_phy_show_cca(void);
 
+/* @brief Send raw 802.11 frame
+ *
+ * @attention 1. This API can be used in WiFi station, softap, or monitor mode.
+ * @attention 2. Only support to send non-QoS frame.
+ * @attention 3. The frame sequence will be overwritten by WiFi driver.
+ * @attention 4. The API doesn't check the correctness of the raw frame, the
+ *               caller need to guarantee the correctness of the frame.
+ *
+ * */
 int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len);
 void bk_wlan_sta_init(network_InitTypeDef_st *inNetworkInitPara);
 void bk_wlan_ap_init_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP);
@@ -528,13 +537,14 @@ int wlan_unregister_notifier(notify_func func, void *arg);
 
 #endif
 
+void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn);
+monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void);
+
 #if (CFG_SUPPORT_ALIOS)
 /**********************for alios*******************************/
 void bk_wifi_get_mac_address(char *mac);
 void bk_wifi_set_mac_address(char *mac);
 static void bk_monitor_callback(uint8_t *data, int len, wifi_link_info_t *info);
-void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn);
-monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void);
 uint32_t bk_wlan_max_power_level_get(void);
 OSStatus bk_wlan_get_bssid_info(apinfo_adv_t *ap, uint8_t **key, int *key_len);
 #ifdef CONFIG_AOS_MESH

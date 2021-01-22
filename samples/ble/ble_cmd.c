@@ -14,12 +14,14 @@
 #define BUILD_UINT16(loByte, hiByte) \
           ((uint16_t)(((loByte) & 0x00FF) + (((hiByte) & 0x00FF) << 8)))
 
-#define BK_ATT_DECL_PRIMARY_SERVICE         0x2800
-#define BK_ATT_DECL_CHARACTERISTIC          0x2803
-#define BK_ATT_DESC_CLIENT_CHAR_CFG         0x2902
-#define TEST_SERVICE_UUID                   0xFFFF
-#define WRITE_REQ_CHARACTERISTIC            0xFF01
-#define INDICATE_CHARACTERISTIC             0xFF02
+#define BK_ATT_DECL_PRIMARY_SERVICE_128     {0x00,0x28,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+#define BK_ATT_DECL_CHARACTERISTIC_128      {0x03,0x28,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+#define BK_ATT_DESC_CLIENT_CHAR_CFG_128     {0x02,0x29,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+
+#define WRITE_REQ_CHARACTERISTIC_128        {0x01,0xFF,0,0,0x34,0x56,0,0,0,0,0x28,0x37,0,0,0,0}
+#define INDICATE_CHARACTERISTIC_128         {0x02,0xFF,0,0,0x34,0x56,0,0,0,0,0x28,0x37,0,0,0,0}
+#define NOTIFY_CHARACTERISTIC_128           {0x03,0xFF,0,0,0x34,0x56,0,0,0,0,0x28,0x37,0,0,0,0}
+
 
 static const uint8_t test_svc_uuid[16] = {0xFF,0xFF,0,0,0x34,0x56,0,0,0,0,0x28,0x37,0,0,0,0};
 
@@ -37,20 +39,20 @@ enum
 bk_attm_desc_t test_att_db[6] =
 {
 	//  Service Declaration
-	[TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE, BK_PERM_SET(RD, ENABLE), 0, 0},
+	[TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, BK_PERM_SET(RD, ENABLE), 0, 0},
 	
 	//  Level Characteristic Declaration
-	[TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC,  BK_PERM_SET(RD, ENABLE), 0, 0},
+	[TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
 	//  Level Characteristic Value
-	[TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC,    BK_PERM_SET(WRITE_REQ, ENABLE), BK_PERM_SET(RI, ENABLE) , 128},
+	[TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    BK_PERM_SET(WRITE_REQ, ENABLE), BK_PERM_SET(RI, ENABLE) , 128},
 	
-	[TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC,  BK_PERM_SET(RD, ENABLE), 0, 0},
+	[TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
 	//  Level Characteristic Value
-	[TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC,     BK_PERM_SET(IND, ENABLE) , BK_PERM_SET(RI, ENABLE) , 128},
+	[TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE) , BK_PERM_SET(RI, ENABLE) , 128},
 
 	//  Level Characteristic - Client Characteristic Configuration Descriptor
 
-	[TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+	[TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
 };
 
 ble_err_t bk_ble_init(void)
@@ -311,12 +313,12 @@ static void ble(int argc, char **argv)
             bk_printf("ERROR\r\n");
             return ;
         }
-        hexstr2bin(argv[4], write_buffer, len/2);
+        hexstr2bin(argv[4], write_buffer, len / 2);
 
         prf_id = atoi(argv[2]);
         att_id = atoi(argv[3]);
 
-        if(ERR_SUCCESS != bk_ble_send_ntf_value(len, write_buffer, prf_id, att_id))
+        if(ERR_SUCCESS != bk_ble_send_ntf_value(len / 2, write_buffer, prf_id, att_id))
         {
             bk_printf("ERROR\r\n");
         }
@@ -340,7 +342,7 @@ static void ble(int argc, char **argv)
             bk_printf("ERROR\r\n");
             return ;
         }
-        hexstr2bin(argv[4], write_buffer, len/2);
+        hexstr2bin(argv[4], write_buffer, len / 2);
 
         prf_id = atoi(argv[2]);
         att_id = atoi(argv[3]);

@@ -736,20 +736,6 @@ void sctrl_hw_wakeup(void)
     PS_DEBUG_BCN_TRIGER;
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);
 
-    #if CFG_USE_BLE_PS
-    #if ((CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
-    if (if_ble_sleep())
-    {
-        if(BIT(FIQ_BLE) & REG_READ(ICU_INT_STATUS))
-        {
-        reg = RF_HOLD_BY_BLE_BIT;
-        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
-        ble_switch_rf_to_ble();
-        }
-    }
-    #endif
-    #endif
-
     #if ((CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
     /*open 32K Rosc calib*/
     REG_WRITE(SCTRL_ROSC_CAL, 0x35);
@@ -1944,6 +1930,8 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
         }
 #endif
         if(((i < BITS_INT)&&(deep_param->gpio_stay_lo_map & (0x01UL << i)))
+        ||((deep_param->gpio_index_map & (0x01UL << i)))
+        ||((deep_param->gpio_last_index_map & (0x01UL << i)))
         ||((i >= BITS_INT)&&(deep_param->gpio_stay_hi_map & (0x01UL << (i - BITS_INT)))) )
         {
             continue;
@@ -1985,6 +1973,7 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
         }
     }
 
+#if ((CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236))
     if ((deep_param->wake_up_way & PS_DEEP_WAKEUP_GPIO))
     {
         for (i = 0; i < BITS_INT; i++)
@@ -1993,17 +1982,6 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
             if(i >= GPIONUM)
             {
                 break;
-            }
-#endif
-
-#if (CFG_SOC_NAME == SOC_BK7231N)
-            if(((i > GPIO1) && (i < GPIO6)) 
-            || ((i > GPIO11) && (i < GPIO14)) 
-            || ((i > GPIO17) && (i < GPIO20)) 
-            || ((i > GPIO24) && (i < GPIO26)) 
-            || ((i > GPIO26) && (i < GPIO28)))
-            {
-                continue;
             }
 #endif
             if (deep_param->gpio_index_map & (0x01UL << i))			/*set gpio 0~31 mode*/
@@ -2033,7 +2011,6 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
             }
         }
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
         for (i = 0; i < (GPIONUM - BITS_INT); i++)
         {  
             if (deep_param->gpio_last_index_map & (0x01UL << i))				/*set gpio 32~39 mode*/
@@ -2064,7 +2041,7 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
                 }
             }			
         }
-#endif
+
 		/* set gpio 0~31 mode*/
         reg = 0xFFFFFFFF;
         REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS,reg);        
@@ -2074,7 +2051,6 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
         REG_WRITE(SCTRL_GPIO_WAKEUP_EN,reg); 
 		
 		/* set gpio 31~32 mode*/
-#if (CFG_SOC_NAME != SOC_BK7231N)
         reg = 0xFF;
         REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS1,reg);        
 
@@ -2083,11 +2059,54 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
 
         reg = deep_param->gpio_last_index_map;
         REG_WRITE(SCTRL_GPIO_WAKEUP_EN1,reg);
-#else
-        reg = 0xFFFFFFFF;
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT,reg);
+    }
+#elif ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236))
+    if(( deep_param->wake_up_way & PS_DEEP_WAKEUP_GPIO ))
+    {
+        for ( i = 0; i < BITS_INT; i++ )
+        {
+#if(BITS_INT > GPIONUM)
+            if( i >= GPIONUM )
+            {
+                break;
+            }
 #endif
-    }	
+            if((( i > GPIO1 ) && ( i < GPIO6 ))
+            || (( i > GPIO11 ) && ( i < GPIO14 ))
+            || (( i > GPIO17 ) && ( i < GPIO20 ))
+            || (( i > GPIO24 ) && ( i < GPIO26 ))
+            || (( i > GPIO26 ) && ( i < GPIO28 )))
+            {
+                continue;
+            }
+
+            if ( deep_param->gpio_index_map & ( 0x01UL << i ))
+            {
+                int type_h,type_l;
+                type_l = deep_param->gpio_edge_map;
+                type_h = 0x0;
+
+                /* low level or negedge wakeup */
+                if(( type_h & ( 0x01UL << i )) == ( type_l & ( 0x01UL << i )))
+                {
+                    param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLUP);
+                    sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+                }
+                else    /* high level or posedge wakeup */
+                {
+                    param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLDOWN);
+                    sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+                }
+
+                REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, type_l);
+                REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, type_h);
+            }
+        }
+
+        reg = deep_param->gpio_index_map;
+        REG_WRITE(SCTRL_GPIO_WAKEUP_EN,reg);
+    }
+#endif
 
 #if (CFG_SOC_NAME != SOC_BK7231N)
     REG_WRITE(SCTRL_USB_PLUG_WAKEUP,USB_PLUG_IN_INT_BIT|USB_PLUG_OUT_INT_BIT);

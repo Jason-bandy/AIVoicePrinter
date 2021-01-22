@@ -140,6 +140,31 @@ int rt_wlan_softap(struct rt_wlan_device *device, struct rt_wlan_info *info, cha
     return result;
 }
 
+int rt_wlan_up(struct rt_wlan_device *device, struct rt_wlan_info *info, char *password)
+{
+	rt_wlan_mode_t mode;
+
+	if (!device) {
+		return -RT_EINVAL;
+	}
+
+	if (!device->info) {
+		struct rt_object *obj = (struct rt_object*) device;
+		rt_kprintf("%s not configured\n", obj->name);
+		return -RT_EINVAL;
+	}
+
+	mode = device->info->mode;
+	if (mode == WIFI_STATION) {
+		return rt_wlan_connect(device, info, password);
+	} else if (mode == WIFI_AP) {
+		return rt_wlan_softap(device, info, password);
+	} else {
+		rt_kprintf("invalid wifi mode=%d\n", mode);
+		return -RT_EINVAL;
+	}
+}
+
 int rt_wlan_disconnect(struct rt_wlan_device *device)
 {
     int result = 0;

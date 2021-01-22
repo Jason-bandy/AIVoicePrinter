@@ -53,6 +53,7 @@ monitor_cb_t g_mesh_monitor_cb = 0;
 uint8_t g_mesh_bssid[6];
 #endif
 FUNC_1PARAM_PTR connection_status_cb = 0;
+static monitor_cb_t g_mgnt_cb = 0;
 
 
 static void rwnx_remove_added_interface(void)
@@ -703,12 +704,6 @@ void bk_wlan_start_scan(void)
 	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
 #endif
 
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-    rf_not_share_for_ble();
-#endif
-#endif
-
     if(bk_wlan_is_monitor_mode())
     {
         os_printf("monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
@@ -742,20 +737,7 @@ void bk_wlan_scan_ap_reg_cb(FUNC_2PARAM_PTR ind_cb)
 
 unsigned char bk_wlan_get_scan_ap_result_numbers(void)
 {
-    struct scanu_rst_upload *scan_rst;
-    unsigned char scanu_num = 0;
-	GLOBAL_INT_DECLARATION();
-		
-	GLOBAL_INT_DISABLE();
-
-    scan_rst = sr_get_scan_results();
-    if(scan_rst)
-    {
-        scanu_num = scan_rst->scanu_num;
-    }
-	GLOBAL_INT_RESTORE();
-
-    return scanu_num;
+    return sr_get_scan_number();
 }
 
 int bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num)
@@ -1791,6 +1773,7 @@ int bk_wlan_dtim_rf_ps_mode_enable(void )
 
 int bk_wlan_dtim_rf_ps_disable_send_msg(void)
 {
+#if 0
     if(power_save_if_ps_rf_dtim_enabled()
             && power_save_if_rf_sleep())
     {
@@ -1800,6 +1783,8 @@ int bk_wlan_dtim_rf_ps_disable_send_msg(void)
     {
         power_save_dtim_rf_ps_disable_send_msg();
     }
+#endif
+    power_save_dtim_rf_ps_disable_send_msg();
     return 0;
 }
 
@@ -2082,20 +2067,6 @@ int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len)
 	return ret;
 }
 
-#if (CFG_SUPPORT_ALIOS)
-/**********************for alios*******************************/
-static monitor_cb_t g_mgnt_cb = 0;
-
-void bk_wifi_get_mac_address(char *mac)
-{
-	wifi_get_mac_address(mac, CONFIG_ROLE_STA);
-}
-
-void bk_wifi_set_mac_address(char *mac)
-{
-	wifi_set_mac_address(mac);
-}
-
 void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn)
 {
 	g_mgnt_cb = fn;
@@ -2110,6 +2081,19 @@ void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn)
 monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void)
 {
     return g_mgnt_cb;
+}
+
+#if (CFG_SUPPORT_ALIOS)
+/**********************for alios*******************************/
+
+void bk_wifi_get_mac_address(char *mac)
+{
+	wifi_get_mac_address(mac, CONFIG_ROLE_STA);
+}
+
+void bk_wifi_set_mac_address(char *mac)
+{
+	wifi_set_mac_address(mac);
 }
 
 uint32_t bk_wlan_max_power_level_get(void)
