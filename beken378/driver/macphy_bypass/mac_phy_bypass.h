@@ -1,4 +1,4 @@
-#ifndef _MAC_PHY_BYPASSH_
+#ifndef _MAC_PHY_BYPASS_H_
 #define _MAC_PHY_BYPASS_H_
 
 #if (CFG_SOC_NAME == SOC_BK7271)

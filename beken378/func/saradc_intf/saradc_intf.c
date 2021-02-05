@@ -19,8 +19,9 @@
 #define TURING_ADC_TASK_STACK_SIZE          (1024 * 1)
 #define TURING_ADC_QITEM_COUNT              (3)
 
-volatile int Step_Flag = 1;
-volatile int Adctest_Flag = 1;
+volatile uint8_t step_flag = 1;
+volatile uint8_t adctest_flag = 1;
+volatile uint8_t adc_accuracy = 0;
 
 enum
 {
@@ -28,7 +29,7 @@ enum
 	TADC_EXIT,
 };
 
-typedef struct tadc_message 
+typedef struct tadc_message
 {
 	UINT32 data;
 }TADC_MSG_T;
@@ -47,6 +48,9 @@ typedef struct _tadc_entity_
     saradc_desc_t adc_cfg;
     UINT16 adc_data[ADC_TEMP_BUFFER_SIZE];
 } TADC_ENTITY_T;
+
+void saradc_calculate_step1(void);
+void saradc_calculate_step2(void);
 
 static TADC_ENTITY_T *tadc_entity = NULL;
 
@@ -103,86 +107,101 @@ void adc_obj_stop(ADC_OBJ* handle)
 
 static void sadc_detect_handler(void)
 {
-    saradc_desc_t *p_ADC_drv_desc = &tadc_entity->adc_cfg;
+	saradc_desc_t *p_ADC_drv_desc = &tadc_entity->adc_cfg;
 
-    if(!p_ADC_drv_desc)
-        return;
+	if (!p_ADC_drv_desc)
+		return;
 
-    if(p_ADC_drv_desc->current_sample_data_cnt >= p_ADC_drv_desc->data_buff_size) {
-        UINT32 sum = 0, sum1, sum2;
+	if (p_ADC_drv_desc->current_sample_data_cnt >= p_ADC_drv_desc->data_buff_size)
+	{
+		UINT32 sum = 0, sum1, sum2;
 
-        ddev_close(tadc_entity->adc_handle);
-        tadc_entity->adc_handle = DD_HANDLE_UNVALID;
-        saradc_ensure_close();
+		ddev_close(tadc_entity->adc_handle);
+		tadc_entity->adc_handle = DD_HANDLE_UNVALID;
+		saradc_ensure_close();
 
-        sum1 = p_ADC_drv_desc->pData[1] + p_ADC_drv_desc->pData[2];
-        sum2 = p_ADC_drv_desc->pData[3] + p_ADC_drv_desc->pData[4];
-        sum = sum1 / 2 + sum2 / 2;
-        sum = sum / 2;
-        sum = sum / 4;
-        p_ADC_drv_desc->pData[0] = sum;
+		sum1 = p_ADC_drv_desc->pData[1] + p_ADC_drv_desc->pData[2];
+		sum2 = p_ADC_drv_desc->pData[3] + p_ADC_drv_desc->pData[4];
+		sum = sum1 / 2 + sum2 / 2;
+		sum = sum / 2;
 
-        rtos_set_semaphore(&tadc_entity->sema_wait_end);
-    }
+		adc_accuracy = (uint8_t)saradc_check_accuracy();
+		if (adc_accuracy != 0)
+			sum = sum >> (adc_accuracy - 1);
+
+		p_ADC_drv_desc->pData[0] = sum;
+
+		rtos_set_semaphore(&tadc_entity->sema_wait_end);
+	}
 }
 
 void tadc_obj_handler(ADC_OBJ* handle)
 {
-    saradc_desc_t *p_ADC_drv_desc = NULL;
-    UINT32 status, ret;
-    GLOBAL_INT_DECLARATION();
+	saradc_desc_t *p_ADC_drv_desc = NULL;
+	UINT32 status, ret;
+	GLOBAL_INT_DECLARATION();
 
-    p_ADC_drv_desc = &tadc_entity->adc_cfg;
+	p_ADC_drv_desc = &tadc_entity->adc_cfg;
 
-    saradc_config_param_init(p_ADC_drv_desc);
+	saradc_config_param_init(p_ADC_drv_desc);
 
-    p_ADC_drv_desc->channel = handle->channel;
-    p_ADC_drv_desc->data_buff_size          = ADC_TEMP_BUFFER_SIZE;
-    p_ADC_drv_desc->current_read_data_cnt   = 0;
-    p_ADC_drv_desc->current_sample_data_cnt = 0;
-    p_ADC_drv_desc->has_data                = 0;
-    p_ADC_drv_desc->pData                   = &tadc_entity->adc_data[0];
-    os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+	p_ADC_drv_desc->channel = handle->channel;
+	p_ADC_drv_desc->data_buff_size          = ADC_TEMP_BUFFER_SIZE;
+	p_ADC_drv_desc->current_read_data_cnt   = 0;
+	p_ADC_drv_desc->current_sample_data_cnt = 0;
+	p_ADC_drv_desc->has_data                = 0;
+	p_ADC_drv_desc->pData                   = &tadc_entity->adc_data[0];
+	os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
 
-    p_ADC_drv_desc->p_Int_Handler           = sadc_detect_handler;
+	p_ADC_drv_desc->p_Int_Handler           = sadc_detect_handler;
 
-    ret = 0;
-    do {
-        GLOBAL_INT_DISABLE();
-        if(saradc_check_busy() == 0) {
-            tadc_entity->adc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
-            if(DD_HANDLE_UNVALID != tadc_entity->adc_handle) {
-                GLOBAL_INT_RESTORE();
-                break;
-            }
-        }
-        GLOBAL_INT_RESTORE();
-        rtos_delay_milliseconds(5);
-        ret++;
-    }
-    while(ret<5);
+	ret = 0;
+	do
+	{
+		GLOBAL_INT_DISABLE();
+		if (saradc_check_busy() == 0) {
+			tadc_entity->adc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
+			if (DD_HANDLE_UNVALID != tadc_entity->adc_handle) {
+				GLOBAL_INT_RESTORE();
+				break;
+			}
+		}
+		GLOBAL_INT_RESTORE();
+		rtos_delay_milliseconds(5);
+		ret++;
+	} while (ret < 5);
 
-    if(ret == 5) {
-        TADC_WARNING_PRINTF("adc timeout\r\n");
-        return;
-    }
+	if (ret == 5)
+	{
+		TADC_WARNING_PRINTF("adc timeout\r\n");
+		return;
+	}
 
-    status = TURING_ADC_SCAN_INTERVALV;
-    ret = rtos_get_semaphore(&tadc_entity->sema_wait_end, fclk_from_sec_to_tick(status));
+	status = TURING_ADC_SCAN_INTERVALV;
+	ret = rtos_get_semaphore(&tadc_entity->sema_wait_end, fclk_from_sec_to_tick(status));
+	if (step_flag == 0)
+		saradc_calculate_step1();
+	else
+		saradc_calculate_step2();
 
-    if(ret == kNoErr) {
-        float voltage = 0.0;
-        int mv;
+	if (ret == kNoErr)
+	{
 
-        voltage = saradc_calculate(p_ADC_drv_desc->pData[0]);
-        mv = voltage * 1000;
+		float voltage = 0.0;
+		int mv;
 
-        if (handle->cb) {
-            handle->cb(mv, handle->user_data);
-        }
-    } else {
-        TADC_WARNING_PRINTF("sema_wait_end timeout:%d\r\n", status);
-    }
+		if (adctest_flag == 0)
+			mv = p_ADC_drv_desc->pData[0];
+		else {
+			voltage = saradc_calculate(p_ADC_drv_desc->pData[0]);
+			mv = voltage * 1000;
+		}
+
+		if (handle->cb)
+			handle->cb(mv, handle->user_data);
+	} else
+
+		TADC_WARNING_PRINTF("sema_wait_end timeout:%d\r\n", status);
 }
 
 static void tadc_check_timer_poll_handle(void)
@@ -246,7 +265,7 @@ TADC_ENTITY_T *tadc_entity_init(void)
     return adc_entity;
 }
 
-#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 /*
 vol:	PSRAM_VDD_1_8V
 		PSRAM_VDD_2_5V
@@ -578,7 +597,7 @@ static void adc_check(int argc, char **argv)
         {
         UINT32 sum = 0, sum1, sum2;
         UINT16 *pData = p_ADC_drv_desc->pData;
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
         sum1 = pData[6] + pData[7];
         sum2 = pData[8] + pData[9];
 #else
@@ -591,7 +610,7 @@ static void adc_check(int argc, char **argv)
         p_ADC_drv_desc->pData[0] = sum;
         }
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
         os_printf("saradc[ch%d]=%d\r\n", (UINT32)p_ADC_drv_desc->channel, (UINT32)p_ADC_drv_desc->pData[0]);
 #else
         voltage = saradc_calculate(p_ADC_drv_desc->pData[0]);

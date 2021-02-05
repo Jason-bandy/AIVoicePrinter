@@ -19,9 +19,15 @@
 #include "param_config.h"
 #include "fake_clock_pub.h"
 #include "power_save_pub.h"
+#if CFG_IEEE80211AX
+#include "fhost_msdu.h"
+#include "fhost_defs.h"
+#include "rxl_hwdesc.h"
+#endif
 
 void ethernetif_input(int iface, struct pbuf *p);
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag);
+extern int bmsg_ps_handler_rf_ps_mode_real_wakeup(void);
 
 LIST_HEAD_DEFINE(msdu_rx_list);
 
@@ -98,20 +104,26 @@ void rwm_flush_rx_list(void)
 
 void rwm_tx_confirm(void *param)
 {
+#if !CFG_IEEE80211AX
 	struct txdesc *txdesc = (struct txdesc *)param;
 
-	if(txdesc && txdesc->host.msdu_node)
-	{
-		if(txdesc->host.callback)
-		{
-            (*txdesc->host.callback)(txdesc->host.param);
-		}
-		
+	if (txdesc && txdesc->host.msdu_node) {
+		if (txdesc->host.callback)
+			(*txdesc->host.callback)(txdesc->host.param);
 		os_null_printf("flush_desc:0x%x\r\n", txdesc->host.msdu_node);
 
 		os_free(txdesc->host.msdu_node);
 		txdesc->host.msdu_node = NULL;
 	}
+#else
+	struct fhost_txdesc *fhost_txdesc = (struct fhost_txdesc *)param;
+	struct txdesc *txdesc = &fhost_txdesc->txdesc;
+	MSDU_NODE_T *node = fhost_txdesc->node;
+	if (txdesc && node) {
+		os_free(node);
+		fhost_txdesc->node = 0;
+	}
+#endif
 }
 
 void rwm_tx_msdu_renew(UINT8 *buf, UINT32 len, UINT8 *orig_addr)
@@ -198,7 +210,7 @@ exit:
 	return ret;
 #else /* CFG_IEEE80211AX */
 	/* TODO: BK7236 */
-	return 0;
+	return len;
 #endif
 }
 
@@ -206,7 +218,7 @@ MSDU_NODE_T *rwm_tx_node_alloc(UINT32 len)
 {
     UINT8 *buff_ptr;
     MSDU_NODE_T *node_ptr = 0;
-	
+
 #if (CFG_SUPPORT_RTT) && (CFG_SOC_NAME == SOC_BK7221U || CFG_SOC_NAME == SOC_BK7271)
     node_ptr = (MSDU_NODE_T *)dtcm_malloc(sizeof(MSDU_NODE_T)
                                         + CFG_MSDU_RESV_HEAD_LEN
@@ -606,6 +618,10 @@ UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void *args)
     MSDU_NODE_T *node;
     ETH_HDR_PTR eth_hdr_ptr;
 
+#if CFG_IEEE80211AX
+    // FIXME: BK7236: don't mem copy
+#endif
+
     ret = RW_FAILURE;
     node = rwm_tx_node_alloc(len);
     if(NULL == node)
@@ -638,26 +654,35 @@ tx_exit:
 
 void ieee80211_data_tx_cb(void *param)
 {
+#if CFG_IEEE80211AX
+	struct fhost_txdesc *fhost_txdesc = (struct fhost_txdesc *)param;
+	struct txdesc *txdesc_new = &fhost_txdesc->txdesc;
+	MSDU_NODE_T *node = fhost_txdesc->node;
+#else
 	struct txdesc *txdesc_new = (struct txdesc *)param;
 	MSDU_NODE_T *node = (MSDU_NODE_T *)txdesc_new->host.msdu_node;
+#endif
 	struct tx_hd *txhd = &txdesc_new->lmac.hw_desc->thd;
 	struct ieee80211_tx_cb *cb = (struct ieee80211_tx_cb *)node->args;
 	uint32_t status = txhd->statinfo;
 
-	if(0 == node)
-	{
+#if CFG_IEEE80211AX
+	rwm_tx_confirm(param);		// call default callback handler
+#endif
+
+	if (0 == node) {
 		os_printf("zero_node\r\n");
 		return;
 	}
-	
-	if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/) {
+
+	if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/)
 		cb->result = RW_SUCCESS;
-	} else {
+	else
 		cb->result = RW_FAILURE;
-	}
 
 	rtos_set_semaphore(&cb->sema);
 }
+
 
 #if CFG_RWNX_QOS_MSDU
 int sta_11n_nss(uint8_t *mcs_set)
@@ -686,56 +711,20 @@ int qos_need_enabled(struct sta_info_tag *sta)
 	if (!(sta->info.capa_flags & STA_QOS_CAPA))
 		return 0;
 
-#define CONFIG_WRT3200_ISSUE
-#ifdef CONFIG_WRT3200_ISSUE
-	/* workaround for WRT3200 */
-
-	/* find rate 22mbps */
-	rate_set = &sta->info.rate_set;
-	for (i = 0; i < rate_set->length; i++)	 {
-		if (rate_set->array[i] == 0x2c) {
-			rate_22mbps_found = 1;
-			break;
-		}
-	}
-
-	/* ignore rate doesn't contain 22Mbps */
-	if (!rate_22mbps_found)
-		return 0;
-
-	/* ignore 11AC */
-	if (sta->info.capa_flags & STA_VHT_CAPA)
-		return 0;
-
-	/* ignore non-HT */
-	if (!(sta->info.capa_flags & STA_HT_CAPA))
-		return 0;
-
-	/* ingore nss != 3*/
-	nss = sta_11n_nss(sta->info.ht_cap.mcs_rate);
-	if (nss != 3)
-		return 0;
-
-	/* ignore LDPC and DSSS/CCK in 40M not both enabled */
-	if (!((sta->info.ht_cap.ht_capa_info & MAC_HTCAPA_LDPC) && 
-		(sta->info.ht_cap.ht_capa_info & MAC_HTCAPA_DSSS_CCK_40)))
-		return 0;
-#endif
-
 	return 1;
 }
 #endif
 
+#if !CFG_IEEE80211AX
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 {
-#if !CFG_IEEE80211AX
     UINT8 tid;
     UINT32 ret = 0;
     UINT8 *content_ptr;
     UINT32 queue_idx;
     ETH_HDR_PTR eth_hdr_ptr;
     struct txdesc *txdesc_new;
-	
+
 #if CFG_RWNX_QOS_MSDU
 	struct sta_info_tag *sta;
 	struct vif_info_tag *vif;
@@ -759,7 +748,7 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 		sta = &sta_info_tab[vif->u.sta.ap_id];
 		if (qos_need_enabled(sta)) {
 			int i;
-			tid = classify8021d(eth_hdr_ptr);
+			tid = classify8021d((UINT8 *)eth_hdr_ptr);
 			/* check admission ctrl */
 			for (i = mac_tid2ac[tid]; i >= 0; i--)
 				if (!(vif->bss_info.edca_param.acm & BIT(i)))
@@ -815,12 +804,12 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
     txdesc_new->host.staid            = node->sta_idx;
 	txdesc_new->host.msdu_node        = (void *)node;
 
-	if (node->sync) 
+	if (node->sync)
 	{
 		txdesc_new->host.callback		  = (mgmt_tx_cb_t)ieee80211_data_tx_cb;
 		txdesc_new->host.param			  = (void *)txdesc_new;
-	} 
-	else 
+	}
+	else
 	{
 		txdesc_new->host.callback = 0;
 	}
@@ -838,11 +827,150 @@ tx_exit:
     txl_cntrl_dec_pck_cnt();
 #endif
     return ret;
-#else /* CFG_IEEE80211AX */
-	/* TODO: BK7236 */
-	return 0;
-#endif
 }
+#else /* CFG_IEEE80211AX */
+UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
+{
+	uint8_t                 queue_idx;
+	struct fhost_txdesc     *fhost_txdesc;
+	struct txdesc           *txdesc;
+	struct hostdesc         *host;
+	//struct eth_hdr        *eth = (struct eth_hdr *)msdu->pld;
+	struct txl_buffer_tag   *txl_buf;
+	struct tx_pbd           *pbd;
+	struct tx_hw_desc       *hwdesc;
+	UINT8 tid;
+	UINT32 ret = 0;
+	UINT8 *content_ptr;
+	ETH_HDR_PTR eth_hdr_ptr;
+	struct txdesc *txdesc_new;
+#if CFG_RWNX_QOS_MSDU
+	struct sta_info_tag *sta;
+	struct vif_info_tag *vif;
+#endif
+
+	if (!node)
+		goto tx_exit;
+
+	content_ptr = rwm_get_msdu_content_ptr(node);
+	eth_hdr_ptr = (ETH_HDR_PTR)content_ptr;
+
+#if CFG_RWNX_QOS_MSDU
+	vif = rwm_mgmt_vif_idx2ptr(node->vif_idx);
+	if (NULL == vif) {
+		os_printf("%s: vif is NULL!\r\n", __func__);
+		goto tx_exit;
+	}
+
+	if (likely(vif->active)) {
+		sta = &sta_info_tab[vif->u.sta.ap_id];
+		if (qos_need_enabled(sta)) {
+			int i;
+			tid = classify8021d(eth_hdr_ptr);
+			/* check admission ctrl */
+			for (i = mac_tid2ac[tid]; i >= 0; i--)
+				if (!(vif->bss_info.edca_param.acm & BIT(i)))
+					break;
+			if (i < 0)
+				goto tx_exit;
+			queue_idx = i;	/* AC_* */
+		} else {
+			/*
+			 * non-WMM STA
+			 *
+			 * CWmin 15, CWmax 1023, AIFSN 2, TXOP 0. set these values when joining with this BSS.
+			 */
+			tid = 0xFF;
+			queue_idx = AC_VI;
+		}
+	} else {
+		tid = 0xFF;
+		queue_idx = AC_VI;
+	}
+#else /* !CFG_RWNX_QOS_MSDU */
+	tid = rwm_get_tid();
+
+	queue_idx = AC_VI;
+#endif /* CFG_RWNX_QOS_MSDU */
+
+	//alloc tx desc
+	fhost_txdesc = (struct fhost_txdesc *)os_malloc(sizeof(struct fhost_txdesc));
+	FHOST_ASSERT_ERR(fhost_txdesc != NULL);
+	os_memset(fhost_txdesc, 0, sizeof(struct fhost_txdesc));
+
+	txdesc = &fhost_txdesc->txdesc;
+	host = &txdesc->host;
+	txl_buf = &fhost_txdesc->txl_buf;
+	pbd = &txl_buf->pbd[0];
+	hwdesc = &fhost_txdesc->hwdesc;
+
+	//fill host desc
+	rwm_txdesc_copy(txdesc_new, eth_hdr_ptr);
+	host->flags = flag;
+#if NX_AMSDU_TX
+	host->orig_addr[0]     = (UINT32)node->msdu_ptr;
+	host->packet_addr[0]   = (UINT32)content_ptr + sizeof(ETH_HDR_T);
+	host->packet_len[0]    = node->len - sizeof(ETH_HDR_T);
+	host->packet_cnt       = 1;
+#else
+	host->orig_addr        = (UINT32)node->msdu_ptr;
+	host->packet_addr      = (UINT32)content_ptr + sizeof(ETH_HDR_T);
+	host->packet_len       = node->len - sizeof(ETH_HDR_T);
+#endif
+#if !NX_FULLY_HOSTED
+	host.status_desc_addr = (UINT32)content_ptr + sizeof(ETH_HDR_T);
+#endif
+	host->ethertype       = eth_hdr_ptr->e_proto;
+	host->tid = tid;
+
+	host->vif_idx = node->vif_idx;
+	host->staid = node->sta_idx;
+
+	if (node->sync) {
+		host->cfm_cb      = ieee80211_data_tx_cb;
+		host->cfm_cb_arg  = node;
+	} else {
+		host->cfm_cb	  = rwm_tx_confirm;
+		host->cfm_cb_arg  = node;
+	}
+
+	//fill lmac desc
+	txdesc->lmac.hw_desc = hwdesc;
+	txdesc->lmac.buffer  = txl_buf;
+	txdesc->lmac.agg_desc = NULL;
+#if !NX_FULLY_HOSTED
+	txdesc->lmac.hw_desc->cfm.status = 0;
+#endif
+
+	hwdesc->thd.first_pbd_ptr = (uint32_t)pbd;
+	hwdesc->thd.dataendptr = 0;
+	hwdesc->thd.datastartptr = 0;
+
+	txl_buf->txdesc = txdesc;
+	txl_buf->next   = NULL;
+#if NX_HE
+	txl_buf->flags  = BUF_SINGLETON_READY;
+#endif
+
+	pbd->upatterntx = TX_PAYLOAD_DESC_PATTERN;
+	pbd->datastartptr = (uint32_t)eth_hdr_ptr + sizeof(struct eth_hdr);
+	pbd->dataendptr = (uint32_t)eth_hdr_ptr + node->len - 1;
+	pbd->bufctrlinfo = 0;
+	pbd->next = 0;
+
+	//notify fw
+	fhost_txbuf_push((void *)txdesc, queue_idx);
+	return 0;
+
+tx_exit:
+	if (NULL != node)
+		rwm_node_free(node);
+#if NX_POWERSAVE
+	txl_cntrl_dec_pck_cnt();
+#endif
+	return ret;
+}
+#endif /* CFG_IEEE80211AX */
 
 UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len)
 {
@@ -854,6 +982,7 @@ UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len)
     return RW_SUCCESS;
 }
 
+#if !CFG_IEEE80211AX
 UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
 {
     struct pbuf *p = (struct pbuf *)rx_info->data;
@@ -871,6 +1000,70 @@ UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
 
     return RW_SUCCESS;
 }
+#else
+UINT32 rwm_upload_data(void *buff_addr, uint32_t frame_len)
+{
+	/*
+	 *            +-----  buffer addr
+	 *            |
+	 *            V
+	 * +----------+----------+-------------------+
+	 * | pbuf ptr |  rxvect  |   IEEE 802.3 Data |
+	 * +----------+----------+-------------------+
+     */
+	struct fhost_rx_header *rxhdr;
+	struct pbuf *p;
+	s16_t offset;
+
+	if (!buff_addr)
+		return RW_FAILURE;
+
+	rxhdr = (struct fhost_rx_header *)buff_addr;
+	p = (struct pbuf *)((uint32_t)buff_addr - sizeof(uint32));
+
+	//pbuf_header(p, -sizeof(struct fhost_rx_header) - 4);	// skb_pull(skb, sizeof(struct fhost_rx_header)+4)
+	pbuf_header(p, -(s16)RXL_PAYLOAD_OFFSET - 4);
+
+	if (rxhdr->flags_is_80211_mpdu) {
+		/* mgmt frame: refer ke_mgmt_packet_tx */
+		ke_mgmt_packet_tx(p->payload, p->len, rxhdr->flags_vif_idx);
+
+		/* since ke_mgmt_packet_tx copy all the data, free pbuf */
+		pbuf_free(p);
+	} else {
+		/* for 802.3 frame, pass it to lwip */
+	    ethernetif_input(rxhdr->flags_vif_idx, p);
+	}
+
+    return RW_SUCCESS;
+}
+
+/**
+ * NOTE: monitor frame is converted to 802.3 frame if the original
+ * 802.11 frameis Data format, but the 802.11 mac header is backed
+ * up to `fhost_rx_header.mac_hdr_backup'.
+ */
+void rwm_rx_monitor(void *buff_addr, uint32_t frame_len)
+{
+	monitor_cb_t cb;
+	cb = bk_wlan_get_monitor_cb();
+	if (cb) {
+		wifi_link_info_t wli;
+		uint32_t payload = (uint32)buff_addr + RXL_PAYLOAD_OFFSET;
+
+		struct fhost_rx_header *rxhdr;
+		rxhdr = (struct fhost_rx_header *)buff_addr;
+
+		wli.rssi = (rxhdr->hwvect.recvec1c >> 24) & 0xff;
+
+		/*
+		 * payload is 802.3 format if original 802.11 is Data format, see
+		 * function `rxu_cntrl_mac2eth_update()'.
+		 */
+		cb((uint8_t *)payload, rxhdr->hwvect.len, &wli);
+	}
+}
+#endif
 
 UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len)
 {
@@ -994,7 +1187,7 @@ UINT8 rwm_mgmt_vif_mac2idx(void *mac)
     VIF_INF_PTR vif_entry = NULL;
     UINT8 vif_idx = INVALID_VIF_IDX;
     UINT32 i;
-	
+
     for(i = 0; i < NX_VIRT_DEV_MAX; i++)
     {
         vif_entry = &vif_info_tab[i];
@@ -1193,9 +1386,9 @@ UINT8 rwn_mgmt_if_ap_stas_empty()
     struct sta_info_tag *sta;
     UINT8 num = 0;
     UINT8 role = VIF_AP;
-        
+
     while(vif) {
-        if ( vif->type == role) { 
+        if ( vif->type == role) {
             sta = (struct sta_info_tag *)co_list_pick(&vif->sta_list);
             if(co_list_is_empty(&vif->sta_list))
                 {
@@ -1203,7 +1396,7 @@ UINT8 rwn_mgmt_if_ap_stas_empty()
             }
         }
         vif = (VIF_INF_PTR) rwm_mgmt_next(vif);
-    } 
+    }
     return 0;
 }
 

@@ -212,7 +212,7 @@
 #define BLE_ACL_BUF_NB_TX            (BLE_ACTIVITY_MAX + 2)
 
 /// Number of advertising data buffers
-#define BLE_ADV_BUF_NB_TX            (BLE_ACTIVITY_MAX)
+#define BLE_ADV_BUF_NB_TX            (BLE_ACTIVITY_MAX * 2 + 1)
 /// Number of advertising or scan response data fragments in extended advertising PDU chain
 #define BLE_ADV_FRAG_NB_TX           (5)
 /// Size of advertising or scan response data fragments in extended advertising PDU chain

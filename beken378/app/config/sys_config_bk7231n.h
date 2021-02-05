@@ -35,7 +35,7 @@
 #define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         1
-#define CFG_RWNX_QOS_MSDU                          0
+#define CFG_RWNX_QOS_MSDU                          1
 #define CFG_WLAN_FAST_CONNECT                      0
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -49,7 +49,7 @@
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_SME                                    1
+#define CFG_SME                                    0
 #endif
 //#define CFG_MESH                                 0
 #define CFG_WFA_CERT                               0
@@ -113,6 +113,7 @@
 #define SOC_BK7221U                                3
 #define SOC_BK7271                                 4
 #define SOC_BK7231N                                5
+#define SOC_BK7236                                 6
 #define CFG_SOC_NAME                               SOC_BK7231N
 
 /*section 7-----calibration*/
@@ -169,7 +170,11 @@
 #define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_SUPPORT_OTA_HTTP                       0
+#else
+#define CFG_SUPPORT_OTA_HTTP                       1
+#endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
 /*section 22 ----- support adc calibrate*/
@@ -202,6 +207,23 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
+#define CFG_BLE_ADV_NUM				1
+#define CFG_BLE_SCAN_NUM			1
+
+// 0 mean do not support ble master
+#define CFG_BLE_INIT_NUM			0
+
+#define CFG_BLE_CONN_NUM			1
+
+#if (CFG_BLE_ADV_NUM == 0)
+#error "ADV NUM should not be 0"
+#endif
+
+#if (CFG_BLE_CONN_NUM == 0)
+#error "CONN NUM should not be 0"
+#endif
+
+
 #define CFG_SUPPOET_BSSID_CONNECT                  0
 
 #define CFG_XTAL_FREQUENCE_40M                     40000000 //40MHz
@@ -220,7 +242,6 @@
 #undef  CFG_USE_MCU_PS
 #define CFG_USE_MCU_PS                             RHINO_CONFIG_CPU_PWR_MGMT
 #endif
-
 
 #define LWIP_DEFAULT_MEM_POLICY                   1
 #define LWIP_REDUCE_THE_PLAN                      2

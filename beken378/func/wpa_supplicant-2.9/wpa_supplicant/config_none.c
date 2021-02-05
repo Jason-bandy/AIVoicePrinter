@@ -210,6 +210,10 @@ int wpa_config_set_none(struct wpa_ssid *ssid)
 	ssid->mem_only_psk = 0;
 	ssid->auth_alg = 0;
 	g_sta_param_ptr->cipher_suite = BK_SECURITY_TYPE_NONE;
+#if CFG_WPA_CTRL_IFACE
+	ssid->wep_key[0][0] = 0;
+	ssid->wep_key_len[0] = 0;
+#endif
 
 	return 0;
 }
@@ -252,7 +256,7 @@ int wpa_config_set_wpa(struct wpa_ssid *ssid, struct wpa_ie_data *ie)
 		#if CFG_IEEE80211N
 		wpa_config_ht_cap_by_sec(g_sta_param_ptr->cipher_suite);
 		#endif
-		
+
 		if (ssid->passphrase && (ssid->psk_set == 0)) {
 			wpa_config_update_psk(ssid);
 			ssid->psk_set = 1;

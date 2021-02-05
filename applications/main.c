@@ -21,11 +21,12 @@
  * Date           Author       Notes
  * 2017-5-30      Bernard      the first version
  */
-
 #include "rtthread.h"
+
 #if defined(RT_USING_DFS_ROMFS)
 #include <dfs_fs.h>
 #endif
+
 #if defined(PKG_USING_PLAYER)
 #include "player.h"
 #endif
@@ -39,6 +40,7 @@
 #include <fal.h>
 #include "rt_ota.h"
 #include "sys_ctrl_pub.h"
+
 static int wlan_app_init(void);
 
 extern const struct romfs_dirent romfs_root;
@@ -61,12 +63,14 @@ int main(int argc, char **argv)
 
 	wlan_app_init();
 
+#if ((CFG_SOC_NAME == SOC_BK7271) || (CFG_SOC_NAME == SOC_BK7221U))
 #if defined(PKG_USING_PLAYER)
 	player_codec_helixmp3_register();
 	player_codec_beken_aac_register();
 	player_codec_beken_m4a_register();
 	player_codec_opencore_amr_register();
 	player_system_init();
+#endif
 #endif
 
 #ifdef XIAOYA_OS

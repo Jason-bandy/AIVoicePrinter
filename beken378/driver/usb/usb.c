@@ -26,6 +26,7 @@
 beken_thread_t ubg_thread_handle = NULL;
 beken_semaphore_t ubg_semaphore = NULL;
 uint32_t usb_connected_flag = 0;
+uint8_t usb_status= 0;
 
 #if CFG_SUPPORT_MSD
 #include "usb_msd.h"
@@ -518,7 +519,17 @@ void usb_isr(void)
     MGC_AfsUdsIsr();
 }
 
+UINT32 usb_check_int_handler(void)
+{
+	if (usb_status > 100)
+		usb_status = 0;
+
+	if ((usb_status % 10) == 0)
+		USB_NPRT("[usb_debug]usb int handler:%d\r\n", usb_status);
+	usb_status ++;
+}
 #endif
+
 
 #if (CFG_SOC_NAME == SOC_BK7221U)
 UINT32 usb_plug_inout_open(UINT32 op_flag);

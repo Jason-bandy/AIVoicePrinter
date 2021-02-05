@@ -41,14 +41,14 @@ beken_thread_t  temp_detct_handle = NULL;
 enum
 {
 	TMPD_PAUSE_TIMER          = 0,
-    TMPD_RESTART_TIMER,    
+    TMPD_RESTART_TIMER,
     TMPD_CHANGE_PARAM,
-    TMPD_TIMER_POLL,    
+    TMPD_TIMER_POLL,
     TMPD_INT_POLL,
 	TMPD_EXIT,
 };
 
-typedef struct temp_message 
+typedef struct temp_message
 {
 	u32 temp_msg;
 }TEMP_MSG_T;
@@ -90,7 +90,7 @@ void temp_detect_send_msg(u32 new_msg)
 
     if(tempd_msg_que) {
     	msg.temp_msg = new_msg;
-    	
+
     	ret = rtos_push_to_queue(&tempd_msg_que, &msg, BEKEN_NO_WAIT);
     	if(kNoErr != ret)
     	{
@@ -101,24 +101,24 @@ void temp_detect_send_msg(u32 new_msg)
 
 
 UINT32 temp_detect_init(UINT32 init_val)
-{   
+{
     int ret;
 
     TMP_DETECT_FATAL("temp_detect_init %d\r\n", init_val);
-	
+
     if((!temp_detct_handle) && (!tempd_msg_que))
     {
 
-    	ret = rtos_init_queue(&tempd_msg_que, 
+    	ret = rtos_init_queue(&tempd_msg_que,
     							"temp_det_queue",
     							sizeof(TEMP_MSG_T),
     							TEMP_DET_QITEM_COUNT);
-    	if (kNoErr != ret) 
+    	if (kNoErr != ret)
     	{
     		TMP_DETECT_FATAL("temp detect ceate queue failed\r\n");
             return kGeneralErr;
     	}
-        
+
         ret = rtos_create_thread(&temp_detct_handle,
                                       BEKEN_DEFAULT_WORKER_PRIORITY,
                                       "temp_detct",
@@ -138,42 +138,42 @@ UINT32 temp_detect_init(UINT32 init_val)
 }
 
 UINT32 temp_detect_uninit(void)
-{    
+{
     if((temp_detct_handle) && (tempd_msg_que))
     {
         //temp_detect_send_msg(TMPD_EXIT);
-        
+
         // wait untill task exit
         //while(temp_detct_handle)
-        //    rtos_delay_milliseconds(100);    
-        
+        //    rtos_delay_milliseconds(100);
+
         // set reg mod & pa to initial value, this must be happened in
         // txevm or rxsens to calibration txpwr or rxsens
-        manual_cal_temp_pwr_unint();    
+        manual_cal_temp_pwr_unint();
     }
 
 	return 0;
 }
 
 void temp_detect_pause_timer(void)
-{       
-    if(g_temp_detect_config.detect_timer.function 
-        && rtos_is_timer_running(&g_temp_detect_config.detect_timer)) 
+{
+    if(g_temp_detect_config.detect_timer.function
+        && rtos_is_timer_running(&g_temp_detect_config.detect_timer))
     {
         temp_detect_send_msg(TMPD_PAUSE_TIMER);
     }
 }
 
 void temp_detect_restart_detect(void)
-{    
-    if(g_temp_detect_config.detect_timer.function && 
-        !rtos_is_timer_running(&g_temp_detect_config.detect_timer)) 
+{
+    if(g_temp_detect_config.detect_timer.function &&
+        !rtos_is_timer_running(&g_temp_detect_config.detect_timer))
     {
         temp_detect_send_msg(TMPD_RESTART_TIMER);
     }
 }
 
-UINT32 temp_detect_is_opened_saradc(void) 
+UINT32 temp_detect_is_opened_saradc(void)
 {
     // if saradc is opened, idle hook to do sleep may turn off saradc's icu clk and inter enbit
     // so before sleep, should check this bit
@@ -214,7 +214,7 @@ static UINT32 temp_detect_open(void)
         GLOBAL_INT_RESTORE();
         return SARADC_FAILURE;
     }
-    
+
     GLOBAL_INT_RESTORE();
 
     return SARADC_SUCCESS;
@@ -241,9 +241,9 @@ static UINT32 temp_detect_close(void)
 static UINT32 temp_detect_enable(void)
 {
     UINT32 err = SARADC_SUCCESS;
-    
-    if(tmp_detect_hdl != DD_HANDLE_UNVALID) 
-	{   
+
+    if(tmp_detect_hdl != DD_HANDLE_UNVALID)
+	{
         //aready enable saradc, so return no err
         os_printf("aready open\r\n");
         return SARADC_SUCCESS;
@@ -251,7 +251,7 @@ static UINT32 temp_detect_enable(void)
 
     while(tmp_single_hdl !=  DD_HANDLE_UNVALID)
     {
-        rtos_delay_milliseconds(10);;      
+        rtos_delay_milliseconds(10);;
     }
 
     err = rtos_stop_timer(&g_temp_detect_config.detect_timer);
@@ -265,7 +265,7 @@ static UINT32 temp_detect_enable(void)
     if(err == SARADC_FAILURE)
     {
         temp_detect_disable_config_sysctrl();
-		
+
         TMP_DETECT_FATAL("Can't open saradc, have you register this device?\r\n");
         return err;
     }
@@ -288,21 +288,21 @@ static void temp_detect_timer_handler(void *data)
 }
 
 static void temp_detect_timer_poll(void)
-{   
-    OSStatus err;    
-	
+{
+    OSStatus err;
+
     if((temp_detect_enable() != SARADC_SUCCESS))
     {
         err = rtos_reload_timer(&g_temp_detect_config.detect_timer);
-        TMP_DETECT_PRT("temp_detect_enable failed, restart detect timer, \r\n");  
-    } 
+        TMP_DETECT_PRT("temp_detect_enable failed, restart detect timer, \r\n");
+    }
 }
 
 static void temp_detect_polling_handler(void)
 {
     OSStatus err;
     UINT16 cur_val, thre;
-    
+
     #if (CFG_SOC_NAME != SOC_BK7231)
     cur_val = tmp_detect_desc.pData[0];
     #else
@@ -332,11 +332,11 @@ static void temp_detect_polling_handler(void)
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 #endif
 
-    if(g_temp_detect_config.detect_intval_change == ADC_TMEP_DETECT_INTVAL_CHANGE) 
+    if(g_temp_detect_config.detect_intval_change == ADC_TMEP_DETECT_INTVAL_CHANGE)
     {
         temp_detect_send_msg(TMPD_CHANGE_PARAM);
     }
-    else 
+    else
     {
         err = rtos_reload_timer(&g_temp_detect_config.detect_timer);
         ASSERT(kNoErr == err);
@@ -353,10 +353,10 @@ static void temp_detect_main( beken_thread_arg_t data )
     tmp_detect_desc.channel = ADC_TEMP_SENSER_CHANNEL;
     tmp_detect_desc.pData = &tmp_detect_buff[0];
     tmp_detect_desc.data_buff_size = ADC_TEMP_BUFFER_SIZE;
-    tmp_detect_desc.p_Int_Handler = temp_detect_handler;   
-    
+    tmp_detect_desc.p_Int_Handler = temp_detect_handler;
+
     g_temp_detect_config.last_detect_val = (UINT32)(data);
-    g_temp_detect_config.inital_data = (UINT32)(data) + ADC_TMEP_DIST_INTIAL_VAL;        
+    g_temp_detect_config.inital_data = (UINT32)(data) + ADC_TMEP_DIST_INTIAL_VAL;
     g_temp_detect_config.detect_thre = ADC_TMEP_LSB_PER_10DEGREE * ADC_TMEP_10DEGREE_PER_DBPWR;
     g_temp_detect_config.detect_intval = ADC_TMEP_DETECT_INTVAL_INIT;
     g_temp_detect_config.detect_intval_change = 0;
@@ -370,9 +370,9 @@ static void temp_detect_main( beken_thread_arg_t data )
         g_temp_detect_config.xtal_thre_val, g_temp_detect_config.xtal_init_val);
     #endif // (CFG_SOC_NAME != SOC_BK7231)
 
-	err = rtos_init_timer(&g_temp_detect_config.detect_timer, 
-							g_temp_detect_config.detect_intval * 1000, 
-							temp_detect_timer_handler, 
+	err = rtos_init_timer(&g_temp_detect_config.detect_timer,
+							g_temp_detect_config.detect_intval * 1000,
+							temp_detect_timer_handler,
 							(void *)0);
     ASSERT(kNoErr == err);
 	err = rtos_start_timer(&g_temp_detect_config.detect_timer);
@@ -385,13 +385,13 @@ static void temp_detect_main( beken_thread_arg_t data )
         err = rtos_pop_from_queue(&tempd_msg_que, &msg, BEKEN_WAIT_FOREVER);
         if(kNoErr == err)
         {
-        	switch(msg.temp_msg) 
+        	switch(msg.temp_msg)
             {
                 case TMPD_PAUSE_TIMER:
                     {
                         os_printf("pause_detect\r\n");
                         err = rtos_stop_timer(&g_temp_detect_config.detect_timer);
-                        ASSERT(kNoErr == err);  
+                        ASSERT(kNoErr == err);
                     }
                     break;
                 case TMPD_RESTART_TIMER:
@@ -427,7 +427,7 @@ static void temp_detect_main( beken_thread_arg_t data )
 tempd_exit:
     err = rtos_deinit_timer(&g_temp_detect_config.detect_timer);
     ASSERT(kNoErr == err);
- 
+
     rtos_deinit_queue(&tempd_msg_que);
     tempd_msg_que = NULL;
 
@@ -442,10 +442,10 @@ static void temp_detect_handler(void)
         //os_printf("u_err\r\n");
         return;
     }
-    
-    if(tmp_detect_desc.current_sample_data_cnt >= tmp_detect_desc.data_buff_size) 
+
+    if(tmp_detect_desc.current_sample_data_cnt >= tmp_detect_desc.data_buff_size)
     {
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
         UINT32 sum = 0, index, count = 0;
 
         temp_detect_disable();
@@ -513,36 +513,36 @@ void temp_detect_change_configuration(UINT32 intval, UINT32 thre, UINT32 dist)
 
     TMP_DETECT_WARN("config: intval:%d, thre:%d, dist:%d\r\n", intval, thre, dist);
 
-    if((g_temp_detect_config.detect_thre != thre) 
+    if((g_temp_detect_config.detect_thre != thre)
         || (g_temp_detect_config.dist_inital != dist))
-    {     
+    {
         if(g_temp_detect_config.detect_thre != thre)
             g_temp_detect_config.detect_thre = thre;
 
         if(g_temp_detect_config.dist_inital != dist)
-            g_temp_detect_config.dist_inital = dist;      
-        
-        manual_cal_tmp_pwr_init(g_temp_detect_config.inital_data, 
+            g_temp_detect_config.dist_inital = dist;
+
+        manual_cal_tmp_pwr_init(g_temp_detect_config.inital_data,
             g_temp_detect_config.detect_thre, g_temp_detect_config.dist_inital);
     }
- 
-    if(g_temp_detect_config.detect_intval != intval) 
+
+    if(g_temp_detect_config.detect_intval != intval)
     {
         g_temp_detect_config.detect_intval = intval;
 
         if(g_temp_detect_config.detect_timer.function) {
-            err = rtos_deinit_timer(&g_temp_detect_config.detect_timer); 
-            ASSERT(kNoErr == err); 
-        } 
-        
-    	err = rtos_init_timer(&g_temp_detect_config.detect_timer, 
-    							g_temp_detect_config.detect_intval * 1000, 
-    							temp_detect_timer_handler, 
+            err = rtos_deinit_timer(&g_temp_detect_config.detect_timer);
+            ASSERT(kNoErr == err);
+        }
+
+    	err = rtos_init_timer(&g_temp_detect_config.detect_timer,
+    							g_temp_detect_config.detect_intval * 1000,
+    							temp_detect_timer_handler,
     							(void *)0);
         ASSERT(kNoErr == err);
 
     	err = rtos_start_timer(&g_temp_detect_config.detect_timer);
-    	ASSERT(kNoErr == err); 
+    	ASSERT(kNoErr == err);
     }
 }
 
@@ -558,11 +558,11 @@ static UINT32 temp_single_get_enable(void)
 {
     UINT32 status;
     GLOBAL_INT_DECLARATION();
-    
+
 #if CFG_USE_TEMPERATURE_DETECT
     while(tmp_detect_hdl !=  DD_HANDLE_UNVALID)
     {
-        rtos_delay_milliseconds(10);     
+        rtos_delay_milliseconds(10);
     }
 #endif
     temp_single_get_desc_init();
@@ -580,16 +580,16 @@ static UINT32 temp_single_get_enable(void)
         GLOBAL_INT_RESTORE();
         TMP_DETECT_FATAL("Can't open saradc, have you register this device?\r\n");
         return SARADC_FAILURE;
-    }   
+    }
     GLOBAL_INT_RESTORE();
-    
+
     return SARADC_SUCCESS;
 }
 
 static void temp_single_get_disable(void)
 {
     UINT32 status = DRV_SUCCESS;
-    
+
     status = ddev_close(tmp_single_hdl);
     if(DRV_FAILURE == status )
     {
@@ -598,16 +598,16 @@ static void temp_single_get_disable(void)
     }
     saradc_ensure_close();
     tmp_single_hdl = DD_HANDLE_UNVALID;
-    
+
     status = BLK_BIT_TEMPRATURE_SENSOR;
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLK_DISABLE, &status);
-    
+
     TMP_DETECT_PRT("saradc_open is close \r\n");
 }
 
 static void temp_single_detect_handler(void)
 {
-    if(tmp_single_desc.current_sample_data_cnt >= tmp_single_desc.data_buff_size) 
+    if(tmp_single_desc.current_sample_data_cnt >= tmp_single_desc.data_buff_size)
     {
         #if (CFG_SOC_NAME != SOC_BK7231)
         UINT32 sum = 0, sum1, sum2;
@@ -615,10 +615,10 @@ static void temp_single_detect_handler(void)
         temp_single_get_disable();
         TMP_DETECT_PRT("buff:%p,%d,%d,%d,%d,%d\r\n", tmp_single_desc.pData,
                        tmp_single_desc.pData[0], tmp_single_desc.pData[1],
-                       tmp_single_desc.pData[2], tmp_single_desc.pData[3], 
+                       tmp_single_desc.pData[2], tmp_single_desc.pData[3],
                        tmp_single_desc.pData[4]);
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
         sum1 = tmp_single_desc.pData[6] + tmp_single_desc.pData[7];
         sum2 = tmp_single_desc.pData[8] + tmp_single_desc.pData[9];
         sum = sum1 / 2 + sum2 / 2;
@@ -636,10 +636,10 @@ static void temp_single_detect_handler(void)
         temp_single_get_disable();
         TMP_DETECT_PRT("buff:%p,%d,%d,%d,%d,%d\r\n", tmp_single_desc.pData,
                        tmp_single_desc.pData[0], tmp_single_desc.pData[1],
-                       tmp_single_desc.pData[2], tmp_single_desc.pData[3], 
+                       tmp_single_desc.pData[2], tmp_single_desc.pData[3],
                        tmp_single_desc.pData[4]);
         #endif // (CFG_SOC_NAME != SOC_BK7231)
-        
+
         rtos_set_semaphore(&tmp_single_semaphore);
     }
 }
@@ -665,9 +665,9 @@ UINT32 temp_single_get_current_temperature(UINT32 *temp_value)
         result = rtos_init_semaphore(&tmp_single_semaphore, 1);
         ASSERT(kNoErr == result);
     }
-    
+
     temp_single_get_enable();
-    
+
     ret = 1000; // 1s
     result = rtos_get_semaphore(&tmp_single_semaphore, ret);
     if(result == kNoErr) {
@@ -676,12 +676,12 @@ UINT32 temp_single_get_current_temperature(UINT32 *temp_value)
         #else
         *temp_value = tmp_single_desc.pData[4];
         #endif
-        ret = 0;        
+        ret = 0;
     }else {
         TMP_DETECT_FATAL("temp_single timeout\r\n");
         ret = 1;
     }
-        
+
     return ret;
 }
 

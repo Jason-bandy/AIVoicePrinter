@@ -66,7 +66,7 @@ typedef enum
 ******************************************************/
 
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 /**@brief Initialises a PWM pin
  *
  * @note  Prepares a Pulse-Width Modulation pin for use.
@@ -94,11 +94,11 @@ OSStatus bk_pwm_capture_initialize(bk_pwm_t pwm, uint8_t cap_mode);
  * @param duty_cycle1 : Set pwm first level reversal time
  * @param duty_cycle2 : Set pwm 2nd level reversal time
  * @param duty_cycle3 : Set pwm 3th level reversal time
- 
+
  * @return    kNoErr        : on success.
  * @return    kGeneralErr   : if an error occurred with any step
  */
- 
+
 OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle1,uint32_t duty_cycle2,uint32_t duty_cycle3);
 
 
@@ -129,6 +129,8 @@ OSStatus bk_pwm_start(bk_pwm_t pwm);
  */
 OSStatus bk_pwm_stop(bk_pwm_t pwm);
 
+OSStatus bk_pwm_set_freq(bk_pwm_t pwm, uint32_t frequency);
+
 
 /**@brief Initialises a PWM pin
  *
@@ -139,17 +141,17 @@ OSStatus bk_pwm_stop(bk_pwm_t pwm);
  * @param duty_cycle1 : Set pwm first level reversal time
  * @param duty_cycle2 : Set pwm 2nd level reversal time
  * @param duty_cycle3 : Set pwm 3th level reversal time
- 
+
  * @return    kNoErr        : on success.
  * @return    kGeneralErr   : if an error occurred with any step
  */
 
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 
 /**@brief Set PWM as group output
  *
- * @note  Start pwm group mode ,pwm0/1  pwm2/3  pwm4/5 
+ * @note  Start pwm group mode ,pwm0/1  pwm2/3  pwm4/5
  *
  * @param pwm1        		: the PWM1 interface which should be started
  * @param  pwm2        		: the PWM2 interface which should be started

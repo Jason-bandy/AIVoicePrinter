@@ -7,9 +7,9 @@
 #include "icu_pub.h"
 #include "uart_pub.h"
 
-#if (CFG_SOC_NAME == SOC_BK7271)
+#if (CFG_SOC_NAME != SOC_BK7271)
 void bk_timer_isr(void) __SECTION(".itcm");
-#endif
+
 
 #if (CFG_SOC_NAME != SOC_BK7231)
 static SDD_OPERATIONS bk_timer_op =
@@ -349,5 +349,6 @@ void bk_timer_isr(void)
         REG_WRITE(TIMER3_5_CTL, (REG_READ(TIMER3_5_CTL) & (~(0x7 << TIMERCTLB_INT_POSI))) | status1);
     } while(REG_READ(TIMER3_5_CTL) & status1 & (0x7 << TIMERCTLB_INT_POSI));
 }
-#endif
 
+#endif
+#endif

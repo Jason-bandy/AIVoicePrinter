@@ -137,20 +137,26 @@ int sa_station_send_associate_cmd(CONNECT_PARAM_T *connect_param)
 /*---------------------------------------------------------------------------*/
 static void sa_station_cfg80211_init(void)
 {
-    if (rwm_mgmt_is_vif_first_used() == NULL)
-    {
-        SASTA_PRT("[sa_sta]MM_RESET_REQ\r\n");
-        rw_msg_send_reset();
+	if (rwm_mgmt_is_vif_first_used() == NULL) {
+		SASTA_PRT("[sa_sta]MM_RESET_REQ\r\n");
+		rw_msg_send_reset();
 
-        SASTA_PRT("[sa_sta]ME_CONFIG_REQ\r\n");
-        rw_msg_send_me_config_req();
+#if CFG_IEEE80211AX
+		/* request lmac/umac features and handle dynamic parameters */
+		rw_msg_send_version_req();
 
-        SASTA_PRT("[sa_sta]ME_CHAN_CONFIG_REQ\r\n");
-        rw_msg_send_me_chan_config_req();
+		rwnx_handle_dynparams();
+#endif
 
-        SASTA_PRT("[sa_sta]MM_START_REQ\r\n");
-        rw_msg_send_start();
-    }
+		SASTA_PRT("[sa_sta]ME_CONFIG_REQ\r\n");
+		rw_msg_send_me_config_req();
+
+		SASTA_PRT("[sa_sta]ME_CHAN_CONFIG_REQ\r\n");
+		rw_msg_send_me_chan_config_req();
+
+		SASTA_PRT("[sa_sta]MM_START_REQ\r\n");
+		rw_msg_send_start();
+	}
 }
 
 #ifndef DISABLE_RECONNECT

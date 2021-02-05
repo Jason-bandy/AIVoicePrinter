@@ -101,6 +101,10 @@
 #define DSP_SW_RESET_ENABLE                      (1 << 02)
 #define BT_PROGRAM_DOWNLOAD_EN                   (1 << 01)
 #define DSP_PROGRAM_DOWNLOAD_EN                  (1 << 00)
+
+#define PMU_STATUS                             (PMU_BASE + 18 * 4)
+#define PMU_BAIS_CAL_OUT_POSI                    (12)
+#define PMU_BAIS_CAL_OUT_MASK                    (0x1F)
 #endif
 // eof
 

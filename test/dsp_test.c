@@ -33,6 +33,7 @@ volatile int record_flag = 0;
 volatile int thread_flag = 0;
 beken_thread_t usb_record_thread_handle;
 beken_semaphore_t usb_record_sem;
+beken_semaphore_t usb_play_sem;
 static int record_file;
 
 uint8_t mount_flag = 0;
@@ -268,11 +269,16 @@ void record2dac(int argc, char **argv)
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		rt_kprintf("record2dac <start|stop>\r\n");
+		rt_kprintf("record2dac <start> <adc1|adc2>\r\n");
+		rt_kprintf("record2dac <stop>\r\n");
 		return;
 	}
 
 	if (os_strcmp(argv[1], "start") == 0) {
+		if (argc < 3) {
+			rt_kprintf("record2dac <start> <adc1|adc2>\r\n");
+			return;
+		}
 		co_list_init(&g_record_context.using_list);
 		co_list_init(&g_record_context.free_list);
 		for (i = 0; i < sizeof(record_buffer_nodes) / sizeof(record_buffer_nodes[0]); i++) {
@@ -285,7 +291,13 @@ void record2dac(int argc, char **argv)
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_ENABLE, 1, 0, 0);
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 
-		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 1, 0, 0);
+		if (os_strcmp(argv[2], "adc1") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 1, 0, 0);
+		} else if (os_strcmp(argv[2], "adc2") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 2, 0, 0);
+		} else {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
+		}
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 	} else if (os_strcmp(argv[1], "stop") == 0) {
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
@@ -497,20 +509,26 @@ void record2usb(int argc, char **argv)
 	char file_name[50];
 
 	if (argc < 2) {
-		rt_kprintf("usage: record2usb start|stop [file name]\r\n");
+		rt_kprintf("record2usb <start> <adc1|adc2> [file name]\r\n");
+		rt_kprintf("record2usb <stop>\r\n");
+		return;
+	}
+
+	if (mount_flag != 1) {
+		rt_kprintf("usb hasn't initialization!\r\n");
 		return;
 	}
 
 	if (rt_strcmp(argv[1], "start") == 0) {
-		if (mount_flag != 1) {
-			rt_kprintf("usb hasn't initialization!\r\n");
+		if (argc < 3) {
+			rt_kprintf("record2usb <start> <adc1|adc2> [file name]\r\n");
 			return;
 		}
 
 		/*create&open record file*/
 		os_memset(file_name, 0, sizeof(file_name));
-		if (argc > 2)
-			sprintf(file_name, "/udisk/%s", argv[2]);
+		if (argc > 3)
+			sprintf(file_name, "/udisk/%s", argv[3]);
 		else
 			strcpy(file_name, "/udisk/record.pcm");
 		record_file = open(file_name, O_RDWR | O_CREAT | O_BINARY | O_TRUNC);
@@ -551,7 +569,13 @@ void record2usb(int argc, char **argv)
 		mailbox_ctrl(CMD_MAILBOX_SET_CALLBACK, (void *)usb_record_cb_hdl);
 
 		/*send record start to dsp*/
-		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 1, 0, 0);
+		if (os_strcmp(argv[2], "adc1") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 1, 0, 0);
+		} else if (os_strcmp(argv[2], "adc2") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 2, 0, 0);
+		} else {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
+		}
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 	} else if (os_strcmp(argv[1], "stop") == 0) {
 		/*send record stop to dsp*/
@@ -582,6 +606,7 @@ void record2usb(int argc, char **argv)
 
 static void usb_play_cb_hdl(MAILBOX_TYPE_T type, mailbox_t *param)
 {
+	int ret;
 	dma_buffer_node *node;
 
 	switch (param->cmd) {
@@ -603,6 +628,12 @@ static void usb_play_cb_hdl(MAILBOX_TYPE_T type, mailbox_t *param)
 			rt_kprintf("can not find 0x%x in dac_list!\r\n", param->param1);
 		else
 			co_list_push_back(&g_record_context.free_list, (struct co_list_hdr *)node);
+
+		if (param->param2 == 0) {
+			ret = rtos_set_semaphore(&usb_play_sem);
+			if (ret)
+				rt_kprintf("set usb play semaphore fail.\r\n");
+		}
 		break;
 	default:
 		rt_kprintf("%s:%d cmd=0x%x!\r\n", __FUNCTION__, __LINE__, param->cmd);
@@ -626,6 +657,12 @@ void usb_play(int argc, char **argv)
 		return;
 	}
 
+	/*init usb play semaphore*/
+	ret = rtos_init_semaphore(&usb_play_sem, 1);
+	if (ret) {
+		rt_kprintf("create usb play semaphore fail.\r\n");
+		return;
+	}
 	/*open record file*/
 	os_memset(file_name, 0, sizeof(file_name));
 	if (argc > 1)
@@ -662,23 +699,32 @@ void usb_play(int argc, char **argv)
 		if (node == NULL) {
 			retry_cnt++;
 			if (retry_cnt > 10000) {
+				retry_cnt = 0;
 				rt_kprintf("get free list fail.\r\n");
 			}
-			rtos_delay_milliseconds(5);
+			rtos_delay_milliseconds(2);
 			continue;
 		}
 
-		br = read(record_file, node->buffer, USB_PLAY_NODE_SIZE);
-		if (br == 0) {
-			co_list_push_back(&g_record_context.free_list, (struct co_list_hdr *)node);
-			break;
-		}
+		/*when get node success, reset retry count to 0.*/
+		if (retry_cnt)
+			retry_cnt = 0;
 
+		/*read data to dsp*/
+		br = read(record_file, node->buffer, USB_PLAY_NODE_SIZE);
 		node->size = br;
 		co_list_push_back(&g_record_context.using_list, (struct co_list_hdr *)node);
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_PCM_WRITE, ((uint32_t)node->buffer) - W_DSP_DMEM_64KB_BASE_ADDR, node->size, 0);
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+
+		/*finish read data*/
+		if (br == 0) break;
 	}
+
+	/*wait for usb play stop*/
+	ret = rtos_get_semaphore(&usb_play_sem, BEKEN_WAIT_FOREVER);
+	if (ret)
+		rt_kprintf("get usb play semaphore fail.\r\n");
 
 	/*send play stop to dsp*/
 	mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_ENABLE, 0, 0, 0);

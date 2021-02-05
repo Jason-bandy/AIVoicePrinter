@@ -13,6 +13,7 @@
 #include "arm_arch.h"
 #include "drv_model_pub.h"
 #include "bk7011_cal_pub.h"
+#include "reg_mdm_cfg.h"
 
 #if CFG_RX_SENSITIVITY_TEST
 beken_timer_t rx_sens_tmr = {0};
@@ -23,17 +24,43 @@ UINT32 g_rxsens_start = 0;
 extern void bk7011_max_rxsens_setting(void);
 extern void bk7011_normal_rxsens_setting(void);
 
+int bk7011_reduce_vdddig_for_rx(int reduce)
+{
+    static UINT32 default_vdddig = 0;
+    UINT32 new_vdddig;
+    if (!default_vdddig)
+    {
+        default_vdddig = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_VDD_VALUE, NULL);
+        if (!default_vdddig)
+        {
+            return -1;
+        }
+    }
+    if (reduce)
+    {
+        new_vdddig = default_vdddig - 1;
+        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, (void *)&new_vdddig);
+    }
+    else
+    {
+        /* recover vdddig */
+        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, (void *)&default_vdddig);
+    }
+
+    return 0;
+}
+
 void rxsens_ct_hdl(void *param)
 {
 #if CFG_RX_SENSITIVITY_TEST
     OSStatus err;
     rx_get_rx_result_end();
     rx_get_rx_result_begin();
-    
+
     if(rx_sens_tmr.handle != NULL) {
         err = rtos_reload_timer(&rx_sens_tmr);
         ASSERT(kNoErr == err);
-    }   
+    }
 #endif // CFG_RX_SENSITIVITY_TEST
 }
 
@@ -131,22 +158,37 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
                 UINT32 op = os_strtoul(argv[arg_id + 1], NULL, 10);
                 if(op < RXSENS_G_MAX) {
                     if (op == RXSENS_G_STOP_LASTRX) {
+#if (CFG_SOC_NAME == SOC_BK7231N)
+                        /* recover MDM_REG202<23>=0 */
+                        mdm_cpemode_setf(0);
+                        /* recover MDM_REG206<17:16>=0 */
+                        mdm_cfgsmooth_setf(0);
+                        /* recover TRX_REG12<8:7>=3 */
+                        rwnx_cal_set_reg_adda_ldo(3);
+                        /* recover rx filter */
+                        rwnx_cal_en_rx_filter_offset();
+                        bk7011_reduce_vdddig_for_rx(0);
+                        /* recover TRX_REG9<22>=0 for band20 */
+                        rwnx_cal_set_bw_i2v(0);
+#endif
                         g_rxsens_start = 0;
                         if(rx_sens_tmr.handle != NULL) {
-                            err = rtos_deinit_timer(&rx_sens_tmr); 
+                            err = rtos_deinit_timer(&rx_sens_tmr);
                             ASSERT(kNoErr == err);
-                            rx_sens_tmr.handle = NULL; 
+                            rx_sens_tmr.handle = NULL;
                         }
     	            } else {
-                        //FUNCPTR reboot = 0;
-                        //os_printf("reboot\r\n");
-                        //(*reboot)();
+#if (CFG_SOC_NAME == SOC_BK7231N)
+                        /* set TRX_REG12<8:7>=2 for rx */
+                        rwnx_cal_set_reg_adda_ldo(2);
+                        rwnx_cal_dis_rx_filter_offset();
+#endif
                     }
                     return 0;
                 } else {
                     return -1;
                 }
-#endif                
+#endif
             }
 
             case 's': {  // start / stop
@@ -154,7 +196,7 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
                 if(!is_ble_test)
                 {
                     UINT32 sta = os_strtoul(argv[arg_id + 1], NULL, 10);
-                    if(sta) { 
+                    if(sta) {
                         rx_clean_rx_statistic_result();
                     }
                     else {
@@ -182,15 +224,15 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
                 if(!is_ble_test)
                 {
                     UINT32 g_type = os_strtoul(argv[arg_id + 1], NULL, 10);
-                    if(g_type < RXSENS_RTYPTE_MAX ) 
+                    if(g_type < RXSENS_RTYPTE_MAX )
                     {
-                        if(g_type == RXSENS_RTYPTE_CLEAN) { 
+                        if(g_type == RXSENS_RTYPTE_CLEAN) {
                             rx_clean_rx_statistic_result();
                         }
-                        else if(g_type == RXSENS_RTYPTE_20M) { 
+                        else if(g_type == RXSENS_RTYPTE_20M) {
                             rx_get_rx20M_statistic_result();
                         }
-                        
+
                         else if(g_type == RXSENS_RTYPTE_40M){
                             rx_get_rx40M_statistic_result();
                         }
@@ -198,7 +240,7 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
                             rxsens_ct_hdl(NULL);
                         }
                         return 0;
-                    } else 
+                    } else
                         return -1;
                 }
                 else
@@ -219,7 +261,7 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
 
             case 'o': {
                 is_ble_test = 1;
-                ble_test = os_strtoul(argv[arg_id + 1], NULL, 10); // 1:start 0:stop                
+                ble_test = os_strtoul(argv[arg_id + 1], NULL, 10); // 1:start 0:stop
             }
             break;
 
@@ -276,10 +318,30 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
         if(ret)
         {
             return 1;
-        } 
+        }
 
         //sys_ctrl_0x42[6:4]=SCTRL_DIGTAL_VDD=4
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N)
+        if(mode == 0)
+        {
+            /* set MDM_REG206<17:16>=3 for band20 */
+            mdm_cfgsmooth_setf(3);
+            bk7011_reduce_vdddig_for_rx(1);
+            /* recover TRX_REG9<22>=0 for band20 */
+            rwnx_cal_set_bw_i2v(0);
+        }
+        else
+        {
+            /* set MDM_REG206<17:16>=1 for band40 */
+            mdm_cfgsmooth_setf(1);
+            bk7011_reduce_vdddig_for_rx(0);
+            /* set TRX_REG9<22>=1 for band40 */
+            rwnx_cal_set_bw_i2v(1);
+        }
+#elif (CFG_SOC_NAME == SOC_BK7236)
+		// TODO: BK7236 phy karst
+#elif (CFG_SOC_NAME == SOC_BK7271)
+#else
         if(mode == 0)
         {
             reg = 3;
@@ -291,25 +353,26 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
             sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, &reg);
         }
 #endif
-        
+
         rs_test();
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
+        extern void phy_enable_lsig_intr(void);
         phy_enable_lsig_intr();
+        /* set MDM_REG202<23>=1 for rx */
+        mdm_cpemode_setf(1);
+#elif (CFG_SOC_NAME == SOC_BK7236)
+		// TODO: BK7236 phy karst
 #else
         if((channel == 13) ||(channel == 14))
             rwnx_cal_set_reg_adda_ldo(0);
         else
             rwnx_cal_set_reg_adda_ldo(3);
-			
-#if (CFG_SOC_NAME != SOC_BK7271)        
+
         rwnx_cal_set_reg_rx_ldo();
         bk7011_max_rxsens_setting();
-#endif      
-        #if (CFG_SOC_NAME != SOC_BK7271)
         rwnx_cal_dis_extra_txpa();
-        #endif
-        
+
         if(mode == 1)
         {
             if((channel >= 3) && (channel <= 10))
@@ -320,33 +383,33 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
         else
             rwnx_cal_set_40M_extra_setting(0);
 #endif
-        
+
         g_rxsens_start = 1;
 
         if(duration) {
             rx_get_rx_result_begin();
             //t_ms = fclk_from_sec_to_tick(duration);
             t_ms = duration * 1000;
-            
+
             if(rx_sens_tmr.handle != NULL) {
-                err = rtos_deinit_timer(&rx_sens_tmr); 
+                err = rtos_deinit_timer(&rx_sens_tmr);
                 ASSERT(kNoErr == err);
-                rx_sens_tmr.handle = NULL; 
-            } 
-            
-        	err = rtos_init_timer(&rx_sens_tmr, 
-    					t_ms, 
-    					rxsens_ct_hdl, 
+                rx_sens_tmr.handle = NULL;
+            }
+
+        	err = rtos_init_timer(&rx_sens_tmr,
+    					t_ms,
+    					rxsens_ct_hdl,
     					(void *)0);
             ASSERT(kNoErr == err);
         	err = rtos_start_timer(&rx_sens_tmr);
-        	ASSERT(kNoErr == err);   
+        	ASSERT(kNoErr == err);
         } else {
             if(rx_sens_tmr.handle != NULL) {
-                err = rtos_deinit_timer(&rx_sens_tmr); 
+                err = rtos_deinit_timer(&rx_sens_tmr);
                 ASSERT(kNoErr == err);
-                rx_sens_tmr.handle = NULL; 
-            } 
+                rx_sens_tmr.handle = NULL;
+            }
         }
     }
     else
@@ -359,40 +422,40 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
             if(duration) {
                 //t_ms = fclk_from_sec_to_tick(duration);
                 t_ms = duration * 1000;
-                
+
                 if(rx_sens_ble_tmr.handle != NULL) {
-                    err = rtos_deinit_timer(&rx_sens_ble_tmr); 
+                    err = rtos_deinit_timer(&rx_sens_ble_tmr);
                     ASSERT(kNoErr == err);
-                    rx_sens_ble_tmr.handle = NULL; 
-                } 
-                
-            	err = rtos_init_timer(&rx_sens_ble_tmr, 
-        					t_ms, 
-        					rxsens_ble_ct_hdl, 
+                    rx_sens_ble_tmr.handle = NULL;
+                }
+
+            	err = rtos_init_timer(&rx_sens_ble_tmr,
+        					t_ms,
+        					rxsens_ble_ct_hdl,
         					(void *)0);
                 ASSERT(kNoErr == err);
             	err = rtos_start_timer(&rx_sens_ble_tmr);
-            	ASSERT(kNoErr == err);   
+            	ASSERT(kNoErr == err);
             } else {
                 if(rx_sens_ble_tmr.handle != NULL) {
-                    err = rtos_deinit_timer(&rx_sens_ble_tmr); 
+                    err = rtos_deinit_timer(&rx_sens_ble_tmr);
                     ASSERT(kNoErr == err);
-                    rx_sens_ble_tmr.handle = NULL; 
-                } 
+                    rx_sens_ble_tmr.handle = NULL;
+                }
             }
         }
         else
         {
             if(rx_sens_ble_tmr.handle != NULL) {
-                err = rtos_deinit_timer(&rx_sens_ble_tmr); 
+                err = rtos_deinit_timer(&rx_sens_ble_tmr);
                 ASSERT(kNoErr == err);
-                rx_sens_ble_tmr.handle = NULL; 
-            } 
+                rx_sens_ble_tmr.handle = NULL;
+            }
             rs_ble_test_stop();
         }
     }
-    
-    
+
+
 #endif // CFG_RX_SENSITIVITY_TEST
 
     return 0;

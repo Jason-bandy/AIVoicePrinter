@@ -2,6 +2,7 @@
 #include "arm_arch.h"
 
 #include "dd_pub.h"
+#include "co_list.h"
 
 #include "sdio_pub.h"
 #include "sys_ctrl_pub.h"
@@ -23,6 +24,10 @@
 #if (CFG_SOC_NAME == SOC_BK7271)
 #include "dsp_pub.h"
 #include "mailbox_pub.h"
+#include "spi_bk7271.h"
+#if (CFG_USE_BT)
+#include "bt_pub.h"
+#endif
 #endif
 
 #if CFG_USE_CAMERA_INTF
@@ -66,7 +71,7 @@
 #include "security_pub.h"
 #endif
 
-#if (SOC_BK7231N == CFG_SOC_NAME)
+#if (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)
 #include "calendar_pub.h"
 #endif
 
@@ -77,12 +82,18 @@ static DD_INIT_S dd_init_tbl[] = {
 	{WDT_DEV_NAME,          wdt_init,                   wdt_exit},
 	{GPIO_DEV_NAME,         gpio_init,                  gpio_exit},
 
-#if (SOC_BK7231N == CFG_SOC_NAME)
+#if (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)
 	{CAL_DEV_NAME,			cal_init,					cal_exit},
 #endif
 
 #if CFG_USE_UART2
 	{UART2_DEV_NAME,        uart2_init,                 uart2_exit},
+#endif
+
+#if (CFG_SOC_NAME == SOC_BK7271)
+#if CFG_USE_UART3
+	{UART3_DEV_NAME,        uart3_init,                 uart3_exit},
+#endif
 #endif
 
 #if CFG_USE_UART1
@@ -111,6 +122,9 @@ static DD_INIT_S dd_init_tbl[] = {
 #if (CFG_SOC_NAME == SOC_BK7271)
 	{DSP_DEV_NAME,          dsp_init,                   dsp_exit},
 	{MAILBOX_DEV_NAME,      mailbox_init,               mailbox_exit},
+#if (CFG_USE_BT)
+	{BT_DEV_NAME,           bt_init,                    bt_exit},
+#endif
 #endif
 
 #if CFG_USE_AUDIO
@@ -136,6 +150,10 @@ static DD_INIT_S dd_init_tbl[] = {
 #endif
 	{SPI_DEV_NAME,          spi_init,                   spi_exit},
 
+ #if (CFG_SOC_NAME == SOC_BK7271)
+    {SPI2_DEV_NAME,         spi2_init,                  spi2_exit},
+    {SPI3_DEV_NAME,         spi3_init,                  spi3_exit},
+#endif
 #if (CFG_SOC_NAME != SOC_BK7271)
 #if CFG_USE_FFT
 	{FFT_DEV_NAME,          fft_init,                   fft_exit},

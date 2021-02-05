@@ -238,6 +238,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_ip -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_ble -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231u --buildlib=beken_usb -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_sensor -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_pcm_resampler -j8")
         elif GetOption('beken') == 'bk7236':
@@ -252,6 +253,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7271 --buildlib=beken_usb -j8")
             DoSystemCall("scons --beken=bk7271 --buildlib=beken_sensor -j8")
             DoSystemCall("scons --beken=bk7271 --buildlib=beken_pcm_resampler -j8")
+            DoSystemCall("scons --beken=bk7271 --buildlib=beken_bt -j8")
             #DoSystemCall("scons --beken=bk7271 --buildlib=player")
         else:
             DoSystemCall("scons --beken=bk7251 --buildlib=beken_ip -j8")
@@ -275,6 +277,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_ip -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_ble -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231u --cleanlib=beken_usb -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_sensor -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_pcm_resampler -j8")
         elif GetOption('beken') == 'bk7236':
@@ -289,6 +292,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7271 --cleanlib=beken_usb -j8")
             DoSystemCall("scons --beken=bk7271 --cleanlib=beken_sensor -j8")
             DoSystemCall("scons --beken=bk7271 --cleanlib=beken_pcm_resampler -j8")
+            DoSystemCall("scons --beken=bk7271 --cleanlib=beken_bt -j8")
             #DoSystemCall("scons --beken=bk7271 --cleanlib=player")
         else:
             DoSystemCall("scons --beken=bk7251 --cleanlib=beken_ip -j8")

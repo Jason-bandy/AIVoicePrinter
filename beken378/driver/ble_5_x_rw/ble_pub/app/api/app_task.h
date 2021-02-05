@@ -48,7 +48,7 @@
  */
 
 /// Number of APP Task Instances
-#define APP_IDX_MAX                 (BLE_CONNECTION_MAX)
+#define APP_IDX_MAX                 (BLE_CONNECTION_MAX + BLE_ACTIVITY_MAX)
 
 /*
  * ENUMERATIONS
@@ -62,13 +62,22 @@ enum appm_state
     APPM_CREATE_DB,
     /// Ready State
     APPM_READY,
-    /// Connected state
-    APPM_CONNECTED,
-
     /// Number of defined states.
     APPM_STATE_MAX
-};;
+};
 
+enum appc_state
+{
+    APPC_LINK_IDLE = 0,
+
+    APPC_LINK_CONNECTED,
+
+    APPC_SDP_DISCOVERING,
+
+    APPC_SERVICE_CONNECTED,
+    /// Number of defined states.
+    APPC_STATE_MAX
+};
 
 /// APP Task messages
 /*@TRACE*/
@@ -86,11 +95,25 @@ enum app_msg_id
     APP_HID_MOUSE_TIMEOUT_TIMER,
     #endif //(BLE_APP_HID)
     APP_DEVIATION_CLAC_TIMER,
-#if (BLE_CENTRAL)    
+#if (BLE_CENTRAL)
     APP_INIT_CON_DEV_TIMEROUT_TIMER,
+    APP_INIT_INIT_EVENT,
+    APP_INIT_START_TIMEOUT_EVENT,
 #endif
 };
 
+struct app_task_event_ind
+{
+    /// Event Type
+    uint8_t type;
+};
+
+struct app_task_start_timeout_event_ind
+{
+	/// Event Type
+	kernel_task_id_t task_id;
+	unsigned int timout_ms;
+};
 
 /*
  * GLOBAL VARIABLE DECLARATIONS

@@ -1,17 +1,17 @@
 #include "include.h"
 #include "arm_arch.h"
+#if (CFG_SOC_NAME == SOC_BK7271)
 
-#include "i2c1.h"
+#include "i2c1_bk7271.h"
 #include "i2c_pub.h"
 
 #include "intc_pub.h"
 #include "icu_pub.h"
 #include "gpio_pub.h"
-
+#include "gpio_bk7271.h"
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 
-#if (CFG_SOC_NAME == SOC_BK7271)
 static DD_OPERATIONS i2c1_op =
 {
     i2c1_open,

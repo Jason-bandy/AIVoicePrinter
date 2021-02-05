@@ -1,4 +1,5 @@
 #include "drv_model_pub.h"
+#include "BkDriverFlash.h"
 
 #define HTTP_WR_TO_FLASH        1
 
@@ -7,9 +8,10 @@ typedef struct http_data_st{
     UINT8 do_data;
     #if HTTP_WR_TO_FLASH
     UINT8 *wr_buf ;
+    UINT8 *wr_tmp_buf;
     UINT16 wr_last_len ;
     UINT32 flash_address;
-    UINT8 *wr_tmp_buf;
+    bk_logic_partition_t *pt;
     #endif
     DD_HANDLE flash_hdl;
 }HTTP_DATA_ST;

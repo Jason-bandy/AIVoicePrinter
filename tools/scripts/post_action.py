@@ -22,7 +22,7 @@ out_json = {
             "version": "2M.1220",
             "partition": "app",
             "start_addr": "0x00011000",
-            "size": "1150832"
+            "size": "1156K"
         }
     ]
 }
@@ -30,28 +30,35 @@ out_json = {
 dsp_json = {
     "magic": "RT-Thread",
     "version": "0.1",
-    "count": 3,
+    "count": 4,
     "section": [
         {
-            "firmware": "bootloader_bk7231n_uart2_v1.0.6.bin",
+            "firmware": "bootloader_bk7231n_uart2_v1.0.7.bin",
             "version": "2M.1220",
             "partition": "bootloader",
             "start_addr": "0x00000000",
-            "size": "65280"
+            "size": "68K"
         },
         {
             "firmware": "rtthread.bin",
             "version": "2M.1220",
             "partition": "app",
             "start_addr": "0x00011000",
-            "size": "1292K"
+            "size": "1020K"
         },
         {
             "firmware": "tools/beken_packager/dsp_code_data.bin",
             "version": "2M.1220",
             "partition": "dsp",
-            "start_addr": "0x00198000",
-            "size": "408K"
+            "start_addr": "0x00110000",
+            "size": "748K"
+        },
+        {
+            "firmware": "tools/beken_packager/BK7271_BT.bin",
+            "version": "2M.1220",
+            "partition": "bt",
+            "start_addr": "0x001CB000",
+            "size": "212K"
         }
     ]
 }
@@ -62,7 +69,7 @@ bk7251_out_json = {
     "count": 2,
     "section": [
         {
-            "firmware": "bootloader_bk7251_uart2_v1.0.6.bin",
+            "firmware": "bootloader_bk7251_uart2_v1.0.7.bin",
             "version": "2M.1220",
             "partition": "bootloader",
             "start_addr": "0x00000000",
@@ -135,13 +142,13 @@ if __name__=='__main__':
     firmware_str = "rtthread.bin"
     out_json_str = "config.json"
     if beken_str == "bk7231u":
-        bootloader_str = "tools/beken_packager/bootloader_bk7231u_uart2_v1.0.6.bin"
+        bootloader_str = "tools/beken_packager/bootloader_bk7231u_uart2_v1.0.7.bin"
     elif beken_str == "bk7231n":
-        bootloader_str = "tools/beken_packager/bootloader_bk7231n_uart2_v1.0.6.bin"
+        bootloader_str = "tools/beken_packager/bootloader_bk7231n_uart2_v1.0.7.bin"
     elif beken_str == "bk7271":
-        bootloader_str = "tools/beken_packager/bootloader_bk7271_uart1_v1.0.3.bin"
+        bootloader_str = "tools/beken_packager/bootloader_bk7271_uart2_v1.0.6.bin"
     else:
-        bootloader_str = "tools/beken_packager/bootloader_bk7251_uart2_v1.0.6.bin"
+        bootloader_str = "tools/beken_packager/bootloader_bk7251_uart2_v1.0.7.bin"
 
     # copy or generate json file
     generate_beken_packager_json(beken_str, bootloader_str, firmware_str, out_json_str)

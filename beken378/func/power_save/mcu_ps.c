@@ -124,10 +124,10 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 #endif
 				if ( sleep_pwm_t < 64 )
 					sleep_pwm_t = 64;
-					
+
 			if ( sctrl_if_mcu_can_sleep() ) {
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
-			
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
+
 				if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 					ps_pwm_disable();
 				}
@@ -137,8 +137,8 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 				ps_pwm_suspend_tick ( sleep_pwm_t );
 #endif
 			}
-			
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
 			param = ( 0xfffff  & ( ~PWD_TIMER_26M_CLK_BIT ) & ( ~PWD_TIMER_32K_CLK_BIT ) & ( ~PWD_UART2_CLK_BIT )
 			          & ( ~PWD_UART1_CLK_BIT )
 			        );
@@ -148,12 +148,12 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 			        );
 #endif
 			sctrl_mcu_sleep ( param );
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
 			ps_timer3_measure_prepare();
 #endif
 			wkup_type = sctrl_mcu_wakeup();
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
-			
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
+
 			if ( 1 == wkup_type ) {
 				wastage = 768;
 
@@ -241,9 +241,9 @@ int aos_mcu_ps_timer_start ( UINT32 tm_us )
 #endif
 			if ( sleep_pwm_t < 64 )
 				sleep_pwm_t = 64;
-				
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
-				
+
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
+
 		if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 			ps_pwm_disable();
 		}
@@ -263,7 +263,7 @@ void aos_mcu_ps_sleep()
 {
 	UINT32 param;
 	GLOBAL_INT_DECLARATION();
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
 	param = ( 0xfffff & ( ~PWD_TIMER_32K_CLK_BIT ) & ( ~PWD_UART2_CLK_BIT )
 	          & ( ~PWD_UART1_CLK_BIT )
 	        );
@@ -274,7 +274,7 @@ void aos_mcu_ps_sleep()
 #endif
 	GLOBAL_INT_DISABLE();
 	sctrl_mcu_sleep ( param );
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
 	ps_timer3_measure_prepare();
 #endif
 	wkup_type = sctrl_mcu_wakeup();
@@ -284,8 +284,8 @@ void aos_mcu_ps_sleep()
 int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 {
 	UINT32 miss_ticks = 0, wastage = 0;
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
-	
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)))
+
 	if ( 1 == wkup_type ) {
 		wastage = 768;
 	}

@@ -38,7 +38,7 @@
 #define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         1
-#define CFG_RWNX_QOS_MSDU                          0
+#define CFG_RWNX_QOS_MSDU                          1
 #define CFG_WLAN_FAST_CONNECT                      0
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -52,7 +52,7 @@
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_SME                                    1
+#define CFG_SME                                    0
 #endif
 //#define CFG_MESH                                 0
 #define CFG_WFA_CERT                               0
@@ -75,9 +75,18 @@
 #define CFG_MSDU_RESV_HEAD_LEN                    96
 #define CFG_MSDU_RESV_TAIL_LEN                    16
 
-#define CFG_USE_USB_HOST                           0
-
 #define CFG_USB                                    0
+#define CFG_USE_USB_HOST                           0
+#define CFG_USE_USB_DEVICE                         1
+#if CFG_USB
+#if (!(CFG_USE_USB_HOST || CFG_USE_USB_DEVICE))
+#error "Must select one USB mode for enabling USB!"
+#endif
+#endif
+#if CFG_USE_USB_DEVICE
+#define CFG_USE_USB_DEVICE_CARD_READER              1
+#endif
+
 #if CFG_USB
 #define CFG_SUPPORT_MSD                            1
 #define CFG_SUPPORT_HID                            0
@@ -110,7 +119,9 @@
 #define SOC_BK7231                                 1
 #define SOC_BK7231U                                2
 #define SOC_BK7221U                                3
+#define SOC_BK7271                                 4
 #define SOC_BK7231N                                5
+#define SOC_BK7236                                 6
 #define CFG_SOC_NAME                               SOC_BK7231U
 
 /*section 7-----calibration*/
@@ -151,7 +162,7 @@
 #define CFG_USE_MCU_PS                             1
 
 #define CFG_USE_DEEP_PS                            1
-#define CFG_USE_BLE_PS                             0
+#define CFG_USE_BLE_PS                             1
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
 
@@ -166,13 +177,21 @@
 #define CFG_USE_AP_PS                              0
 
 /*section 19-----for SDCARD HOST*/
+#if CFG_USB && CFG_USE_USB_DEVICE
+#define CFG_USE_SDCARD_HOST                        1
+#else
 #define CFG_USE_SDCARD_HOST                        0
+#endif
 
 /*section 20 ----- support mp3 decoder*/
 #define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_SUPPORT_OTA_HTTP                       0
+#else
+#define CFG_SUPPORT_OTA_HTTP                       1
+#endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
 /*section 22 ----- support adc calibrate*/

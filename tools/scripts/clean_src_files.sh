@@ -19,7 +19,7 @@ echo "clean ip lib files..."
 source ${BEKEN_SDK_DIR}/ip/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/ip/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/ip/ip_src.mk
@@ -29,7 +29,7 @@ echo "clean ble4.x lib files..."
 source ${BEKEN_SDK_DIR}/driver/ble/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/driver/ble/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/driver/ble/ble_src.mk
@@ -39,7 +39,7 @@ echo "clean ble5.x lib files..."
 source ${BEKEN_SDK_DIR}/driver/ble_5_x_rw/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/driver/ble_5_x_rw/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/driver/ble_5_x_rw/ble_src.mk
@@ -49,7 +49,7 @@ echo "clean usb lib files..."
 source ${BEKEN_SDK_DIR}/driver/usb/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/driver/usb/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/driver/usb/usb_src.mk
@@ -58,7 +58,7 @@ echo "clean sensor lib files..."
 source ${BEKEN_SDK_DIR}/func/sensor/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/func/sensor/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/func/sensor/sensor_src.mk
@@ -67,7 +67,7 @@ echo "clean pcm_resampler lib files..."
 source ${BEKEN_SDK_DIR}/func/pcm_resampler/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/func/pcm_resampler/lib_files.sh
 rm -f ${BEKEN_SDK_DIR}/func/pcm_resampler/pcm_resampler_src.mk
@@ -76,6 +76,15 @@ echo "clean vad lib files..."
 source ${BEKEN_SDK_DIR}/func/vad/lib_files.sh
 for sub in ${LIB_FILES}
 do
-	rm -f $sub
+	rm -rf $sub
 done
 rm -f ${BEKEN_SDK_DIR}/func/vad/lib_files.sh
+
+echo "clean bt lib files..."
+source ${BEKEN_SDK_DIR}/driver/bt/lib_files.sh
+for sub in ${LIB_FILES}
+do
+	rm -rf $sub
+done
+rm -f ${BEKEN_SDK_DIR}/driver/bt/lib_files.sh
+rm -f ${BEKEN_SDK_DIR}/driver/bt/bt_src.mk

@@ -14,14 +14,6 @@ typedef short                      int16_t;
 typedef unsigned long long         uint64_t;
 #endif
 
-#if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7221U))
-extern void *dtcm_malloc(unsigned long size);
-#define PCM_MALLOC                dtcm_malloc
-#else
-#define PCM_MALLOC                os_malloc
-#endif
-
-
 #define USE_SMALLFILTER
 
 #define Nhc       8

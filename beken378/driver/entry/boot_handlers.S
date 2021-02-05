@@ -8,7 +8,7 @@
  * Copyright (C) RivieraWaves 2011-2016
  *
  ****************************************************************************************
- */	
+ */
 	.globl entry_main
 	.globl intc_irq
 	.globl intc_fiq
@@ -32,7 +32,7 @@
     .globl bk_trap_pabt
     .globl bk_trap_dabt
     .globl bk_trap_resv
-    
+
     #include "sys_config.h"
 
 /* ========================================================================
@@ -131,17 +131,17 @@
         MRS     R6, CPSR
         STR     R6, [R0, #17*4]
     .endm
-    
+
 /* ========================================================================*/
-	.macro   portSAVE_CONTEXT 
+	.macro   portSAVE_CONTEXT
 	//Push R0 as we are going to use the register.
-	STMDB	SP!, {R0}	
-	
+	STMDB	SP!, {R0}
+
 	MRS R0, spsr
 	AND R0, R0, #0x1F
 	CMP R0, #0x1F
-	BNE 10f		
-	
+	BNE 10f
+
 	//Set R0 to point to the task stack pointer.
 	STMDB	SP, {SP}^
 	NOP
@@ -167,7 +167,7 @@
 	MRS		R0, SPSR
 	STMDB	LR!, {R0}
 
-	LDR		R0, =ulCriticalNesting 
+	LDR		R0, =ulCriticalNesting
 	LDR		R0, [R0]
 	STMDB	LR!, {R0}
 
@@ -175,46 +175,46 @@
 	LDR		R0, =pxCurrentTCB
 	LDR		R0, [R0]
 	STR		LR, [R0]
-	
+
 	B       11f
-	
-10:		
+
+10:
 	LDMIA  SP!, {R0}
-	
+
 	STMDB	r13!, {r0-r12,r14}
 	NOP
-	NOP	
-		
+	NOP
+
 	MRS		R0, SPSR
 	STMDB		r13!, {R0}
-	
-	LDR		R0, =ulCriticalNesting 
+
+	LDR		R0, =ulCriticalNesting
 	LDR		R0, [R0]
 	STMDB		r13!, {R0}
-	
-	LDR		R0, =pxCurrentTCB 
+
+	LDR		R0, =pxCurrentTCB
 	LDR		R0, [R0]
 	STMDB		r13!, {R0}
-		
+
 	SUB r13, r13, #4
-	
+
 11:
 	MOV R0, R0
 	.endm
-		
+
 /* ========================================================================*/
-	.macro   portRESTORE_CONTEXT 
-		
+	.macro   portRESTORE_CONTEXT
+
 	MRS R0, spsr
 	AND R0, R0, #0x1F
 	CMP R0, #0x1F
 	BNE 20f
-			
-	//Set the LR to the task stack.	
+
+	//Set the LR to the task stack.
 	LDR		R0, =pxCurrentTCB
 	LDR		R0, [R0]
 	LDR		LR, [R0]
-			
+
 	//The critical nesting depth is the first item on the stack.
 	//Load it into the ulCriticalNesting variable.
 	LDR		R0, =ulCriticalNesting
@@ -224,7 +224,7 @@
 	//Get the SPSR from the stack.
 	LDMFD	LR!, {R0}
 	MSR		SPSR_cxsf, R0
-		
+
 	//Restore all system mode registers for the task.
 	LDMFD	LR, {R0-R14}^
 	NOP
@@ -236,25 +236,25 @@
 	//And return - correcting the offset in the LR to obtain the
 	//correct address.
 	SUBS	PC, LR, #4
-	
-20:		
+
+20:
 	ADD r13, r13, #0x4
-	
+
 	LDR		R0, =pxCurrentTCB
 	LDMFD		r13!, {R1}
 	STR		R1, [R0]
-		
+
 	LDR		R0, =ulCriticalNesting
 	LDMFD		r13!, {R1}
 	STR		R1, [R0]
-	
+
 	LDMFD		r13!, {R0}
 	MSR		SPSR_cxsf, R0
-		
+
 	LDMIA	r13!, {r0-r12,r14}
 	NOP
-	NOP	
-		
+	NOP
+
 	SUBS    pc, r14, #0x4
 	.endm
 
@@ -287,12 +287,12 @@
 	BLT   3b            //branch to previous local label
 	.endm
 
-	 .section .data
+	 .section .bss
 	 .align 3
 	 .global und_stack_start
  und_stack_start:
  	 .space _UND_STACK_SIZE_
- 
+
 	.align 3
 	.global abt_stack_start
 abt_stack_start:
@@ -307,7 +307,7 @@ fiq_stack_start:
 	.global irq_stack_start
  irq_stack_start:
  	 .space _IRQ_STACK_SIZE_
- 
+
 	.align 3
 	.global sys_stack_start
 sys_stack_start:
@@ -324,7 +324,7 @@ svc_stack_start:
  * ========================================================================
  * Function to handle reset vector
  */
-	.globl	boot_reset		 
+	.globl	boot_reset
 	.section ".boot", "ax"
 
 boot_reset:
@@ -342,7 +342,7 @@ boot_reset:
 
 	BOOT_CHANGE_MODE BOOT_MODE_UND BOOT_MODE_MASK
 	BOOT_SET_STACK   boot_stack_base_UNUSED boot_stack_len_UNUSED BOOT_COLOR_UNUSED
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 	B AFTER_FLAG
 	.org  0xc0 //0x100 - sizeof(section.vector) = 0x100 - 0x40
 	.word 0x32374B42
@@ -351,7 +351,7 @@ boot_reset:
 AFTER_FLAG:
 #elif  (CFG_SOC_NAME == SOC_BK7271)
 	B AFTER_FLAG
-	.org  0xc0 
+	.org  0xc0
 	.word 0x32374B42
 	.word 0x00003137
 AFTER_FLAG:
@@ -375,16 +375,16 @@ AFTER_FLAG:
 
     /*Stay in Supervisor Mode, copy data from binary to ram*/
     BL _sysboot_copy_data_to_ram
-#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7271))
+#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7271)) || (CFG_SOC_NAME == SOC_BK7236)
     BL _sysboot_copy_code_to_itcm
 #endif
-    
+
     /*Init the BSS section*/
     BL _sysboot_zi_init
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     BL _sysboot_tcmbss_init
 #endif
-    
+
     //==================
     //Clear Registers
     MOV R0, #0
@@ -404,7 +404,7 @@ AFTER_FLAG:
     /* start main entry*/
     B entry_main
     B .
-		
+
 /* ========================================================================
  *								  Globals
  * ======================================================================== */
@@ -436,7 +436,7 @@ boot_stack_base_SYS:
 	 .word sys_stack_start
 
 boot_stack_len_SYS:
-	 .word _SYS_STACK_SIZE_  
+	 .word _SYS_STACK_SIZE_
 
 /*FUNCTION:     _sysboot_copy_data_to_ram*/
 /*DESCRIPTION:  copy main stack code from FLASH/ROM to SRAM*/
@@ -444,19 +444,19 @@ _sysboot_copy_data_to_ram:
     LDR     R0, =_data_flash_begin
     LDR     R1, =_data_ram_begin
     LDR     R2, =_data_ram_end
-	
+
 4: CMP R1, R2
     LDRLO   R4, [R0], #4
     STRLO   R4, [R1], #4
     BLO     4b
     BX LR
-        
+
 /*FUNCTION:     _sysboot_zi_init*/
 /*DESCRIPTION:  Initialise Zero-Init Data Segment*/
 _sysboot_zi_init:
     LDR     R0, =_bss_start
     LDR     R1, =_bss_end
-    
+
     MOV R3, R1
     MOV R4, R0
     MOV R2, #0
@@ -465,7 +465,7 @@ _sysboot_zi_init:
     BLO 5b
     BX LR
 
-#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7271))
+#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7271)) || (CFG_SOC_NAME == SOC_BK7236)
 /*FUNCTION:     _sysboot_copy_code_to_itcm*/
 /*DESCRIPTION:  copy itcm code from FLASH/ROM to SRAM*/
 _sysboot_copy_code_to_itcm:
@@ -480,7 +480,7 @@ _sysboot_copy_code_to_itcm:
     BX LR
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 /*FUNCTION:     _sysboot_sdbss_init*/
 /*DESCRIPTION:  Initialise Zero-Init Data Segment of TCM */
 _sysboot_tcmbss_init:
@@ -496,7 +496,7 @@ _sysboot_tcmbss_init:
     BX LR
 #endif
 
-		.align	5 
+		.align	5
 do_undefined:
     LDMFD   SP!, {R0-R1}
     PUSH_SVC_REG
@@ -507,8 +507,8 @@ do_undefined:
     LDMFD   SP!, {R0-R1}
 
     B bk_trap_udef
-	
-		.align	5 
+
+		.align	5
 do_pabort:
     LDMFD   SP!, {R0-R1}
     PUSH_SVC_REG
@@ -517,10 +517,10 @@ do_pabort:
     PUSH_ALL_ARM_REG
     BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
     LDMFD   SP!, {R0-R1}
-    
+
     B bk_trap_pabt
-		
-		.align	5 
+
+		.align	5
 do_dabort:
     LDMFD   SP!, {R0-R1}
     PUSH_SVC_REG
@@ -529,10 +529,10 @@ do_dabort:
     PUSH_ALL_ARM_REG
     BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
     LDMFD   SP!, {R0-R1}
-    
+
     B bk_trap_dabt
-		
-		.align	5 
+
+		.align	5
 do_reserved:
     LDMFD   SP!, {R0-R1}
     PUSH_SVC_REG
@@ -568,7 +568,7 @@ boot_reserved:
 	BX     r0
 
 
-		.align	5 
+		.align	5
 do_swi:
     LDMFD   SP!, {R0-R1}
     B vPortYieldProcessor
@@ -594,8 +594,8 @@ fiq_handler:
 	LDR    R1, =0x400004
 	LDR    r0, [R1]
 	BX     r0
-    
-		.align	5 
+
+		.align	5
 do_irq:
     LDMFD   SP!, {R0-R1}
 	portSAVE_CONTEXT
@@ -603,22 +603,22 @@ do_irq:
 	MOV LR, PC
 	BX R0
 	portRESTORE_CONTEXT
-	
-		.align	5    
+
+		.align	5
 do_fiq:
     LDMFD   SP!, {R0-R1}
 	portSAVE_CONTEXT
 	LDR R0, =intc_fiq
 	MOV LR, PC
 	BX R0
-	portRESTORE_CONTEXT 
-	
+	portRESTORE_CONTEXT
+
 /*Starting the first task is just a matter of restoring the context that*/
 /*was created by pxPortInitialiseStack().*/
     .code 32
     .global vPortStartFirstTask
     .type vPortStartFirstTask,%function
-vPortStartFirstTask:		
+vPortStartFirstTask:
 	//Set the LR to the task stack.
 	LDR 	R0, =pxCurrentTCB
 	LDR 	R0, [R0]
@@ -653,21 +653,21 @@ vPortYieldProcessor:
 								//handler.
 
 	portSAVE_CONTEXT			//Save the context of the current task...
-	
+
 	LDR R0, =vTaskSwitchContext
 	MOV LR, PC
 	BX R0
-	
+
 	portRESTORE_CONTEXT			//Restore the context of the selected task.
-	
+
     .code 32
     .global WFI
     .type WFI,%function
 WFI:
 	MOV R0, #0
 	MCR p15, 0, R0, c7, c0, 4
-	BX LR	
-		
+	BX LR
+
 	.code 32
 	.globl arm9_enable_alignfault
 	.type arm9_enable_alignfault, %function

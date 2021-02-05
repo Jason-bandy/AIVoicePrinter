@@ -166,27 +166,27 @@ if ((GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1)
         src_lib += ["beken_ble_sdk/mesh/src/tb/m_tb_state.c"]
         src_lib += ["beken_ble_sdk/mesh/src/tb/m_tb_store_nvds.c"]
     
-    src_lib += ["ble.c"]
-    src_lib += ["modules/app/src/app_ble.c"]
-    src_lib += ["modules/app/src/app_comm.c"]
-    src_lib += ["modules/app/src/app_sdp.c"]
-    src_lib += ["modules/app/src/app_sec.c"]
-    src_lib += ["modules/app/src/app_task.c"]
-    src_lib += ["plactform/driver/ble_icu/ble_icu.c"]
-    src_lib += ["plactform/driver/uart/ble_uart.c"]
-    src_lib += ["plactform/modules/arch/ble_arch_main.c"]
-    src_lib += ["plactform/modules/common/RomCallFlash.c"]
-    src_lib += ["plactform/modules/dbg/dbg.c"]
-    src_lib += ["plactform/modules/dbg/dbg_mwsgen.c"]
-    src_lib += ["plactform/modules/dbg/dbg_swdiag.c"]
-    src_lib += ["plactform/modules/dbg/dbg_task.c"]
-    src_lib += ["plactform/modules/rf/src/ble_rf_xvr.c"]
-    src_lib += ["profiles/comm/src/comm.c"]
-    src_lib += ["profiles/comm/src/comm_task.c"]
-    src_lib += ["profiles/prf/src/prf.c"]
-    src_lib += ["profiles/prf/src/prf_utils.c"]
-    src_lib += ["profiles/sdp/src/sdp_service.c"]
-    src_lib += ["profiles/sdp/src/sdp_service_task.c"]
+    src_pub += ["ble.c"]
+    src_pub += ["modules/app/src/app_ble.c"]
+    src_pub += ["modules/app/src/app_comm.c"]
+    src_pub += ["modules/app/src/app_sdp.c"]
+    src_pub += ["modules/app/src/app_sec.c"]
+    src_pub += ["modules/app/src/app_task.c"]
+    src_pub += ["plactform/driver/ble_icu/ble_icu.c"]
+    src_pub += ["plactform/driver/uart/ble_uart.c"]
+    src_pub += ["plactform/modules/arch/ble_arch_main.c"]
+    src_pub += ["plactform/modules/common/RomCallFlash.c"]
+    src_pub += ["plactform/modules/dbg/dbg.c"]
+    src_pub += ["plactform/modules/dbg/dbg_mwsgen.c"]
+    src_pub += ["plactform/modules/dbg/dbg_swdiag.c"]
+    src_pub += ["plactform/modules/dbg/dbg_task.c"]
+    src_pub += ["plactform/modules/rf/src/ble_rf_xvr.c"]
+    src_pub += ["profiles/comm/src/comm.c"]
+    src_pub += ["profiles/comm/src/comm_task.c"]
+    src_pub += ["profiles/prf/src/prf.c"]
+    src_pub += ["profiles/prf/src/prf_utils.c"]
+    src_pub += ["profiles/sdp/src/sdp_service.c"]
+    src_pub += ["profiles/sdp/src/sdp_service_task.c"]
         
     if (GetLocalDepend(options, 'CFG_SUPPORT_BLE_MESH') == 1):
         src_lib += ["beken_ble_sdk/mesh/src/models/common/mm_route.c"]
@@ -251,7 +251,7 @@ cppdefines = ['WIFI_BLE_COEXIST']
 
 if (platform_match == 'yes') and (GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1):
     print 'using ble: lib' + ble_lib_name + '.a'
-    group_use_lib = DefineGroup('beken_ble_lib', src_pub, CPPDEFINES = cppdefines, depend = [], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
+    group_use_lib = DefineGroup('beken_ble_pub', src_pub, CPPDEFINES = cppdefines, depend = [], CPPPATH = path, LIBS = libs, LIBPATH = libpath)
     group_build_lib = DefineGroup('beken_ble', src_lib, CPPDEFINES = cppdefines, depend = ['BUILD_LIB'], CPPPATH = path, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + ble_lib_name + '.a')
     group = group_use_lib + group_build_lib
 else:

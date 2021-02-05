@@ -67,7 +67,7 @@ void rt_hw_board_init(void)
 	rt_kprintf("rt_system_heap_init:%x-%x len:%d\r\n", RT_HW_SDRAM_BEGIN, RT_HW_SDRAM_END, RT_HW_SDRAM_END - RT_HW_SDRAM_BEGIN);
 	rt_system_heap_init(RT_HW_SDRAM_BEGIN, RT_HW_SDRAM_END);
 	rt_dtcm_heap_init();
-#elif (CFG_SOC_NAME == SOC_BK7271)
+#else
 	rt_kprintf("rt_system_heap_init:%x-%x len:%d\r\n", RT_HW_HEAP_BEGIN, RT_HW_HEAP_END, RT_HW_HEAP_END - RT_HW_HEAP_BEGIN);
 	rt_system_heap_init(RT_HW_HEAP_BEGIN, RT_HW_HEAP_END);
 #endif

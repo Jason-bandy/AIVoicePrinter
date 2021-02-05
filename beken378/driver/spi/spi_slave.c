@@ -15,7 +15,11 @@
 #include "error.h"
 #include "rtos_pub.h"
 
+#if(CFG_SOC_NAME != SOC_BK7271)
 #if CFG_USE_SPI_SLAVE
+
+#define TRUE		1
+#define FALSE		0
 
 #define SPI_SLAVE_RX_FIFO_LEN      (512)
 
@@ -255,7 +259,7 @@ static void bk_spi_slave_configure(UINT32 rate, UINT32 mode)
     param = 0;
     sddev_control(SPI_DEV_NAME, CMD_SPI_SET_MSTEN, (void *)&param);
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSID, (void *)&param);
+    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSMD, (void *)&param);
     param = 0;
     sddev_control(SPI_DEV_NAME, CMD_SPI_INIT_MSTEN, (void *)&param);
 
@@ -669,5 +673,5 @@ FINSH_FUNCTION_EXPORT_ALIAS(spi_slave_samples, __cmd_spi_slave_samples, spi slav
 #endif
 
 
-#endif  // CFG_USE_SPI_MASTER
-
+#endif  // CFG_USE_SPI_SLAVE
+#endif  // iifdef !SOC_BK7271

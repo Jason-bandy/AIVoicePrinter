@@ -21,6 +21,10 @@
 #include "error.h"
 #include "start_type_pub.h"
 
+#if CFG_SUPPORT_BLE && CFG_USE_BLE_PS
+#include "ble_pub.h"
+#endif
+
 volatile static PS_MODE_STATUS    bk_ps_mode = PS_NO_PS_MODE;
 static UINT32 last_wk_tick = 0;
 UINT32 last_rw_time = 0;
@@ -37,7 +41,7 @@ static STA_PS_INFO bk_ps_info = {
 
 #if (CFG_SOC_NAME == SOC_BK7231)
 static UINT16 r_wakeup_time = 50;
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)  // TBD: tiancj
 static UINT16 r_wakeup_time = 90;
 #else
 static UINT16 r_wakeup_time = 66;
@@ -113,103 +117,98 @@ void power_save_gops_wait_idle_int_cb ( void )
 #if CFG_SUPPORT_BLE
 extern uint8_t ble_switch_mac_sleeped;
 #endif
-bool power_save_sleep ( void )
+bool power_save_sleep(void)
 {
 	UINT32 ret = false;
 	UINT32 reg;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
-	if ( 1 == bk_ps_info.ps_real_sleep
+	if (1 == bk_ps_info.ps_real_sleep
 #if CFG_SUPPORT_BLE
 		|| ble_switch_mac_sleeped
 #endif
-		) {
+	   ) {
 		GLOBAL_INT_RESTORE();
 		return ret;
 	}
 
-	if ( ! ( PS_STA_DTIM_CAN_SLEEP ) ) {
+	if (!(PS_STA_DTIM_CAN_SLEEP)) {
 		GLOBAL_INT_RESTORE();
 		return ret;
 	}
 
-	if ( rwnxl_get_status_in_doze() ) {
+	if (rwnxl_get_status_in_doze()) {
 		GLOBAL_INT_RESTORE();
 		return ret;
 	}
 
-	nxmac_enable_idle_interrupt_setf ( 1 );
+	nxmac_enable_idle_interrupt_setf(1);
 	PS_DEBUG_CK_TRIGER;
 
-	if ( REG_READ ( ( ICU_BASE + 19 * 4 ) )
-	     & ( CO_BIT ( FIQ_MAC_TX_RX_MISC )
-	         | CO_BIT ( FIQ_MAC_TX_RX_TIMER )
-	         | CO_BIT ( FIQ_MAC_RX_TRIGGER )
-	         | CO_BIT ( FIQ_MAC_TX_TRIGGER )
-	         | CO_BIT ( FIQ_MAC_PROT_TRIGGER )
-	       ) ) {
+	if (REG_READ((ICU_BASE + 19 * 4))
+		& (CO_BIT(FIQ_MAC_TX_RX_MISC)
+		   | CO_BIT(FIQ_MAC_TX_RX_TIMER)
+		   | CO_BIT(FIQ_MAC_RX_TRIGGER)
+		   | CO_BIT(FIQ_MAC_TX_TRIGGER)
+		   | CO_BIT(FIQ_MAC_PROT_TRIGGER))) {
 		GLOBAL_INT_RESTORE();
 		return ret;
 	}
 
-	reg = REG_READ ( ICU_INTERRUPT_ENABLE );
+	reg = REG_READ(ICU_INTERRUPT_ENABLE);
 	int_enable_reg_save = reg;
-	reg &= ~ ( CO_BIT ( FIQ_MAC_TX_RX_MISC )
-	           | CO_BIT ( FIQ_MAC_TX_RX_TIMER )
-	           | CO_BIT ( FIQ_MAC_RX_TRIGGER )
-	           | CO_BIT ( FIQ_MAC_TX_TRIGGER )
-	           | CO_BIT ( FIQ_MAC_GENERAL )
-	           | CO_BIT ( FIQ_MAC_PROT_TRIGGER ) );
-	REG_WRITE ( ICU_INTERRUPT_ENABLE, reg );
+	reg &= ~(CO_BIT(FIQ_MAC_TX_RX_MISC)
+			 | CO_BIT(FIQ_MAC_TX_RX_TIMER)
+			 | CO_BIT(FIQ_MAC_RX_TRIGGER)
+			 | CO_BIT(FIQ_MAC_TX_TRIGGER)
+			 | CO_BIT(FIQ_MAC_GENERAL)
+			 | CO_BIT(FIQ_MAC_PROT_TRIGGER));
+
+	REG_WRITE(ICU_INTERRUPT_ENABLE, reg);
 #if NX_POWERSAVE
 	last_rw_time = nxmac_monotonic_counter_2_lo_get();
 
-	if ( last_rw_time == 0xdead5555 ) {
-		bk_printf ( "XXXXXXXXXXXXXXXXXXXXXXXX TIME DEAD\r\n" );
-	}
+	if (last_rw_time == 0xdead5555)
+		bk_printf("TIME DEAD\r\n");
 
-#if CFG_IEEE80211AX
-	//TODO
-#else
-	ret = rwnxl_sleep ( power_save_gops_wait_idle_int_cb, power_save_mac_idle_callback );
-#endif
+	ret = rwnxl_sleep(power_save_gops_wait_idle_int_cb, power_save_mac_idle_callback);
 
-	if ( false == ret ) {
-		PS_PRT ( "can't ps\r\n" );
-		REG_WRITE ( ICU_INTERRUPT_ENABLE, int_enable_reg_save );
+	if (false == ret) {
+		PS_PRT("can't ps\r\n");
+		REG_WRITE(ICU_INTERRUPT_ENABLE, int_enable_reg_save);
 		GLOBAL_INT_RESTORE();
 		return ret;
 	}
 
 #endif
 
-	if ( ps_lock )
+	if (ps_lock)
 		ps_lock --;
 	else {
-		PS_WPRT ( "error ps\r\n" );
+		PS_WPRT("error ps\r\n");
 		GLOBAL_INT_RESTORE();
 		return ret;
 	}
 
-	PS_WPRT ( "go ps\r\n" );
+	PS_WPRT("go ps\r\n");
 #if CFG_USE_STA_PS
 	power_save_sleep_status_set();
 	sctrl_sta_rf_sleep();
-	reg = REG_READ ( ICU_INTERRUPT_ENABLE );
-	reg |= ( CO_BIT ( FIQ_MAC_WAKEUP ) );
-	REG_WRITE ( ICU_INTERRUPT_ENABLE, reg );
+	reg = REG_READ(ICU_INTERRUPT_ENABLE);
+	reg |= (CO_BIT(FIQ_MAC_WAKEUP));
+	REG_WRITE(ICU_INTERRUPT_ENABLE, reg);
 #endif
 #if PS_USE_KEEP_TIMER
 
-	if ( 1 == ps_keep_timer_status ) {
-		bmsg_ps_sender ( PS_BMSG_IOCTL_RF_KP_STOP );
-	}
+	if (1 == ps_keep_timer_status)
+		bmsg_ps_sender(PS_BMSG_IOCTL_RF_KP_STOP);
 
 #endif
 	GLOBAL_INT_RESTORE();
 	return true;
 }
+
 
 /*time = BI*1024*LIST*0.016*/
 void power_save_wkup_time_cal ( UINT8 sleep_int )
@@ -235,7 +234,9 @@ void power_save_mac_idle_callback ( void )
 		power_save_wkup_time_cal ( 1 );
 		nxmac_tsf_mgt_disable_setf ( 0 );
 		nxmac_listen_interval_setf ( 1 );
+#if CFG_SOC_NAME != SOC_BK7236
 		nxmac_atim_w_setf ( 512 );
+#endif
 		nxmac_wake_up_sw_setf ( 0 );
 		/*first clear beacon interval,delay,then set beacon interval,to fix rw sleep wakeup time*/
 		nxmac_beacon_int_setf ( 0 );
@@ -738,7 +739,7 @@ void power_save_rf_dtim_manual_do_wakeup ( void )
 {
 	UINT32 reg;
 #if CFG_USE_AP_IDLE
-	
+
 	if ( bk_wlan_has_role ( VIF_AP ) && ap_ps_enable_get() ) {
 		GLOBAL_INT_DECLARATION();
 		GLOBAL_INT_DISABLE();
@@ -747,7 +748,7 @@ void power_save_rf_dtim_manual_do_wakeup ( void )
 		wifi_general_mac_state_set_active();
 		GLOBAL_INT_RESTORE();
 	}
-	
+
 #endif
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
@@ -1279,7 +1280,7 @@ void power_save_wake_mac_rf_end_clr_flag(void)
     {
         ps_clear_rf_prevent();
     }
-    
+
     UINT32 reg = RF_HOLD_BY_MAC_USE_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 }

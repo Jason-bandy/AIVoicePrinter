@@ -17,7 +17,7 @@ RESET_SOURCE_STATUS bk_misc_get_start_type()
     return start_type;
 }
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 //only can be do once
  RESET_SOURCE_STATUS bk_misc_init_start_type(void)
 {
@@ -32,20 +32,20 @@ RESET_SOURCE_STATUS bk_misc_get_start_type()
         }
         else
         {
-            switch(misc_value & SW_RETENTION_VAL_MASK) 
-            { 
+            switch(misc_value & SW_RETENTION_VAL_MASK)
+            {
                 case (RESET_SOURCE_REBOOT & SW_RETENTION_VAL_MASK):
                     start_type = RESET_SOURCE_REBOOT;
-                    break;      
+                    break;
                 case (CRASH_UNDEFINED_VALUE & SW_RETENTION_VAL_MASK):
                     start_type = RESET_SOURCE_CRASH_UNDEFINED;
-                    break;        
+                    break;
                 case (CRASH_PREFETCH_ABORT_VALUE & SW_RETENTION_VAL_MASK):
                     start_type = RESET_SOURCE_CRASH_PREFETCH_ABORT;
-                    break;        
+                    break;
                 case (CRASH_DATA_ABORT_VALUE & SW_RETENTION_VAL_MASK):
                     start_type = RESET_SOURCE_CRASH_DATA_ABORT;
-                    break;        
+                    break;
                 case (CRASH_UNUSED_VALUE & SW_RETENTION_VAL_MASK):
                     start_type = RESET_SOURCE_CRASH_UNUSED;
                     break;
@@ -60,21 +60,21 @@ RESET_SOURCE_STATUS bk_misc_get_start_type()
                     {
                         start_type = RESET_SOURCE_WATCHDOG;
                     }
-                    break;  
-                default: 
+                    break;
+                default:
                 start_type = RESET_SOURCE_WATCHDOG;
-                break; 
+                break;
             }
         }
     }
-    //clear 
+    //clear
     sctrl_ctrl(CMD_GET_SCTRL_RETETION, &misc_value);
 
     *((volatile uint32_t *)(START_TYPE_DMEMORY_ADDR)) = (uint32_t)CRASH_XAT0_VALUE;
 
     os_printf("bk_misc_init_start_type %x %x\r\n",start_type,misc_value);
     return start_type;
-    
+
 }
 void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
 {
@@ -93,20 +93,20 @@ void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
     os_printf("bk_misc_init_start_type TODO\r\n");
     #endif
     {
-        switch(misc_value) 
-        { 
+        switch(misc_value)
+        {
             case RESET_SOURCE_REBOOT:
                 start_type = misc_value;
-                break;      
+                break;
             case CRASH_UNDEFINED_VALUE:
                 start_type = RESET_SOURCE_CRASH_UNDEFINED;
-                break;        
+                break;
             case CRASH_PREFETCH_ABORT_VALUE:
                 start_type = RESET_SOURCE_CRASH_PREFETCH_ABORT;
-                break;        
+                break;
             case CRASH_DATA_ABORT_VALUE:
                 start_type = RESET_SOURCE_CRASH_DATA_ABORT;
-                break;        
+                break;
             case CRASH_UNUSED_VALUE:
                 start_type = RESET_SOURCE_CRASH_UNUSED;
                 break;
@@ -124,18 +124,18 @@ void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
                 {
                     start_type = misc_value;
                 }
-                break;  
-            
-            default: 
+                break;
+
+            default:
                 start_type = RESET_SOURCE_POWERON;
-                break; 
+                break;
         }
     }
 
     *((volatile uint32_t *)(START_TYPE_DMEMORY_ADDR)) = (uint32_t)CRASH_XAT0_VALUE;
 
     os_null_printf("bk_misc_init_start_type %x %x\r\n",start_type,misc_value);
-    
+
     return start_type;
 }
 

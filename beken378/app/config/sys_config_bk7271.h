@@ -10,6 +10,7 @@
    what is more, uart1 maybe is not bound out*/
 #define CFG_USE_UART1                              0
 #define CFG_USE_UART2                              1
+#define CFG_USE_UART3                              1
 #define CFG_JTAG_ENABLE                            0
 #define OSMALLOC_STATISTICAL                       0
 
@@ -25,46 +26,46 @@
 #define THD_LWIP_PRIORITY                          4
 #define THD_INIT_PRIORITY                          4
 #define THD_RECONNECT_PRIORITY                     4
-#define THD_MEDIA_PRIORITY						   4
+#define THD_MEDIA_PRIORITY                         4
 #define THD_WPAS_PRIORITY                          5
 #define THD_EXTENDED_APP_PRIORITY                  5
 #define THD_HOSTAPD_PRIORITY                       5
-#define THD_KEY_SCAN_PRIORITY					   7
+#define THD_KEY_SCAN_PRIORITY                      7
 #define THD_PSK_PRIORITY                           30
 
 /*section 2-----function macro config-----*/
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
-#define CFG_AP_MONITOR_COEXIST					   0
+#define CFG_AP_MONITOR_COEXIST                     0
 #define CFG_ROLE_LAUNCH                            1
-#define CFG_USE_WPA_29							   1
-#define CFG_WPA_CTRL_IFACE						   0
-#define CFG_RWNX_QOS_MSDU                          0
+#define CFG_USE_WPA_29                             1
+#define CFG_WPA_CTRL_IFACE                         0
+#define CFG_RWNX_QOS_MSDU                          1
 #define CFG_WLAN_FAST_CONNECT                      0
 
 /* PMF */
-#define CFG_IEEE80211W							   0
+#define CFG_IEEE80211W                             0
 #if CFG_WPA_CTRL_IFACE
 #undef CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 #endif
 
-#define CFG_WPA3								   0
+#define CFG_WPA3                                   0
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
-#define CFG_USE_WPA_29							   1
+#define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
-#define CFG_IEEE80211W							   1
-#define CFG_SME								       1
+#define CFG_IEEE80211W                             1
+#define CFG_SME                                    0
 #endif
 
-//#define CFG_MESH								   0
-#define CFG_WFA_CERT							   0
+//#define CFG_MESH                                 0
+#define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             1
 #define CFG_AP_SUPPORT_HT_IE                       0
-#define CFG_SUPPORT_BSSID_CONNECT				   0
+#define CFG_SUPPORT_BSSID_CONNECT                  0
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
@@ -79,13 +80,15 @@
 #define CFG_MSDU_RESV_HEAD_LEN                    96
 #define CFG_MSDU_RESV_TAIL_LEN                    16
 
+#define CFG_PCM_RESAMPLER                          1
+
 #define CFG_USB                                    1
 #define CFG_USE_USB_HOST                           1
 #define CFG_USE_USB_DEVICE                         0
 
 #define USE_USB1_PORT		1
 #define USE_USB2_PORT		2
-#define CFG_USE_USB_PORT	USE_USB1_PORT
+#define CFG_USE_USB_PORT	USE_USB2_PORT
 
 #if CFG_USB
 #if (!(CFG_USE_USB_HOST || CFG_USE_USB_DEVICE))
@@ -102,10 +105,6 @@
 #define CFG_SUPPORT_HID                            0
 #define CFG_SUPPORT_CCD                            0
 #define CFG_SUPPORT_UVC                            0
-
-#if (CFG_USE_USB_PORT == USE_USB2_PORT) && CFG_USE_UART2
-#error "gpio mux:uart2_txd---usb2_dn uart2_rxd---usb2_dp!!!"
-#endif
 
 #if (CFG_USE_USB_PORT == USE_USB1_PORT) && CFG_USE_UART1
 #error "gpio mux:uart1_txd---usb1_dn uart1_rxd---usb1_dp!!!"
@@ -141,6 +140,7 @@
 #define SOC_BK7221U                                3
 #define SOC_BK7271                                 4
 #define SOC_BK7231N                                5
+#define SOC_BK7236                                 6
 #define CFG_SOC_NAME                               SOC_BK7271
 
 /*section 7-----calibration*/
@@ -204,15 +204,19 @@
 #define CFG_USE_SDCARD_HOST                        0
 
 //select SD or SD1
-#define SD_HOST_INTF            					0
-#define SD1_HOST_INTF								1
-#define CFG_SD_HOST_INTF							SD1_HOST_INTF
+#define SD_HOST_INTF                                0
+#define SD1_HOST_INTF                               1
+#define CFG_SD_HOST_INTF                            SD_HOST_INTF
 
 /*section 20 ----- support mp3 decoder*/
-#define CONFIG_APP_MP3PLAYER 			           0
+#define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_SUPPORT_OTA_HTTP                       0
+#else
+#define CFG_SUPPORT_OTA_HTTP                       1
+#endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
 /*section 22 ----- support adc calibrate*/
@@ -258,7 +262,7 @@
 #define CFG_JTAG_ENABLE                            0
 
 #undef  CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 
 #undef  CFG_EASY_FLASH
 #define CFG_EASY_FLASH                             0
@@ -268,10 +272,10 @@
 #endif // CFG_SUPPORT_ALIOS
 
 #define CFG_USE_DSP                                1
-#define CFG_DSP_SRC_ADD                            0x180000
+#define CFG_DSP_SRC_ADD                            0x100000
 
-#define CFG_USE_BT                                 1
-#define CFG_BT_SRC_ADD                             0x1A0000
+#define CFG_USE_BT                                 0
+#define CFG_BT_SRC_ADD                             0x1B0000
 
 #define CFG_SUPPORT_BLE                            0
 #define CFG_RF_USER_BLE                            1
@@ -279,10 +283,14 @@
 #define CFG_DEFAULT_RF_USER                        CFG_RF_USER_WIFI
 
 /*section 26 ----- general spi master/slave */
-#define CFG_USE_SPI_MASTER                         0
+#define CFG_USE_SPI_MASTER                         1
 #define CFG_USE_SPI_MST_FLASH                      0
 #define CFG_USE_SPI_MST_PSRAM                      0
-#define CFG_USE_SPI_SLAVE                          0
+#define CFG_USE_SPI_SLAVE                          1
+#define CFG_USE_SPI_DMA                            1
+#define CFG_USE_SPI2_DMA                           1
+#define CFG_USE_SPI3_DMA                           1
+
 
 /*section 27 ----- hardware security: aes/sha/rsa */
 #define CFG_USE_SECURITY                           0
@@ -316,6 +324,15 @@
 #else
 #define CFG_XTAL_FREQUENCE                         CFG_XTAL_FREQUENCE_26M
 #endif
+
+
+// peripheral interface open
+#define CFG_USE_I2C1                                1
+#define CFG_USE_I2C2                                0
+
+/*section 29 ----- peripheral interface test case */
+#define CFG_SUPPORT_SPI_TEST                        1
+
 
 #endif // _SYS_CONFIG_7271_H_
 // eof

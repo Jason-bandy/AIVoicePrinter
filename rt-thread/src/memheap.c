@@ -749,11 +749,6 @@ void *rt_malloc(rt_size_t size)
         }
     }
 
-	if (NULL == ptr)
-    {
-        //rt_kprintf("%s size=%d\r\n", __FUNCTION__, size);
-        return  sdram_malloc(size);
-    }
     return ptr;
 #else
     void *ptr = sdram_malloc(size);

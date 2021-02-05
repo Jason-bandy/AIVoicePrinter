@@ -7,27 +7,6 @@
 #include "rwip_task.h" // Task definitions
 #include "compiler.h"
 
-
-struct bk_ble_enable_req
-{
-    /// connection index
-    uint8_t  conidx;
-    ///  Configuration
-    uint16_t  ind_cfg;
-    
-  	uint16_t  ntf_cfg;
-    
-};
-
-struct bk_ble_enable_rsp
-{
-    /// connection index
-    uint8_t conidx;
-    uint16_t prf_id;
-    ///status
-    uint8_t status;
-};
-
 struct bk_ble_ntf_upd_req
 {
     ///  instance
@@ -77,12 +56,10 @@ struct bk_ble_gattc_cmp_evt
 
 enum bk_ble_msg_id
 {
-	BK_BLE_ENABLE_REQ  =  TASK_BLE_FIRST_MSG(TASK_BLE_ID_COMMON),
-    BK_BLE_ENABLE_RSP,
-    BK_BLE_NTF_UPD_REQ,
-    BK_BLE_IND_UPD_REQ,
-    BK_BLE_WRITE_REQ_IND,
-    BK_BLE_GATTC_CMP_EVT,
+	BK_BLE_NTF_UPD_REQ   =  TASK_BLE_FIRST_MSG(TASK_BLE_ID_COMMON),
+	BK_BLE_IND_UPD_REQ,
+	BK_BLE_WRITE_REQ_IND,
+	BK_BLE_GATTC_CMP_EVT,
 };
 
 void comm_task_init(struct kernel_task_desc *task_desc, kernel_state_t *state);

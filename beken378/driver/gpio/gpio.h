@@ -1,6 +1,8 @@
 #ifndef _GPIO_H_
 #define _GPIO_H_
 
+#if (CFG_SOC_NAME != SOC_BK7271)
+
 #include "sys_config.h"
 #if (CFG_SOC_NAME == SOC_BK7271)
 #include "icu.h"
@@ -115,7 +117,7 @@
 #endif  // (CFG_SOC_NAME == SOC_BK7221U)
 
 #endif  //  (CFG_SOC_NAME == SOC_BK7231)
-                 
+
 #define REG_GPIO_DETECT                      (GPIO_BASE_ADDR + 39*4)
 #define IS_OVER_TEMP_DECT_BIT                 (1 << 0)
 #define IS_USB_PLUG_IN_BIT                    (1 << 1)
@@ -215,14 +217,14 @@
 #define REG_GPIO_INTLV3                      (GPIO_BASE_ADDR + 57*4)
 #define REG_GPIO_INTSTA2                     (GPIO_BASE_ADDR + 58*4)
 
-#if(!((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7221U)))
+#if(!((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7221U))) || (CFG_SOC_NAME == SOC_BK7236)
 #define REG_GPIO_X_CONGFIG_ADDR(x)			(GPIO_BASE_ADDR + (x)*4)
 #else
 #define REG_GPIO_X_CONGFIG_ADDR(x)			(GPIO_BASE_ADDR +  (((x)<32) ? (x) : ((x)+0x10)) * 4)
 #endif
 
 #endif // #if (CFG_SOC_NAME == SOC_BK7231)
-
+#endif
 #endif // _GPIO_H_
 
 // EOF

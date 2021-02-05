@@ -12,21 +12,9 @@
 #include "arm_mcu_pub.h"
 #include "ff.h"
 #include "diskio.h"
+#include "audio_pub.h"
 
-#define USB_PLAY_NODE_ADDR (0x0C900000)
-#define USB_PLAY_NODE_SIZE (2048)
-
-typedef struct dma_buffer_node {
-	struct co_list_hdr header;
-	uint8_t *buffer;
-	uint32_t size;
-} dma_buffer_node;
-
-struct adc_dac_context {
-	struct co_list using_list;
-	struct co_list free_list;
-};
-
+#if CFG_USE_USB_HOST
 static dma_buffer_node record_buffer_nodes[8];
 struct adc_dac_context g_record_context;
 volatile int record_flag = 0;
@@ -149,6 +137,15 @@ static uint32_t dsp_atoi(char *src)
 	}
 
 	return num;
+}
+
+void dsp_wake_up_cb(MAILBOX_TYPE_T type, mailbox_t *param)
+{
+	if (type == MAILBOX_FROM_DSP) {
+		if (param->cmd == MAILBOX_CMD_AUDIO_WIFI_WAKEUP) {
+			os_printf("recv wake up from dsp!!!!\r\n");
+		}
+	}
 }
 
 void adc_test_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -278,7 +275,7 @@ void pcm_test_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 	uint32_t rate;
 	uint32_t *aud_ptr;
 	uint32_t aud_len;
-	uint32_t *aud_addr = (uint32_t *)0x0C900000;
+	uint32_t *aud_addr = (uint32_t *)DAC_PLAY_NODE_ADDR;
 	mailbox_t mailbox;
 
 	if (argc > 1)
@@ -378,11 +375,16 @@ void record2dac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("record2dac <start|stop>\r\n");
+		os_printf("record2dac <start> <adcx|adc1|adc2>\r\n");
+		os_printf("record2dac <stop>\r\n");
 		return;
 	}
 
 	if (os_strcmp(argv[1], "start") == 0) {
+		if (argc < 3) {
+			os_printf("record2dac <start> <adcx|adc1|adc2>\r\n");
+			return;
+		}
 		co_list_init(&g_record_context.using_list);
 		co_list_init(&g_record_context.free_list);
 		for (i = 0; i < sizeof(record_buffer_nodes) / sizeof(record_buffer_nodes[0]); i++) {
@@ -395,7 +397,15 @@ void record2dac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_ENABLE, 1, 0, 0);
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 
+		if (os_strcmp(argv[2], "adcx") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 1, 0);
+		} else if (os_strcmp(argv[2], "adc1") == 0) {
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 1, 0, 0);
+		} else if (os_strcmp(argv[2], "adc2") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 2, 0, 0);
+		} else {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
+		}
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 	} else if (os_strcmp(argv[1], "stop") == 0) {
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
@@ -487,20 +497,27 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	int number = DISK_NUMBER_UDISK;
 
 	if (argc < 2) {
-		os_printf("usage: record2usb start|stop [file name]\r\n");
+		os_printf("record2usb <start> <adcx|adc1|adc2|aec> [file name]\r\n");
+		os_printf("record2usb <stop>\r\n");
+		return;
+	}
+
+	if (mount_flag != 1) {
+		os_printf("usb hasn't initialization!\r\n");
 		return;
 	}
 
 	if (os_strcmp(argv[1], "start") == 0) {
-		if (mount_flag != 1) {
-			os_printf("usb hasn't initialization!\r\n");
+
+		if (argc < 3) {
+			os_printf("record2usb <start> <adcx|adc1|adc2|aec> [file name]\r\n");
 			return;
 		}
 
 		/*create&open record file*/
 		os_memset(file_name, 0, sizeof(file_name));
-		if (argc > 2)
-			sprintf(file_name, "%d:/%s", number, argv[2]);
+		if (argc > 3)
+			sprintf(file_name, "%d:/%s", number, argv[3]);
 		else
 			sprintf(file_name, "%d:/record.pcm", number);
 		fr = f_open(&record_file, file_name, FA_CREATE_ALWAYS | FA_READ | FA_WRITE);
@@ -519,7 +536,7 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		}
 
 		/*create thread to write usb*/
-		ret = rtos_init_semaphore(&usb_record_sem, 1);
+		ret = rtos_init_semaphore(&usb_record_sem, 3);
 		if (ret) {
 			os_printf("create usb record semaphore fail.\r\n");
 			return;
@@ -541,7 +558,17 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		mailbox_ctrl(CMD_MAILBOX_SET_CALLBACK, (void *)usb_record_cb_hdl);
 
 		/*send record start to dsp*/
+		if (os_strcmp(argv[2], "adcx") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 1, 0);
+		} else if (os_strcmp(argv[2], "adc1") == 0) {
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 1, 0, 0);
+		} else if (os_strcmp(argv[2], "adc2") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 2, 0, 0);
+		} else if (os_strcmp(argv[2], "aec") == 0) {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 3, 0, 0);
+		} else {
+			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
+		}
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 	} else if (os_strcmp(argv[1], "stop") == 0) {
 		/*send record stop to dsp*/
@@ -603,7 +630,7 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 {
 	int ret;
 	uint32_t index = 0;
-	uint32_t address = USB_PLAY_NODE_ADDR;
+	uint32_t address = DAC_PLAY_NODE_ADDR;
 	mailbox_t mailbox;
 	dma_buffer_node *node;
 	char file_name[50];
@@ -635,9 +662,9 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 	co_list_init(&g_record_context.free_list);
 	for (index = 0; index < sizeof(record_buffer_nodes) / sizeof(record_buffer_nodes[0]); index++) {
 		record_buffer_nodes[index].buffer = (uint8_t *)address;
-		record_buffer_nodes[index].size = USB_PLAY_NODE_SIZE;
+		record_buffer_nodes[index].size = DAC_PLAY_NODE_SIZE;
 		co_list_push_back(&g_record_context.free_list, &record_buffer_nodes[index].header);
-		address += USB_PLAY_NODE_SIZE;
+		address += DAC_PLAY_NODE_SIZE;
 	}
 
 	/*set mailbox callback*/
@@ -659,7 +686,7 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 			continue;
 		}
 
-		fr = f_read(&record_file, node->buffer, USB_PLAY_NODE_SIZE, &br);
+		fr = f_read(&record_file, node->buffer, DAC_PLAY_NODE_SIZE, &br);
 		if (fr != FR_OK) {
 			os_printf("read record file fail.\r\n");
 			break;
@@ -808,8 +835,9 @@ void bk7271_dsp_cli_init(void)
 {
 	int ret;
 
+	mailbox_ctrl(CMD_MAILBOX_SET_CALLBACK, (void *)dsp_wake_up_cb);
 	ret = cli_register_commands(dsp_clis, sizeof(dsp_clis) / sizeof(struct cli_command));
 	if (ret)
 		os_printf("register dsp commands fail.\r\n");
 }
-
+#endif

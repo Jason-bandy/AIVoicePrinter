@@ -9,6 +9,8 @@
 #include "str_pub.h"
 #include "mem_pub.h"
 #include "time.h"
+#include "iot_export_errno.h"
+#if CFG_SUPPORT_OTA_HTTP
 
 uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
 {
@@ -18,6 +20,7 @@ uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
     int fd = 0;
     int rc = 0;
     char service[6];
+    int conn_retry = 5;
 
     os_memset(&hints, 0, sizeof(hints));
     hints.ai_family = AF_INET; //only IPv4
@@ -30,6 +33,7 @@ uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
         return 0;
     }
 
+ES_RETRY:
     for (cur = addrInfoList; cur != NULL; cur = cur->ai_next) {
         if (cur->ai_family != AF_INET) {
             log_err("socket type error");
@@ -50,12 +54,16 @@ uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
         }
 
         close(fd);
-        log_err("connect error");
+        log_err("No  connect");
         rc = 0;
     }
 
     if (0 == rc){
-        log_err("fail to establish tcp");
+        if(conn_retry --){
+            goto ES_RETRY;
+        }
+        else
+            log_err("fail to establish tcp");
     } else {
         log_err("success to establish tcp, fd=%d", rc);
     }
@@ -63,7 +71,6 @@ uintptr_t HAL_TCP_Establish(const char *host, uint16_t port)
 
     return (uintptr_t)rc;
 }
-
 
 int32_t HAL_TCP_Destroy(uintptr_t fd)
 {
@@ -160,7 +167,7 @@ int32_t HAL_TCP_Read(uintptr_t fd, char *buf, uint32_t len, uint32_t timeout_ms)
 {
     int ret, err_code,data_over;
     uint32_t len_recv;
-    uint64_t t_end, t_left;
+    uint32_t t_end, t_left;
     fd_set sets;
     struct timeval timeout;
 
@@ -169,19 +176,19 @@ int32_t HAL_TCP_Read(uintptr_t fd, char *buf, uint32_t len, uint32_t timeout_ms)
     err_code = 0;
 
     data_over = 0;
-
     do {
         t_left = utils_time_left(t_end, utils_time_get_ms());
-        if (0 == t_left && bk_http_ptr->do_data == 0) {
-            break;
+
+        if (0 == t_left){
+            return ERROR_HTTP_CONN;
         }
         FD_ZERO( &sets );
         FD_SET(fd, &sets);
 
         timeout.tv_sec = t_left / 1000;
         timeout.tv_usec = (t_left % 1000) * 1000;
-    
-        ret = select(fd + 1, &sets, NULL, NULL, NULL);
+
+        ret = select(fd + 1, &sets, NULL, NULL, &timeout);
         if ( FD_ISSET( fd, &sets ) )
         {
             if (ret > 0) {
@@ -334,3 +341,4 @@ int iotx_net_init(utils_network_pt pNetwork, const char *host, uint16_t port, co
 
     return 0;
 }
+#endif

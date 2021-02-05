@@ -11,6 +11,8 @@
 	#include "bk7221U_cal.h"
 #elif (CFG_SOC_NAME == SOC_BK7271)
 	#include "bk7271_cal.h"
+#elif (CFG_SOC_NAME == SOC_BK7236)
+	#include "bk7236_cal.h"
 #endif
 
 #endif // _BK7011_CAL_H_

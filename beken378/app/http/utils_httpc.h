@@ -55,6 +55,9 @@ typedef enum {
     HTTPCLIENT_HEAD
 } HTTPCLIENT_REQUEST_TYPE;
 
+#define HTTP_RESP_CONTENT_LEN   (256)
+
+
 /** @defgroup httpclient_struct Struct
  * @{
  */
@@ -123,6 +126,14 @@ iotx_err_t iotx_post(
             const char *ca_crt,
             uint32_t timeout,
             httpclient_data_t *client_data);
+
+extern int httpclient_common(httpclient_t *client,
+                             const char *url,
+                             int port,
+                             const char *ca_crt,
+                             int method,
+                             uint32_t timeout_ms,
+                             httpclient_data_t *client_data);
 
 
 #ifdef __cplusplus

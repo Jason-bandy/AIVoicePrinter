@@ -1,7 +1,7 @@
 #include "include.h"
 #include "arm_arch.h"
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if ((CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7271) && (CFG_SOC_NAME != SOC_BK7236))
 #include "pwm.h"
 #include "pwm_pub.h"
 
@@ -88,7 +88,7 @@ static void pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
     case PWM3:
         prm = PWD_PWM3_CLK_BIT;
         break;
-		
+
 #if (CFG_SOC_NAME != SOC_BK7271)
     case PWM4:
         prm = PWD_PWM4_CLK_BIT;

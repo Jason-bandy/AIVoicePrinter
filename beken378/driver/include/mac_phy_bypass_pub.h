@@ -17,7 +17,15 @@ enum
     MCMD_SET_GI,
     MCMD_BYPASS_TX_SET_RATE_MFORMAT,
     MCMD_SET_TXDELAY,
+    MCMD_INIT_BYPASS_MAC,
+    MCMD_BYPASS_MAC_SET_TX_PLD_TYPE,
+    MCMD_BYPASS_MAC_SET_TX_PKT_NUM,
+    MCMD_TX_HE_SET_LEN,
 };
+
+#define TX_LEGACY_DATA_LEN_MASK              (0xFFF)
+#define TX_HT_VHT_DATA_LEN_MASK              (0xFFFFF)
+#define TX_HE_DATA_LEN_MASK                  (0xFFFFF)
 
 /*MCMD_TX_BYPASS_MAC_RATE*/
 #define PPDU_RATE_POSI                           (4)

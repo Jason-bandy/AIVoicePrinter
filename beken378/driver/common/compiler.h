@@ -25,7 +25,7 @@
 #if !defined(__PURE)
 #define __PURE                         __pure
 #endif
- 
+
 /// Align instantiated lvalue or struct member on 4 bytes
 #if !defined(__ALIGN4)
 #define __ALIGN4                     __attribute__((aligned(4)))
@@ -47,14 +47,12 @@
 #if !defined(__PACKED)
 #define __PACKED                  __attribute__( ( packed ) )
 #endif
+#ifndef __packed
+#define __packed                  __attribute__((packed))
+#endif
 
 #if !defined(__SECTION)
 #define __SECTION(x)              __attribute__((section(x)))
-#endif
-
-/// Pack a structure field
-#ifndef __packed
-#define __packed                  __attribute__((packed))
 #endif
 
 #define likely(x)   		__builtin_expect(!!(x), 1)
@@ -65,6 +63,27 @@
 
 #define __SHAREDRAM
 #define __MIB
+
+#ifndef BUILD_BUG_ON
+#define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))
+#endif
+
+/* Force a compilation error if condition is true, but also produce a
+   result (of value 0 and type size_t), so the expression can be used
+   e.g. in a structure initializer (or where-ever else comma expressions
+   aren't permitted). */
+#define BUILD_BUG_ON_ZERO(e) (sizeof(struct { int:-!!(e); }))
+#define BUILD_BUG_ON_NULL(e) ((void *)sizeof(struct { int:-!!(e); }))
+
+
+/* Are two types/vars the same type (ignoring qualifiers)? */
+#ifndef __same_type
+# define __same_type(a, b) __builtin_types_compatible_p(typeof(a), typeof(b))
+#endif
+
+/* &a[0] degrades to a pointer: a different type from an array */
+#define __must_be_array(a) BUILD_BUG_ON_ZERO(__same_type((a), &(a)[0]))
+
 
 #endif // _COMPILER_H_
 

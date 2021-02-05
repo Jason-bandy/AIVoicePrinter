@@ -1,6 +1,7 @@
 #include "include.h"
 #include "arm_arch.h"
 
+#if(CFG_SOC_NAME != SOC_BK7271)
 #include "spi.h"
 #include "spi_pub.h"
 
@@ -122,72 +123,59 @@ static void spi_set_nssmd(UINT8 val)
 */
 static void spi_set_clock(UINT32 max_hz)
 {
-    int source_clk = 0;
-    int spi_clk = 0;
-    int div = 0;
-    UINT32 param;
+	int source_clk = 0;
+	int spi_clk = 0;
+	int div = 0;
+	UINT32 param;
 
-    if (max_hz > 4333000)
-    {
-        BK_SPI_PRT("config spi clk source DCO\n");
+	if (max_hz > 4333000)
+	{
+		BK_SPI_PRT("config spi clk source DCO\n");
 
-        if(max_hz > 30000000) // 180M/2 / (2 + 1) = 30M
-        {
-            spi_clk = 30000000; 
-            BK_SPI_PRT("input clk > 30MHz, set input clk = 30MHz\n");
-        } else {
-            spi_clk = max_hz;
-        }
-        
-        source_clk = SPI_PERI_CLK_DCO;		
-#if (CFG_SOC_NAME == SOC_BK7271)
-        param = PCLK_POSI_SPI2;
-#else
+		if (max_hz > 30000000) { // 180M/2 / (2 + 1) = 30M
+			spi_clk = 30000000;
+			BK_SPI_PRT("input clk > 30MHz, set input clk = 30MHz\n");
+		} else
+			spi_clk = max_hz;
+
+		source_clk = SPI_PERI_CLK_DCO;
 		param = PCLK_POSI_SPI;
-#endif
-    	sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, &param);
-    }
-    else 
-    {
-        BK_SPI_PRT("config spi clk source 26MHz\n");
+		sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, &param);
+	} else
+	{
+		BK_SPI_PRT("config spi clk source 26MHz\n");
 
-        spi_clk = max_hz;
+		spi_clk = max_hz;
 #if CFG_XTAL_FREQUENCE
-        source_clk = CFG_XTAL_FREQUENCE;
+		source_clk = CFG_XTAL_FREQUENCE;
 #else
-        source_clk = SPI_PERI_CLK_26M;
+		source_clk = SPI_PERI_CLK_26M;
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7271)
-		param = PCLK_POSI_SPI2;
-#else
 		param = PCLK_POSI_SPI;
-#endif
-	    sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, &param);
-    }
+		sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, &param);
+	}
 
-    // spi_clk = in_clk / (2 * (div + 1))
-    div = ((source_clk >> 1) / spi_clk) - 1; 
+	// spi_clk = in_clk / (2 * (div + 1))
+	div = ((source_clk >> 1) / spi_clk) - 1;
 
-    if (div < 2)
-    {
-        div = 2; 
-    }
-    else if (div >= 255)
-    {
-        div = 255;
-    }
+	if (div < 2)
+		div = 2;
+	else if (div >= 255)
+		div = 255;
 
-    param = REG_READ(SPI_CTRL);
-    param &= ~(SPI_CKR_MASK << SPI_CKR_POSI);
-    param |= (div << SPI_CKR_POSI);
-    REG_WRITE(SPI_CTRL, param);
-    
-    BK_SPI_PRT("div = %d \n", div);
-    BK_SPI_PRT("spi_clk = %d \n", spi_clk);
-    BK_SPI_PRT("source_clk = %d \n", source_clk);
-    BK_SPI_PRT("target frequency = %d, actual frequency = %d \n", max_hz, source_clk / 2 / (div + 1));
+	param = REG_READ(SPI_CTRL);
+	param &= ~(SPI_CKR_MASK << SPI_CKR_POSI);
+	param |= (div << SPI_CKR_POSI);
+	REG_WRITE(SPI_CTRL, param);
+
+	BK_SPI_PRT("div = %d \n", div);
+	BK_SPI_PRT("spi_clk = %d \n", spi_clk);
+	BK_SPI_PRT("source_clk = %d \n", source_clk);
+	BK_SPI_PRT("target frequency = %d, actual frequency = %d \n", max_hz, source_clk / 2 / (div + 1));
 }
+
+
 
 static void spi_rxint_enable(UINT8 val)
 {
@@ -317,36 +305,20 @@ static void spi_icu_configuration(UINT32 enable)
 {
     UINT32 param;
 
-    if(enable) 
+    if(enable)
     {
-#if (CFG_SOC_NAME == SOC_BK7271)
-		param = PWD_SPI2_CLK_BIT;
-#else
-		param = PWD_SPI_CLK_BIT;
-#endif
+        param = PWD_SPI_CLK_BIT;
 	    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
-		
-#if (CFG_SOC_NAME == SOC_BK7271)
-		param = (IRQ_SPI2_BIT);
-#else
-		param = (IRQ_SPI_BIT);
-#endif       
+
+        param = (IRQ_SPI_BIT);
         sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
     }
     else
     {
-#if (CFG_SOC_NAME == SOC_BK7271)
-		param = (IRQ_SPI2_BIT);
-#else
-		param = (IRQ_SPI_BIT);
-#endif 
+        param = (IRQ_SPI_BIT);
         sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
-		
-#if (CFG_SOC_NAME == SOC_BK7271)
-		param = PWD_SPI2_CLK_BIT;
-#else
-		param = PWD_SPI_CLK_BIT;
-#endif        
+
+        param = PWD_SPI_CLK_BIT;
 	    sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, &param);
     }
 }
@@ -521,7 +493,7 @@ UINT32 spi_ctrl(UINT32 cmd, void *param)
     case CMD_SPI_SET_BITWIDTH:
         spi_set_bit_wdth(*(UINT8 *)param);
         break;
-    case CMD_SPI_SET_NSSID:
+    case CMD_SPI_SET_NSSMD:
         spi_set_nssmd(*(UINT8 *)param);
         break;
     case CMD_SPI_SET_CKR:
@@ -665,5 +637,5 @@ void spi_isr(void)
         }
     }
 }
-// eof 
-
+// eof
+#endif

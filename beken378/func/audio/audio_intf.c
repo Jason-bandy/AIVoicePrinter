@@ -1,6 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
-
+#include "co_list.h"
 #if ((CFG_USE_AUDIO) && (CFG_SOC_NAME == SOC_BK7221U))
 #include "audio_pub.h"
 

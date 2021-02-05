@@ -47,13 +47,15 @@ void dma_init(void)
     dma_int_unmask_set(DMA_LLI_IRQ_MASK);
 }
 
-uint32_t dma_push(struct dma_desc *first, struct dma_desc *last, int channel_idx)
+uint32_t dma_push(struct dma_desc *first, struct dma_desc *last, uint32_t channel)
 {
     uint32_t push_len = 0;
     evt_field_t event = 0;
     uint32_t go_on_flag = 1;
     UINT32 access_category = 0;
     struct dma_desc *ddesc;
+	UINT32 extra = 0;
+	UINT32 channel_idx;
 
     ddesc = first;
     while(go_on_flag && ddesc)
@@ -74,6 +76,9 @@ uint32_t dma_push(struct dma_desc *first, struct dma_desc *last, int channel_idx
         ddesc = (struct dma_desc *)ddesc->next;
     }
 
+	channel_idx = channel & 0xFF;
+	extra = (channel & 0xFF00) >> 8;
+
     switch(channel_idx)
     {
     case IPC_DMA_CHANNEL_CTRL_RX:
@@ -87,7 +92,7 @@ uint32_t dma_push(struct dma_desc *first, struct dma_desc *last, int channel_idx
         break;
 
     case IPC_DMA_CHANNEL_DATA_TX:
-        access_category = AC_VI;
+        access_category = extra;
         event = (ke_get_ac_payload_bit(access_category));
         break;
 

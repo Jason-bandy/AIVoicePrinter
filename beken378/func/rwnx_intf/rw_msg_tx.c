@@ -19,6 +19,11 @@
 #include "wlan_ui_pub.h"
 #include "param_config.h"
 #include "signal.h"
+#if CFG_IEEE80211AX
+#include "rw_ieee80211.h"
+#include "rwnx_params.h"
+#include "rwnx_defs.h"
+#endif
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
@@ -31,6 +36,7 @@
 
 #include "error.h"
 #include "mcu_ps_pub.h"
+#include "power_save_pub.h"
 
 extern int bmsg_ioctl_sender(void *arg);
 extern void wpa_handler_signal(void *arg, u8 vif_idx);
@@ -105,6 +111,21 @@ failed_or_timeout:
     return -1;
 }
 
+#if CFG_IEEE80211AX
+int rw_msg_send_version_req(void)
+{
+	void *void_param;
+	struct mm_version_cfm *cfm = &g_rwnx_hw.version_cfm;
+
+	/* VERSION REQ has no parameter */
+	void_param = ke_msg_alloc(MM_VERSION_REQ, TASK_MM, TASK_API, 0);
+	if (!void_param)
+		return -ENOMEM;
+
+	return rw_msg_send(void_param, MM_VERSION_CFM, cfm);
+}
+#endif
+
 int rw_msg_send_reset(void)
 {
     void *void_param;
@@ -139,60 +160,100 @@ int rw_msg_send_start(void)
 
 int rw_msg_send_me_config_req(void)
 {
-    struct me_config_req *req;
+	struct me_config_req *req;
 
 #if CFG_IEEE80211N
-    WIPHY_T *wiphy = &g_wiphy;
-    struct ieee80211_sta_ht_cap *ht_cap = &wiphy->bands[IEEE80211_BAND_2GHZ].ht_cap;
-    struct ieee80211_sta_vht_cap *vht_cap = &wiphy->bands[IEEE80211_BAND_2GHZ].vht_cap;
-    uint8_t *ht_mcs = (uint8_t *)&ht_cap->mcs;
-    int i;
+	struct wiphy *wiphy = &g_wiphy;
+	struct ieee80211_sta_ht_cap *ht_cap = &wiphy->bands[IEEE80211_BAND_2GHZ]->ht_cap;
+	struct ieee80211_sta_vht_cap *vht_cap = &wiphy->bands[IEEE80211_BAND_2GHZ]->vht_cap;
+	uint8_t *ht_mcs = (uint8_t *)&ht_cap->mcs;
+	int i;
 #endif // CFG_IEEE80211N
-
-    /* Build the ME_CONFIG_REQ message */
-    req = ke_msg_alloc(ME_CONFIG_REQ, TASK_ME, TASK_API,
-                       sizeof(struct me_config_req));
-    if (!req)
-        return -1;
-
-    /* Set parameters for the ME_CONFIG_REQ message */
-#if CFG_IEEE80211N
-    req->ht_supp = ht_cap->ht_supported;
-    req->vht_supp = vht_cap->vht_supported;
-    req->ht_cap.ht_capa_info = cpu_to_le16(ht_cap->cap);
-    req->ht_cap.a_mpdu_param = ht_cap->ampdu_factor |
-                               (ht_cap->ampdu_density <<
-                                IEEE80211_HT_AMPDU_PARM_DENSITY_SHIFT);
-
-    for (i = 0; i < sizeof(ht_cap->mcs); i++)
-    {
-        req->ht_cap.mcs_rate[i] = ht_mcs[i];
-    }
-
-    req->ht_cap.ht_extended_capa = 0;
-    req->ht_cap.tx_beamforming_capa = 0x64000000;
-    req->ht_cap.asel_capa = 0x1;
-
-    req->vht_cap.vht_capa_info = cpu_to_le32(vht_cap->cap);
-    req->vht_cap.rx_highest = cpu_to_le16(vht_cap->vht_mcs.rx_highest);
-    req->vht_cap.rx_mcs_map = cpu_to_le16(vht_cap->vht_mcs.rx_mcs_map);
-    req->vht_cap.tx_highest = cpu_to_le16(vht_cap->vht_mcs.tx_highest);
-    req->vht_cap.tx_mcs_map = cpu_to_le16(vht_cap->vht_mcs.tx_mcs_map);
-#endif // CFG_IEEE80211N
-
-#if 0//NX_POWERSAVE
-    req->ps_on = 1;
-    os_printf("rw_msg_send_me_config_req ps_on is %d\r\n", req->ps_on);
+#if CFG_IEEE80211AX
+	struct ieee80211_sta_he_cap const *he_cap;
+	struct rwnx_hw *rwnx_hw = &g_rwnx_hw;
 #endif
 
-    /* Send the ME_CONFIG_REQ message to LMAC FW */
-    return rw_msg_send(req, ME_CONFIG_CFM, NULL);
+	/* Build the ME_CONFIG_REQ message */
+	req = ke_msg_alloc(ME_CONFIG_REQ, TASK_ME, TASK_API,
+					   sizeof(struct me_config_req));
+	if (!req)
+		return -1;
+
+	/* Set parameters for the ME_CONFIG_REQ message */
+#if CFG_IEEE80211N
+	req->ht_supp = ht_cap->ht_supported;
+	req->vht_supp = vht_cap->vht_supported;
+	req->ht_cap.ht_capa_info = cpu_to_le16(ht_cap->cap);
+	req->ht_cap.a_mpdu_param = ht_cap->ampdu_factor |
+							   (ht_cap->ampdu_density <<
+								IEEE80211_HT_AMPDU_PARM_DENSITY_SHIFT);
+
+	for (i = 0; i < sizeof(ht_cap->mcs); i++)
+		req->ht_cap.mcs_rate[i] = ht_mcs[i];
+
+	req->ht_cap.ht_extended_capa = 0;
+	req->ht_cap.tx_beamforming_capa = 0;  //0x64000000 ? invalid bit[31:29] is reserved, bit[26:25]=0b10, 3 rows of CSI
+	req->ht_cap.asel_capa = 0;  // Antenna Selection Capable: Not Supported
+
+	req->vht_cap.vht_capa_info = cpu_to_le32(vht_cap->cap);
+	req->vht_cap.rx_highest = cpu_to_le16(vht_cap->vht_mcs.rx_highest);
+	req->vht_cap.rx_mcs_map = cpu_to_le16(vht_cap->vht_mcs.rx_mcs_map);
+	req->vht_cap.tx_highest = cpu_to_le16(vht_cap->vht_mcs.tx_highest);
+	req->vht_cap.tx_mcs_map = cpu_to_le16(vht_cap->vht_mcs.tx_mcs_map);
+#endif // CFG_IEEE80211N
+
+#if CFG_IEEE80211AX
+	if (wiphy->bands[IEEE80211_BAND_2GHZ]->iftype_data != NULL) {
+		he_cap = &wiphy->bands[IEEE80211_BAND_2GHZ]->iftype_data->he_cap;
+
+		req->he_supp = he_cap->has_he;
+		for (i = 0; i < ARRAY_SIZE(he_cap->he_cap_elem.mac_cap_info); i++)
+			req->he_cap.mac_cap_info[i] = he_cap->he_cap_elem.mac_cap_info[i];
+		for (i = 0; i < ARRAY_SIZE(he_cap->he_cap_elem.phy_cap_info); i++)
+			req->he_cap.phy_cap_info[i] = he_cap->he_cap_elem.phy_cap_info[i];
+		req->he_cap.mcs_supp.rx_mcs_80 = cpu_to_le16(he_cap->he_mcs_nss_supp.rx_mcs_80);
+		req->he_cap.mcs_supp.tx_mcs_80 = cpu_to_le16(he_cap->he_mcs_nss_supp.tx_mcs_80);
+		req->he_cap.mcs_supp.rx_mcs_160 = cpu_to_le16(he_cap->he_mcs_nss_supp.rx_mcs_160);
+		req->he_cap.mcs_supp.tx_mcs_160 = cpu_to_le16(he_cap->he_mcs_nss_supp.tx_mcs_160);
+		req->he_cap.mcs_supp.rx_mcs_80p80 = cpu_to_le16(he_cap->he_mcs_nss_supp.rx_mcs_80p80);
+		req->he_cap.mcs_supp.tx_mcs_80p80 = cpu_to_le16(he_cap->he_mcs_nss_supp.tx_mcs_80p80);
+		for (i = 0; i < MAC_HE_PPE_THRES_MAX_LEN; i++)
+			req->he_cap.ppe_thres[i] = he_cap->ppe_thres[i];
+		req->he_ul_on = rwnx_hw->mod_params->he_ul_on;
+	} else {
+		req->he_supp = false;
+		req->he_ul_on = false;
+	}
+
+	req->ps_on = rwnx_hw->mod_params->ps_on;		// TODO: BK7236 fix ps
+	req->dpsm = rwnx_hw->mod_params->dpsm;			// TODO: BK7236 fix ps
+	req->tx_lft = rwnx_hw->mod_params->tx_lft;
+	req->ant_div_on = rwnx_hw->mod_params->ant_div;
+	if (rwnx_hw->mod_params->use_80)
+		req->phy_bw_max = PHY_CHNL_BW_80;
+	else if (rwnx_hw->mod_params->use_2040)
+		req->phy_bw_max = PHY_CHNL_BW_40;
+	else
+		req->phy_bw_max = PHY_CHNL_BW_20;
+
+	os_printf("HT supp %d, VHT supp %d, HE supp %d\n", req->ht_supp, req->vht_supp, req->he_supp);
+#endif
+
+#if 0//NX_POWERSAVE
+	req->ps_on = 1;
+	os_printf("rw_msg_send_me_config_req ps_on is %d\r\n", req->ps_on);
+#endif
+
+	/* Send the ME_CONFIG_REQ message to LMAC FW */
+	return rw_msg_send(req, ME_CONFIG_CFM, NULL);
 }
+
 
 int rw_msg_send_me_chan_config_req(void)
 {
     struct me_chan_config_req *req;
-    WIPHY_T *wiphy = &g_wiphy;
+    struct wiphy *wiphy = &g_wiphy;
     int i;
 
     /* Build the ME_CHAN_CONFIG_REQ message */
@@ -202,10 +263,10 @@ int rw_msg_send_me_chan_config_req(void)
         return -1;
 
     req->chan2G4_cnt =  0;
-    if (wiphy->bands[IEEE80211_BAND_2GHZ].num_channels)
+    if (wiphy->bands[IEEE80211_BAND_2GHZ]->n_channels)
     {
-        struct ieee80211_supported_band *b = &wiphy->bands[IEEE80211_BAND_2GHZ];
-        for (i = 0; i < b->num_channels; i++)
+        struct ieee80211_supported_band *b = wiphy->bands[IEEE80211_BAND_2GHZ];
+        for (i = 0; i < b->n_channels; i++)
         {
             req->chan2G4[req->chan2G4_cnt].flags = 0;
 
@@ -227,10 +288,10 @@ int rw_msg_send_me_chan_config_req(void)
     }
 
     req->chan5G_cnt = 0;
-    if (wiphy->bands[IEEE80211_BAND_5GHZ].num_channels)
+    if (wiphy->bands[IEEE80211_BAND_5GHZ]->n_channels)
     {
-        struct ieee80211_supported_band *b = &wiphy->bands[IEEE80211_BAND_5GHZ];
-        for (i = 0; i < b->num_channels; i++)
+        struct ieee80211_supported_band *b = wiphy->bands[IEEE80211_BAND_5GHZ];
+        for (i = 0; i < b->n_channels; i++)
         {
             req->chan5G[req->chan5G_cnt].flags = 0;
 
@@ -727,11 +788,11 @@ int rw_msg_set_channel(uint32_t channel, uint32_t band_width, void *cfm)
 #if CFG_IEEE80211AX
 	set_chnl_par->chan.band = PHY_BAND_2G4;
 	set_chnl_par->chan.type = band_width;//PHY_CHNL_BW_20;
-	set_chnl_par->chan.prim20_freq = set_chnl_par->chan.center1_freq = 
+	set_chnl_par->chan.prim20_freq = set_chnl_par->chan.center1_freq =
 				rw_ieee80211_get_centre_frequency(channel);
 	set_chnl_par->chan.center2_freq = 0;
 	set_chnl_par->chan.tx_power = 0;
-    set_chnl_par->index = PHY_PRIM;
+	set_chnl_par->index = PHY_PRIM;
 #else
     set_chnl_par->band = PHY_BAND_2G4;
     set_chnl_par->type = band_width;//PHY_CHNL_BW_20;
@@ -966,7 +1027,7 @@ int rw_msg_send_sm_external_auth_status(EXTERNAL_AUTH_PARAM_T *auth_param)
 
 	req->vif_idx = auth_param->vif_idx;
 	req->status = auth_param->status;
-	
+
     /* Send the SM_CONNECT_REQ message to LMAC FW */
     return rw_msg_send(req, 0/*DUMMY*/, NULL);
 }

@@ -25,18 +25,19 @@
 #ifndef _BOARD_H_
 #define _BOARD_H_
 
+#include "sys_config.h"
 #include <stdint.h>
 
 #define RT_HW_HEAP_BEGIN    (void*)&_empty_ram
-#define RT_HW_HEAP_END      (void*)(0x00400000 + 512 * 1024)
+#define RT_HW_HEAP_END      RT_DTCM_ADDR_END
 
-/* Low Speed */ 
+/* Low Speed */
 #define RT_HW_SDRAM_BEGIN   (void*)(0x00900000)
-#define RT_HW_SDRAM_END     (void*)(0x00900000 + 256 * 1024) 
+#define RT_HW_SDRAM_END     (void*)(0x00900000 + 256 * 1024)
 
-/* shared memory*/ 
+/* shared memory*/
 #define RT_HW_SHRAM_BEGIN   (void*)(0x04000000)
-#define RT_HW_SHRAM_END     (void*)(RT_HW_SHRAM_BEGIN + 128 * 1024) 
+#define RT_HW_SHRAM_END     (void*)(RT_HW_SHRAM_BEGIN + 128 * 1024)
 
 void rt_hw_board_init(void);
 void rt_shram_heap_init(void);

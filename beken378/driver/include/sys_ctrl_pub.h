@@ -57,9 +57,14 @@ enum
 	CMD_SCTRL_BIAS_REG_CLEAN,
 	CMD_SCTRL_BIAS_REG_READ,
 	CMD_SCTRL_BIAS_REG_WRITE,
+	CMD_SCTRL_BIAS_GET_CALI_OUT,
 
 	CMD_SCTRL_ANALOG_CTRL4_SET,
 	CMD_SCTRL_ANALOG_CTRL4_CLEAN,
+	#if (CFG_SOC_NAME == SOC_BK7271)
+	CMD_SCTRL_ANALOG_CTRL9_REAL_SET,
+	CMD_SCTRL_ANALOG_CTRL9_REAL_CLEAN,
+	#endif
 
 	CMD_SCTRL_SET_FLASH_DCO,
 	CMD_SCTRL_SET_FLASH_DPLL,
@@ -76,7 +81,7 @@ enum
 	CMD_BLE_RF_BIT_CLR,
 	CMD_BLE_RF_BIT_GET,
 
-	#if (CFG_SOC_NAME == SOC_BK7231N)
+	#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 	CMD_BLE_RF_PTA_EN,
 	CMD_BLE_RF_PTA_DIS,
 	#endif
@@ -87,11 +92,11 @@ enum
 	CMD_SET_SCTRL_RETETION,
 	#endif // (CFG_SOC_NAME != SOC_BK7231)
 
-	#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7231N)
+	#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 	CMD_QSPI_VDDRAM_VOLTAGE,
 	CMD_QSPI_IO_VOLTAGE,
 	#endif // (CFG_SOC_NAME != SOC_BK7231)
-    
+
 	CMD_SCTRL_SET_ANALOG0,
 	CMD_SCTRL_SET_ANALOG1,
 	CMD_SCTRL_SET_ANALOG2,
@@ -133,7 +138,7 @@ enum
 	CMD_SCTRL_UNCONDITIONAL_RF_DOWN,
 	CMD_SCTRL_UNCONDITIONAL_RF_UP,
 	CMD_SCTRL_UNCONDITIONAL_MAC_DOWN,
-	CMD_SCTRL_UNCONDITIONAL_MAC_UP,    
+	CMD_SCTRL_UNCONDITIONAL_MAC_UP,
 	#endif // (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 
 	CMD_SCTRL_SET_LOW_PWR_CLK,
@@ -177,7 +182,7 @@ enum
 #define BLK_BIT_AUDIO_PLL                        (1 << 16)
 #define BLK_BIT_AUDIO_RANDOM_GENERATOR           (1 << 15)
 #define BLK_BIT_USB                              (1 << 14)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define BLK_BIT_AUDIO_RANDOM_GENERATOR           (1 << 15)
 #elif (CFG_SOC_NAME == SOC_BK7221U)
 #define BLK_BIT_NC                               (1 << 19)
@@ -220,6 +225,10 @@ enum
 
 /*CMD_SCTRL_BIAS_REG_SET CMD_SCTRL_BIAS_REG_CLEAN*/
 #if (CFG_SOC_NAME == SOC_BK7271)
+#define PARAM_BIAS_CAL_OUT_POSI                  (12)
+#define PARAM_BIAS_CAL_OUT_MASK                  (0x1F)
+#define PARAM_LDO_VAL_MANUAL_POSI                (16)
+#define PARAM_LDO_VAL_MANUAL_MASK                (0x1F)
 #define PARAM_BIAS_CAL_MANUAL_BIT                (1 << 22)
 #define PARAM_BIAS_CAL_TRIGGER_BIT               (1 << 21)
 #else
@@ -239,7 +248,7 @@ enum
 
 #if (CFG_SOC_NAME == SOC_BK7231U)
 #define DEFAULT_TXID_XTAL                        (0x19)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #if (CFG_XTAL_FREQUENCE == CFG_XTAL_FREQUENCE_40M)
 #define DEFAULT_TXID_XTAL                        (0x70)
 #else
@@ -249,7 +258,7 @@ enum
 #define DEFAULT_TXID_XTAL                        (0x10)
 #endif // (CFG_SOC_NAME == SOC_BK7231U)
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define PARAM_XTALH_CTUNE_MASK                   (0x7F)
 
 #define PARAM_AUD_DAC_GAIN_MASK                  (0x1F)
@@ -264,7 +273,7 @@ enum
 #define LPO_SELECT_32K_XTAL                         (0x1)
 #define LPO_SELECT_32K_DIV                          (0x2)
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define SW_RETENTION_WDT_FLAG                       (1 << 16)
 #define SW_RETENTION_WDT_FLAG_POS                   (16)
 #define SW_RETENTION_VAL_MASK                       (0XFFFF)
@@ -308,7 +317,7 @@ typedef union
 typedef struct efuse_oper_st
 {
     UINT8 addr;
-    UINT8 data;    
+    UINT8 data;
 } EFUSE_OPER_ST, *EFUSE_OPER_PTR;
 
 typedef enum
@@ -396,5 +405,5 @@ RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void);
 UINT8 sctrl_if_mcu_can_sleep(void);
 extern void sctrl_rf_ps_enable_set(void);
 extern void sctrl_rf_ps_enable_clear(void);
-extern void sctrl_rf_ps_enabled(void);
+extern int sctrl_rf_ps_enabled(void);
 #endif // _SCTRL_PUB_H_

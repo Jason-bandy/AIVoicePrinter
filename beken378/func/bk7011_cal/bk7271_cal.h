@@ -2,16 +2,6 @@
 #define _BK7231U_CAL_H_
 
 #if (CFG_SOC_NAME == SOC_BK7271)
-
-#define INCLUDE_OS
-
-#define CALIBRATE_TIMES     2000
-#undef  CALIBRATE_TIMES         // by gwf
-
-#define REGTRXV2A
-#define BK7011_VER_A
-
-//#define _11MBPS_MAX_POWER
 void delay05us(INT32 num);
 
 #define trx_reg_is_write(st_trxreg)     while(BK7011RCBEKEN.REG0x1->value & st_trxreg) 	{cpu_delay(1);}
@@ -24,15 +14,12 @@ void delay05us(INT32 num);
 #define SUMNUMBERS					4
 #define MINOFFSET			    	16
 
-//#define DPDCALILEN				  256
-
 #define cpu_delay(val)            delay(MAX(1, val/100))
 #define DELAY1US				  100
-//#define DELAY05US				  1
+
 
 #define cal_delay(val)            delay05us(MAX(1, val))	// 8us
-//#define CAL_DELAY1US			  2
-//#define CAL_DELAY05US			  20 //20160804  1:0.5us 2:1us
+
 #define CAL_DELAY05US			  2		// 20170503 2:1.5us     2 to 20  for debug 20180227
 #define CAL_TX_NUM                50
 #define CAL_RX_NUM                5
@@ -40,19 +27,6 @@ void delay05us(INT32 num);
 #define cal_delay_100us(val)      delay100us(MAX(1, val))	// 200us
 #define CAL_DELAY100US			  1  //20160804  1:100us 2:200us		// 20170503 1:150us 2:300us
 
-
-//#define BK7011TRXREG0xD 		  0xDDFF0339
-//#define BK7011TRXREG0xC		      0x01A147EE//0x01A183FD
-/*
-#define DGAINPA20 				  3
-#define DGAINBUF20				  3
-#define GCTRLPGA40				  0xf
-#define GCTRLMOD30        		  0x04
-#define TSSI_DELTA				 (2)  // 10
-#define TSSI_IS_VALID(val)	  (((val)  0xf0 ) && ((val) > 0x20))?1:0)
-#define TSSI_IS_TOO_LOW(val)  (((val)<(0x00 * SUMNUMBERS))?1:0)  //0x37
-#define TSSI_IS_TOO_HIGH(val) (((val)> (0xff * SUMNUMBERS))?1:0) //0xe0
-*/
 #define st_TRXREG00			(1<<0)
 #define st_TRXREG01			(1<<1)
 #define st_TRXREG02			(1<<2)
@@ -344,7 +318,12 @@ typedef union
         volatile unsigned int hbf40bp   : 1;  /**< 40M模式上采样滤波器 bypass */
         volatile unsigned int hbf20sel  : 1;  /**< 20M模式上采样滤波器系数  1： beken 系数 0：rw 系数 */
         volatile unsigned int hbf20bp   : 1;  /**< 20M模式上采样滤波器 bypass */
-        volatile unsigned int Reserved_ : 28; /**< NC */
+        volatile unsigned int adc_clkgat_dis   : 1;
+        volatile unsigned int dac_clkgat_dis   : 1;
+        volatile unsigned int fe_clkgat_dis    : 1;
+        volatile unsigned int nocca_clkgat_dis : 1;
+        
+        volatile unsigned int Reserved_ : 24; /**< NC */
     } bits;
     volatile unsigned int value;
 } BK7011_RC_BEKEN_REG0x4E_TypeDef;
@@ -1856,44 +1835,28 @@ struct BK7011TRxV2A_TypeDef
 typedef struct
 {
     unsigned int rega_4_7   : 4;       
-    unsigned int rega_8_13  : 6; 
+    unsigned int rega_0_1   : 2; 
+    unsigned int rega_8_13  : 6;
     unsigned int regb_28_31 : 4;     
-    unsigned int regc_0_3   : 4; 
-    unsigned int regc_4_7   : 4; 
-    unsigned int regc_8_11  : 4;     
+    unsigned int regc_0_2   : 3; 
+    unsigned int regc_4_6   : 3; 
+    unsigned int regc_8_10  : 3;     
     unsigned int pregain    : 5;
-    unsigned int unuse      : 1;
+    unsigned int unuse      : 2;
 } PWR_REGS;
-
-#define     PA_LEVEL0_MAP           (RC_BEKEN_BASE + 0x70*4)
-#define     PA_LEVEL_MAP_MASK       0xFFFF   
-#define     PA_LEVEL_MAP_L_POSI     0
-#define     PA_LEVEL_MAP_H_POSI     16   
-
-#define     MODEM_REG_BASE_ADDR      0x1000000
-#define     MODEM_REG_C00_ADDR      (MODEM_REG_BASE_ADDR + 0xC00*4)
-#define     MODEM_PWR_LEVEL_MASK    3
-#define     MODEM_PWR_LEVEL_POSI    10
-
 
 typedef struct
 {
-    unsigned int rega_4_7   : 4;       
-    unsigned int rega_8_13  : 6; 
     unsigned int regb_28_31 : 4;     
     unsigned int regc_0_3   : 4; 
     unsigned int regc_4_7   : 4; 
     unsigned int regc_8_11  : 4;     
-    unsigned int pregain    : 5;
-    unsigned int unuse      : 1;
-    unsigned short rf_pa_map_value;
+    unsigned short value;
 } PWR_REGS_TPC;
 
 /*******************************************************************************
 * Function Declarations
 *******************************************************************************/
-UINT8 bk7011_cal_dcormod_get(void);
 #endif // (CFG_SOC_NAME != SOC_BK7231)
-#endif // _BK7231U_CAL_H_
-// eof
 
+#endif // _BK7231U_CAL_H_

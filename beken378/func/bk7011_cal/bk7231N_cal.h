@@ -3,6 +3,8 @@
 
 #if (CFG_SOC_NAME != SOC_BK7231)
 
+#include "_reg_rc.h"
+
 #define INCLUDE_OS
 
 //#define SCAN_IQ_FILTER_CORNER
@@ -73,7 +75,7 @@ void delay05us(INT32 num);
 #ifndef __BK7011RCBEKEN_H__
 #define __BK7011RCBEKEN_H__
 
-#define RC_BEKEN_BASE		0x01050000
+#define RC_BEKEN_BASE		REG_RC_BASE_ADDR
 
 /// REG0x0
 typedef union
@@ -692,7 +694,7 @@ typedef struct
 #ifndef __BK7011TRxV2A_H__
 #define __BK7011TRxV2A_H__
 
-#define TRX_BEKEN_BASE		0x01050080
+#define TRX_BEKEN_BASE		REG_TRX_BASE_ADDR
 
 /// REG0x0
 typedef union

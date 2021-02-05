@@ -1,6 +1,7 @@
 #ifndef _SPI_H_
 #define _SPI_H_
 
+#if(CFG_SOC_NAME != SOC_BK7271)
 #define SPI_DEBUG
 
 #ifdef SPI_DEBUG
@@ -13,11 +14,7 @@
 #define SPI_FATAL    null_prf
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7271)
-#define SPI_BASE                           (0x00802500) 
-#else
 #define SPI_BASE                           (0x00802700)
-#endif
 
 #define SPI_CTRL                           (SPI_BASE + 0 * 4)
 #define TXINT_MODE_POSI                    (0)
@@ -63,4 +60,5 @@
 * Function Declarations
 *******************************************************************************/
 UINT32 spi_ctrl(UINT32 cmd, void *param);
+#endif
 #endif //_SPI_H_

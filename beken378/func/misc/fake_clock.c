@@ -27,7 +27,7 @@ extern void preempt_delayed_schedule_clear_flag(void);
 void fclk_hdl(UINT8 param)
 {
     GLOBAL_INT_DECLARATION();
-	
+
 #if CFG_USE_TICK_CAL
     if(!mcu_ps_need_pstick())
     {
@@ -45,12 +45,12 @@ void fclk_hdl(UINT8 param)
         current_seconds ++;
         second_countdown = FCLK_SECOND;
     }
-    
-    if((xTaskIncrementTick() != pdFALSE) 
+
+    if((xTaskIncrementTick() != pdFALSE)
 			|| preempt_delayed_schedule_get_flag())
     {
     	preempt_delayed_schedule_clear_flag();
-		
+
         /* Select a new task to run. */
         vTaskSwitchContext();
     }
@@ -102,7 +102,7 @@ UINT32 fclk_update_tick(UINT32 tick)
     fclk_freertos_update_tick(tick);
     vTaskStepTick( tick );
     GLOBAL_INT_RESTORE();
-    
+
 #endif
     return 0;
 }
@@ -168,7 +168,7 @@ UINT32 timer_cal_tick(void)
     GLOBAL_INT_DECLARATION();
 
     GLOBAL_INT_DISABLE();
-    
+
     fclk = BK_TICKS_TO_MS(fclk_get_tick());
     cal_tick_save.tmp1 += ONE_CAL_TIME;
 
@@ -193,7 +193,7 @@ UINT32 timer_cal_tick(void)
             increase_tick = lost + FCLK_DURATION_MS;
         }
     }
-    
+
     mcu_ps_machw_init();
     GLOBAL_INT_RESTORE();
     return 0 ;
@@ -240,7 +240,7 @@ UINT32 bk_cal_init(UINT32 setting)
 {
     GLOBAL_INT_DECLARATION();
     GLOBAL_INT_DISABLE();
-    
+
     if(1 == setting)
     {
         cal_timer_deset();
@@ -317,7 +317,7 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
 #endif
 
         param.p_Int_Handler   = fclk_hdl;
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
         param.duty_cycle1     = 0;
 #else
         param.duty_cycle      = 0;
@@ -325,7 +325,7 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
         param.end_value       = fclk_cal_endvalue((UINT32)param.cfg.bits.clk);
 
         sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
-        
+
     }
     else
     {   //timer
@@ -340,7 +340,7 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
         UINT32 timer_channel;
         timer_channel = param.channel;
         sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_ENABLE, &timer_channel);
-        
+
     }
 }
 

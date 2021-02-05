@@ -44,7 +44,8 @@ case $1 in
 		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 0
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
 		modify_config ${SYS_CFG_FILE} CFG_USB 1
-		make_target="beken_ip beken_usb beken_vad beken_sensor beken_pcm_resampler"
+		modify_config ${SYS_CFG_FILE} CFG_USE_BT 1
+		make_target="beken_ip beken_usb beken_vad beken_sensor beken_pcm_resampler beken_bt"
 		;;
 	*)
 		echo "unsupported platform"

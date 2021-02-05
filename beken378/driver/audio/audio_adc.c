@@ -1,5 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
+#include "co_list.h"
 
 #include "audio.h"
 #include "audio_pub.h"

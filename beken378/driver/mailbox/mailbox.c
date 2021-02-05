@@ -12,6 +12,8 @@
 #include "uart.h"
 #include "dsp_pub.h"
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+
 static DD_OPERATIONS mailbox_op = {
 	mailbox_open,
 	mailbox_close,
@@ -30,7 +32,7 @@ void mailbox_init(void)
 	param = IRQ_MAILBOX_DSP_BIT;
 	sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
 
-	intc_service_register(IRQ_MAILBOX_BT, PRI_IRQ_MAILBOX, mailbox_bt2cpu_isr);
+	intc_service_register(IRQ_MAILBOX_BT, PRI_IRQ_MAILBOX1, mailbox_bt2cpu_isr);
 	param = IRQ_MAILBOX_BT_BIT;
 	sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
 
@@ -126,6 +128,7 @@ static UINT32 mailbox_cpu2bt_send(mailbox_t *param)
 		ready &= MAILBOX_READY_MASK;
 		ready |= MAILBOX_READY_BOX0;
 		REG_WRITE(MAILBOX_CPU2BT_READY, ready);
+		while (REG_READ(MAILBOX_CPU2BT_READY) & ready);
 	} else if (!(ready & MAILBOX_READY_BOX1)) {
 		reg = param->cmd;
 		REG_WRITE(MAILBOX_CPU2BT_BOX1_CMD, reg);
@@ -138,6 +141,7 @@ static UINT32 mailbox_cpu2bt_send(mailbox_t *param)
 		ready &= MAILBOX_READY_MASK;
 		ready |= MAILBOX_READY_BOX1;
 		REG_WRITE(MAILBOX_CPU2BT_READY, ready);
+		while (REG_READ(MAILBOX_CPU2BT_READY) & ready);
 	} else {
 		bk_printf("cpu2bt_send(0x%x) failed\r\n", param->cmd);
 		ret = MAILBOX_NOT_READY;
@@ -266,19 +270,11 @@ static void mailbox_bt2cpu_isr(void)
 		mailbox.param1 = REG_READ(MAILBOX_BT2CPU_BOX0_PARAM1);
 		mailbox.param2 = REG_READ(MAILBOX_BT2CPU_BOX0_PARAM2);
 		mailbox.param3 = REG_READ(MAILBOX_BT2CPU_BOX0_PARAM3);
-
-		clear &= MAILBOX_CLEAR_MASK;
-		clear |= MAILBOX_CLEAR_BOX0;
-		REG_WRITE(MAILBOX_BT2CPU_CLEAR, clear);
 	} else if (ready & MAILBOX_READY_BOX1) {
 		mailbox.cmd = REG_READ(MAILBOX_BT2CPU_BOX1_CMD);
 		mailbox.param1 = REG_READ(MAILBOX_BT2CPU_BOX1_PARAM1);
 		mailbox.param2 = REG_READ(MAILBOX_BT2CPU_BOX1_PARAM2);
 		mailbox.param3 = REG_READ(MAILBOX_BT2CPU_BOX1_PARAM3);
-
-		clear &= MAILBOX_CLEAR_MASK;
-		clear |= MAILBOX_CLEAR_BOX1;
-		REG_WRITE(MAILBOX_BT2CPU_CLEAR, clear);
 	}
 
 	for (index = 0; index < MAILBOX_CALLBACK_COUNT; index++) {
@@ -286,5 +282,15 @@ static void mailbox_bt2cpu_isr(void)
 			continue;
 		(mailbox_cb[index])(MAILBOX_FROM_BT, &mailbox);
 	}
-}
 
+	if (ready & MAILBOX_READY_BOX0) {
+		clear &= MAILBOX_CLEAR_MASK;
+		clear |= MAILBOX_CLEAR_BOX0;
+		REG_WRITE(MAILBOX_BT2CPU_CLEAR, clear);
+	} else if (ready & MAILBOX_READY_BOX1) {
+		clear &= MAILBOX_CLEAR_MASK;
+		clear |= MAILBOX_CLEAR_BOX1;
+		REG_WRITE(MAILBOX_BT2CPU_CLEAR, clear);
+	}
+}
+#endif

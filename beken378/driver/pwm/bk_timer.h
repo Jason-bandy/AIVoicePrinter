@@ -80,7 +80,7 @@
 #define TIMER3_5_READ_INDEX_5                          (2)
 
 #define TIMER3_5_READ_VALUE                           (PWM_NEW_BASE + 0x15 * 4)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define TIMER0_BASE                                 (0x00802A00)
 #define TIMER1_BASE                                 (0x00802A40)
 

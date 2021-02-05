@@ -35,7 +35,7 @@
 #define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         1
-#define CFG_RWNX_QOS_MSDU                          0
+#define CFG_RWNX_QOS_MSDU                          1
 #define CFG_WLAN_FAST_CONNECT                      0
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -49,7 +49,7 @@
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_SME                                    1
+#define CFG_SME                                    0
 #endif
 //#define CFG_MESH                                 0
 #define CFG_WFA_CERT                               0
@@ -71,6 +71,8 @@
 
 #define CFG_MSDU_RESV_HEAD_LEN                    96
 #define CFG_MSDU_RESV_TAIL_LEN                    16
+
+#define CFG_PCM_RESAMPLER                          1
 
 #define CFG_USB                                    0
 #define CFG_USE_USB_HOST                           0
@@ -161,7 +163,7 @@
 #endif
 
 #define CFG_USE_DEEP_PS                            1
-#define CFG_USE_BLE_PS                             0
+#define CFG_USE_BLE_PS                             1
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
 
@@ -172,7 +174,7 @@
 #define CFG_USE_AP_PS                              0
 
 /*section 19-----for SDCARD HOST*/
-#define CFG_USE_SDCARD_HOST                        1
+#define CFG_USE_SDCARD_HOST                        0
 //select SD or SD1
 #define SD_HOST_INTF                                0
 #define SD1_HOST_INTF                               1
@@ -182,7 +184,11 @@
 #define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_SUPPORT_OTA_HTTP                       0
+#else
+#define CFG_SUPPORT_OTA_HTTP                       1
+#endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
 /*section 22 ----- support adc calibrate*/
@@ -225,7 +231,7 @@
 #define CFG_USE_SPI_MASTER                         1
 #define CFG_USE_SPI_MST_FLASH                      1
 #define CFG_USE_SPI_MST_PSRAM                      0
-#define CFG_USE_SPI_SLAVE                          0
+#define CFG_USE_SPI_SLAVE                          1
 
 /*section 27 ----- hardware security: aes/sha/rsa */
 #define CFG_USE_SECURITY                           0

@@ -8,11 +8,11 @@ if [ $? != 0 ]; then
 	exit 1
 fi
 
-#./tools/scripts/generate_beken_libs.sh bk7231u
-#if [ $? != 0 ]; then
-#	echo "make bk7231u libs fail"
-#	exit 1
-#fi
+./tools/scripts/generate_beken_libs.sh bk7231u
+if [ $? != 0 ]; then
+	echo "make bk7231u libs fail"
+	exit 1
+fi
 
 ./tools/scripts/generate_beken_libs.sh bk7251
 if [ $? != 0 ]; then
@@ -32,6 +32,7 @@ rm -rf config/sys_config.h
 rm -rf build
 rm -rf bugzilla
 rm -f README.md
+rm -f .platform
 rm -rf ./beken378/bugzilla
 rm -rf ./beken378/ip_ax
 rm -f ./beken378/README.md

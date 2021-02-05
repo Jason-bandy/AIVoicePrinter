@@ -140,6 +140,31 @@ int rt_wlan_softap(struct rt_wlan_device *device, struct rt_wlan_info *info, cha
     return result;
 }
 
+int rt_wlan_up(struct rt_wlan_device *device, struct rt_wlan_info *info, char *password)
+{
+	rt_wlan_mode_t mode;
+
+	if (!device) {
+		return -RT_EINVAL;
+	}
+
+	if (!device->info) {
+		struct rt_object *obj = (struct rt_object*) device;
+		rt_kprintf("%s not configured\n", obj->name);
+		return -RT_EINVAL;
+	}
+
+	mode = device->info->mode;
+	if (mode == WIFI_STATION) {
+		return rt_wlan_connect(device, info, password);
+	} else if (mode == WIFI_AP) {
+		return rt_wlan_softap(device, info, password);
+	} else {
+		rt_kprintf("invalid wifi mode=%d\n", mode);
+		return -RT_EINVAL;
+	}
+}
+
 int rt_wlan_disconnect(struct rt_wlan_device *device)
 {
     int result = 0;
@@ -184,22 +209,25 @@ struct rt_wlan_info *rt_wlan_get_info(struct rt_wlan_device *device)
     return info;
 }
 
-int rt_wlan_scan(struct rt_wlan_device *device, struct rt_wlan_info *info, struct rt_wlan_scan_result **scan_result)
+int rt_wlan_scan(struct rt_wlan_device *device, struct rt_wlan_info *wifi_info,
+		struct rt_wlan_scan_result **scan_result)
 {
-    struct rt_wlan_info empty_info;
-    int result;
+	struct rt_wifi_scan_param scan_param;
+	struct rt_wlan_info empty_info;
+	int result;
 
-    if (info == RT_NULL)
-    {
-        /* using empty info to clear last setting */
-        rt_wlan_info_init(&empty_info, WIFI_STATION, SECURITY_UNKNOWN, NULL);
-        info = &empty_info;
-    }
-    rt_wlan_set_info(device, info);
+	if (wifi_info == RT_NULL) {
+		/* using empty info to clear last setting */
+		rt_wlan_info_init(&empty_info, WIFI_STATION, SECURITY_UNKNOWN, NULL);
+		scan_param.wifi_info = &empty_info;
+	} else {
+		scan_param.wifi_info = wifi_info;
+	}
 
-    result = rt_device_control(RT_DEVICE(device), WIFI_SCAN, scan_result);
+	scan_param.scan_result = scan_result;
+	result = rt_device_control(RT_DEVICE(device), WIFI_SCAN, (void*)&scan_param);
 
-    return result;
+	return result;
 }
 
 int rt_wlan_get_rssi(struct rt_wlan_device *device)

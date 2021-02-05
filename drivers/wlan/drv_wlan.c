@@ -355,6 +355,7 @@ static int rt_wlan_malloc_scan_result(struct rt_wlan_scan_result **scan_result, 
         if (_scan_result->ap_table[i].ssid == RT_NULL)
         {
             rt_kprintf("malloc memory for scan ssid failed \n");
+		goto _exit;
         }
         rt_memset(_scan_result->ap_table[i].ssid, 0, RT_WLAN_SSID_MAX_LEN + 1);
     }
@@ -385,102 +386,177 @@ _exit:
     return -RT_ERROR;
 }
 
-static const char *wlan_sec_type_string[] =
+static int wlan_bk_security_to_rt_security(int bk_security)
 {
-    "NONE",
-    "WEP",
-    "WPA-TKIP",
-    "WPA-AES",
-    "WPA2-TKIP",
-    "WPA2-AES",
-    "WPA2-MIX",
-    "AUTO"
-};
+	int rt_security = SECURITY_UNKNOWN;
 
-int wlan_scan_done_handler(struct rt_wlan_scan_result **scan_result)
+	switch (bk_security) {
+	case BK_SECURITY_TYPE_NONE:
+		rt_security = SECURITY_OPEN;
+		break;
+
+	case BK_SECURITY_TYPE_WEP:
+		rt_security = SECURITY_WEP_PSK;
+		break;
+
+	case BK_SECURITY_TYPE_WPA_TKIP:
+		rt_security = SECURITY_WPA_TKIP_PSK;
+		break;
+
+	case BK_SECURITY_TYPE_WPA_AES:
+		rt_security = SECURITY_WPA_AES_PSK;
+		break;
+
+	case BK_SECURITY_TYPE_WPA2_TKIP:
+		rt_security = SECURITY_WPA2_TKIP_PSK;
+		break;
+
+	case BK_SECURITY_TYPE_WPA2_AES:
+		rt_security = SECURITY_WPA2_AES_PSK;
+		break;
+
+	case BK_SECURITY_TYPE_WPA2_MIXED:
+		rt_security = SECURITY_WPA2_MIXED_PSK;
+		break;
+
+	case BK_SECURITY_TYPE_AUTO:
+		rt_security = SECURITY_UNKNOWN;
+		break;
+
+	case BK_SECURITY_TYPE_WPA3_SAE:
+	case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
+	default:
+		rt_security = SECURITY_UNKNOWN;
+		break;
+	}
+
+	return rt_security;
+}
+
+static void wlan_scan_display_one_ap(const char* ssid, int bk_security, int8_t rssi)
 {
-    struct rt_wlan_scan_result *_scan_result;
-    struct sta_scan_res *scan_rst_table;
-    char scan_rst_ap_num = 0;
-    int i;
 
-    scan_rst_ap_num = bk_wlan_get_scan_ap_result_numbers();
-    if (scan_rst_ap_num == 0)
-    {
-        rt_kprintf("NULL AP \r\n");
-        return -RT_ERROR;
-    }
+	static const char *wlan_sec_type_string[] = {
+		"NONE",
+		"WEP",
+		"WPA-TKIP",
+		"WPA-AES",
+		"WPA2-TKIP",
+		"WPA2-AES",
+		"WPA2-MIX",
+		"WPA3-SAE",
+		"WPA3-WPA2-MIX",
+		"AUTO",
+	};
+	static const char *unknow_security_str = "unknow";
+	char *security_str;
 
-    scan_rst_table = (struct sta_scan_res *)rt_malloc(sizeof(struct sta_scan_res) * scan_rst_ap_num);
-    if (scan_rst_table == RT_NULL)
-    {
-        rt_kprintf("scan_rst_table malloc failed!\r\n");
-        return -RT_ERROR;
-    }
+	if ((bk_security > BK_SECURITY_TYPE_AUTO) || (bk_security < 0)) {
+		security_str = unknow_security_str;
+	} else {
+		security_str = wlan_sec_type_string[bk_security];
+	}
 
-    scan_rst_ap_num = bk_wlan_get_scan_ap_result(scan_rst_table, scan_rst_ap_num);
+	rt_kprintf("\033[36;22m ssid: %-32.*s  security: %-s  rssi: %d\r\n", 32,
+		ssid, security_str, rssi);
+}
 
-    if (rt_wlan_malloc_scan_result(scan_result, scan_rst_ap_num) != RT_EOK)
-    {
-        rt_kprintf("malloc memory for scan failed \n");
-        return -RT_ERROR;
-    }
-    _scan_result = *scan_result;
+static int wlan_scan_done_handler(struct rt_wlan_scan_result **ppscan_result)
+{
+#if CFG_WPA_CTRL_IFACE
+	int ret = RT_EOK;
+	ScanResult_adv ap_list;
+	struct rt_wlan_scan_result *pscan_result;
+	char scan_rst_ap_num = 0;
+	int i;
 
-    rt_kprintf("\r\n");
-    for (i = 0; i < scan_rst_ap_num; i++)
-    {
-        strncpy(_scan_result->ap_table[i].ssid, scan_rst_table[i].ssid, RT_WLAN_SSID_MAX_LEN);
-        rt_memcpy(_scan_result->ap_table[i].bssid, scan_rst_table[i].bssid, 6);
-        _scan_result->ap_table[i].channel = scan_rst_table[i].channel;
+	ap_list.ApList = 0;
+	if (wlan_sta_scan_result(&ap_list)) {
+		ret = -RT_ERROR;
+		rt_kprintf("failed to get scan result\r\n");
+		goto out;
+	}
 
-        rt_kprintf("\033[36;22m ssid: %-32.*s  security: %-s\r\n", 32, scan_rst_table[i].ssid, wlan_sec_type_string[scan_rst_table[i].security]);
+	scan_rst_ap_num = ap_list.ApNum;
+	if (scan_rst_ap_num == 0) {
+		rt_kprintf("scan finds 0 AP\r\n");
+		ret = -RT_ERROR;
+		goto out;
+	}
 
-        switch (scan_rst_table[i].security)
-        {
-        case BK_SECURITY_TYPE_NONE:
-            _scan_result->ap_table[i].security = SECURITY_OPEN;
-            break;
+	if (rt_wlan_malloc_scan_result(ppscan_result, scan_rst_ap_num) != RT_EOK) {
+		rt_kprintf("malloc memory for scan failed\n");
+		ret = -RT_ENOMEM;
+		goto out;
+	}
+	pscan_result = *ppscan_result;
 
-        case BK_SECURITY_TYPE_WEP:
-            _scan_result->ap_table[i].security = SECURITY_WEP_PSK;
-            break;
+	for (i = 0; i < scan_rst_ap_num; i++) {
+		strncpy(pscan_result->ap_table[i].ssid, ap_list.ApList[i].ssid, RT_WLAN_SSID_MAX_LEN);
+		rt_memcpy(pscan_result->ap_table[i].bssid, ap_list.ApList[i].bssid, 6);
+		pscan_result->ap_table[i].channel = ap_list.ApList[i].channel;
+		pscan_result->ap_table[i].security =
+			wlan_bk_security_to_rt_security(ap_list.ApList[i].security);
+		pscan_result->ap_table[i].rssi = ap_list.ApList[i].ApPower;
 
-        case BK_SECURITY_TYPE_WPA_TKIP:
-            _scan_result->ap_table[i].security = SECURITY_WPA_TKIP_PSK;
-            break;
+		wlan_scan_display_one_ap(ap_list.ApList[i].ssid, ap_list.ApList[i].security,
+			ap_list.ApList[i].ApPower);
+	}
+	rt_kprintf("\033[0m\r\n");
 
-        case BK_SECURITY_TYPE_WPA_AES:
-            _scan_result->ap_table[i].security = SECURITY_WPA_AES_PSK;
-            break;
+out:
+	os_free(ap_list.ApList);
+	return ret;
+#else
+	struct rt_wlan_scan_result *pscan_result;
+	struct sta_scan_res *scan_rst_table;
+	char scan_rst_ap_num = 0;
+	int ret = RT_EOK;
+	int i;
 
-        case BK_SECURITY_TYPE_WPA2_TKIP:
-            _scan_result->ap_table[i].security = SECURITY_WPA2_TKIP_PSK;
-            break;
+	scan_rst_ap_num = bk_wlan_get_scan_ap_result_numbers();
+	if (scan_rst_ap_num == 0) {
+		rt_kprintf("scan finds 0 AP\r\n");
+		return -RT_ERROR;
+	}
 
-        case BK_SECURITY_TYPE_WPA2_AES:
-            _scan_result->ap_table[i].security = SECURITY_WPA2_AES_PSK;
-            break;
+	scan_rst_table = (struct sta_scan_res *)rt_malloc(sizeof(struct sta_scan_res) * scan_rst_ap_num);
+	if (scan_rst_table == RT_NULL) {
+		rt_kprintf("scan_rst_table malloc failed!\r\n");
+		return -RT_ENOMEM;
+	}
 
-        case BK_SECURITY_TYPE_WPA2_MIXED:
-            _scan_result->ap_table[i].security = SECURITY_WPA2_MIXED_PSK;
-            break;
+	scan_rst_ap_num = bk_wlan_get_scan_ap_result(scan_rst_table, scan_rst_ap_num);
 
-        case BK_SECURITY_TYPE_AUTO:
-            // _scan_result.ap_table[i]->security = SECURITY_WEP_PSK;
-            break;
-        default:
-            break;
-        }
-        _scan_result->ap_table[i].rssi = scan_rst_table[i].level;
-    }
-    rt_kprintf("\033[0m\r\n");
+	if (rt_wlan_malloc_scan_result(ppscan_result, scan_rst_ap_num) != RT_EOK) {
+		rt_kprintf("malloc memory for scan failed \n");
+		ret = -RT_ENOMEM;
+		goto out;
+	}
+	pscan_result = *ppscan_result;
 
-    if (scan_rst_table != NULL)
-    {
-        os_free(scan_rst_table);
-        scan_rst_table = NULL;
-    }
+	rt_kprintf("\r\n");
+	for (i = 0; i < scan_rst_ap_num; i++) {
+		strncpy(pscan_result->ap_table[i].ssid, scan_rst_table[i].ssid, RT_WLAN_SSID_MAX_LEN);
+		rt_memcpy(pscan_result->ap_table[i].bssid, scan_rst_table[i].bssid, 6);
+		pscan_result->ap_table[i].channel = scan_rst_table[i].channel;
+		pscan_result->ap_table[i].security =
+			wlan_bk_security_to_rt_security(scan_rst_table[i].security);
+		pscan_result->ap_table[i].rssi = scan_rst_table[i].level;
+
+		wlan_scan_display_one_ap(scan_rst_table[i].ssid, scan_rst_table[i].security,
+				scan_rst_table[i].level);
+	}
+
+	rt_kprintf("\033[0m\r\n");
+
+out:
+	if (scan_rst_table != NULL) {
+		os_free(scan_rst_table);
+		scan_rst_table = NULL;
+	}
+	return ret;
+#endif /* CFG_WPA_CTRL_IFACE */
 }
 
 static rt_err_t _wifi_easyjoin(rt_device_t dev, void *passwd)
@@ -881,6 +957,38 @@ static rt_size_t beken_wlan_write(rt_device_t dev, rt_off_t pos, const void *buf
     return 0;
 }
 
+static void beken_wlan_control_scan(struct rt_wlan_device *wlan_dev,
+			struct rt_wifi_scan_param *scan_param)
+{
+	struct rt_wlan_scan_result **scan_result = scan_param->scan_result;
+	struct rt_wlan_info *wifi_info = scan_param->wifi_info;
+
+	bk_wlan_scan_ap_reg_cb(scan_ap_callback);
+
+	if (wifi_info->ssid && (rt_strlen(wifi_info->ssid) > 0)) {
+		UINT8 *ssid_array[1];
+		ssid_array[0] = wifi_info->ssid;
+		bk_wlan_start_assign_scan(ssid_array, 1);
+        } else {
+		bk_wlan_start_scan();
+        }
+
+	int timeout_ms = rt_tick_from_millisecond(SCAN_WAIT_OUT_TIME);
+
+        if (rt_sem_take(_g_scan_done_sem, timeout_ms) != RT_EOK) {
+		DRV_WLAN_DBG("Wait scan_done semaphore timeout \n");
+        }
+
+	wlan_scan_done_handler(scan_result);
+	rt_wlan_indicate_event_handle(wlan_dev, WIFI_EVT_SCAN_DONE, scan_result);
+
+	#if CFG_ROLE_LAUNCH
+	if(mhdr_get_station_status() == RW_EVT_STA_GOT_IP) {
+		rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
+	}
+        #endif
+}
+
 static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
 {
     struct rt_wlan_device *wlan = RT_NULL;
@@ -914,31 +1022,7 @@ static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
     case WIFI_SCAN:
     {
         DRV_WLAN_DBG("%s L%d %s cmd: case WIFI_SCAN!\r\n", __FILE__, __LINE__, __FUNCTION__);
-
-        bk_wlan_scan_ap_reg_cb(scan_ap_callback);
-
-        if (rt_strlen(wlan->info->ssid) > 0)
-        {
-            UINT8 *ssid_ary[1];
-            ssid_ary[0] = wlan->info->ssid;
-            bk_wlan_start_assign_scan(ssid_ary, 1);
-        }
-        else
-        {
-            bk_wlan_start_scan();
-        }
-        if (rt_sem_take(_g_scan_done_sem, rt_tick_from_millisecond(SCAN_WAIT_OUT_TIME)) != RT_EOK)
-        {
-            DRV_WLAN_DBG("Wait scan_done semaphore timeout \n");
-        }
-        wlan_scan_done_handler((struct rt_wlan_scan_result **)args);
-        rt_wlan_indicate_event_handle(wlan, WIFI_EVT_SCAN_DONE, args);
-        #if CFG_ROLE_LAUNCH
-        if(mhdr_get_station_status() == RW_EVT_STA_GOT_IP)
-        {
-            rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
-        }
-        #endif
+	beken_wlan_control_scan(wlan, (struct rt_wifi_scan_param*)args);
         break;
     }
 

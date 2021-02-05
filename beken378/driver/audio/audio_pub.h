@@ -7,6 +7,20 @@
 #define AUD_DAC_DEV_NAME             "aud_dac"
 #define AUD_DAC_CMD_MAGIC            (0x1EBC0000)
 
+#define DAC_PLAY_NODE_ADDR (0x0C924000)
+#define DAC_PLAY_NODE_SIZE (2048)
+
+typedef struct dma_buffer_node {
+	struct co_list_hdr header;
+	uint8_t *buffer;
+	uint32_t size;
+} dma_buffer_node;
+
+struct adc_dac_context {
+	struct co_list using_list;
+	struct co_list free_list;
+};
+
 typedef struct aud_dac_cfg_st
 {
     UINT8 *buf;

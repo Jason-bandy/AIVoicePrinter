@@ -28,8 +28,10 @@
 
 #include "include.h"
 #include "rtos_pub.h"
-#include "rtos_error.h"
 #include "bk_timer_pub.h"
+#include "drv_model_pub.h"
+#include "error.h"
+#include "BkDriverTimer.h"
 
 /**@brief Initialises a timer and start
  *
@@ -83,6 +85,18 @@ OSStatus bk_timer_initialize_us(uint8_t timer_id, uint32_t time_us, void *callba
     ASSERT(BK_TIMER_SUCCESS == ret);
 
     return kNoErr;
+}
+
+UINT32 bk_get_timer_cnt(uint8_t timer_id)
+{
+    UINT32 ret;
+    timer_param_t param;
+
+    param.channel = timer_id;
+
+    ret = sddev_control(TIMER_DEV_NAME, CMD_TIMER_READ_CNT, &param);
+
+    return param.period;
 }
 
 /**@brief stop timer

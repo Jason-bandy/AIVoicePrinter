@@ -27,12 +27,6 @@
 #include "wpa_ctrl.h"
 #endif
 
-beken_thread_t  hostapd_thread_handle = NULL;
-extern beken_thread_t wpas_thread_handle;
-uint32_t  hostapd_stack_size = 4000;
-beken_semaphore_t hostapd_sema = NULL;
-beken_semaphore_t wpa_hostapd_sema = NULL;
-void *wpa_hostapd_param = NULL;
 beken_queue_t wpah_queue = NULL;
 static struct hapd_global s_hapd_global;
 struct hapd_interfaces g_hapd_interfaces;
@@ -45,6 +39,12 @@ extern int ap_channel_switch(struct hostapd_iface *ap_iface, int new_freq);
 struct hapd_interfaces *hostapd_ctrl_get_interfaces()
 {
 	return &g_hapd_interfaces;
+}
+#endif
+#if !CFG_WPA_CTRL_IFACE
+int hostap_interfaces_is_valid(void)
+{
+	return ((g_hapd_interfaces.iface) && (0 < g_hapd_interfaces.count));
 }
 #endif
 
@@ -826,9 +826,21 @@ static void hostapd_periodic(void *eloop_ctx, void *timeout_ctx)
 {
 }
 
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+static bool s_hapd_init_completed = false;
+bool hostapd_is_init_completed(void)
+{
+	return s_hapd_init_completed;
+}
+#endif
+
 int hostapd_main_exit(void)
 {
 	size_t i;
+
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	s_hapd_init_completed = false;
+#endif
 
 	if (0 == g_hapd_interfaces.count)
 		return 0;
@@ -893,17 +905,15 @@ int hostapd_main_entry(int argc, char *argv[])
 #ifdef CONFIG_DPP
 	struct dpp_global_config dpp_conf;
 #endif /* CONFIG_DPP */
-	//char *ap_iface_buf = CFG_AP_IFACE_CONFIG;	//"bss_config= wlan0"
 
-	//ap_iface_buf = os_zalloc(strlen(CFG_AP_IFACE_CONFIG) + 2);
-	//if (0 == ap_iface_buf)
-	//	return -1;
-
-	//os_memcpy(ap_iface_buf, CFG_AP_IFACE_CONFIG,(strlen(CFG_AP_IFACE_CONFIG) + 1));
 	if (os_program_init()) {
 		//os_free(ap_iface_buf);
 		return -1;
 	}
+
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	s_hapd_init_completed = false;
+#endif
 
 	os_memset(&g_hapd_interfaces, 0, sizeof(g_hapd_interfaces));
 	g_hapd_interfaces.reload_config  = hostapd_reload_config;
@@ -1008,16 +1018,11 @@ int hostapd_main_entry(int argc, char *argv[])
 			goto out;
 	}
 
-	//hostapd_global_ctrl_iface_init(&interfaces);
-#if 0//def NOT_USED
-	hostapd_add_iface(&g_hapd_interfaces, ap_iface_buf);	//ap_iface_buf: "bss_config= wlan0"
-#endif
-
 	ret = 0;
 
-	//os_free(ap_iface_buf);
-	//ap_iface_buf = NULL;
-
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	s_hapd_init_completed = true;
+#endif
 	return ret;
 
 out:

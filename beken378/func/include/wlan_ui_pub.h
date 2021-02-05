@@ -109,7 +109,7 @@ typedef  struct  _ScanResult
     char ApNum;       /**< The number of access points found in scanning. */
     struct
     {
-        char ssid[32];  /**< The SSID of an access point. */
+        char ssid[33];  /**< The SSID of an access point. */
         char ApPower;   /**< Signal strength, min:0, max:100. */
     } *ApList;
 } ScanResult;
@@ -122,7 +122,7 @@ typedef  struct  _ScanResult_adv
 	char ApNum; 	  /**< The number of access points found in scanning.*/
 	struct ApListStruct
 	{
-		char ssid[32];	/**< The SSID of an access point.*/
+		char ssid[33];	/**< The SSID of an access point.*/
 		char ApPower;	/**< Signal strength, min:0, max:100*/
 		uint8_t bssid[6];	/**< The BSSID of an access point.*/
 		char channel;	/**< The RF frequency, 1-13*/
@@ -546,13 +546,15 @@ int wlan_unregister_notifier(notify_func func, void *arg);
 
 #endif
 
+void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn);
+monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void);
+int http_ota_download(const char *uri);
+
 #if (CFG_SUPPORT_ALIOS)
 /**********************for alios*******************************/
 void bk_wifi_get_mac_address(char *mac);
 void bk_wifi_set_mac_address(char *mac);
 static void bk_monitor_callback(uint8_t *data, int len, wifi_link_info_t *info);
-void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn);
-monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void);
 uint32_t bk_wlan_max_power_level_get(void);
 OSStatus bk_wlan_get_bssid_info(apinfo_adv_t *ap, uint8_t **key, int *key_len);
 #ifdef CONFIG_AOS_MESH

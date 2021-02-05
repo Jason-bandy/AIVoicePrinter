@@ -232,7 +232,15 @@ static void handle_read(int sock, void *eloop_ctx, void *sock_ctx)
         goto read_exit;
     }
 
-    handle_frame(drv, buf, len);
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	if (hostapd_is_init_completed()) {
+		handle_frame(drv, buf, len);
+	} else {
+		wpa_printf(MSG_DEBUG, "hapd: rx frame, but init not completed!\n");
+	}
+#else
+	handle_frame(drv, buf, len);
+#endif
 
 read_exit:
     if(buf)
@@ -1500,6 +1508,7 @@ void wpa_handler_signal(void *arg, u8 vif_idx)
 	if(ret)
 	{
 		os_printf("eloop_handle_signal failed: sig %d\r\n", sig);
+		return;
 	}
 
     wpa_hostapd_queue_poll((uint32_t)vif_idx);
@@ -1608,23 +1617,7 @@ struct wpa_scan_results *wpa_driver_get_scan_results2(void *priv)
     }
 
 fail_result:
-	if(results && results->res)
-	{
-		os_free(results->res);
-		results->res = NULL;
-	}
-
-	if(results)
-	{
-		os_free(results);
-		results = NULL;
-	}
-
-	if(buf)
-	{
-		os_free(buf);
-		buf = NULL;
-	}
+    wpa_scan_results_free(results);
 
     return NULL;
 }

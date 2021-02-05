@@ -9564,7 +9564,15 @@ __INLINE void mdm_txqdcoffset0_setf(uint8_t txqdcoffset0)
     REG_PL_WR(MDM_DCOFFSET0_ADDR, (REG_PL_RD(MDM_DCOFFSET0_ADDR) & ~((uint32_t)0x000000FF)) | ((uint32_t)txqdcoffset0 << 0));
 }
 
-/// @}
+
+/// Address of the SWRESET register
+#define MDM_REG_36_ADDR   (REG_MDM_CFG_BASE_ADDR + 0x00000890)
+#define MDM_REG_36_PHY_SYNC_MODE_BIT    ((uint32_t)0x00000001)
+#define MDM_REG_36_PHY_SYNC_MODE_POS    0
+#define MDM_REG_36_AGC_GAIN_SET_BIT     ((uint32_t)0x00000002)
+#define MDM_REG_36_AGC_GAIN_SET_POS     1
+#define MDM_REG_36_11B_TX_FC_BIT        ((uint32_t)0x00000004)
+#define MDM_REG_36_11B_TX_FC_POS        2
 
 /**
  * @name SWRESET register definitions

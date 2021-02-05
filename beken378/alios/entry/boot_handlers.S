@@ -8,7 +8,7 @@
  * Copyright (C) RivieraWaves 2011-2016
  *
  ****************************************************************************************
- */	
+ */
 	.globl entry_main
 	.globl do_irq
 	.globl do_fiq
@@ -61,7 +61,7 @@
 /* ========================================================================
  Context save and restore macro definitions
  * ======================================================================== */
-	
+
 /* ========================================================================*/
 
 
@@ -101,7 +101,7 @@
 	.global und_stack_start
 und_stack_start:
 	.space _UND_STACK_SIZE_
- 
+
 	.align 3
 	.global abt_stack_start
 abt_stack_start:
@@ -116,7 +116,7 @@ fiq_stack_start:
 	.global irq_stack_start
 irq_stack_start:
 	.space _IRQ_STACK_SIZE_
- 
+
 	.align 3
 	.global sys_stack_start
 sys_stack_start:
@@ -150,7 +150,7 @@ boot_reset:
 
 	BOOT_CHANGE_MODE BOOT_MODE_ABT BOOT_MODE_MASK
 	BOOT_SET_STACK   boot_stack_base_SVC boot_stack_len_SVC BOOT_COLOR_SVC
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 	B AFTER_FLAG
 	.org  0xc0 //0x100 - sizeof(section.vector) = 0x100 - 0x40
 	.word 0x32374B42
@@ -181,16 +181,16 @@ AFTER_FLAG:
     //Stay in Supervisor Mode
     //copy data from binary to ram
     BL _sysboot_copy_data_to_ram
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     BL _sysboot_copy_code_to_itcm
 #endif
-    
+
     ///*Init the BSS section*/
     BL _sysboot_zi_init
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     BL _sysboot_tcmbss_init
 #endif
-    
+
     //==================
     //Clear Registers
     MOV R0, #0
@@ -240,7 +240,7 @@ boot_stack_base_SYS:
 	 .word sys_stack_start
 
 boot_stack_len_SYS:
-	 .word _SYS_STACK_SIZE_  
+	 .word _SYS_STACK_SIZE_
 
 /*FUNCTION:     _sysboot_copy_data_to_ram*/
 /*DESCRIPTION:  copy main stack code from FLASH/ROM to SRAM*/
@@ -248,19 +248,19 @@ _sysboot_copy_data_to_ram:
     LDR     R0, =_data_flash_begin
     LDR     R1, =_data_ram_begin
     LDR     R2, =_data_ram_end
-	
+
 4: CMP R1, R2
     LDRLO   R4, [R0], #4
     STRLO   R4, [R1], #4
     BLO     4b
     BX LR
-        
+
 /*FUNCTION:     _sysboot_zi_init*/
 /*DESCRIPTION:  Initialise Zero-Init Data Segment*/
 _sysboot_zi_init:
     LDR     R0, =_bss_start
     LDR     R1, =_bss_end
-    
+
     MOV R3, R1
     MOV R4, R0
     MOV R2, #0
@@ -269,7 +269,7 @@ _sysboot_zi_init:
     BLO 5b
     BX LR
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 /*FUNCTION:     _sysboot_copy_code_to_itcm*/
 /*DESCRIPTION:  copy itcm code from FLASH/ROM to SRAM*/
 _sysboot_copy_code_to_itcm:
@@ -298,7 +298,7 @@ _sysboot_tcmbss_init:
     BX LR
 #endif
 
-		.align	5 
+		.align	5
 do_undefined:
     LDMFD   SP!, {R0-R1}^
     MOV R0, LR
@@ -307,7 +307,7 @@ do_undefined:
     MOV R2, SP
     B print_exception_addr
 
-		.align	5 
+		.align	5
 boot_swi:
 	MOV R0, LR
     MSR     CPSR_c, #0xd3
@@ -315,7 +315,7 @@ boot_swi:
     MOV R2, SP
     B print_exception_addr
 
-		.align	5 
+		.align	5
 do_pabort:
     LDMFD   SP!, {R0-R1}^
     MOV R0, LR
@@ -324,7 +324,7 @@ do_pabort:
     MOV R2, SP
     B print_exception_addr
 
-		.align	5 
+		.align	5
 do_dabort:
     LDMFD   SP!, {R0-R1}^
     MOV R0, LR
@@ -333,33 +333,33 @@ do_dabort:
     MOV R2, SP
     B print_exception_addr
 
-		.align	5 
+		.align	5
 do_reserved:
     LDMFD   SP!, {R0-R1}^
     B boot_reserved
 
-		.align	5 
+		.align	5
 boot_undefined:
 	STMFD  sp!,{r0-r1}
 	LDR    R1, =0x40000c
 	LDR    r0, [R1]
 	BX     r0
-    
-		.align	5 
+
+		.align	5
 boot_pabort:
 	STMFD  sp!,{r0-r1}
 	LDR    R1, =0x400010
 	LDR    r0, [R1]
 	BX     r0
 
-		.align	5 
+		.align	5
 boot_dabort:
 	STMFD  sp!,{r0-r1}
 	LDR    R1, =0x400014
 	LDR    r0, [R1]
 	BX     r0
 
-		.align	5 
+		.align	5
 boot_reserved:
 	STMFD  sp!,{r0-r1}
 	LDR    R1, =0x400018
@@ -397,26 +397,26 @@ do_irq:
     MSR     CPSR_c, #0xd3          @Change to SVC mode with interrupt disabled
 
     /* SAVE TASK'S CONTEXT ONTO OLD TASK'S STACK */
-    STMFD   SP!, {R2}              @Push task''s PC      
-    STMFD   SP!, {R4-R12, LR}       
+    STMFD   SP!, {R2}              @Push task''s PC
+    STMFD   SP!, {R4-R12, LR}
     LDMFD   R1!, {R4-R6}           @Load Task''s R1-R3 from IRQ stack
     STMFD   SP!, {R4-R6}           @Push Task''s R1-R3 to SVC stack
     STMFD   SP!, {R0}              @Push Task''s R0 to SVC stack
 
     STMFD   SP!, {R3}              @Push task''s CPSR
 
-    LDR     R4,=g_active_task            
+    LDR     R4,=g_active_task
     LDR     R5,[R4]
-    STR     SP,[R5] 
+    STR     SP,[R5]
 
-    BL      krhino_intrpt_enter  
+    BL      krhino_intrpt_enter
 
-    MSR     CPSR_c,#0xd2           @Change to IRQ mode to use IRQ stack to handle interrupt with interrupt disbaled  
- 
+    MSR     CPSR_c,#0xd2           @Change to IRQ mode to use IRQ stack to handle interrupt with interrupt disbaled
+
     BL      intc_irq
-    MSR     CPSR_c,#0xd3           @Change to SVC mode with interrupt disabled   
+    MSR     CPSR_c,#0xd3           @Change to SVC mode with interrupt disabled
     BL      krhino_intrpt_exit
-    LDMFD   SP!,{R4}               @POP the task''s CPSR             
+    LDMFD   SP!,{R4}               @POP the task''s CPSR
     MSR     SPSR_cxsf,R4
     LDMFD   SP!,{R0-R12,LR,PC}^    @POP new Task''s context
 
@@ -451,26 +451,26 @@ do_fiq:
     MSR     CPSR_c, #0xd3          @Change to SVC mode with interrupt disabled
 
     /* SAVE TASK'S CONTEXT ONTO OLD TASK'S STACK */
-    STMFD   SP!, {R2}              @Push task''s PC      
-    STMFD   SP!, {R4-R12, LR}       
+    STMFD   SP!, {R2}              @Push task''s PC
+    STMFD   SP!, {R4-R12, LR}
     LDMFD   R1!, {R4-R6}           @Load Task''s R1-R3 from IRQ stack
     STMFD   SP!, {R4-R6}           @Push Task''s R1-R3 to SVC stack
     STMFD   SP!, {R0}              @Push Task''s R0 to SVC stack
 
     STMFD   SP!, {R3}              @Push task''s CPSR
 
-    LDR     R4,=g_active_task            
+    LDR     R4,=g_active_task
     LDR     R5,[R4]
-    STR     SP,[R5] 
+    STR     SP,[R5]
 
-    BL      krhino_intrpt_enter  
+    BL      krhino_intrpt_enter
 
     MSR     CPSR_c,#0xd1           @Change to FIRQ mode to use IRQ stack to handle interrupt with interrupt disbaled
- 
+
     BL      intc_fiq
-    MSR     CPSR_c,#0xd3           @Change to SVC mode with interrupt disabled   
+    MSR     CPSR_c,#0xd3           @Change to SVC mode with interrupt disabled
     BL      krhino_intrpt_exit
-    LDMFD   SP!,{R4}               @POP the task''s CPSR             
+    LDMFD   SP!,{R4}               @POP the task''s CPSR
     MSR     SPSR_cxsf,R4
     LDMFD   SP!,{R0-R12,LR,PC}^    @POP new Task''s context
 
@@ -482,7 +482,7 @@ WFI:
 	MCR p15, 0, R0, c7, c0, 4
 	BX LR
 
-	
+
 
 /*EOF*/
 

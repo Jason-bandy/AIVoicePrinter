@@ -55,13 +55,13 @@
 #define D_PSRAM_BASE_ADDR            0x01000000
 #define D_DMA_BASE_ADDR              0x02800000
 #define D_FFT_BASE_ADDR              0x02810000
-#define D_APB_BUS_BASE_ADDR          0x028F0000
-#define D_ICU_BASE_ADDR              0x028F0000
+#define D_APBD_BUS_BASE_ADDR         0x028F0000
+#define D_ICUD_BASE_ADDR             0x028F0000
 #define D_AUDIO_BASE_ADDR            0x028F1000
 #define D_SPDIF_BASE_ADDR            0x028F2000
 #define D_EQ_BASE_ADDR               0x028F3000
 #define D_I2S1_BASE_ADDR             0x028F4000
-#define D_WDT_BASE_ADDR              0x028F5000
+#define D_WDTD_BASE_ADDR             0x028F5000
 #define D_RSV_BASE_ADDR              0x028F6000
 #define D_DSP_CTRL_BASE_ADDR         0x028F7000
 #define D_I2S2_BASE_ADDR             0x028F8000

@@ -4418,10 +4418,10 @@ void wpa_supplicant_event_sta(void *ctx, enum wpa_event_type event,
 		wpa_supplicant_event_ibss_rsn_start(wpa_s, data);
 		break;
 #endif /* CONFIG_IBSS_RSN */
-#ifdef CONFIG_SME
 	case EVENT_ASSOC_REJECT:
 		wpas_event_assoc_reject(wpa_s, data);
 		break;
+#ifdef CONFIG_SME
 	case EVENT_AUTH_TIMED_OUT:
 		/* It is possible to get this event from earlier connection */
 		if (wpa_s->current_ssid &&

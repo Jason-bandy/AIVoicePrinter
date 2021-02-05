@@ -52,7 +52,11 @@
 
 #define IRDA_KEY_HTIMER_CHNAL 4 /*timer channle*/
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#define TRNG_BASE                     (0x00802720)
+#else
 #define TRNG_BASE                     (0x00802480)
+#endif
 
 #define TRNG_CTRL                     (TRNG_BASE + 0 * 4)
 #define TRNG_EN                       (0x01UL << 0)

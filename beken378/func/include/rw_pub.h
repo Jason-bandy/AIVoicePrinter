@@ -182,11 +182,7 @@ struct add_sta_st {
 
 typedef struct cfg80211_key_params
 {
-#if CFG_IEEE80211AX
-    uint32_t cipher_suite;
-#else
     uint8_t cipher_suite;
-#endif
     uint8_t sta_idx;
     uint8_t inst_nbr;
     uint8_t key_idx;
@@ -275,6 +271,8 @@ extern int rw_msg_set_power(u8 vif_idx, u8 power);
 extern int rw_msg_send_sm_auth_req(AUTH_PARAM_T *auth_param);
 extern int rw_msg_send_sm_external_auth_status(EXTERNAL_AUTH_PARAM_T *auth_param);
 extern int rw_msg_send_sm_set_operstate_req(SET_OPERATE_PARAM_T *param);
+extern int rw_msg_send_version_req(void);
+extern int rwnx_handle_dynparams();
 
 VIF_INF_PTR rwm_mgmt_vif_idx2ptr(UINT8 vif_idx);
 VIF_INF_PTR rwm_mgmt_vif_type2ptr(UINT8 vif_type);

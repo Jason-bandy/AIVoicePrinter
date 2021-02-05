@@ -43,8 +43,6 @@ uint8_t if_ble_sleep(void);
 void rf_wifi_used_clr(void);
 void rf_wifi_used_set(void);
 UINT32 if_rf_wifi_used(void );
-void rf_not_share_for_ble(void);
-void rf_can_share_for_ble(void);
 void ble_ps_dump(void);
 
 #endif /* _BLE_PUB_H_ */

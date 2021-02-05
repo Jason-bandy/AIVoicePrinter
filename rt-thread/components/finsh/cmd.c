@@ -115,8 +115,8 @@ static long _list_thread(struct rt_list_node *list)
 
     maxlen = object_name_maxlen(item_title, list);
 
-    rt_kprintf("%-*.s pri  status      sp     stack size max used left tick  error\n", maxlen, item_title); object_split(maxlen);
-    rt_kprintf(     " ---  ------- ---------- ----------  ------  ---------- ---\n");
+    rt_kprintf("%-*.s pri  status   sp_addr       sp     stack size  max used left tick  error\n", maxlen, item_title); object_split(maxlen);
+    rt_kprintf(     " ---  ------- ---------- ---------- ----------  -------- ---------- -----\n");
     for (node = list->next; node != list; node = node->next)
     {
         rt_uint8_t stat;

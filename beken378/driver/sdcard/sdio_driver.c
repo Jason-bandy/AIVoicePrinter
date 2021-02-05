@@ -34,20 +34,25 @@ void sdio_set_clock(UINT8 clk_index)
 
 void sdio_gpio_config(void)
 {
-    UINT32 param;
- #if (CFG_SOC_NAME == SOC_BK7221U)
- 	#if (CFG_SD_HOST_INTF == SD1_HOST_INTF)
-    param = GFUNC_MODE_SD1_HOST;
-	#else
+	UINT32 param;
+#if (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SD_HOST_INTF == SD1_HOST_INTF)
+	param = GFUNC_MODE_SD1_HOST;
+#else
 	param = GFUNC_MODE_SD_HOST;
-	#endif
- #elif (CFG_SOC_NAME == SOC_BK7271)
-    param = GFUNC_MODE_SD1_HOST;
- #else
- 	param = GFUNC_MODE_SD_HOST;
- #endif
-    sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+#endif
+
+#else
+#if (CFG_SD_HOST_INTF == SD1_HOST_INTF)
+	param = GFUNC_MODE_SD1_HOST;
+#else
+	param = GFUNC_MODE_SD_HOST;
+#endif
+#endif
+	sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
 }
+
+
 
 void sdio_clk_config(UINT8 enable)
 {

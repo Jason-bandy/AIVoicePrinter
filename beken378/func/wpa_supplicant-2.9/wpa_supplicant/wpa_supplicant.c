@@ -1238,7 +1238,7 @@ int wpa_supplicant_set_suites(struct wpa_supplicant *wpa_s,
 #ifdef CONFIG_FULL_SUPPLICANT
 		if (ssid->proto & WPA_PROTO_OSEN)
 			proto = WPA_PROTO_OSEN;
-		else 
+		else
 #endif
 		if (ssid->proto & WPA_PROTO_RSN)
 			proto = WPA_PROTO_RSN;
@@ -3316,6 +3316,8 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 	os_free(wpa_ie);
 	if (ret < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "
+			"failed");
+		wpa_dbg(wpa_s, MSG_INFO, "Association request to the driver "
 			"failed");
 		if (wpa_s->drv_flags & WPA_DRIVER_FLAGS_SANE_ERROR_CODES) {
 			/*

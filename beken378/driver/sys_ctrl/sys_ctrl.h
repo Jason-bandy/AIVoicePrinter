@@ -69,7 +69,7 @@
 #define QSPI_IO_VOLT_POSI                        (16)
 #define QSPI_IO_VOLT_MASK                        (0x3)
 #define BLE_RF_EN_BIT                            (1 << 15)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define BLE_RF_PTA_EN_BIT                        (1 << 24)
 #define EFUSE_VDD25_EN                           (1 << 23)
 #define FLASH_SPI_MUX_BIT                        (1 << 22)
@@ -148,7 +148,7 @@
 #define MAC_WAKEUP_ARM                           (1 << 7)
 #define MODEM_CORE_RESET_BIT                     (1 << 6)
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define BOOT_MODE_BIT                            (1 << 9)
 #define MAC_SUBSYS_RESET_BIT                     (1 << 2)
 #else
@@ -222,7 +222,7 @@
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define ANA_SPI_STATE_POSI                       (0)
 #define ANA_SPI_STAET_MASK                       (0x1F)
-#elif (CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)
+#elif (CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7236)
 #define ANA_SPI_STATE_POSI                       (0)
 #define ANA_SPI_STAET_MASK                       (0x7F)
 #elif (CFG_SOC_NAME == SOC_BK7221U)
@@ -233,7 +233,7 @@
 #define ANA_SPI_STAET_MASK                       (0xFFFF)
 #endif
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define SCTRL_LA_SAMPLE                       (SCTRL_BASE + 18 * 4)
 #define LA_SMP_LEN_POSI                          (16)
 #define LA_SMP_LEN_MASK                          (0xFFFF)
@@ -248,14 +248,14 @@
 #endif
 
 #define SCTRL_ANALOG_CTRL0                    (SCTRL_BASE + 22 * 4)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define LPEN_DPLL                                (1 << 27)
 #endif
 #define SPI_TRIG_BIT                             (1 << 19)
 #define SPI_DET_EN                               (1 << 4)
 
 #define SCTRL_ANALOG_CTRL1                    (SCTRL_BASE + 23 * 4)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define ROSC_TSTEN_BIT                           (1 << 31)
 #define DCO_TSTEN_BIT                            (1 << 30)
 #define DCO_DIV_POSI                             (27)
@@ -282,19 +282,19 @@
 
 #define SCTRL_ANALOG_CTRL2                    (SCTRL_BASE + 24 * 4)
 #define CENTRAL_BAIS_ENABLE_BIT                  (1 << 13)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define XTALH_CTUNE_POSI                         (2)
 #define XTALH_CTUNE_MASK                         (0x7FU)
 #define BANDGAP_CAL_MANUAL_POSI                  (23)
 #define BANDGAP_CAL_MANUAL_MASK                  (0x3FU)
-#elif (CFG_SOC_NAME != SOC_BK7231)
+#elif (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7271)
 #define XTALH_CTUNE_POSI                         (2)
 #define XTALH_CTUNE_MASK                         (0x3FU)
 #endif // (CFG_SOC_NAME == SOC_BK7231)
 #define TRXT_TST_ENABLE_BIT                      (1 << 12)
 
 #define SCTRL_ANALOG_CTRL3                    (SCTRL_BASE + 25 * 4)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define CHARGE_LC2CVDLYLV_MASK                 (0x7)
 #define CHARGE_LC2CVDLYLV_POS                  (29)
 #define CHARGE_VLCSWLV_MASK                     (0xF)
@@ -309,10 +309,15 @@
 #define VSEL_SYS_LDO_MASK                        (0x3)
 #define CHARGE_MANMODE_MASK                      (0x7)
 #define CHARGE_MANMODE_POS                       (16)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define VREF_SEL_BIT                             (1 << 30)
 #define GADC_CAL_SEL_POSI                        (19)
 #define GADC_CAL_SEL_MASK                        (0x3)
+#elif (CFG_SOC_NAME == SOC_BK7271)
+#define BT_ENABLE_1V                             (1 << 23)
+#define BT_ENaBLE_LDO_1V                         (1 << 22)
+#define XTALH_CTUNE_POSI                         (7)
+#define XTALH_CTUNE_MASK                         (0x3FU)
 #else
 #endif
 
@@ -323,14 +328,19 @@
 #define SCTRL_ANALOG_CTRL7               (SCTRL_BASE + 0x1D*4)
 #define SCTRL_ANALOG_CTRL8_REAL               (SCTRL_BASE + 0x1E*4)
 #define SCTRL_ANALOG_CTRL9_REAL               (SCTRL_BASE + 0x1F*4)
+#define ANALOG_LDO_ENABLE                     (1 << 13)
+#define VBG_SEL_HIGH_POSI                     (10)
+#define VBG_SEL_HIGH_MASK                     (0x3)
+#define VBG_SEL_LOW_POSI                      (8)
+#define VBG_SEL_LOW_MASK                      (0x3)
 
 #define SCTRL_ANALOG_CTRL8                    (SCTRL_BASE + 0x20*4) //ana_regA actually
 #define LINE_IN_EN                               (1 << 21)
 #define LINE2_IN_EN                              (1 << 20)
 #define LINE_IN_GAIN_MASK                        (0x3)
 #define LINE_IN_GAIN_POSI                        (22)
-#define AUD_DAC_GAIN_MASK                        (0x1F)
-#define AUD_DAC_GAIN_POSI                        (2)
+#define AUD_DAC_GAIN_MASK                        (0x3F)
+#define AUD_DAC_GAIN_POSI                        (1)
 #define AUD_DAC_MUTE_EN                          (1 << 0)
 
 #define SCTRL_ANALOG_CTRL9                    (SCTRL_BASE + 0x21*4) //ana_regB actually
@@ -437,7 +447,7 @@
 #define DAC_N_END_OUPT_R                         (1 << 7)
 #define DAC_VSEL_MASK                            (0x3)
 #define DAC_VSEL_POSI                            (1)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define SCTRL_ANALOG_STATE                    (SCTRL_BASE + 0x21*4)
 #define ANALOG_STATE_MASK                        (0xFF)
 #define ANALOG_STATE_POS                         (0)
@@ -489,7 +499,7 @@
 #define SCTRL_SLEEP                           (SCTRL_BASE + 65 * 4)
 #define PROCORE_DLY_POSI                            (20)
 #define PROCORE_DLY_MASK                            (0xF)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define GPIO_SLEEP_SWITCH_BIT                    (1 << 19)
 #define DCO_PWD_SLEEP_BIT                        (1 << 17)
 #define FLASH_PWD_SLEEP_BIT                      (1 << 18)
@@ -539,7 +549,7 @@
 #define BLE_PWD_MASK                             (0xFFFF)
 #define BLE_PWD                                  (0xDB1E)
 #define BLE_PWU                                  (0x0001)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define USB_PWD_POSI                             (0)
 #define USB_PWD_MASK                             (0xFFFF)
 #define USB_PWD                                  (0xD12B)
@@ -549,7 +559,7 @@
 #define SCTRL_PMU_STATUS                      (SCTRL_BASE + 70 * 4)
 #define PMU_MAC_POWER_DOWN_BIT                   (1 << 3)
 #define PMU_MODEM_POWER_DOWN_BIT                 (1 << 2)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define PMU_DSP_POWER_DOWN_BIT                   (1 << 1)
 #define PMU_USB_POWER_DOWN_BIT                   (1 << 0)
 #endif
@@ -567,7 +577,7 @@
 #define GPIO_WAKEUP_TYPE_POSITIVE_EDGE           (0)
 #define GPIO_WAKEUP_TYPE_NEGATIVE_EDGE           (1)
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define SCTRL_USB_PLUG_WAKEUP                   (SCTRL_BASE + 78 * 4)
 #define USB_PLUG_IN_EN_BIT                      (1 << 0)
 #define USB_PLUG_OUT_EN_BIT                     (1 << 1)
@@ -575,7 +585,7 @@
 #define USB_PLUG_OUT_INT_BIT                    (1 << 3)
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define SCTRL_GPIO_WAKEUP_TYPE_SELECT           (SCTRL_BASE + 78 * 4)
 #else
 #define SCTRL_GPIO_WAKEUP_EN1                  (SCTRL_BASE + 81 * 4)
@@ -633,7 +643,7 @@ enum
 #define BLK_EN_MIC_L_CHANNEL                     (1 << 17)
 #define BLK_EN_AUDIO_R_CHANNEL                   (1 << 16)
 #define BLK_EN_AUDIO_L_CHANNEL                   (1 << 15)
-#elif (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define BLK_EN_NC                                (1 << 19)
 #define BLK_EN_MIC_QSPI_RAM_OR_FLASH             (1 << 18)
 #define BLK_EN_MIC_PGA                           (1 << 17)
@@ -696,7 +706,7 @@ enum
 __inline static UINT32 sctrl_analog_get(UINT32 address)
 {
 	while(REG_READ(SCTRL_ANALOG_SPI) & (ANA_SPI_STAET_MASK<<ANA_SPI_STATE_POSI));
-	return REG_READ(address);                      
+	return REG_READ(address);
 }
 
 __inline static void sctrl_analog_set(UINT32 address, UINT32 value)

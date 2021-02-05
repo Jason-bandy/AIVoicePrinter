@@ -28,6 +28,7 @@ enum
     CMD_PWM_INIT_LEVL_SET_HIGH
 };
 
+#if(CFG_SOC_NAME != SOC_BK7271)
 enum
 {
     PWM0     = 0,
@@ -38,6 +39,26 @@ enum
     PWM5,
     PWM_COUNT
 };
+#endif
+
+#if(CFG_SOC_NAME == SOC_BK7271)
+enum
+{
+	PWM0	 = 0,
+	PWM1,
+	PWM2,
+	PWM3,
+	PWM4,
+	PWM5,
+	PWM6,
+	PWM7,
+	PWM8,
+	PWM9,
+	PWM10,
+	PWM11,
+	PWM_COUNT
+};
+ #endif
 
 typedef void (*PFUNC)(UINT8);
 
@@ -53,7 +74,7 @@ typedef void (*PFUNC)(UINT8);
 #define PWM_TIMER_MODE              (0x02)
 #define PWM_CAP_POS_MODE            (0x04)
 #define PWM_CAP_NEG_MODE            (0x05)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define PWM_IDLE_MODE               (0x00)
 #define PWM_PWM_MODE                (0x01)
 #define PWM_TIMER_MODE              (0x02)
@@ -100,7 +121,7 @@ typedef struct
         UINT8 val;
         struct
         {
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
             /* cfg--PWM config
                * bit[2:0]: PWM mode selection
                *           000:IDLE
@@ -162,7 +183,7 @@ typedef struct
 #if (CFG_SOC_NAME == SOC_BK7231)
     UINT16 end_value;
     UINT16 duty_cycle;
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     UINT32 end_value;
     UINT32 duty_cycle1;
     UINT32 duty_cycle2;

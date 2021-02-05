@@ -1,5 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
+#include "co_list.h"
 #include "audio.h"
 #include "audio_pub.h"
 #include "intc_pub.h"
@@ -9,7 +10,6 @@
 #include "mem_pub.h"
 #include "ring_buffer.h"
 #include "ring_buffer_dma_read.h"
-#include "co_list.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"

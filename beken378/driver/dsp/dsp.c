@@ -96,6 +96,9 @@ void dsp_reset(void)
 
 void dsp_init(void)
 {
+	if (get_ate_mode_state()) {
+		return;
+	}
 #if CFG_USE_DSP
 	DSP_PRT("dsp_init\r\n");
 	dsp_start();

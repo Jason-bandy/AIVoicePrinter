@@ -30,16 +30,11 @@
 	.globl do_dabort
 	.globl do_reserved
 
-	#include "sys_config.h"
+#include "sys_config.h"
+#include "arm_mcu_pub.h"
 /* ========================================================================
  *                                Macros
  * ======================================================================== */
-#define _FIQ_STACK_SIZE_                  0xFF0
-#define _IRQ_STACK_SIZE_                  0xFF0
-#define _SVC_STACK_SIZE_                  0x3F0
-#define _SYS_STACK_SIZE_                  0x3F0
-#define _UND_STACK_SIZE_                  0x010
-#define _ABT_STACK_SIZE_                  0x010
 
 #define BOOT_MODE_MASK                    0x1F
 #define BOOT_MODE_USR                     0x10
@@ -63,13 +58,15 @@
  * ======================================================================== */
     .macro PUSH_ALL_ARM_REG
         BOOT_CHANGE_MODE  BOOT_MODE_SYS BOOT_MODE_MASK
-        LDR R1, =0x400044           // get backup top.
+        LDR R1, =MCU_REG_BACKUP_TOP_SYS // get backup top.
         STMFD   R1!, {R8-R14}       // backup R8-R14
+        MRS   R0, SPSR
+        STMFD   R1!, {R0}           // backup SPSR
         MRS   R0, CPSR
         STMFD   R1!, {R0}           // backup CPSR
 
         BOOT_CHANGE_MODE  BOOT_MODE_IRQ BOOT_MODE_MASK
-        LDR R1, =0x400068           // get backup top.
+        LDR R1, =MCU_REG_BACKUP_TOP_IRQ // get backup top.
         STMFD   R1!, {R8-R14}       // backup R8-R14
         MRS   R0, SPSR
         STMFD   R1!, {R0}           // backup SPSR
@@ -77,7 +74,7 @@
         STMFD   R1!, {R0}           // backup CPSR
 
         BOOT_CHANGE_MODE  BOOT_MODE_FIQ BOOT_MODE_MASK
-        LDR R1, =0x40008C           // get backup top.
+        LDR R1, =MCU_REG_BACKUP_TOP_FIQ // get backup top.
         STMFD   R1!, {R8-R14}       // backup R8-R14
         MRS   R0, SPSR
         STMFD   R1!, {R0}           // backup SPSR
@@ -86,7 +83,7 @@
 
 
         BOOT_CHANGE_MODE  BOOT_MODE_ABT BOOT_MODE_MASK
-        LDR R1, =0x4000B0           // get backup top.
+        LDR R1, =MCU_REG_BACKUP_TOP_ABT // get backup top.
         STMFD   R1!, {R8-R14}       // backup R8-R14
         MRS   R0, SPSR
         STMFD   R1!, {R0}           // backup SPSR
@@ -95,7 +92,7 @@
 
 
         BOOT_CHANGE_MODE  BOOT_MODE_UND BOOT_MODE_MASK
-        LDR R1, =0x4000D4           // get backup top.
+        LDR R1, =MCU_REG_BACKUP_TOP_UND // get backup top.
         STMFD   R1!, {R8-R14}       // backup R8-R14
         MRS   R0, SPSR
         STMFD   R1!, {R0}           // backup SPSR
@@ -104,7 +101,7 @@
 
 
         BOOT_CHANGE_MODE  BOOT_MODE_SVC BOOT_MODE_MASK
-        LDR R1, =0x4000F8           // get backup top.
+        LDR R1, =MCU_REG_BACKUP_TOP_SVC // get backup top.
         STMFD   R1!, {R8-R14}       // backup R8-R14
         MRS   R0, SPSR
         STMFD   R1!, {R0}           // backup SPSR
@@ -165,33 +162,33 @@
  *                      Stack and Heap Definitions
  * ========================================================================
  */
-    .section .data
-    .space _UND_STACK_SIZE_
+    .section .bss
+    .space UND_STACK_SIZE
     .align 3
     .global und_stack_start
 und_stack_start:
 
-    .space _ABT_STACK_SIZE_
+    .space ABT_STACK_SIZE
     .align 3
     .global abt_stack_start
 abt_stack_start:
 
-    .space _FIQ_STACK_SIZE_
+    .space FIQ_STACK_SIZE
     .align 3
     .global fiq_stack_start
 fiq_stack_start:
 
-    .space _IRQ_STACK_SIZE_
+    .space IRQ_STACK_SIZE
     .align 3
     .global irq_stack_start
 irq_stack_start:
 
-    .skip _SYS_STACK_SIZE_
+    .skip SYS_STACK_SIZE
     .align 3
     .global sys_stack_start
 sys_stack_start:
 
-    .space _SVC_STACK_SIZE_
+    .space SVC_STACK_SIZE
     .align 3
     .global svc_stack_start
 svc_stack_start:
@@ -582,31 +579,31 @@ boot_stack_base_UNUSED:
     .word und_stack_start
 
 boot_stack_len_UNUSED:
-    .word _UND_STACK_SIZE_
+    .word UND_STACK_SIZE
 
 boot_stack_base_IRQ:
     .word irq_stack_start
 
 boot_stack_len_IRQ:
-    .word _IRQ_STACK_SIZE_
+    .word IRQ_STACK_SIZE
 
 boot_stack_base_SVC:
     .word svc_stack_start
 
 boot_stack_len_SVC:
-     .word _SVC_STACK_SIZE_
+     .word SVC_STACK_SIZE
 
 boot_stack_base_FIQ:
      .word fiq_stack_start
 
 boot_stack_len_FIQ:
-    .word _FIQ_STACK_SIZE_
+    .word FIQ_STACK_SIZE
 
 boot_stack_base_SYS:
      .word sys_stack_start
 
 boot_stack_len_SYS:
-     .word _SYS_STACK_SIZE_
+     .word SYS_STACK_SIZE
 
 
 /*EOF*/

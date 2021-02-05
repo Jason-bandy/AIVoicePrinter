@@ -221,7 +221,7 @@ int hapd_get_sta_info(struct prism2_hostapd_param *param, int len)
 	if(entry && entry->pre_rx_timepoint)
 	{
 		tick_cnt = fclk_get_tick();
-		if(tick_cnt > entry->pre_rx_timepoint)
+		if(tick_cnt >= entry->pre_rx_timepoint)
 		{
 			delta_sec = (tick_cnt - entry->pre_rx_timepoint) / TICK_PER_SECOND;
 		}
@@ -269,28 +269,48 @@ int hapd_intf_add_key(struct prism2_hostapd_param *param, int len)
     if(os_strcmp((char *)param->u.crypt.alg, "WEP40") == 0)
     {
         WPAS_PRT("add WEP40\r\n");
+#if !CFG_IEEE80211AX
         key_param.cipher_suite = MAC_RSNIE_CIPHER_WEP_40;
+#else
+        key_param.cipher_suite = MAC_CIPHER_WEP40;
+#endif
     }
     else if(os_strcmp((char *)param->u.crypt.alg, "WEP104") == 0)
     {
         WPAS_PRT("add WEP104\r\n");
+#if !CFG_IEEE80211AX
         key_param.cipher_suite = MAC_RSNIE_CIPHER_WEP_104;
+#else
+        key_param.cipher_suite = MAC_CIPHER_WEP104;
+#endif
     }
     else if(os_strcmp((char *)param->u.crypt.alg, "TKIP") == 0)
     {
         WPAS_PRT("add TKIP\r\n");
+#if !CFG_IEEE80211AX
         key_param.cipher_suite = MAC_RSNIE_CIPHER_TKIP;
+#else
+        key_param.cipher_suite = MAC_CIPHER_TKIP;
+#endif
     }
     else if(os_strcmp((char *)param->u.crypt.alg, "CCMP") == 0)
     {
         WPAS_PRT("hapd_intf_add_key CCMP\r\n");
+#if !CFG_IEEE80211AX
         key_param.cipher_suite = MAC_RSNIE_CIPHER_CCMP_128;
+#else
+        key_param.cipher_suite = MAC_CIPHER_CCMP;
+#endif
     }
-#if CFG_MFP
+#if CFG_IEEE80211W
     else if(os_strcmp((char *)param->u.crypt.alg, "BIP") == 0)
     {
         WPAS_PRT("hapd_intf_add_key BIP\r\n");
+#if !CFG_IEEE80211AX
         key_param.cipher_suite = MAC_RSNIE_CIPHER_AES_CMAC;
+#else
+        key_param.cipher_suite = MAC_CIPHER_BIP_CMAC_128;
+#endif
     }
 #endif
 
@@ -1144,7 +1164,7 @@ void hapd_intf_ke_rx_handle(int dummy)
     S_TYPE_PTR type_ptr = (S_TYPE_PTR)dummy;
 
     if(type_ptr->type == HOSTAPD_MGMT
-#if NX_MFP
+#if CFG_IEEE80211W
 		|| type_ptr->type == HOSTAPD_MGMT_ROBUST
 #endif
 		)
@@ -1179,8 +1199,8 @@ void hapd_intf_ke_rx_handle(int dummy)
         mgmt_tx_ptr->addr = (UINT32)buf;
         mgmt_tx_ptr->hostid = (UINT32)buf;
         mgmt_tx_ptr->len = payload_size;
-#if NX_MFP
-		mgmt_tx_ptr->robust = !!(type_ptr->type == HOSTAPD_MGMT_ROBUST);
+#if CFG_IEEE80211W
+        mgmt_tx_ptr->robust = !!(type_ptr->type == HOSTAPD_MGMT_ROBUST);
 #endif
         mgmt_tx_ptr->req_malloc_flag = 1;
         mgmt_tx_ptr->vif_idx = type_ptr->vif_index;

@@ -39,9 +39,9 @@ static void scan_cb(void *ctxt, uint8_t param)
 	ScanResult apList;
 	int i;
 	GLOBAL_INT_DECLARATION();
-	
+
 	apList.ApList = NULL;
-	
+
 	GLOBAL_INT_DISABLE();
 	scan_rst = sr_get_scan_results();
 	if (scan_rst == NULL) {
@@ -52,7 +52,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 		apList.ApNum = scan_rst->scanu_num;
 	}
 	if (apList.ApNum > 0) {
-		apList.ApList = (void *)os_malloc(sizeof(*apList.ApList) * apList.ApNum);
+		apList.ApList = (void *)os_zalloc(sizeof(*apList.ApList) * apList.ApNum);
 		if(apList.ApList == NULL){
 			GLOBAL_INT_RESTORE();
 			bk_printf("Got ap count: %d,but malloc failed\r\n", apList.ApNum);
@@ -64,7 +64,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 		}
 	}
 	GLOBAL_INT_RESTORE();
-	
+
 	if (apList.ApList == NULL)
 		apList.ApNum = 0;
 
@@ -92,12 +92,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 
 	sr_release_scan_results(scan_rst);
 
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-	rf_can_share_for_ble();
-#endif
-#endif
-#else	/* CFG_WPA_CTRL_IFACE */
+#else	/* CFG_NEW_SUPP */
 	static const char *crypto_str[] = {
 		"None",
 		"WEP",
@@ -125,11 +120,6 @@ static void scan_cb(void *ctxt, uint8_t param)
 		os_free(apList.ApList);
 	}
 
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-	rf_can_share_for_ble();
-#endif
-#endif
 #endif /* CFG_WPA_CTRL_IFACE */
 }
 
@@ -386,7 +376,7 @@ void demo_ip_app_init(void)
 void bk_demo_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
 {
 	os_printf("len:%d\r\n", len);
-		
+
 	//Only for reference
 	/*
 	User can get ssid and key by prase monitor data,
@@ -396,15 +386,15 @@ void bk_demo_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
 #if 0
 	int airkiss_recv_ret;
 	airkiss_recv_ret = airkiss_recv(ak_contex, data, len);
-#endif	
-	
+#endif
+
 }
 
 int wifi_demo(int argc, char **argv)
 {
 	char *oob_ssid = NULL;
 	char *connect_key;
-	
+
     if (strcmp(argv[1], "sta") == 0)
     {
 		os_printf("sta_Command\r\n");
@@ -423,7 +413,7 @@ int wifi_demo(int argc, char **argv)
 			os_printf("parameter invalid\r\n");
 			return -1;
 		}
-		
+
 		if(oob_ssid)
 		{
 			demo_sta_app_init(oob_ssid, connect_key);
@@ -460,7 +450,7 @@ int wifi_demo(int argc, char **argv)
 
 	if(strcmp(argv[1], "softap") == 0)
 	{
-		
+
 		os_printf("SOFTAP_COMMAND\r\n\r\n");
 		if (argc == 3)
 		{
@@ -477,7 +467,7 @@ int wifi_demo(int argc, char **argv)
 	        os_printf("parameter invalid\r\n");
 	        return -1;
 		}
-		
+
 		if(oob_ssid)
 		{
 			demo_softap_app_init(oob_ssid, connect_key);

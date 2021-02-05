@@ -23,11 +23,10 @@
 #include "rwnx.h"
 #include "net.h"
 #include "mm_bcn.h"
-#include "phy_trident.h"
 #include "mcu_ps_pub.h"
 #include "manual_ps_pub.h"
 #include "gpio_pub.h"
-#include "phy_trident.h"
+//#include "phy_trident.h"
 #include "wdt_pub.h"
 #include "start_type_pub.h"
 #include "wpa_psk_cache.h"
@@ -40,6 +39,11 @@
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
 #endif
+
+#if CFG_SUPPORT_OTA_HTTP
+#include "utils_httpc.h"
+#endif
+
 
 monitor_cb_t g_monitor_cb = 0;
 unsigned char g_monitor_is_not_filter = 0;
@@ -54,7 +58,11 @@ monitor_cb_t g_mesh_monitor_cb = 0;
 uint8_t g_mesh_bssid[6];
 #endif
 FUNC_1PARAM_PTR connection_status_cb = 0;
+static monitor_cb_t g_mgnt_cb = 0;
 
+extern uint8_t phy_open_cca(void);
+extern uint8_t phy_close_cca(void);
+extern uint8_t phy_show_cca(void);
 
 static void rwnx_remove_added_interface(void)
 {
@@ -357,7 +365,7 @@ void bk_reboot(void)
 
     sddev_control(WDT_DEV_NAME, WCMD_POWER_DOWN, NULL);
     os_printf("wdt reboot\r\n");
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     delay_ms(100); //add delay for bk_writer BEKEN_DO_REBOOT cmd
 #endif
     sddev_control(WDT_DEV_NAME, WCMD_SET_PERIOD, &wdt_val);
@@ -697,9 +705,9 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 	bk_printf("  desire ssid: |%s|\n", inNetworkInitPara->wifi_ssid);
 #endif
 
-	if((ssid_len == req_ssid_len)
-		&& os_memcmp(inNetworkInitPara->wifi_ssid, fci.ssid, ssid_len) == 0
-		&& os_strcmp(inNetworkInitPara->wifi_key, fci.pwd) == 0) {
+	if (ssid_len == req_ssid_len &&
+		os_memcmp(inNetworkInitPara->wifi_ssid, fci.ssid, ssid_len) == 0 &&
+		os_strcmp(inNetworkInitPara->wifi_key, fci.pwd) == 0) {
 		chan = fci.channel;
 		psk = fci.psk;
 		psk_len = PMK_LEN * 2;
@@ -709,6 +717,11 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 		bk_printf("  chan: %d\n", chan);
 		bk_printf("  PMK: %s\n", psk);
 #endif
+		if (os_strlen(psk) == 0) {
+			// no psk info, calcuate pmk
+			psk = 0;
+			psk_len = 0;
+		}
 	}
 #endif
 
@@ -724,7 +737,7 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 	wlan_sta_enable();
 
 	/* set network parameters: ssid, passphase */
-	wlan_sta_set(inNetworkInitPara->wifi_ssid, os_strlen(inNetworkInitPara->wifi_ssid), inNetworkInitPara->wifi_key);
+	wlan_sta_set((uint8_t *)inNetworkInitPara->wifi_ssid, os_strlen(inNetworkInitPara->wifi_ssid), (uint8_t *)inNetworkInitPara->wifi_key);
 
 	/* connect to AP */
 	wlan_sta_connect(chan);
@@ -794,12 +807,6 @@ void bk_wlan_start_scan(void)
 
 #if CFG_ROLE_LAUNCH
 	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
-#endif
-
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-    rf_not_share_for_ble();
-#endif
 #endif
 
     if(bk_wlan_is_monitor_mode())
@@ -1240,9 +1247,13 @@ int bk_wlan_stop(char mode)
         mm_hw_ap_disable();
 
 #if !CFG_WPA_CTRL_IFACE
+	#if 0
         uap_ip_down();
         net_wlan_remove_netif(&g_ap_param_ptr->bssid);
         hostapd_main_exit();
+	#else
+		wlan_ap_disable();
+	#endif
 #else
 		wlan_ap_disable();
 #endif
@@ -1279,8 +1290,8 @@ int bk_wlan_stop(char mode)
         supplicant_main_exit();
         wpa_hostapd_release_scan_rst();
 #else
-		wlan_sta_disable();
 		bk_wlan_stop_scan();
+		wlan_sta_disable();
 #endif
 #else
 		wlan_sta_disable();	/* same but call in wpas task */
@@ -1878,6 +1889,7 @@ int bk_wlan_dtim_rf_ps_mode_enable(void )
 
 int bk_wlan_dtim_rf_ps_disable_send_msg(void)
 {
+#if 0
     if(power_save_if_ps_rf_dtim_enabled()
             && power_save_if_rf_sleep())
     {
@@ -1887,6 +1899,8 @@ int bk_wlan_dtim_rf_ps_disable_send_msg(void)
     {
         power_save_dtim_rf_ps_disable_send_msg();
     }
+#endif
+    power_save_dtim_rf_ps_disable_send_msg();
     return 0;
 }
 
@@ -2137,7 +2151,11 @@ UINT32 if_other_mode_rf_sleep(void)
 
 uint32_t bk_wlan_reg_rx_mgmt_cb(mgmt_rx_cb_t cb, uint32_t rx_mgmt_flag)
 {
+#if CFG_IEEE80211AX
+	/* TODO: BK7236 */
+#else
 	return rxu_reg_mgmt_cb(cb, rx_mgmt_flag);
+#endif
 }
 
 int bk_wlan_sync_send_raw_frame(uint8_t *buffer, int len)
@@ -2155,6 +2173,7 @@ int bk_wlan_send_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *par
 extern int bmsg_tx_raw_sender(uint8_t *payload, uint16_t length);
 int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len)
 {
+#if !CFG_IEEE80211AX
 	uint8_t *pkt;
 	int ret;
 
@@ -2167,20 +2186,10 @@ int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len)
 	os_memcpy(pkt, buffer, len);
 	ret = bmsg_tx_raw_sender(pkt, len);
 	return ret;
-}
-
-#if (CFG_SUPPORT_ALIOS)
-/**********************for alios*******************************/
-static monitor_cb_t g_mgnt_cb = 0;
-
-void bk_wifi_get_mac_address(char *mac)
-{
-	wifi_get_mac_address(mac, CONFIG_ROLE_STA);
-}
-
-void bk_wifi_set_mac_address(char *mac)
-{
-	wifi_set_mac_address(mac);
+#else
+	/* TODO: BK7236 */
+	//refer: bmsg_tx_sender
+#endif
 }
 
 void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn)
@@ -2197,6 +2206,52 @@ void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn)
 monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void)
 {
     return g_mgnt_cb;
+}
+
+#if CFG_SUPPORT_OTA_HTTP
+int http_ota_download(const char *uri)
+{
+    int ret;
+    httpclient_t httpclient;
+    httpclient_data_t httpclient_data;
+    char http_content[HTTP_RESP_CONTENT_LEN];
+
+    os_memset(&httpclient, 0, sizeof(httpclient_t));
+    os_memset(&httpclient_data, 0, sizeof(httpclient_data));
+    os_memset(&http_content, 0, sizeof(HTTP_RESP_CONTENT_LEN));
+    httpclient.header = "Accept: text/xml,text/html,\r\n";
+    httpclient_data.response_buf = http_content;
+    httpclient_data.response_content_len = HTTP_RESP_CONTENT_LEN;
+    ret = httpclient_common(&httpclient,
+                            uri,
+                            80,/*port*/
+                            NULL,
+                            HTTPCLIENT_GET,
+                            20000,
+                            &httpclient_data);
+
+    if (0 != ret) {
+        os_printf("request epoch time from remote server failed.");
+    } else {
+        os_printf("sucess.\r\n");
+        bk_reboot();
+    }
+
+    return ret;
+}
+#endif
+
+#if (CFG_SUPPORT_ALIOS)
+/**********************for alios*******************************/
+
+void bk_wifi_get_mac_address(char *mac)
+{
+	wifi_get_mac_address(mac, CONFIG_ROLE_STA);
+}
+
+void bk_wifi_set_mac_address(char *mac)
+{
+	wifi_set_mac_address(mac);
 }
 
 uint32_t bk_wlan_max_power_level_get(void)

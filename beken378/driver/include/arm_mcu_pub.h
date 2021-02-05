@@ -55,13 +55,13 @@
 #define W_PSRAM_BASE_ADDR               0x0D000000
 #define W_DMA_BASE_ADDR                 0x0E800000
 #define W_FFT_BASE_ADDR                 0x0E810000
-#define W_APB_BUS_BASE_ADDR             0x0E8F0000
-#define W_ICU_BASE_ADDR                 0x0E8F0000
+#define W_APBD_BUS_BASE_ADDR            0x0E8F0000
+#define W_ICUD_BASE_ADDR                0x0E8F0000
 #define W_AUDIO_BASE_ADDR               0x0E8F1000
 #define W_SPDIF_BASE_ADDR               0x0E8F2000
 #define W_EQ_BASE_ADDR                  0x0E8F3000
 #define W_I2S1_BASE_ADDR                0x0E8F4000
-#define W_WDT_BASE_ADDR                 0x0E8F5000
+#define W_WDTD_BASE_ADDR                0x0E8F5000
 #define W_RSV_BASE_ADDR                 0x0E8F6000
 #define W_DSP_CTRL_BASE_ADDR            0x0E8F7000
 #define W_I2S2_BASE_ADDR                0x0E8F8000
@@ -70,6 +70,51 @@
 #define W_BT_IMEM_384KB_BASE_ADDR       0x10000000
 #define W_BT_DMEM_96KB_BASE_ADDR        0x10400000
 #endif
+
+/* Macros for backup ARM registers in exception handlers */
+
+/* Backup [R8~R14], CPSR and SPSR, totally 9 registers */
+#define MCU_REG_BACKUP_NUM           9
+
+/* From bottom to top, the registers are stored as:
+ * bottom => CPSR, SPSR, R8, R9, R10, R11, R12, R13, R14 => top
+ * SP(R13) is in offset 7
+ * */
+#define MCU_REG_BACKUP_SP_OFFSET     (7 << 2)
+#define MCU_REG_BACKUP_ADDR_BASE     0x400020
+#define MCU_REG_BACKUP_STACK_LEN     (MCU_REG_BACKUP_NUM << 2)
+
+#define MCU_REG_BACKUP_BOTTOM_SYS    MCU_REG_BACKUP_ADDR_BASE
+#define MCU_REG_BACKUP_TOP_SYS       (MCU_REG_BACKUP_BOTTOM_SYS + MCU_REG_BACKUP_STACK_LEN)
+#define MCU_REG_BACKUP_SP_SYS        (MCU_REG_BACKUP_BOTTOM_SYS + MCU_REG_BACKUP_SP_OFFSET)
+
+#define MCU_REG_BACKUP_BOTTOM_IRQ    MCU_REG_BACKUP_TOP_SYS
+#define MCU_REG_BACKUP_TOP_IRQ       (MCU_REG_BACKUP_BOTTOM_IRQ + MCU_REG_BACKUP_STACK_LEN)
+#define MCU_REG_BACKUP_SP_IRQ        (MCU_REG_BACKUP_BOTTOM_IRQ + MCU_REG_BACKUP_SP_OFFSET)
+
+#define MCU_REG_BACKUP_BOTTOM_FIQ    MCU_REG_BACKUP_TOP_IRQ
+#define MCU_REG_BACKUP_TOP_FIQ       (MCU_REG_BACKUP_BOTTOM_FIQ + MCU_REG_BACKUP_STACK_LEN)
+#define MCU_REG_BACKUP_SP_FIQ        (MCU_REG_BACKUP_BOTTOM_FIQ + MCU_REG_BACKUP_SP_OFFSET)
+
+#define MCU_REG_BACKUP_BOTTOM_ABT    MCU_REG_BACKUP_TOP_FIQ
+#define MCU_REG_BACKUP_TOP_ABT       (MCU_REG_BACKUP_BOTTOM_ABT + MCU_REG_BACKUP_STACK_LEN)
+#define MCU_REG_BACKUP_SP_ABT        (MCU_REG_BACKUP_BOTTOM_ABT + MCU_REG_BACKUP_SP_OFFSET)
+
+#define MCU_REG_BACKUP_BOTTOM_UND    MCU_REG_BACKUP_TOP_ABT
+#define MCU_REG_BACKUP_TOP_UND       (MCU_REG_BACKUP_BOTTOM_UND + MCU_REG_BACKUP_STACK_LEN)
+#define MCU_REG_BACKUP_SP_UND        (MCU_REG_BACKUP_BOTTOM_UND + MCU_REG_BACKUP_SP_OFFSET)
+
+#define MCU_REG_BACKUP_BOTTOM_SVC    MCU_REG_BACKUP_TOP_UND
+#define MCU_REG_BACKUP_TOP_SVC       (MCU_REG_BACKUP_BOTTOM_SVC + MCU_REG_BACKUP_STACK_LEN)
+#define MCU_REG_BACKUP_SP_SVC        (MCU_REG_BACKUP_BOTTOM_SVC + MCU_REG_BACKUP_SP_OFFSET)
+
+#define FIQ_STACK_SIZE               0xFF0
+#define IRQ_STACK_SIZE               0xFF0
+#define SVC_STACK_SIZE               0x3F0
+#define SYS_STACK_SIZE               0x3F0
+#define UND_STACK_SIZE               0x280
+#define ABT_STACK_SIZE               0x280
+
 #endif //_ARM_MCU_PUB_H_
 // eof
 

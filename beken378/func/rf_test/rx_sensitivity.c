@@ -26,11 +26,11 @@ struct mac_addr const rs_mac_addr = {
 								    {0x7112, 0x7111, 0x7111}
 								 };
 
-UINT32 g_txbw20; 
-UINT32 g_txbw40; 
-UINT32 g_txbw80; 
-UINT32 g_txbw160;	
-UINT32 g_txoctectinampdu; 
+UINT32 g_txbw20;
+UINT32 g_txbw40;
+UINT32 g_txbw80;
+UINT32 g_txbw160;
+UINT32 g_txoctectinampdu;
 UINT32 g_txampdu;
 UINT32 g_rxbw20;
 UINT32 g_rxbw40;
@@ -40,7 +40,7 @@ UINT32 g_rxoctectinampdu;
 UINT32 g_rxampdu;
 UINT32 g_fcserror;
 UINT32 g_phyerror;
-UINT32 g_rxflowc; 
+UINT32 g_rxflowc;
 
 UINT32 g_s_rxbw20;
 UINT32 g_s_rxbw40;
@@ -94,7 +94,9 @@ void rs_init(UINT32 channel, UINT32 mode)
 	phy_init(&cfg);
 
 #if CFG_IEEE80211AX
-	//TOOD
+	struct mac_chan_op chan;
+	phy_init_channel_param(&chan, PHY_BAND_2G4, mode, channel, channel, 0);
+	phy_set_channel(&chan, PHY_PRIM);
 #else
 	phy_set_channel(PHY_BAND_2G4, mode, channel, channel, 0, PHY_PRIM);
 #endif
@@ -110,7 +112,7 @@ void rs_init(UINT32 channel, UINT32 mode)
 void rs_rx_monitor(void)
 {
 	hal_machw_enter_monitor_mode();
-	
+
 	RS_PRT("[RS]rs_rx_monitor\r\n");
 }
 
@@ -121,7 +123,7 @@ UINT32 rs_set_channel(UINT32 channel_id)
 	{
 		return 1;
 	}
-	
+
 	rs_channel = rs_freq_2_4_G[channel_id - 1];
 
 	return 0;
@@ -159,9 +161,9 @@ void rx_get_rx_result_begin(void)
 	g_rxoctectinampdu = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b4c);
 	g_rxampdu = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b3c);
 
-	g_fcserror = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804); 
-	g_phyerror = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808); 
-	g_rxflowc = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c); 
+	g_fcserror = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804);
+	g_phyerror = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808);
+	g_rxflowc = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c);
 
 	REG_WRITE(REG_MAC_CORE_BASE_ADDR + 0x00000220, 0x0);
 	REG_WRITE(REG_MAC_CORE_BASE_ADDR + 0x00000290, 0x0);
@@ -171,6 +173,8 @@ void rx_get_rx_result_begin(void)
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
 	phy_enable_rx_switch();
+#elif (CFG_SOC_NAME == SOC_BK7236)
+	// TODO: BK7236 phy karst
 #endif
 }
 
@@ -195,7 +199,7 @@ UINT32 rx_get_rx40M_statistic_result(void)
 }
 
 void rx_get_rx_result_end(void)
-{	
+{
 	UINT32 txbw20new;
 	UINT32 txbw40new;
 	UINT32 txbw80new;
@@ -225,7 +229,7 @@ void rx_get_rx_result_end(void)
 	UINT32 txbw80cur;
 	UINT32 txbw160cur;
 	UINT32 txtot;
-	UINT32 txampducur;	
+	UINT32 txampducur;
 	UINT32 rxbw20cur;
 	UINT32 rxbw40cur;
 	UINT32 rxbw80cur;
@@ -244,7 +248,7 @@ void rx_get_rx_result_end(void)
 	(void)REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b34);
 	txoctectinampdunew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b38);
 	(void)txoctectinampdunew;
-	
+
 	txampdunew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b30);
 
 	rxbw20new = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b80);
@@ -255,17 +259,17 @@ void rx_get_rx_result_end(void)
 	(void)REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b48);
 	rxoctectinampdunew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b4c);
 	(void)rxoctectinampdunew;
-	
+
 	rxampdunew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b3c);
 
-	fcserrornew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804); 
-	phyerrornew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808); 
-	rxflowcnew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c); 
+	fcserrornew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804);
+	phyerrornew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808);
+	rxflowcnew = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c);
 	ccapri = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000220);
 	ccasec20 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000290);
 	ccasec40 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000294);
 	ccasec80 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000298);
-	
+
 	txbw20cur = ((txbw20new - g_txbw20));
 	txbw40cur = ((txbw40new - g_txbw40));
 	txbw80cur = ((txbw80new - g_txbw80));
@@ -288,7 +292,7 @@ void rx_get_rx_result_end(void)
     g_s_rxbw20 = rxbw20cur;
 	rxbw40cur =  (rxbw40new - g_rxbw40);
     g_s_rxbw40 = rxbw40cur;
-    
+
 	rxbw80cur =  (rxbw80new - g_rxbw80);
 	rxbw160cur =  (rxbw160new - g_rxbw160);
 
@@ -302,19 +306,19 @@ void rx_get_rx_result_end(void)
 	if(0 == rxtot)
 	{
 		rxtot = 1;
-	} 
+	}
 
 	RS_PRT("\r\nrx\r\n");
 	RS_PRT("20mhz  : %0d (%0d %%)\r\n",  rxbw20cur, (100*rxbw20cur/rxtot));
-	RS_PRT("40mhz  : %0d (%0d %%)\r\n",  rxbw40cur, (100*rxbw40cur/rxtot));    
- 
+	RS_PRT("40mhz  : %0d (%0d %%)\r\n",  rxbw40cur, (100*rxbw40cur/rxtot));
+
 	if(0 == rxampducur)
 	{
 		rxampducur = 1;
-	} 
+	}
 
 	RS_PRT("fcserr : %0d (%0d %%), ",  fcserrcur, (100*fcserrcur/rxtot));
-	RS_PRT("phyerr : %0d (%0d %%), ",  phyerrcur, (100*phyerrcur/rxtot)); 
+	RS_PRT("phyerr : %0d (%0d %%), ",  phyerrcur, (100*phyerrcur/rxtot));
 	RS_PRT("rxflowerr: %0d (%0d %%)\r\n",  rxflowccur, (100*rxflowccur/rxtot));
 	(void) ccapri;
 	(void) ccasec20;
@@ -325,22 +329,22 @@ void rx_get_rx_result_end(void)
 /* refer to txrx_stat.sh*/
 void rs_get_rx_result(void)
 {
-	UINT32 TXBW20;                       
-	UINT32 TXBW40;                       
+	UINT32 TXBW20;
+	UINT32 TXBW40;
 	UINT32 TXBW80;
 	UINT32 TXBW160;
-	                                     
+
 	UINT32 TXOCTECTINAMPDU;
 	UINT32 TXAMPDU;
-	                                     
+
 	UINT32 RXBW20;
 	UINT32 RXBW40;
 	UINT32 RXBW80;
 	UINT32 RXBW160;
-	                                     
+
 	UINT32 RXOCTECTINAMPDU;
 	UINT32 RXAMPDU;
-	                                     
+
 	UINT32 FCSERROR;
 	UINT32 PHYERROR;
 	UINT32 RXFLOWC;
@@ -377,7 +381,7 @@ void rs_get_rx_result(void)
 
 	UINT32 TXAMPDUCUR;
 	UINT32 TXOCTECTINAMPDUCUR;
-	
+
 	UINT32 RXBW20CUR;
 	UINT32 RXBW40CUR;
 	UINT32 RXBW80CUR;
@@ -390,7 +394,7 @@ void rs_get_rx_result(void)
 	UINT32 PHYERRCUR;
 	UINT32 RXFLOWCCUR;
 	UINT32 RXTOT;
-		
+
 	TXBW20 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b70);
 	TXBW40 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b74);
 	TXBW80 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b78);
@@ -409,9 +413,9 @@ void rs_get_rx_result(void)
 	RXOCTECTINAMPDU = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b4C);
 	RXAMPDU = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b3C);
 
-	FCSERROR = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804); 
-	PHYERROR = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808); 
-	RXFLOWC = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c); 
+	FCSERROR = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804);
+	PHYERROR = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808);
+	RXFLOWC = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c);
 
 	REG_WRITE(REG_MAC_CORE_BASE_ADDR + 0x00000220, 0x0);
 	REG_WRITE(REG_MAC_CORE_BASE_ADDR + 0x00000290, 0x0);
@@ -439,14 +443,14 @@ void rs_get_rx_result(void)
 	RXOCTECTINAMPDUNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b4C);
 	RXAMPDUNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000b3C);
 
-	FCSERRORNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804); 
-	PHYERRORNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808); 
-	RXFLOWCNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c); 
+	FCSERRORNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000804);
+	PHYERRORNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000808);
+	RXFLOWCNEW = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x0000080c);
 	CCAPRI = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000220);
 	CCASEC20 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000290);
 	CCASEC40 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000294);
 	CCASEC80 = REG_READ(REG_MAC_CORE_BASE_ADDR + 0x00000298);
-	
+
 	TXBW20CUR = ((TXBW20NEW - TXBW20));
 	TXBW40CUR = ((TXBW40NEW - TXBW40));
 	TXBW80CUR = ((TXBW80NEW - TXBW80));
@@ -460,7 +464,7 @@ void rs_get_rx_result(void)
 	{
 		TXTOT = 1;
 	}
-	
+
 	RS_PRT("TX\n");
 	RS_PRT("20MHz  : %0d (%0d %%)\r\n", TXBW20CUR, 100*TXBW20CUR/TXTOT);
 	RS_PRT("40MHz  : %0d (%0d %%)\r\n", TXBW40CUR, 100*TXBW40CUR/TXTOT);
@@ -473,7 +477,7 @@ void rs_get_rx_result(void)
 	{
 		TXAMPDUCUR = 1;
 	}
-	
+
 	RS_PRT("Bytes in AMPDU : %0d\r\n", (TXOCTECTINAMPDUCUR/TXAMPDUCUR));
 	RS_PRT("AMPDU Throughput : %0.1f Mbps\r\n", ((float)8*TXOCTECTINAMPDUCUR/1000000));
 
@@ -493,7 +497,7 @@ void rs_get_rx_result(void)
 	if(0 == RXTOT)
 	{
 		RXTOT = 1;
-	} 
+	}
 
 	RS_PRT("\nRX\n");
 	RS_PRT("20MHz  : %0d (%0d %%)\r\n",  RXBW20CUR, (100*RXBW20CUR/RXTOT));
@@ -502,18 +506,18 @@ void rs_get_rx_result(void)
 	RS_PRT("160MHz : %0d (%0d %%)\r\n",  RXBW160CUR, (100*RXBW160CUR/RXTOT));
 
 	RS_PRT("AMPDU  : %0d (%0d %%)\r\n",  RXAMPDUCUR, (100*RXAMPDUCUR/RXTOT));
-	  
+
 	if(0 == RXAMPDUCUR)
 	{
 		RXAMPDUCUR = 1;
-	} 
+	}
 
 	RS_PRT("Bytes in AMPDU : %0d\r\n", (RXOCTECTINAMPDUCUR/RXAMPDUCUR));
 	RS_PRT("AMPDU Throughput : %0.1f Mbps\r\n", ((float)8*RXOCTECTINAMPDUCUR/1000000));
 
 	RS_PRT("FCSErr   : %0d (%0d %%)\r\n",  FCSERRCUR, (100*FCSERRCUR/RXTOT));
-	RS_PRT("PHYErr   : %0d (%0d %%)\r\n",  PHYERRCUR, (100*PHYERRCUR/RXTOT)); 
-	RS_PRT("RxFlowErr: %0d (%0d %%)\r\n",  RXFLOWCCUR, (100*RXFLOWCCUR/RXTOT)); 
+	RS_PRT("PHYErr   : %0d (%0d %%)\r\n",  PHYERRCUR, (100*PHYERRCUR/RXTOT));
+	RS_PRT("RxFlowErr: %0d (%0d %%)\r\n",  RXFLOWCCUR, (100*RXFLOWCCUR/RXTOT));
 	RS_PRT("CCAPrim  Busy : %3d %%\r\n", (CCAPRI / 10000));
 	RS_PRT("CCASec20 Busy : %3d %%\r\n", (CCASEC20 / 10000));
 	RS_PRT("CCASec40 Busy : %3d %%\r\n", (CCASEC40 / 10000));
@@ -540,7 +544,7 @@ void rs_ble_test_start(UINT32 channel)
 #if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1))
     UINT32 param;
     param = PWD_BLE_CLK_BIT;
-    
+
     sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_SET, NULL);
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLE_POWERUP, NULL);
     sddev_control(ICU_DEV_NAME, CMD_TL410_CLK_PWR_UP, &param);
@@ -576,9 +580,9 @@ void rx_get_ble_rx_result(void)
     UINT32 rx_ble_total_old = 0xFFFFFFFF;
     UINT32 rx_ble_err_total = 0xFFFFFFFF;
     UINT32 rx_ble_err_total_old = 0xFFFFFFFF;
-    
+
     sddev_control(BLE_DEV_NAME, CMD_BLE_HOLD_PN9_ESTIMATE, NULL);
-    
+
     rx_ble_total = REG_READ(0x0080B454);
     while(rx_ble_total != rx_ble_total_old)
     {

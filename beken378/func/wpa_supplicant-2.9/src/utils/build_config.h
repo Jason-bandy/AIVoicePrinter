@@ -291,4 +291,10 @@
 #endif
 #endif
 
+#if CFG_WPA_CTRL_IFACE
+#define HOSTAP_THREAD_SAFE_WORKAROUND 0
+#else
+#define HOSTAP_THREAD_SAFE_WORKAROUND 1
+#endif
+
 #endif /* BUILD_CONFIG_H */

@@ -186,6 +186,9 @@ struct sch_arb_elt_tag
     /// Latency to notify to stop the activity before next activity is notified to start (in half-slots, 0 if no stop required)
     uint8_t stop_latency;
 
+    /// BK add:For rpa renew event, we do not need rf
+    uint8_t rf_flag;
+
     /************************************************************************************
      * ISR CALLBACKS
      ************************************************************************************/

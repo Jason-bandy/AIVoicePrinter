@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2015-2017 Alibaba Group Holding Limited
  */
-
 #include <string.h>
 #include <stddef.h>
 #include "include.h"
@@ -12,7 +11,7 @@
 #include "flash_pub.h"
 #include "mem_pub.h"
 #include "str_pub.h"
-
+#if CFG_SUPPORT_OTA_HTTP
 
 #define HTTPCLIENT_MIN(x,y) (((x)<(y))?(x):(y))
 #define HTTPCLIENT_MAX(x,y) (((x)>(y))?(x):(y))
@@ -29,7 +28,7 @@
 
 extern void flash_protection_op(UINT8 mode,PROTECT_TYPE type);
 
-#if CFG_SUPPORT_OTA_HTTP
+#if CFG_SUPPORT_OTA_TFTP
 #define HTTP_FLASH_WR_BUF_MAX WR_BUF_MAX
 #else
 #define HTTP_FLASH_WR_BUF_MAX   1024
@@ -39,10 +38,9 @@ extern void flash_protection_op(UINT8 mode,PROTECT_TYPE type);
 HTTP_DATA_ST bk_http = {
     .http_total = 0,
     .do_data = 0,
-#if HTTP_WR_TO_FLASH   
+#if HTTP_WR_TO_FLASH
     .wr_buf = NULL,
     .wr_last_len = 0,
-    .flash_address = HTTP_FLASH_ADDR,
     .wr_tmp_buf = NULL,
 #endif
 };
@@ -446,16 +444,9 @@ void http_flash_wr ( UINT8 *src, unsigned len)
         GLOBAL_INT_RESTORE();
     }
 
-    if((u32)bk_http_ptr->flash_address >= 0x200000 || (u32)bk_http_ptr->flash_address < 0x27000)
+    if(((u32)bk_http_ptr->flash_address >= bk_http_ptr->pt->partition_start_addr)
+        && (((u32)bk_http_ptr->flash_address + len) < (bk_http_ptr->pt->partition_start_addr + bk_http_ptr->pt->partition_length)))
     {
-        os_printf ("err_addr:%x \r\n", bk_http_ptr->flash_address);
-        return;
-    }
-
-    if((u32)bk_http_ptr->flash_address < 0x400000)
-    {
-    
-
         GLOBAL_INT_DISABLE();
         ddev_write(bk_http_ptr->flash_hdl, src, len, (u32)bk_http_ptr->flash_address);
         GLOBAL_INT_RESTORE();
@@ -487,43 +478,43 @@ void http_flash_init(void)
     bk_http_ptr->wr_tmp_buf = NULL;
 
     if(!bk_http_ptr->wr_buf)
-        {
+    {
         bk_http_ptr->wr_buf = os_malloc(HTTP_FLASH_WR_BUF_MAX * sizeof(char));
         if(! bk_http_ptr->wr_buf)
-            {
-                os_printf("wr_buf malloc err\r\n");        
+        {
+                os_printf("wr_buf malloc err\r\n");
         }
     }
 
     if(!bk_http_ptr->wr_tmp_buf)
-        {
+    {
         bk_http_ptr->wr_tmp_buf = os_malloc(HTTP_FLASH_WR_BUF_MAX * sizeof(char));
         if(! bk_http_ptr->wr_tmp_buf)
-            {
-                os_printf("wr_tmp_buf malloc err\r\n");        
+        {
+                os_printf("wr_tmp_buf malloc err\r\n");
         }
     }
 
+    bk_http_ptr->pt = bk_flash_get_info(BK_PARTITION_OTA);
     bk_http_ptr->flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
     ASSERT(DD_HANDLE_UNVALID != bk_http_ptr->flash_hdl);
-    
+
     bk_http_ptr->wr_last_len = 0;
     ota_wr_block = 0;
-    bk_http_ptr->flash_address = 0xff000;
-    flash_protection_op(FLASH_XTX_16M_SR_WRITE_ENABLE, FLASH_PROTECT_NONE);
-
+    bk_http_ptr->flash_address = bk_http_ptr->pt->partition_start_addr;
+    bk_flash_enable_security(FLASH_PROTECT_HALF);
+    os_printf("ota write to 0x%x\r\n",bk_http_ptr->flash_address);
 }
 
 void http_flash_deinit(void)
 {
     os_free(bk_http_ptr->wr_buf);
     os_free(bk_http_ptr->wr_tmp_buf);
-    bk_http_ptr->wr_buf = NULL;
-    bk_http_ptr->wr_tmp_buf = NULL;
-    bk_http_ptr->wr_last_len = 0; 
+    os_memset(bk_http_ptr,0,sizeof(HTTP_DATA_ST));
     ota_wr_block = 0;
     ddev_close(bk_http_ptr->flash_hdl);
-    flash_protection_op(FLASH_XTX_16M_SR_WRITE_ENABLE, FLASH_UNPROTECT_LAST_BLOCK);
+    bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
+    os_printf("write over\r\n");
 }
 
 void http_wr_to_flash(char *page, UINT32 len)
@@ -542,9 +533,9 @@ void http_wr_to_flash(char *page, UINT32 len)
         if(bk_http_ptr->wr_last_len>=HTTP_FLASH_WR_BUF_MAX)
         {
             os_printf (".");
-            #if CFG_SUPPORT_OTA_HTTP //support bk ota format
+            #if CFG_SUPPORT_OTA_TFTP//support bk ota format
             store_block(ota_wr_block, bk_http_ptr->wr_buf, HTTP_FLASH_WR_BUF_MAX);
-            ota_wr_block++;   
+            ota_wr_block++;
             #else                    //direct wrtie to flash
             http_flash_wr(bk_http_ptr->wr_buf, HTTP_FLASH_WR_BUF_MAX);
             #endif
@@ -743,8 +734,8 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
             len -= 2;
         } else {
             log_debug("no more (content-length)");
-#if HTTP_WR_TO_FLASH     
-            #if CFG_SUPPORT_OTA_HTTP //support bk ota format
+#if HTTP_WR_TO_FLASH
+            #if CFG_SUPPORT_OTA_TFTP//support bk ota format
             store_block(ota_wr_block, bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
             #else                    //direct wrtie to flash
             http_flash_wr(bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
@@ -987,6 +978,7 @@ int httpclient_common(httpclient_t *client, const char *url, int port, const cha
         ret = httpclient_recv_response(client, iotx_time_left(&timer), client_data);
         if (ret < 0) {
             log_err("httpclient_recv_response is error,ret = %d", ret);
+            http_flash_deinit();
             httpclient_close(client);
             return ret;
         }
@@ -1015,4 +1007,4 @@ iotx_err_t iotx_post(
 {
     return httpclient_common(client, url, port, ca_crt, HTTPCLIENT_POST, timeout_ms, client_data);
 }
-
+#endif

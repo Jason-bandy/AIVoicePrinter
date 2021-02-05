@@ -52,12 +52,22 @@ const bk_logic_partition_t bk7231_partitions[BK_PARTITION_MAX] =
         .partition_length          = 0x143000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
+    [BK_PARTITION_OTA] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "ota",
+        .partition_start_addr      = 0x132000,
+        .partition_length          = 0xAE000, //696KB
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
     [BK_PARTITION_RF_FIRMWARE] =
     {
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "RF Firmware",
 #if (CFG_SOC_NAME == SOC_BK7221U)
         .partition_start_addr      = 0x10000,// bootloader unused space for rf cal+mac related info.
+#elif (CFG_SOC_NAME == SOC_BK7271)
+        .partition_start_addr      = 0x3FE000,
 #else
         .partition_start_addr      = 0x1e0000,// for rf related info
 #endif
@@ -70,6 +80,8 @@ const bk_logic_partition_t bk7231_partitions[BK_PARTITION_MAX] =
         .partition_description     = "NET info",
 #if (CFG_SOC_NAME == SOC_BK7221U)
         .partition_start_addr      = 0x1FF000,// for net related info
+#elif (CFG_SOC_NAME == SOC_BK7271)
+        .partition_start_addr      = 0x3FF000,
 #else
         .partition_start_addr      = 0x1e1000,// for net related info
 #endif
@@ -155,13 +167,27 @@ OSStatus bk_flash_write( bk_partition_t inPartition, volatile uint32_t off_set, 
     bk_logic_partition_t *partition_info;
     GLOBAL_INT_DECLARATION();
 
-    ASSERT(inBuffer);
+    if (NULL == inBuffer)
+    {
+        os_printf("%s inBuffer=NULL\r\n", __FUNCTION__);
+        return kParamErr;
+    }
 
     partition_info = bk_flash_get_info(inPartition);
+    if (NULL == partition_info)
+    {
+        os_printf("%s partiion not found\r\n", __FUNCTION__);
+        return kNotFoundErr;
+    }
+
     start_addr = partition_info->partition_start_addr + off_set;
 
     flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    if (DD_HANDLE_UNVALID == flash_hdl)
+    {
+        os_printf("%s open failed\r\n", __FUNCTION__);
+        return kOpenErr;
+    }
 
     GLOBAL_INT_DISABLE();
     ddev_write(flash_hdl, (char*)inBuffer, inBufferLength, start_addr);
@@ -178,13 +204,27 @@ OSStatus bk_flash_read( bk_partition_t inPartition, volatile uint32_t off_set, u
     bk_logic_partition_t *partition_info;
     GLOBAL_INT_DECLARATION();
 
-    ASSERT(outBuffer);
+    if (NULL == outBuffer)
+    {
+        os_printf("%s outBuffer=NULL\r\n", __FUNCTION__);
+        return kParamErr;
+    }
 
     partition_info = bk_flash_get_info(inPartition);
+    if (NULL == partition_info)
+    {
+        os_printf("%s partiion not found\r\n", __FUNCTION__);
+        return kNotFoundErr;
+    }
+
     start_addr = partition_info->partition_start_addr + off_set;
 
     flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    if (DD_HANDLE_UNVALID == flash_hdl)
+    {
+        os_printf("%s open failed\r\n", __FUNCTION__);
+        return kOpenErr;
+    }
 
     GLOBAL_INT_DISABLE();
     ddev_read(flash_hdl, (char*)outBuffer, inBufferLength, start_addr);
@@ -200,7 +240,11 @@ OSStatus bk_flash_enable_security(PROTECT_TYPE type )
 	uint32_t param = type;
 
 	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    if (DD_HANDLE_UNVALID == flash_hdl)
+    {
+        os_printf("%s open failed\r\n", __FUNCTION__);
+        return kOpenErr;
+    }
     ddev_control(flash_hdl, CMD_FLASH_SET_PROTECT, (void *)&param);
 
     return kNoErr;
@@ -240,7 +284,11 @@ OSStatus test_flash_erase(volatile uint32_t start_addr, uint32_t len)
 	 uint32_t tmp = addr+length;
 	 
     flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    if (DD_HANDLE_UNVALID == flash_hdl)
+    {
+        os_printf("%s open failed\r\n", __FUNCTION__);
+        return kOpenErr;
+    }
 	for(;addr<tmp;addr+=0x1000)
 	{
 		os_printf("erase addr:%d\r\n",addr);
@@ -261,7 +309,11 @@ OSStatus test_flash_read(volatile uint32_t start_addr, uint32_t len)
 	tmp = addr+length;
 	
     flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    if (DD_HANDLE_UNVALID == flash_hdl)
+    {
+        os_printf("%s open failed\r\n", __FUNCTION__);
+        return kOpenErr;
+    }
 	for(;addr<tmp;addr+=256)
 	{
 		os_memset(buf,0,256);
@@ -292,7 +344,11 @@ OSStatus test_flash_read_time(volatile uint32_t start_addr, uint32_t len)
 	tmp = addr+length;
 	
     flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != flash_hdl);
+    if (DD_HANDLE_UNVALID == flash_hdl)
+    {
+        os_printf("%s open failed\r\n", __FUNCTION__);
+        return kOpenErr;
+    }
     beken_time_get_time((beken_time_t *)&time_start);
     os_printf("read time start:%d\r\n", time_start);
 	

@@ -11,9 +11,13 @@
 #include "sys_ctrl_pub.h"
 #include <string.h>
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+#include "gpio_bk7271.h"
+#endif
 saradc_desc_t *saradc_desc = NULL;
 saradc_calibrate_val saradc_val = {0x55, 0x354};
 static volatile u8 saradc_is_busy = 0;
+static volatile u8 saradc_accuracy = 0;
 static DD_OPERATIONS saradc_op = {
             saradc_open,
             saradc_close,
@@ -30,7 +34,7 @@ static void saradc_flush(void)
 
 	value = REG_READ(SARADC_ADC_CONFIG);
     value &= ~(SARADC_ADC_MODE_MASK << SARADC_ADC_MODE_POSI);
-    value &= ~(SARADC_ADC_CHNL_EN); 
+    value &= ~(SARADC_ADC_CHNL_EN);
     value |= SARADC_ADC_INT_CLR;
 	REG_WRITE(SARADC_ADC_CONFIG, value);
 
@@ -41,13 +45,13 @@ static void saradc_flush(void)
         REG_READ(SARADC_ADC_DAT_AFTER_STA);
         value = REG_READ(SARADC_ADC_CONFIG);
     }
-    
+
     saradc_int_clr();
 }
 
 void saradc_init(void)
 {
-	intc_service_register(IRQ_SARADC, PRI_IRQ_SARADC, saradc_isr); 
+	intc_service_register(IRQ_SARADC, PRI_IRQ_SARADC, saradc_isr);
 
 	ddev_register_dev(SARADC_DEV_NAME, &saradc_op);
 
@@ -83,82 +87,78 @@ static void saradc_disable_icu_config(void)
 
 static void saradc_enable_interrupt(void)
 {
-    UINT32 param;    
+    UINT32 param;
     param = (IRQ_SARADC_BIT);
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
 }
 
 static void saradc_disable_interrupt(void)
 {
-    UINT32 param;    
+    UINT32 param;
     param = (IRQ_SARADC_BIT);
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
 }
 
 static void saradc_gpio_config(void)
 {
+#if (CFG_SOC_NAME != SOC_BK7271)
+
 	UINT32 param;
-    
-    switch (saradc_desc->channel)
-    {
+
+	switch (saradc_desc->channel)
+	{
 #if (SOC_BK7271 == CFG_SOC_NAME)
-        case 0:
-        {
-            param = PARAM_SARADC_BT_TXSEL_BIT;
-	        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_ANALOG_CTRL4_SET, &param);
-            break;
-        }
+	case 0: {
+		param = PARAM_SARADC_BT_TXSEL_BIT;
+		sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_ANALOG_CTRL4_SET, &param);
+		break;
+	}
 #endif
-        case 1:
-        {
-            param = GFUNC_MODE_ADC1;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
-        case 2:
-        {
-            param = GFUNC_MODE_ADC2;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
-        case 3:
-        {
-            param = GFUNC_MODE_ADC3;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
+	case 1: {
+		param = GFUNC_MODE_ADC1;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
+	case 2: {
+		param = GFUNC_MODE_ADC2;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
+	case 3: {
+		param = GFUNC_MODE_ADC3;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
 
 #if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
-        case 4:
-        {
-            param = GFUNC_MODE_ADC4;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
-		case 5:
-        {
-            param = GFUNC_MODE_ADC5;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
-		case 6:
-        {
-            param = GFUNC_MODE_ADC6;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
-		case 7:
-        {
-            param = GFUNC_MODE_ADC7;
-	        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-            break;
-        }
+	case 4: {
+		param = GFUNC_MODE_ADC4;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
+	case 5: {
+		param = GFUNC_MODE_ADC5;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
+	case 6: {
+		param = GFUNC_MODE_ADC6;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
+	case 7: {
+		param = GFUNC_MODE_ADC7;
+		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
+		break;
+	}
 #endif  // ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
-        
-        default:    
-            break;
-    }
 
+	default:
+		break;
+	}
+#else
+	gpio_adc_function_set(saradc_desc->channel);
+#endif
 }
 
 UINT32 saradc_check_busy(void)
@@ -171,7 +171,7 @@ static UINT32 saradc_open(UINT32 op_flag)
 	UINT32 config_value = 0;
 	UINT32 sat_config_value = 0;
     saradc_desc_t *p_saradc_desc;
-	
+
 #if (SOC_BK7271 == CFG_SOC_NAME)
     UINT32 status = BLK_BIT_SARADC;
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLK_ENABLE, &status);
@@ -226,22 +226,22 @@ static UINT32 saradc_open(UINT32 op_flag)
         | ((saradc_desc->filter & SARADC_ADC_FILTER_MASK)<< SARADC_ADC_FILTER_POSI);
     REG_WRITE(SARADC_ADC_CONFIG, config_value);
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     if (8 == saradc_desc->channel)
     {
-        sat_config_value = SARADC_ADC_SAT_ENABLE 
+        sat_config_value = SARADC_ADC_SAT_ENABLE
             | ((0x03 & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
     }
     else
     {
-        sat_config_value = SARADC_ADC_SAT_ENABLE 
+        sat_config_value = SARADC_ADC_SAT_ENABLE
             | ((0x01 & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
     }
     REG_WRITE(SARADC_ADC_SATURATION_CFG, sat_config_value);
     config_value = 1;
     saradc_ctrl(SARADC_CMD_SET_BYPASS_CALIB, &config_value);
-#elif (CFG_SOC_NAME != SOC_BK7231)    
-    sat_config_value = SARADC_ADC_SAT_ENABLE 
+#elif (CFG_SOC_NAME != SOC_BK7231)
+    sat_config_value = SARADC_ADC_SAT_ENABLE
         | ((0x03 & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
     REG_WRITE(SARADC_ADC_SATURATION_CFG, sat_config_value);
 #endif
@@ -258,7 +258,7 @@ static UINT32 saradc_pause()
     saradc_disable_sysctrl();
 
 	value = REG_READ(SARADC_ADC_CONFIG);
-    value &= ~(SARADC_ADC_CHNL_EN); 
+    value &= ~(SARADC_ADC_CHNL_EN);
     value |= SARADC_ADC_INT_CLR;
 	REG_WRITE(SARADC_ADC_CONFIG, value);
 
@@ -322,7 +322,7 @@ static UINT32 saradc_close(void)
 
 	value = REG_READ(SARADC_ADC_CONFIG);
     value &= ~(SARADC_ADC_MODE_MASK << SARADC_ADC_MODE_POSI);
-    value &= ~(SARADC_ADC_CHNL_EN); 
+    value &= ~(SARADC_ADC_CHNL_EN);
     value |= SARADC_ADC_INT_CLR;
 	REG_WRITE(SARADC_ADC_CONFIG, value);
 
@@ -351,7 +351,7 @@ static UINT32 saradc_close(void)
 static UINT32 saradc_set_mode(UINT8 mode)
 {
 	UINT32 value;
-	
+
 	if(mode > 3){
 		return SARADC_FAILURE;
 	}
@@ -388,7 +388,7 @@ static UINT32 saradc_set_sample_rate(UINT8 rate)
 	if(rate > 3){
 		return SARADC_FAILURE;
 	}
-	
+
 	value = REG_READ(SARADC_ADC_CONFIG);
 	value &= ~(SARADC_ADC_SAMPLE_RATE_MASK << SARADC_ADC_SAMPLE_RATE_POSI);
 	value |= (rate << SARADC_ADC_SAMPLE_RATE_POSI);
@@ -407,13 +407,13 @@ static UINT32 saradc_set_waiting_time(UINT8 time)
 	if(mode == 0 || mode == 3){
 		return SARADC_FAILURE;
 	}
-	
+
 	if(time == 0){
 		value &= ~SARADC_ADC_SETTING;
 	}else{
 		value |= SARADC_ADC_SETTING;
 	}
-	
+
 	REG_WRITE(SARADC_ADC_CONFIG, value);
 
 	return SARADC_SUCCESS;
@@ -457,12 +457,12 @@ static UINT32 saradc_run_or_stop_adc(UINT8 run_stop)
 	UINT32 value;
 
 	value = REG_READ(SARADC_ADC_CONFIG);
-    
+
     if(run_stop)
         value |= (SARADC_ADC_CHNL_EN);
     else
 	    value &= ~(SARADC_ADC_CHNL_EN);
-	
+
 	REG_WRITE(SARADC_ADC_CONFIG, value);
 
 	return SARADC_SUCCESS;
@@ -485,7 +485,7 @@ static UINT32 saradc_set_calibrate_val(saradc_cal_val_t *p_cal)
 		GLOBAL_INT_RESTORE();
         return SARADC_FAILURE;
     }
-	
+
     GLOBAL_INT_RESTORE();
     return SARADC_SUCCESS;
 }
@@ -517,17 +517,67 @@ void saradc_ensure_close(void)
 
 float saradc_calculate(UINT16 adc_val)
 {
+#if ( (CFG_SOC_NAME != SOC_BK7271) && (CFG_SOC_NAME != SOC_BK7221U))
     float practic_voltage;
     practic_voltage = ((adc_val - saradc_val.low) * 1.8);
     practic_voltage = (practic_voltage / (saradc_val.high - saradc_val.low)) + 0.2;
     return practic_voltage;
+#else
+
+	 float voltage = 0.0;
+	 voltage = (adc_val -(saradc_val.low-2048));
+	 voltage = voltage/(saradc_val.high  - (saradc_val.low-2048));
+	 voltage = 2*voltage;
+	 return voltage;
+
+#endif
 }
 
+void saradc_calculate_step1(void)
+{
+	int reg;
+#if (CFG_SOC_NAME != SOC_BK7271)
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG7, &reg);
+	reg |= (1 << 21);
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG7, &reg);
+#else
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG4, &reg);
+	reg |= (1 << 1);
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG4, &reg);
+
+#endif
+
+}
+
+
+void saradc_calculate_step2(void)
+{
+	int reg;
+#if (CFG_SOC_NAME != SOC_BK7271)
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG7, &reg);
+	reg &= (~(1 << 21));
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG7, &reg);
+#else
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG4, &reg);
+	reg &= (~(1 << 1));
+	reg = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG4, &reg);
+#endif
+}
+
+UINT32 saradc_check_accuracy(void)
+{
+	UINT32 value;
+
+	value = REG_READ(SARADC_ADC_SATURATION_CFG);
+	value = value & SARADC_ADC_SAT_CTRL_MASK;
+
+	return value;
+}
 
 static UINT32 saradc_ctrl(UINT32 cmd, void *param)
 {
 	UINT32 ret = SARADC_SUCCESS;
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 	UINT32 value;
 #endif
 
@@ -567,7 +617,7 @@ static UINT32 saradc_ctrl(UINT32 cmd, void *param)
     case SARADC_CMD_RESUME:
         ret = saradc_resume();
         break;
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     case SARADC_CMD_SET_BYPASS_CALIB:
         value = REG_READ(SARADC_ADC_CTRL_CFG);
         if (*(UINT32 *)param)
@@ -598,7 +648,7 @@ void saradc_isr(void)
 	UINT32 value;
 
 	value = REG_READ(SARADC_ADC_CONFIG);
-    while((value & SARADC_ADC_FIFO_EMPTY) == 0) 
+    while((value & SARADC_ADC_FIFO_EMPTY) == 0)
     {
         UINT16 dac_val;
 
@@ -613,16 +663,16 @@ void saradc_isr(void)
             saradc_desc->pData[saradc_desc->current_sample_data_cnt++] = dac_val;
             saradc_desc->has_data = 1;
 
-            if(saradc_desc->current_sample_data_cnt == saradc_desc->data_buff_size) 
+            if(saradc_desc->current_sample_data_cnt == saradc_desc->data_buff_size)
             {
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
                 saradc_pause();
 #else
                 saradc_close();
 #endif
             }
         }
-       
+
         value = REG_READ(SARADC_ADC_CONFIG);
     }
 

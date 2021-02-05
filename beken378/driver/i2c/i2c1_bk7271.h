@@ -1,8 +1,8 @@
 #ifndef _I2C1_BK7271_H_
 #define _I2C1_BK7271_H_
+#if (CFG_SOC_NAME == SOC_BK7271)
 
-#define I2C1_BASE_ADDR                       (0x0802240)
-
+#define I2C1_BASE_ADDR                       (0x00802240)
 
 #define REG_I2C1_CONFIG                      (I2C1_BASE_ADDR + 4 * 0)
 #define I2C1_IDLE_CR_POSI                      (0)
@@ -45,5 +45,5 @@ static UINT32 i2c1_close(void);
 static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag);
 static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag);
 static UINT32 i2c1_ctrl(UINT32 cmd, void *param);
-
+#endif
 #endif  // _I2C1_BK7271_H_

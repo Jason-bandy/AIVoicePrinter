@@ -2,6 +2,13 @@ NAME := ble
 
 $(NAME)_TYPE := kernel
 
+-include $(SOURCE_ROOT)/platform/mcu/$(HOST_MCU_FAMILY)/.config
+
+WPA_VERSION := wpa_supplicant-2.9
+ifeq ($(CFG_USE_WPA_29),0)
+WPA_VERSION := hostapd-2.5
+endif
+
 $(NAME)_INCLUDES := ../../app/standalone-ap \
 					../../app/standalone-station \
 					../../driver/sdio \
@@ -102,9 +109,18 @@ $(NAME)_INCLUDES += ./ble_lib/ip/ble/hl/api \
 					./arch/armv5/ll \
 					./arch/armv5/compiler \
 					./ble_pub/profiles/comm/api \
+					./ble_pub/profiles/sdp/api \
 					./ble_pub/app/api \
 					./ble_pub/ui
 
+$(NAME)_INCLUDES += ../../func/$(WPA_VERSION)/src \
+					../../func/$(WPA_VERSION)/src/ap \
+					../../func/$(WPA_VERSION)/src/utils \
+					../../func/$(WPA_VERSION)/src/common \
+					../../func/$(WPA_VERSION)/src/drivers \
+					../../func/$(WPA_VERSION)/bk_patch \
+					../../func/$(WPA_VERSION)/hostapd \
+					../../func/$(WPA_VERSION)/wpa_supplicant
 
 $(NAME)_SOURCES :=  ./ble_lib/ip/ble/hl/src/gap/gapc/gapc.c \
 					./ble_lib/ip/ble/hl/src/gap/gapc/gapc_cte.c \
@@ -222,13 +238,17 @@ $(NAME)_SOURCES :=  ./ble_lib/ip/ble/hl/src/gap/gapc/gapc.c \
 					./ble_pub/prf/prf_utils.c \
 					./ble_pub/profiles/comm/src/comm.c \
 					./ble_pub/profiles/comm/src/comm_task.c \
+					./ble_pub/profiles/sdp/src/sdp_common.c \
+					./ble_pub/profiles/sdp/src/sdp_comm_task.c \
 					./ble_pub/app/src/app_comm.c \
 					./ble_pub/app/src/app_ble.c \
 					./ble_pub/app/src/app_task.c \
+					./ble_pub/app/src/app_ble_init.c \
+					./ble_pub/app/src/app_sdp.c \
 					./ble_pub/ui/ble_ui.c \
 					./platform/7231n/rwip/src/rwip.c \
 					./platform/7231n/rwip/src/rwble.c \
 					./platform/7231n/entry/ble_main.c \
 					./platform/7231n/driver/rf/rf_xvr.c \
 					./platform/7231n/driver/rf/ble_rf_port.c \
-					./platform/7231n/driver/uart/uart_ble.c 
+					./platform/7231n/driver/uart/uart_ble.c

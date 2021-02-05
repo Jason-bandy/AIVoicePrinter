@@ -26,6 +26,6 @@ void utils_time_countdown_ms(iotx_time_t *timer, uint32_t millisecond);
 
 uint32_t utils_time_get_ms(void);
 
-uint64_t utils_time_left(uint64_t t_end, uint64_t t_now);
+uint32_t utils_time_left(uint32_t t_end, uint32_t t_now);
 
 #endif /* _IOTX_COMMON_TIMER_H_ */

@@ -211,7 +211,7 @@ static void wpas_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 	wpa_scan_free_params(params);
 	work->ctx = NULL;
 	if (ret) {
-		int retry = wpa_s->last_scan_req != MANUAL_SCAN_REQ 
+		int retry = wpa_s->last_scan_req != MANUAL_SCAN_REQ
 #ifdef CONFIG_RRM
 			&& !wpa_s->beacon_rep_data.token
 #endif
@@ -1293,12 +1293,6 @@ void wpa_supplicant_req_scan(struct wpa_supplicant *wpa_s, int sec, int usec)
 
     UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
-
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-    rf_not_share_for_ble();
-#endif
-#endif
 
 	if (wpa_s->p2p_mgmt) {
 		wpa_dbg(wpa_s, MSG_DEBUG,

@@ -18,26 +18,28 @@ uint8 udisk_is_attached(void)
 
 uint8 udisk_init(void)
 {
-    uint32 ret = USB_RET_ERROR;
-    int ret_val;
+	uint32 ret = USB_RET_ERROR;
+	int ret_val;
 
 	FAT_PRT("udisk_init_wzl\r\n");
 
-	while(1)
+	while (1)
 	{
-		if (MGC_MsdGetMediumstatus())
-	    {
-	        ret = USB_RET_OK;
+		if (MGC_MsdGetMediumstatus()) {
+			ret = USB_RET_OK;
 			break;
-	    }
-		else
-		{
+		} else {
 			rtos_delay_milliseconds(100);
+			bk_printf("need plug in usb device\r\n");
+			ret = USB_RET_DISCONNECT;
+			break;
 		}
 	}
 
-    return ret;
+	return ret;
 }
+
+
 
 int udisk_rd_blk_sync(uint32 first_block, uint32 block_num, uint8 *dest )
 {

@@ -35,7 +35,7 @@
 #include <dhcp_server.h>
 #endif
 
-struct rt_wlan_info info;
+
 static char wifi_ssid[32]    = {0};
 static char wifi_key[32]     = {0};
 static int network_mode      = WIFI_STATION;
@@ -283,8 +283,9 @@ int wifi_softap_setup_netif(struct netif *netif)
 
 int wifi_default(void)
 {
-    int result = 0;
-    struct rt_wlan_device *wlan;
+	int result = 0;
+	struct rt_wlan_device *wlan;
+	struct rt_wlan_info info;
 
 #ifdef RT_USING_DFS
 #ifdef PKG_USING_CJSON
@@ -333,7 +334,8 @@ int wifi_default(void)
         }
     }
 
-    return result;
+	rt_wlan_info_deinit(&info);
+	return result;
 }
 
 static void wifi_usage(void)
@@ -353,7 +355,8 @@ static void wifi_usage(void)
 
 int wifi(int argc, char **argv)
 {
-    struct rt_wlan_device *wlan;
+	struct rt_wlan_info info = {0};
+	struct rt_wlan_device *wlan;
 
     if (argc == 1)
     {
@@ -425,12 +428,11 @@ int wifi(int argc, char **argv)
     else if (strcmp(argv[2], "up") == 0)
     {
         /* the key was saved in wlan device */
-        rt_wlan_connect(wlan, RT_NULL, wlan->key);
+        rt_wlan_up(wlan, RT_NULL, wlan->key);
     }
     else if (strcmp(argv[2], "down") == 0)
     {
         rt_wlan_disconnect(wlan);
-        rt_wlan_info_deinit(&info);
     }
     else if (strcmp(argv[2], "scan") == 0)
     {
@@ -465,12 +467,13 @@ int wifi(int argc, char **argv)
                     scan_result->ap_table[index].bssid[4],
                     scan_result->ap_table[index].bssid[5]
                 );
-                rt_kprintf("%4d    ", scan_result->ap_table[index].rssi);
+                rt_kprintf("%4d    ", (int8_t)scan_result->ap_table[index].rssi);
                 rt_kprintf("%2d    ", scan_result->ap_table[index].channel);
                 rt_kprintf("%d\n", scan_result->ap_table[index].datarate / 1000000);
             }
         }
-        rt_wlan_release_scan_result(&scan_result);
+		rt_wlan_release_scan_result(&scan_result);
+		rt_wlan_info_deinit(&info);
     }
     else if (strcmp(argv[2], "rssi") == 0)
     {

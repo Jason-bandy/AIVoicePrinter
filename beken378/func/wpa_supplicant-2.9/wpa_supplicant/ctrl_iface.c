@@ -1317,6 +1317,25 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 #endif
 	}	break;
 
+	case WPA_CTRL_EVENT_CONNECT_IND: {
+	    struct sm_connect_ind *ind = (struct sm_connect_ind *)msg->argu;
+
+		if (ind) {
+			if (ind->status_code == 0) {
+				/* success, Association completed */
+				wpa_supplicant_event_sta(wpa_s, EVENT_ASSOC, NULL);
+			} else {
+				union wpa_event_data data;
+
+				os_memset(&data, 0, sizeof(data));
+				data.assoc_reject.status_code = ind->status_code;
+				data.assoc_reject.timed_out = 0; /* 0: Unspecified, Drop PMKSA Cache */
+
+				wpa_supplicant_event_sta(wpa_s, EVENT_ASSOC_REJECT, &data);
+			}
+		}
+	}	break;
+
 	case WPA_CTRL_EVENT_MGMT_IND: {
 		struct rxu_mgt_ind *ind = (struct rxu_mgt_ind *)msg->argu;
 

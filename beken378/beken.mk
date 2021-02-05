@@ -11,6 +11,7 @@ endif
 
 $(NAME)_INCLUDES := app/standalone-ap \
 					app/standalone-station \
+					app/http \
 					driver/sdio \
 					driver/uart \
 					driver/sys_ctrl \
@@ -74,6 +75,10 @@ $(NAME)_SOURCES :=  app/app.c \
 					app/config/param_config.c \
 					app/standalone-ap/sa_ap.c \
 					app/standalone-station/sa_station.c \
+					app/http/utils_httpc.c \
+					app/http/utils_net.c \
+					app/http/utils_timer.c \
+					app/http/lite-log.c \
 					driver/common/dd.c \
 					driver/common/drv_model.c \
 					driver/dma/dma.c \
@@ -88,7 +93,7 @@ $(NAME)_SOURCES :=  app/app.c \
 					driver/macphy_bypass/mac_phy_bypass.c \
 					driver/phy/phy_trident.c \
 					driver/pwm/pwm.c \
-					driver/pwm/pwm_new.c \
+					driver/pwm/pwm_bk7231n.c \
 					driver/pwm/bk_timer.c \
 					driver/pwm/mcu_ps_timer.c \
 					driver/saradc/saradc.c \

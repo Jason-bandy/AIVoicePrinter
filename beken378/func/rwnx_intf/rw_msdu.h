@@ -52,7 +52,12 @@ extern int rwm_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param
 extern MSDU_NODE_T *rwm_tx_node_alloc(UINT32 len);
 extern void rwm_node_free(MSDU_NODE_T *node);
 extern UINT8 *rwm_rx_buf_alloc(UINT32 len);
+#if CFG_IEEE80211AX
+extern UINT32 rwm_upload_data(void *buff_addr, uint32_t frame_len);
+extern void rwm_rx_monitor(void *buff_addr, uint32_t frame_len);
+#else
 extern UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info);
+#endif
 extern UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len);
 extern UINT32 rwm_get_rx_valid(void);
 extern UINT8 rwm_get_tid();

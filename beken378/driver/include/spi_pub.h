@@ -5,6 +5,9 @@
 #define SPI_SUCCESS                (0)
 
 #define SPI_DEV_NAME                "spi"
+#define SPI2_DEV_NAME              "spi2"
+#define SPI3_DEV_NAME              "spi3"
+
 
 #define SPI_CMD_MAGIC              (0xe250000)
 enum
@@ -14,7 +17,7 @@ enum
     CMD_SPI_SET_CKPHA,
     CMD_SPI_SET_CKPOL,
     CMD_SPI_SET_BITWIDTH,
-    CMD_SPI_SET_NSSID,
+    CMD_SPI_SET_NSSMD,
     CMD_SPI_SET_CKR,
     CMD_SPI_RXINT_EN,
     CMD_SPI_TXINT_EN,
@@ -29,12 +32,78 @@ enum
     CMD_SPI_SET_TX_NEED_WRITE_CALLBACK,
     CMD_SPI_SET_TX_FINISH_CALLBACK,
     CMD_SPI_DEINIT_MSTEN,
+    CMD_SPI_LSB_EN,
+    CMD_SPI_TX_EN,
+    CMD_SPI_RX_EN,
+    CMD_SPI_TXFINISH_EN,
+    CMD_SPI_RXFINISH_EN,
+    CMD_SPI_TXTRANS_EN,
+    CMD_SPI_RXTRANS_EN,
+    CMD_SPI_CS_EN,
+#if(CFG_SOC_NAME == SOC_BK7271)
+	CMD_SPI2_UNIT_ENABLE,
+    CMD_SPI2_SET_MSTEN,
+    CMD_SPI2_SET_CKPHA,
+    CMD_SPI2_SET_CKPOL,
+    CMD_SPI2_SET_BITWIDTH,
+    CMD_SPI2_SET_NSSMD,
+    CMD_SPI2_SET_CKR,
+    CMD_SPI2_RXINT_EN,
+    CMD_SPI2_TXINT_EN,
+    CMD_SPI2_RXOVR_EN,
+    CMD_SPI2_TXOVR_EN,
+    CMD_SPI2_RXFIFO_CLR,
+    CMD_SPI2_RXINT_MODE,
+    CMD_SPI2_TXINT_MODE,
+    CMD_SPI2_INIT_MSTEN,
+    CMD_SPI2_GET_BUSY,
+    CMD_SPI2_SET_RX_CALLBACK,
+    CMD_SPI2_SET_TX_NEED_WRITE_CALLBACK,
+    CMD_SPI2_SET_TX_FINISH_CALLBACK,
+    CMD_SPI2_DEINIT_MSTEN,
+    CMD_SPI2_LSB_EN,
+    CMD_SPI2_TX_EN,
+    CMD_SPI2_RX_EN,
+    CMD_SPI2_TXFINISH_EN,
+    CMD_SPI2_RXFINISH_EN,
+    CMD_SPI2_TXTRANS_EN,
+    CMD_SPI2_RXTRANS_EN,
+    CMD_SPI2_CS_EN,
+    CMD_SPI3_UNIT_ENABLE,
+    CMD_SPI3_SET_MSTEN,
+    CMD_SPI3_SET_CKPHA,
+    CMD_SPI3_SET_CKPOL,
+    CMD_SPI3_SET_BITWIDTH,
+    CMD_SPI3_SET_NSSMD,
+    CMD_SPI3_SET_CKR,
+    CMD_SPI3_RXINT_EN,
+    CMD_SPI3_TXINT_EN,
+    CMD_SPI3_RXOVR_EN,
+    CMD_SPI3_TXOVR_EN,
+    CMD_SPI3_RXFIFO_CLR,
+    CMD_SPI3_RXINT_MODE,
+    CMD_SPI3_TXINT_MODE,
+    CMD_SPI3_INIT_MSTEN,
+    CMD_SPI3_GET_BUSY,
+    CMD_SPI3_SET_RX_CALLBACK,
+    CMD_SPI3_SET_TX_NEED_WRITE_CALLBACK,
+    CMD_SPI3_SET_TX_FINISH_CALLBACK,
+    CMD_SPI3_DEINIT_MSTEN,
+    CMD_SPI3_LSB_EN,
+    CMD_SPI3_TX_EN,
+    CMD_SPI3_RX_EN,
+    CMD_SPI3_TXFINISH_EN,
+    CMD_SPI3_RXFINISH_EN,
+    CMD_SPI3_TXTRANS_EN,
+    CMD_SPI3_RXTRANS_EN,
+    CMD_SPI3_CS_EN,
+#endif
 };
 
 #define BK_SPI_DEBUG                1
 #include "uart_pub.h"
 #if BK_SPI_DEBUG
-#define BK_SPI_PRT               os_printf
+#define BK_SPI_PRT               null_prf
 #define BK_SPI_WPRT              warning_prf
 #define BK_SPI_FATAL             fatal_prf
 #else
@@ -56,13 +125,47 @@ enum
 #define BK_SPI_CPHA                 0x02
 #define SPI_DEF_MODE                (~((BK_SPI_CPOL)|(BK_SPI_CPHA)))
 
+#define SPI_CPHA     (1<<0)                             /* bit[0]:CPHA, clock phase */
+#define SPI_CPOL     (1<<1)                             /* bit[1]:CPOL, clock polarity */
+
+#define SPI_LSB      (0<<2)                             /* bit[2]: 0-LSB */
+#define SPI_MSB      (1<<2)                             /* bit[2]: 1-MSB */
+
+#define SPI_MASTER   (0<<3)								/* SPI master device */
+#define SPI_SLAVE    (1<<3)								/* SPI slave device */
+
+#define SPI_MODE_0       (0 | 0)                        /* CPOL = 0, CPHA = 0 */
+#define SPI_MODE_1       (0 | SPI_CPHA)              /* CPOL = 0, CPHA = 1 */
+#define SPI_MODE_2       (SPI_CPOL | 0)              /* CPOL = 1, CPHA = 0 */
+#define SPI_MODE_3       (SPI_CPOL | SPI_CPHA)    /* CPOL = 1, CPHA = 1 */
+
 struct spi_message
 {
-    void *send_buf;
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+    UINT8 *send_buf;
     UINT32 send_len;
-    
-    void *recv_buf;
+
+    UINT8 *recv_buf;
     UINT32 recv_len;
+#else
+    UINT8*send_buf;
+    UINT32 send_len;
+
+    UINT8*recv_buf;
+    UINT32 recv_len;
+
+#endif
+};
+
+/**
+ * SPI configuration structure
+ */
+struct spi_configuration
+{
+    UINT8 mode;
+    UINT8 data_width;
+    UINT16 reserved;
+    UINT32 max_hz;
 };
 
 typedef void (*spi_callback)(int port, void *param);
@@ -86,8 +189,55 @@ void spi_isr(void);
 int bk_spi_master_init(UINT32 rate,UINT32 mode);
 int bk_spi_master_xfer(struct spi_message *msg);
 int bk_spi_master_deinit(void);
+int bk_spi_master_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
+int bk_spi_master_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
+int bk_spi_master_dma_recv(struct spi_message*spi_msg );
+int bk_spi_master_dma_send(struct spi_message*spi_msg );
+
 /*slave api*/
 int bk_spi_slave_init(UINT32 rate, UINT32 mode);
 int bk_spi_slave_xfer(struct spi_message *msg);
 int bk_spi_slave_deinit(void);
+
+int bk_spi_slave_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
+int bk_spi_slave_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
+int bk_spi_slave_dma_send(struct spi_message*spi_msg );
+int bk_spi_slave_dma_recv(struct spi_message*spi_msg );
+void bk_spi_slave_dma_disable(void);
+void bk_master_dma_disable(void);
+
+#if CFG_USE_SPI2_DMA
+void spi2_init(void);
+void spi2_exit(void);
+void spi2_isr(void);
+int bk_spi2_slave_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi2_slave_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi2_slave_dma_recv(struct spi_message*spi2_msg );
+int bk_spi2_slave_dma_send(struct spi_message*spi2_msg );
+int bk_spi2_master_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi2_master_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi2_master_dma_send(struct spi_message*spi2_msg );
+int bk_spi2_master_dma_recv(struct spi_message*spi2_msg );
+void bk_spi2_master_dma_disable(void);
+void bk_spi2_slave_dma_disable(void);
+
+#endif
+
+#if CFG_USE_SPI3_DMA
+void spi3_init(void);
+void spi3_exit(void);
+void spi3_isr(void);
+int bk_spi3_slave_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi3_slave_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi3_slave_dma_recv(struct spi_message*spi2_msg );
+int bk_spi3_slave_dma_send(struct spi_message*spi2_msg );
+int bk_spi3_master_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi3_master_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi2_msg );
+int bk_spi3_master_dma_send(struct spi_message*spi2_msg );
+int bk_spi3_master_dma_recv(struct spi_message*spi2_msg );
+void bk_spi3_master_dma_disable(void);
+void bk_spi3_slave_dma_disable(void);
+#endif
+
+
 #endif //_SPI_PUB_H_

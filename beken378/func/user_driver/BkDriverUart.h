@@ -49,9 +49,12 @@
  ******************************************************/
 typedef enum
 {
-    BK_UART_1 = 0,
-    BK_UART_2,
-    BK_UART_MAX,
+	BK_UART_1 = 0,
+	BK_UART_2,
+	#if (CFG_SOC_NAME == SOC_BK7271)
+	BK_UART_3,
+	#endif
+	BK_UART_MAX
 } bk_uart_t;
 
 /******************************************************
@@ -63,10 +66,10 @@ typedef enum
 
 typedef struct
 {
-    uint32_t  size;
-    uint32_t  head;
-    uint32_t  tail;
-    uint8_t  *buffer;
+	uint32_t  size;
+	uint32_t  head;
+	uint32_t  tail;
+	uint8_t  *buffer;
 } ring_buffer_t;
 
 /******************************************************

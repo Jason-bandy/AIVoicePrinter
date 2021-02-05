@@ -72,11 +72,16 @@ echo "echo $SDK_REV into $SDK_REV_FILE ..."
 echo "#define BEKEN_SDK_REV	\"$SDK_REV\"" > $SDK_REV_FILE
 cat $SDK_REV_FILE
 
+PREV_PLATFORM_FILE=.platform
+if [ -f $PREV_PLATFORM_FILE ]; then
+	./tools/scripts/clean_build.sh
+	rm -f $PREV_PLATFORM_FILE
+fi
+
 for PLATFORM in ${PLATFORMS}
 do
 	echo "start making $PLATFORM build"
 
-	./tools/scripts/clean_build.sh
 	./tools/scripts/make_build.sh $PLATFORM
 	if [ $? != 0 ]; then
 		echo "make rev build error!"

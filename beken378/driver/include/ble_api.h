@@ -1,6 +1,11 @@
 #ifndef _BLE_API_H_
 #define _BLE_API_H_
 
+#include "sys_config.h"
+
+#if CFG_BLE_VERSION == BLE_VERSION_5_x
+#include "ble_api_5_x.h"
+#else
 #define MAX_ADV_DATA_LEN           (0x1F)
 #define MAX_SCAN_NUM               (15)
 
@@ -9,7 +14,6 @@
 /// Maximal length of the Device Name value
 #define APP_DEVICE_NAME_MAX_LEN      (18)
 #define KEY_LEN 16
-#define BLE_CONNECTION_MAX 1
 
 #define ABIT(n) (1 << n)
 
@@ -51,7 +55,7 @@ typedef enum
  * Bit [15]   : Extended properties present
  */
 
-typedef enum 
+typedef enum
 {
     /// Read Permission Mask
     RP_MASK             = 0x0003,
@@ -264,37 +268,7 @@ typedef enum
     BLE_ATT_INFO_REQ,
     BLE_CREATE_DB_OK,
     BLE_CREATE_DB_FAIL,
-    BLE_COMMON_EVT,
-	BLE_ACTIVITY_CREATED_IND,
-	BLE_ACTIVITY_STOPPED_IND,
-
-	BLE_UPDATA_ADV_DATA_IND,   ////update adv data ind
-	BLE_UPDATA_SCAN_RSP_IND,   ////update adv scan response data ind
-
-	BLE_EVENT_MAX,
 } ble_event_t;
-
-typedef enum 
-{
-    /// Advertising activity
-    BLE_ACTV_TYPE_ADV = 0,
-    /// Scanning activity
-    BLE_ACTV_TYPE_SCAN,
-    /// Initiating activity
-    BLE_ACTV_TYPE_INIT,
-    /// Periodic synchronization activity
-    BLE_ACTV_TYPE_PER_SYNC,
-}ble_actv_type;
-
-struct ble_activity_created_ind
-{
-    /// Activity identifier
-    uint8_t actv_idx;
-    /// Activity type
-    ble_actv_type actv_type;
-    /// Selected TX power for advertising activity
-    int8_t  tx_pwr;
-};
 
 struct ble_disconnect_ind
 {
@@ -318,7 +292,7 @@ typedef enum
 typedef struct
 {
     uint16_t prf_id;
-    uint8_t att_idx;
+    uint16_t att_idx;
     uint16_t length;
     uint8_t status;
 } att_info_req_t;
@@ -326,7 +300,7 @@ typedef struct
 typedef struct
 {
     uint16_t prf_id;
-    uint8_t att_idx;
+    uint16_t att_idx;
     uint8_t *value;
     uint16_t len;
 } write_req_t;
@@ -334,7 +308,7 @@ typedef struct
 typedef struct
 {
     uint16_t prf_id;
-    uint8_t att_idx;
+    uint16_t att_idx;
     uint8_t *value;
     uint16_t size;
 } read_req_t;
@@ -359,7 +333,7 @@ typedef struct
 
 typedef struct
 {
-    uint8_t scan_count;
+	uint8_t scan_count;
 	device_info_t info[MAX_SCAN_NUM];
 }ble_scan_list_t;
 
@@ -424,145 +398,6 @@ struct bk_prov_start_ind
     uint8_t  auth_size;
 };
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
-/// Scaning state machine
-enum app_scan_state
-{
-    /// Scaning activity does not exists
-    APP_SCAN_STATE_IDLE = 0,
-    /// Creating Scaning activity
-    APP_SCAN_STATE_CREATING,
-    /// Scaning activity created
-    APP_SCAN_STATE_CREATED,
-    /// Starting Scaning activity
-    APP_SCAN_STATE_STARTING,
-    /// Scaning activity started
-    APP_SCAN_STATE_STARTED,
-    /// Stopping Scaning activity
-    APP_SCAN_STATE_STOPPING,
-
-};
-
-/// Advertising state machine
-enum app_adv_state
-{
-    /// Advertising activity does not exists
-    APP_ADV_STATE_IDLE = 0,
-    /// Creating advertising activity
-    APP_ADV_STATE_CREATING,
-    /// Setting advertising data
-    APP_ADV_STATE_SETTING_ADV_DATA,
-    /// Setting scan response data
-    APP_ADV_STATE_SETTING_SCAN_RSP_DATA,
-     /// Updata adv data
-    APP_ADV_STATE_UPDATA_ADV_DATA,
-    /// Advertising activity created
-    APP_ADV_STATE_CREATED,
-    /// Starting advertising activity
-    APP_ADV_STATE_STARTING,
-    /// Advertising activity started
-    APP_ADV_STATE_STARTED,
-    /// Stopping advertising activity
-    APP_ADV_STATE_STOPPING,    
-    /// WAIT Deleteing advertising activity
-    APP_ADV_STATE_WAITING_DELETE,
-    
-    /// Deleteing advertising activity
-    APP_ADV_STATE_DELETEING,
-
-	APP_ADV_STATE_UPDATA_SCAN_RSP_DATA,
-	
-	APP_ADV_STATE_UPDATA2_ADV_DATA,
-	APP_ADV_STATE_UPDATA2_SCAN_RSP_DATA,
-};
-
-///BD Address structure
-/*@TRACE*/
-typedef struct
-{
-    ///6-byte array address value
-    uint8_t  addr[GAP_BD_ADDR_LEN];
-} bd_addr_t;
-
-/// Address information about a device address
-/*@TRACE*/
-struct gap_bdaddr
-{
-    /// BD Address of device
-    bd_addr_t addr;
-    /// Address type of the device 0=public/1=private random
-    uint8_t addr_type;
-};
-
-/// Application environment structure
-struct app_env_tag
-{
-    /// Connection handle
-    uint16_t conhdl;
-    /// Connection Index
-    uint8_t  conidx;
-
-    /// Advertising activity index
-    uint8_t adv_actv_idx;
-    /// Current advertising state (@see enum app_adv_state)
-    uint8_t adv_state;
-    /// Next expected operation completed event
-    uint8_t adv_op;
-
-    /// Last initialized profile
-    uint8_t next_svc;
-
-    /// Bonding status
-    uint8_t bonded;
-
-    /// Device Name length
-    uint8_t dev_name_len;
-    /// Device Name
-    uint8_t dev_name[APP_DEVICE_NAME_MAX_LEN];
-
-    /// Local device IRK
-    uint8_t loc_irk[KEY_LEN];
-
-    /// Secure Connections on current link
-    uint8_t sec_con_enabled;
-
-    /// Counter used to generate IRK
-    uint8_t rand_cnt;
-	
-	/// Scaning activity index
-	uint8_t scan_actv_idx;
-	/// Current scaning state (@see enum app_scan_state)
-	uint8_t scan_state;
-	/// Next expected operation completed event
-	uint8_t scan_op;
-		/// Scan interval
-	uint16_t scan_intv;
-	/// Scan window
-	uint16_t scan_wd;
-	
-	/// Init activity index
-	uint8_t init_actv_idx;
-	/// Current init state (@see enum app_init_state)
-	uint8_t init_state;
-	/// Next expected operation completed event
-	uint8_t init_op;
-	/// conn_intv value. Allowed range is 7.5ms to 4s.
-	uint16_t conn_intv;
-		/// Slave latency. Number of events that can be missed by a connected slave device
-	uint16_t conn_latency;
-	/// Link supervision timeout (in unit of 10ms). Allowed range is 100ms to 32s
-	uint16_t conn_super_to;
-	
-	uint16_t conn_dev_to;
-
-	uint8_t role[BLE_CONNECTION_MAX];
-	/// Address information about a device address
-	struct gap_bdaddr con_dev_addr[BLE_CONNECTION_MAX];
-};
-
-extern struct app_env_tag app_ble_ctx;
-#endif
-
 typedef void (*ble_event_cb_t)(ble_event_t event, void *param);
 typedef void (*ble_mesh_event_cb_t)(ble_mesh_event_t event, void *param);
 typedef void (*ble_recv_adv_cb_t)(recv_adv_t *recv_adv);
@@ -577,22 +412,11 @@ extern bk_ble_write_cb_t bk_ble_write_cb;
 extern adv_info_t adv_info;
 extern scan_info_t scan_info;
 
-void ble_activate(char *ble_name);
-void ble_set_write_cb(bk_ble_write_cb_t func);
-void ble_set_event_cb(ble_event_cb_t func);
-void ble_set_mesh_event_cb(ble_mesh_event_cb_t func);
-void ble_set_read_cb(bk_ble_read_cb_t func);
-void ble_set_recv_adv_cb(ble_recv_adv_cb_t func);
 ble_err_t bk_ble_create_db (struct bk_ble_db_cfg* ble_db_cfg);
-
-ble_err_t appm_start_advertising(void);
-ble_err_t appm_stop_advertising(void);
-uint8_t appm_start_scanning(void);
-uint8_t appm_stop_scanning(void);
-ble_scan_list_t *appm_get_scan_result(void);
-///void appm_disconnect(void);
-
+#if CFG_BLE_VERSION == BLE_VERSION_4_2
+extern ble_err_t appm_start_advertising(void);
+#endif
 ble_err_t bk_ble_send_ntf_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
 ble_err_t bk_ble_send_ind_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
-
+#endif
 #endif

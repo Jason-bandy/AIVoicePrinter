@@ -4,9 +4,9 @@
 #include "include.h"
 #include "lite-log.h"
 #include "utils_timer.h"
-#include "hal_machw.h"
 #include "uart_pub.h"
 
+#if CFG_SUPPORT_OTA_HTTP
 
 void iotx_time_start(iotx_time_t *timer)
 {
@@ -89,13 +89,15 @@ void utils_time_countdown_ms(iotx_time_t *timer, uint32_t millisecond)
 uint32_t utils_time_get_ms(void)
 {
 
-    return hal_machw_time()/1000;
+    return rtos_get_time();
 }
 
-uint64_t utils_time_left(uint64_t t_end, uint64_t t_now)
+uint32_t utils_time_left(uint32_t t_end, uint32_t t_now)
 {
-    uint64_t t_left;
-
-    return  (1!=(hal_machw_time_past(t_end*1000)));
+    int32_t left;
+    left = ( t_end - t_now );
+    if( left < 0 )
+        left = 0;
+    return  left;
 }
-
+#endif

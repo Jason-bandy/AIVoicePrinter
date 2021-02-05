@@ -7,7 +7,7 @@
 #if (BLE_COMM_SERVER)
 #include "ble.h"
 #include "ble_pub.h"
-#include "ble_api.h"
+#include "ble_api_5_x.h"
 #include "comm_task.h"
 #include "atts.h"
 #include "prf_types.h"

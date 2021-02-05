@@ -101,6 +101,10 @@ enum TASK_BLE_API_ID
     TASK_BLE_ID_COMMON       = 120,
 #endif
 
+#if (BLE_SDP_CLIENT)
+	TASK_BLE_ID_SDP			 = 150,   // SDP Client Task
+#endif
+
 #if (BLE_MESH)
     TASK_BLE_ID_MESH         = 200,  // Mesh Task
 #endif

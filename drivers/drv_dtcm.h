@@ -8,6 +8,8 @@ extern unsigned char _empty_ram;
 #define RT_DTCM_ADDR_START     (void*)&_empty_ram
 #if (CFG_SOC_NAME == SOC_BK7231N)
 #define RT_DTCM_ADDR_END       (void*)(0x00400000 + 192 * 1024)
+#elif (CFG_SOC_NAME == SOC_BK7271)
+#define RT_DTCM_ADDR_END       (void*)(0x00400000 + 512 * 1024)
 #else
 #define RT_DTCM_ADDR_END       (void*)(0x00400000 + 256 * 1024)
 #endif

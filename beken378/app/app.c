@@ -63,6 +63,10 @@ void bmsg_tx_handler(BUS_MSG_T *msg) __SECTION(".itcm");
 static void core_thread_main( void *arg ) __SECTION(".itcm");
 #endif
 
+#if CFG_IEEE80211AX
+#include "macif.h"
+#endif
+
 extern void net_wlan_initial(void);
 extern void wpas_thread_start(void);
 
@@ -130,7 +134,11 @@ void bmsg_rx_handler(BUS_MSG_T *msg)
     }
     GLOBAL_INT_RESTORE();
 
+#if CFG_IEEE80211AX
+    macif_rx_app_handler();
+#else
     rxl_cntrl_evt((int)msg->arg);
+#endif
 }
 
 void bmsg_skt_tx_handler(BUS_MSG_T *msg)
@@ -298,6 +306,7 @@ void ps_msg_process(UINT8 ps_msg)
         break;
 
     case PS_BMSG_IOCTL_RF_DISANABLE:
+        bmsg_ps_handler_rf_ps_mode_real_wakeup();
         power_save_dtim_disable();
         break;
 #endif
@@ -339,11 +348,11 @@ void ps_msg_process(UINT8 ps_msg)
 		#endif
         case PS_BMSG_IOCTL_RF_PS_TIMER_INIT:
             power_save_set_keep_timer_time(20);
-            break; 
-			
+            break;
+
         case PS_BMSG_IOCTL_RF_PS_TIMER_DEINIT:
             power_save_set_keep_timer_time(0);
-            break; 
+            break;
 #endif
 #if CFG_USE_AP_IDLE
     case PS_BMSG_IOCTL_AP_PS_RUN:
@@ -727,7 +736,7 @@ void core_thread_uninit(void)
 extern void  user_main(void);
 void __attribute__((weak)) user_main(void)
 {
-	
+
 }
 
 static void init_app_thread( void *arg )

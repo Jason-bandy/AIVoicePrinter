@@ -1,20 +1,24 @@
 #ifndef __I2C1_PUB_H__
 #define __I2C1_PUB_H__
 
+#define I2C0_FAILURE                (1)
+#define I2C0_SUCCESS                (0)
 #define I2C1_FAILURE                (1)
 #define I2C1_SUCCESS                (0)
 #define I2C2_FAILURE                (1)
 #define I2C2_SUCCESS                (0)
 
+#define I2C0_DEV_NAME               "i2c0"
 #define I2C1_DEV_NAME               "i2c1"
 #define I2C2_DEV_NAME               "i2c2"
 
 #define I2C1_CMD_MAGIC              (0x0AB00000)
-#define I2C2_CMD_MAGIC              (0x0ABF0000)
+#define I2C2_CMD_MAGIC              (0x0ABE0000)
+#define I2C0_CMD_MAGIC              (0x0ABF0000)
 
 #include "uart_pub.h"
 #define I2C_DEBUG
-#undef 	I2C_DEBUG
+#undef I2C_DEBUG
 
 #ifdef I2C_DEBUG
 #define I2C_PRT                    os_printf
@@ -23,10 +27,39 @@
 #define I2C_WPRT                   null_prf
 #endif
 
+#define I2C1_DEBUG              0
+#if I2C1_DEBUG
+#define I2C1_PRT                 os_printf
+#define I2C1_WPRT                warning_prf
+#define I2C1_EPRT                os_printf
+#else
+#define I2C1_PRT                 os_null_printf
+#define I2C1_WPRT                os_null_printf
+#define I2C1_EPRT                os_printf
+#endif
+#define I2C1_EPRT                os_printf
+#define I2C1_DEBUG_PRINTF		 os_null_printf
+
+
 #define ADDR_WIDTH_8               1
 #define ADDR_WIDTH_16              2
 
 #if (CFG_SOC_NAME == SOC_BK7271)
+enum
+{
+    I2C0_CMD_SET_ENSMB = I2C0_CMD_MAGIC + 1,
+    I2C0_CMD_SET_SMBUS_STA,
+    I2C0_CMD_SET_SMBUS_STOP,
+    I2C0_CMD_SET_SMBUS_ACK_TX,
+    I2C0_CMD_SET_SMBUS_TX_MODE,
+    I2C0_CMD_SET_FREQ_DIV,
+    I2C0_CMD_GET_SMBUS_INTERRUPT,
+    I2C0_CMD_CLEAR_SMBUS_INTERRUPT,
+    I2C0_CMD_GET_ACK_RX,
+    I2C0_CMD_GET_ACK_REQ,
+    I2C0_CMD_GET_SMBUS_BUSY,
+};
+
 enum
 {
     I2C1_CMD_SET_IDLE_CR = I2C1_CMD_MAGIC + 1,
@@ -134,9 +167,10 @@ typedef struct i2c2_msg {
 
 #define I2C_BAUD_1KHZ        1000
 #define I2C_BAUD_100KHZ      100000
+#define I2C_BAUD_200KHZ      200000
 #define I2C_BAUD_400KHZ      400000
 #define I2C_BAUD_4MHZ        4000000
-#define I2C_DEFAULT_BAUD     I2C_BAUD_400KHZ
+#define I2C_DEFAULT_BAUD     I2C_BAUD_200KHZ
 
 #define I2C_CLK_DIVID(rate)  (NUM_ROUND_UP(NUM_ROUND_UP(I2C1_DEFAULT_CLK, rate) - 6, 3) - 1)
 #define I2C_DEF_DIV          0x16

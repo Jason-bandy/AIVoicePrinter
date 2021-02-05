@@ -96,8 +96,8 @@ static void i2c1_set_freq_div(UINT32 div)
 {
     UINT32 reg_addr = REG_I2C1_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
-    
-    reg_val = (reg_val & ~(I2C1_FREQ_DIV_MASK << I2C1_FREQ_DIV_POSI)) 
+
+    reg_val = (reg_val & ~(I2C1_FREQ_DIV_MASK << I2C1_FREQ_DIV_POSI))
         | ((div & I2C1_FREQ_DIV_MASK) << I2C1_FREQ_DIV_POSI);
     REG_WRITE(reg_addr, reg_val);
 }
@@ -326,7 +326,7 @@ static void i2c1_isr(void)
         default:        // by gwf
             break;
     }
-    
+
     REG_WRITE(REG_I2C1_CONFIG, i2c1_config & (~I2C1_SI));
 }
 
@@ -409,7 +409,7 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
     gi2c1.TxMode = 0;
     gi2c1.RegAddr = i2c_op->op_addr;
     gi2c1.RemainNum = count;
-    gi2c1.pData = user_buf;
+    gi2c1.pData = (UINT8 *)user_buf;
     gi2c1.SalveID = i2c_op->salve_id;
     gi2c1.AddrFlag = 0;
     gi2c1.TransDone = 0;
@@ -500,10 +500,10 @@ static UINT32 i2c1_ctrl(UINT32 cmd, void *param)
         break;
     case I2C1_CMD_SET_SMBUS_ACK_TX:
         i2c1_set_smbus_ack_tx(*((UINT32 *)param));
-        break;      
+        break;
     case I2C1_CMD_SET_SMBUS_TX_MODE:
         i2c1_set_smbus_tx_mode(*((UINT32 *)param));
-        break;        
+        break;
     case I2C1_CMD_SET_FREQ_DIV:
         i2c1_set_freq_div(*((UINT32 *)param));
         break;
@@ -515,18 +515,18 @@ static UINT32 i2c1_ctrl(UINT32 cmd, void *param)
         break;
     case I2C1_CMD_GET_ACK_RX:
         ret = i2c1_get_ack_rx();
-        break;      
+        break;
     case I2C1_CMD_GET_ACK_REQ:
         ret = i2c1_get_ack_req();
-        break; 
+        break;
     case I2C1_CMD_GET_SMBUS_BUSY:
         ret = i2c1_get_smbus_busy();
         break;
-        
+
     default:
         break;
     }
-    
+
     return ret;
 }
 #endif

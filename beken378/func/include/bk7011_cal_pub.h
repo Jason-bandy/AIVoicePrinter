@@ -14,7 +14,7 @@ typedef enum{
 }TXSTRUCT;
 
 #define DEFAULT_TXID_ID           (12345678)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define DEFAULT_TXID_THERMAL      (350)
 #else
 #define DEFAULT_TXID_THERMAL      (280) //180430,7231:315,7231U:340
@@ -28,7 +28,7 @@ typedef enum{
     TXID_THERMAL,
     TXID_CHANNEL,
     TXID_XTAL,
-    TXID_ADC,    
+    TXID_ADC,
     TXID_LPFCAP,
     TXID_END,
     TXID_NON                    = TXID+0xFF
@@ -43,6 +43,7 @@ typedef enum{
     TXPWR_TAB_DIF_GN40_ID,
     TXPWR_TAB_BLE_ID,
     TXPWR_TAB_CALI_STATUTS,
+    TXPWR_TAB_N20_ID,
     TXPWR_END,
     TXPWR_NON                   = TXPWR_TAB_TAB+0xFF
 }TXPWR_ELEM_ID;
@@ -53,6 +54,7 @@ typedef enum {
     TXPWR_TAB_G_RD              = 0x2u,
     TXPWR_TAB_N_RD              = 0x4u,
     TXPWR_TAB_BLE               = 0x8u,
+    TXPWR_TAB_N20_RD            = 0x16u,
 } TXPWR_IS_RD;
 
 typedef enum{
@@ -86,7 +88,7 @@ typedef enum{
 #define CALI_STATUS_PASS        1
 #define CALI_STATUS_FAIL        0
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 typedef struct tmp_pwr_st {//do
     unsigned trx0x0c_12_15 : 4; //not used on BK7231N actually
     signed p_index_delta : 6;
@@ -100,7 +102,7 @@ typedef struct tmp_pwr_st {
     signed p_index_delta : 6;
     signed p_index_delta_g : 6;
     signed p_index_delta_ble : 6;
-    unsigned xtal_c_dlta : 6; 
+    unsigned xtal_c_dlta : 6;
 } TMP_PWR_ST, *TMP_PWR_PTR;
 #else
 typedef struct tmp_pwr_st {
@@ -115,6 +117,7 @@ struct temp_cal_pwr_st {
     UINT8 mode;
     INT16 shift;
     INT16 shift_g;
+    INT16 shift_ble;
 };
 
 typedef enum
@@ -157,6 +160,7 @@ extern UINT32 manual_cal_load_default_txpwr_tab(UINT32 is_ready_flash);
 extern void manual_cal_set_dif_g_n40(UINT32 diff);
 extern void manual_cal_set_dif_g_n20(UINT32 diff);
 extern void manual_cal_set_dif_g_ble(int dif_ch0, int dif_ch19, int dif_ch39);
+extern void manual_cal_set_dif_ble(UINT32 diff);
 extern void manual_cal_get_current_temperature(void);
 extern int manual_cal_write_macaddr_to_flash(UINT8 *mac_ptr);
 extern int manual_cal_get_macaddr_from_flash(UINT8 *mac_ptr);
@@ -204,7 +208,7 @@ extern void rwnx_cal_set_txpwr_for_ble_boardcast(void);
 extern void bk7011_set_rf_config_tssithred_b(int tssi_thred_b);
 extern void bk7011_set_rf_config_tssithred_g(int tssi_thred_g);
 extern void rwnx_cal_recover_txpwr_for_wifi(void);
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 extern void rwnx_cal_recover_rf_setting(void);
 extern void rwnx_cal_recover_wifi_setting(void);
 #endif
@@ -255,6 +259,8 @@ extern UINT32 manual_cal_txpwr_tab_ready_in_flash(void);
 extern UINT32 rwnx_cal_load_user_rfcali_mode(int *rfcali_mode) __attribute__ ((weak));
 extern UINT32 rwnx_cal_load_user_g_tssi_threshold(int *tssi_g) __attribute__ ((weak));
 extern UINT32 rwnx_cal_load_user_b_tssi_threshold(int *tssi_b) __attribute__ ((weak));
+extern UINT32 rwnx_cal_load_user_n20_tssi_threshold(int *tssi_g) __attribute__ ((weak));
+extern UINT32 rwnx_cal_load_user_n40_tssi_threshold(int *tssi_b) __attribute__ ((weak));
 extern UINT32 rwnx_cal_is_auto_rfcali_printf_on(void) __attribute__ ((weak));
 
 extern void cmd_rfcali_cfg_mode(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
@@ -262,4 +268,8 @@ extern void cmd_rfcali_cfg_rate_dist(char *pcWriteBuffer, int xWriteBufferLen, i
 extern void cmd_rfcali_cfg_tssi_g(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 extern void cmd_rfcali_cfg_tssi_b(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 extern void cmd_rfcali_show_data(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
+
+extern void bk7011_set_single_carrier(UINT32 type, UINT32 rate, UINT32 band);
+extern void bk7011_stop_tx_pattern(void);
+extern void bk7011_start_tx_pattern(UINT32 tx_pattern);
 #endif // _BK7011_CAL_PUB_H_

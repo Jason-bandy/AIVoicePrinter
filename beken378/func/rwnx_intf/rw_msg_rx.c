@@ -137,7 +137,7 @@ void *sr_get_scan_results(void)
 	ptr = scan_rst_set_ptr;
 	scan_rst_set_ptr->ref += 1;
 	GLOBAL_INT_RESTORE();
-	
+
     return ptr;
 }
 
@@ -155,14 +155,14 @@ void sr_flush_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 {
 	GLOBAL_INT_DECLARATION();
-	
+
 	GLOBAL_INT_DISABLE();
 	if((0 == ptr) || (0 == ptr->ref))
 	{
 		os_printf("released_scan_results\r\n");
 		goto release_exit;
 	}
-	
+
 	ptr->ref -= 1;
 
 	if(ptr->ref)
@@ -170,17 +170,17 @@ void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 		os_printf("release_scan_results later\r\n");
 		goto release_exit;
 	}
-	
+
 	if(ptr)
 	{
 		sr_free_all(ptr);
 	}
 	scan_rst_set_ptr = 0;
 	resultful_scan_cfm = 0;
-	
+
 	wpa_clear_scan_results();
-	
-release_exit:	
+
+release_exit:
 	GLOBAL_INT_RESTORE();
 	return;
 
@@ -336,6 +336,21 @@ void mhdr_scanu_reg_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt)
 	}
 }
 
+void mhdr_scanu_reg_cb_clean(FUNC_2PARAM_PTR ind_cb, void *ctxt)
+{
+	int i;
+
+	for(i = 0; i < (sizeof(scan_cfm_cb)/sizeof(IND_CALLBACK_T)); i++){
+		if((scan_cfm_cb[i].cb == ind_cb)
+			||(scan_cfm_cb[i].ctxt_arg == ctxt)){
+			scan_cfm_cb[i].ctxt_arg = NULL;
+			scan_cfm_cb[i].cb = NULL;
+			return;
+		}
+	}
+}
+
+
 void mhdr_scanu_reg_cb_handle(struct scanu_start_cfm *cfm)
 {
 	IND_CALLBACK_T _scan_cfm_cb[2];
@@ -442,28 +457,14 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
 
 		bk7011_default_rxsens_setting();
 
-#if 0	/* send to wpas */
-		if (assoc_cfm_cb.cb)
-			(*assoc_cfm_cb.cb)(assoc_cfm_cb.ctxt_arg, assoc_ind_ptr->vif_idx);
-#endif
-
 		if (wlan_connect_user_cb.cb)
 			(*wlan_connect_user_cb.cb)(wlan_connect_user_cb.ctxt_arg, 0);
-	} /*else {
-		os_printf("---------SM_CONNECT_IND_fail\r\n");		// EVENT_DISASSOC sent to wpa_s
-		mhdr_disconnect_ind(msg);
-	}  */
+	}
 
 	mcu_prevent_clear(MCU_PS_CONNECT);
 
     UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
-        
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-	rf_can_share_for_ble();
-#endif
-#endif
 }
 
 /* SM_AUTH_IND handler, send it to wpa_s */
@@ -482,42 +483,47 @@ void mhdr_auth_ind(void *msg, UINT32 len)
 #else /* !CONFIG_SME */
 void mhdr_connect_ind(void *msg, UINT32 len)
 {
-    struct ke_msg *msg_ptr;
-    struct sm_connect_ind *conn_ind_ptr;
+	struct ke_msg *msg_ptr;
+	struct sm_connect_ind *conn_ind_ptr;
 
-    msg_ptr = (struct ke_msg *)msg;
-    conn_ind_ptr = (struct sm_connect_ind *)msg_ptr->param;
-    if(0 == conn_ind_ptr->status_code)
-    {
-        os_printf("---------SM_CONNECT_IND_ok\r\n");
+	msg_ptr = (struct ke_msg *)msg;
+	conn_ind_ptr = (struct sm_connect_ind *)msg_ptr->param;
 
-        bk7011_default_rxsens_setting();
-        if(assoc_cfm_cb.cb)
-        {
-            (*assoc_cfm_cb.cb)(assoc_cfm_cb.ctxt_arg, conn_ind_ptr->vif_idx);
-        }
+#if !CFG_WPA_CTRL_IFACE
+	if (0 == conn_ind_ptr->status_code) {
+		os_printf("---------SM_CONNECT_IND_ok\r\n");
 
-        if(wlan_connect_user_cb.cb)
-        {
-            (*wlan_connect_user_cb.cb)(wlan_connect_user_cb.ctxt_arg, 0);
-        }
-    }
-    else
-    {
-        os_printf("---------SM_CONNECT_IND_fail\r\n");
+		bk7011_default_rxsens_setting();
+		if (assoc_cfm_cb.cb)
+			(*assoc_cfm_cb.cb)(assoc_cfm_cb.ctxt_arg, conn_ind_ptr->vif_idx);
+
+		if (wlan_connect_user_cb.cb)
+			(*wlan_connect_user_cb.cb)(wlan_connect_user_cb.ctxt_arg, 0);
+	} else {
+		os_printf("---------SM_CONNECT_IND_fail\r\n");
 		mhdr_disconnect_ind(msg);
-    }
+	}
+#else
+	if (0 == conn_ind_ptr->status_code) {
+		os_printf("---------SM_CONNECT_IND_ok\n");
 
-    mcu_prevent_clear(MCU_PS_CONNECT);
-    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
-    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
-    
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-    rf_can_share_for_ble();
+		bk7011_default_rxsens_setting();
+
+		if (wlan_connect_user_cb.cb)
+			(*wlan_connect_user_cb.cb)(wlan_connect_user_cb.ctxt_arg, 0);
+	} else {
+		os_printf("---------SM_CONNECT_IND_fail\n");
+	}
+
+	/* Send to wpa_supplicant */
+	wpa_ctrl_event_copy(WPA_CTRL_EVENT_CONNECT_IND, conn_ind_ptr, sizeof(*conn_ind_ptr));
 #endif
-#endif
+
+	mcu_prevent_clear(MCU_PS_CONNECT);
+	UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+	sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 }
+
 #endif
 
 /* RXU_MGT_IND handler, send it to wpa_s */
@@ -548,7 +554,7 @@ void mhdr_mgmt_ind(void *msg, UINT32 len)
 void mhdr_set_station_status(rw_evt_type val)
 {
     GLOBAL_INT_DECLARATION();
-	
+
     GLOBAL_INT_DISABLE();
     connect_flag = val;
 #if (CFG_SUPPORT_ALIOS)
@@ -780,7 +786,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		/* scan result indication */
 		if (resultful_scan_cfm && scan_rst_set_ptr) {
 			sr_flush_scan_results(scan_rst_set_ptr);
-			
+
 			scan_rst_set_ptr = 0;
 			resultful_scan_cfm = 0;
 		}
@@ -821,7 +827,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		/* connect indication */
 		if (scan_rst_set_ptr) {
 			sr_release_scan_results(scan_rst_set_ptr);
-			
+
 			scan_rst_set_ptr = 0;
 			resultful_scan_cfm = 0;
 		}
@@ -841,12 +847,12 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 	case SM_DISCONNECT_IND:
 		os_printf("SM_DISCONNECT_IND\r\n");
 		mhdr_disconnect_ind(rx_msg);
-		
+
 #if (CFG_SOC_NAME != SOC_BK7271)
 		extern UINT32 rwnx_sys_is_enable_hw_tpc(void);
 		if (rwnx_sys_is_enable_hw_tpc() == 0)
 			rwnx_cal_set_txpwr(20, 11);
-#endif	
+#endif
 
 #if CFG_ROLE_LAUNCH
 		rl_pre_sta_set_status(RL_STATUS_STA_LAUNCH_FAILED);
@@ -866,12 +872,6 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		break;
 
 	case SM_BEACON_LOSE_IND:
-#if CFG_USE_BLE_PS
-#if (CFG_SOC_NAME != SOC_BK7231N)
-		rf_not_share_for_ble();
-#endif
-#endif
-
 		if (fn) {
 			param = RW_EVT_STA_BEACON_LOSE;
 			(*fn)(&param);
@@ -885,7 +885,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 
 	case MM_TAGGED_PARAM_CHANGE:
 		bk_printf("[wzl]MM_TAGGED_PARAM_CHANGE\r\n");
-		
+
 #if RL_SUPPORT_FAST_CONNECT
 		rl_clear_bssid_info();
 #endif
@@ -898,7 +898,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		switch (status_ind->status) {
 		case WLAN_REASON_MICHAEL_MIC_FAILURE:
 			param = RW_EVT_STA_PASSWORD_WRONG;
-		
+
 #if RL_SUPPORT_FAST_CONNECT
 			rl_clear_bssid_info();
 #endif
@@ -968,11 +968,14 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 			param = RW_EVT_STA_CONNECTED;
 			(*fn)(&param);
 		}
-		mhdr_set_station_status(RW_EVT_STA_CONNECTED);
+		if (mhdr_get_station_status() < RW_EVT_STA_CONNECTED)
+		{
+			mhdr_set_station_status(RW_EVT_STA_CONNECTED);
 
 #if (RF_USE_POLICY == BLE_DEFAULT_WIFI_REQUEST)
-		wifi_station_status_event_notice(0, RW_EVT_STA_CONNECTED);
+			wifi_station_status_event_notice(0, RW_EVT_STA_CONNECTED);
 #endif
+		}
 		break;
 
 	case APM_ASSOC_IND:

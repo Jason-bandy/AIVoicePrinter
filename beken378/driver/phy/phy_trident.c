@@ -40,6 +40,7 @@
 #include "uart_pub.h"
 #include "intc_pub.h"
 #include "power_save_pub.h"
+#include "bk7011_cal_pub.h"
 
 #if (CFG_IEEE80211AX == 0)
 /*
@@ -376,7 +377,7 @@ const uint32_t agc_ram_parameter[] =
 	0x04000131,
 	0x00000000,
 	0x8432028f,
-	0x8400013f,
+	0x84000163, //huaming20201224 for rx sens
 	0x80104963,
 	0x08104937,
 	0x8810493b,
@@ -1910,7 +1911,11 @@ static void phy_agc_init(void)
     // ADC sat thd
     agc_rwnxagcsat_set(0x8373335);
 #else
+#if (SOC_BK7271 == CFG_SOC_NAME)
+    REG_PL_WR(MDM_REG_36_ADDR, (REG_PL_RD(MDM_REG_36_ADDR) | MDM_REG_36_AGC_GAIN_SET_BIT)); 
+#else
     REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, (REG_PL_RD(REG_AGC_BASE_ADDR + 0x890) | 0x2));  // Enable AGC OPT
+#endif
     agc_rwnxagcevtsat_set(0x05044804);
     agc_rwnxagcevtdet_set(0x3D401008);
     agc_rwnxagcevtdis_set(0x3955B00B);
@@ -2442,12 +2447,27 @@ void phy_unsupported_modulation_check(void)
     } while(0);
 }
 
-void phy_enable_rx_switch()
+void phy_enable_rx_switch(void)
 {
     uint32_t rege_val = rc_trx_reg14_get();
     rege_val |= BIT(25);
     rc_trx_reg14_set(rege_val);
 }
+
+void phy_disable_rx_switch(void)
+{
+    uint32_t rege_val = rc_trx_reg14_get();
+    rege_val &= ~ BIT(25);
+    rc_trx_reg14_set(rege_val);
+}
+
+static uint8_t large_singal_status;
+
+uint8_t check_large_singal_status(void)
+{
+    return large_singal_status;
+}
+
 
 int large_signal_cnt;
 int small_signal_cnt;
@@ -2481,6 +2501,7 @@ void phy_large_signal_support(int8_t rssi)
 
     if (rxswitch_en && (large_signal_cnt >= 10))
     {
+        large_singal_status = 1;
         //close rx switch
         rege_val &= ~ BIT(25);
         rc_trx_reg14_set(rege_val);
@@ -2488,6 +2509,7 @@ void phy_large_signal_support(int8_t rssi)
 
     if(!rxswitch_en && (small_signal_cnt >= 10))
     {
+        large_singal_status = 0;
         //open rx switch
         rege_val |= BIT(25);
         rc_trx_reg14_set(rege_val);
@@ -2523,12 +2545,6 @@ void phy_get_version(uint32_t *version_1, uint32_t *version_2)
 }
 
 extern void rwnx_cal_set_40M_setting(void);
-#if CFG_IEEE80211AX
-void phy_set_channel(const struct mac_chan_op *chan, uint8_t index)
-{
-    //TODO
-}
-#else
 void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
                      uint16_t center1_freq, uint16_t center2_freq, uint8_t index)
 {
@@ -2636,7 +2652,6 @@ void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
         //agc_rwnxagcsat_set(0x8393537);
     }
 }
-#endif //CFG_IEEE80211AX
 
 void phy_get_channel(struct phy_channel_info *info, uint8_t index)
 {
@@ -2858,11 +2873,7 @@ void phy_init_after_wakeup(void)
     cfg.parameters[1] = 0;
     phy_init(&cfg);
 
-#if CFG_IEEE80211AX
-    //TODO
-#else
     phy_set_channel(PHY_BAND_2G4, PHY_CHNL_BW_20, freq, freq, 0, PHY_PRIM);
-#endif
 }
 
 #if (CFG_SOC_NAME == SOC_BK7231N)

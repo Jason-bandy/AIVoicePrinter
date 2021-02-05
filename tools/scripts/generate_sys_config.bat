@@ -5,6 +5,7 @@
 
 if "%2" equ "" (
 set old_sys_config=config\sys_config.h
+set old_rtconfig=rtconfig.h
 )
 
 if not exist config (
@@ -14,31 +15,37 @@ if not exist config (
 if "%1" equ "bk7231u" (
 set new_sys_config=beken378\app\config\sys_config_bk7231u.h
 set new_linkscript=config\bk72xx.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7231u.h
 goto update_sys_config
 )
 if "%1" equ "bk7231n" (
 set new_sys_config=beken378\app\config\sys_config_bk7231n.h
 set new_linkscript=config\bk7231n_boot.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7231n.h
 goto update_sys_config
 )
 if "%1" equ "bk7251" (
 set new_sys_config=beken378\app\config\sys_config_bk7251.h
 set new_linkscript=config\bk72xx.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7251.h
 goto update_sys_config
 )
 if "%1" equ "bk7231" (
 set new_sys_config=beken378\app\config\sys_config_bk7231.h
 set new_linkscript=config\bk72xx.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7231.h
 goto update_sys_config
 )
 if "%1" equ "bk7271" (
 set new_sys_config=beken378\app\config\sys_config_bk7271.h
 set new_linkscript=config\bk7271.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7271.h
 goto update_sys_config
 )
 if "%1" equ "" (
 set new_sys_config=beken378\app\config\sys_config_bk7231u.h
 set new_linkscript=config\bk72xx.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7231u.h
 goto update_sys_config
 )
 
@@ -69,6 +76,7 @@ if exist %old_sys_config% (
 
 if !new_hash! neq !old_hash! (
 	copy %new_sys_config% %old_sys_config% /Y
+	copy %new_rt_config% %old_rtconfig% /Y
 )
 
 copy %new_linkscript% link.lds /Y

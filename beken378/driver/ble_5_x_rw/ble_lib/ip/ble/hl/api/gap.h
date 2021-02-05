@@ -40,7 +40,7 @@
 
 #include <stdint.h>
 #include "compiler.h"
-#include "ble_api.h"
+#include "ble_api_5_x.h"
 /*
  * DEFINES
  ****************************************************************************************
@@ -605,6 +605,23 @@ typedef struct
     uint8_t y[GAP_P256_KEY_LEN];
 } public_key_t;
 
+///BD Address structure
+/*@TRACE*/
+typedef struct
+{
+    ///6-byte array address value
+    uint8_t  addr[GAP_BD_ADDR_LEN];
+} bd_addr_t;
+
+/// Address information about a device address
+/*@TRACE*/
+struct gap_bdaddr
+{
+    /// BD Address of device
+    bd_addr_t addr;
+    /// Address type of the device 0=public/1=private random
+    uint8_t addr_type;
+};
 
 /// Resolving list device information
 /*@TRACE*/

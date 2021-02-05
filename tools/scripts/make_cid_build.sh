@@ -69,12 +69,19 @@ echo "echo $SDK_COMMIT into $SDK_REV_FILE ..."
 echo "#define BEKEN_SDK_REV	\"$SDK_COMMIT\"" > $SDK_REV_FILE
 cat $SDK_REV_FILE
 
+PREV_PLATFORM_FILE=.platform
+if [ -f $PREV_PLATFORM_FILE ]; then
+	./tools/scripts/clean_build.sh
+	if [ -f ${SDK_DIR}/ip/lmac/src/rx/rxl/rxl_cntrl.c ]; then
+		./tools/scripts/clean_libs.sh
+	fi
+	rm -f $PREV_PLATFORM_FILE
+fi
+
 for PLATFORM in ${PLATFORMS}
 do
 	echo "start making $PLATFORM build"
 
-	./tools/scripts/clean_build.sh
-	./tools/scripts/clean_libs.sh
 	./tools/scripts/make_build.sh $PLATFORM
 	if [ $? != 0 ]; then
 		echo "make cid build error!"

@@ -28,16 +28,16 @@
 #define PERI_CLK_UART1                               (1 << 0)
 #define PERI_CLK_UART2                               (1 << 1)
 #define PERI_CLK_I2C1                                (1 << 2)
-#define PERI_CLK_IRDA                                (1 << 3) 
+#define PERI_CLK_IRDA                                (1 << 3)
 #define PERI_CLK_I2C2                                (1 << 4)
 #define PERI_CLK_SARADC                              (1 << 5)  // hardware bug: This two bits reversed
 #define PERI_CLK_SPI                                 (1 << 6)
 #define PERI_CLK_PWMS                                (1 << 7)
-#define PERI_CLK_SDIO                                (1 << 8) 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#define PERI_CLK_SDIO                                (1 << 8)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define PERI_CLK_EFUSE                               (1 << 9)
 #else
-#define PERI_CLK_SARADC_AUD                          (1 << 9) 
+#define PERI_CLK_SARADC_AUD                          (1 << 9)
 #endif
 
 #define QSPI_CLK_MUX_POSI                            (16)
@@ -79,7 +79,7 @@
 #define PWD_TIMER_26M_CLK                                  (1 << 20)
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define PWD_TIMER1_CLK                               (1 << 21)
 #define PWD_TIMER0_CLK                               (1 << 20)
 #else
@@ -88,7 +88,7 @@
 #endif
 #define PWD_SDIO_CLK                                 (1 << 17)
 #define PWD_TL410_WATCHDOG                           (1 << 16)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define PWD_SECURITY_CLK                             (1 << 15)
 #else
 #define PWD_AUDIO_CLK                                (1 << 15)
@@ -103,7 +103,7 @@
 #define PWD_SARADC_CLK                               (1 <<  7)
 #define PWD_SPI_CLK                                  (1 <<  6)
 #define PWD_I2C2_CLK                                 (1 <<  5)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define PWD_I2S_PCM_CLK                              (1 <<  4)
 #endif
 #define PWD_IRDA_CLK                                 (1 <<  3)
@@ -113,13 +113,13 @@
 
 #define ICU_PERI_CLK_GATING                          (ICU_BASE + 3 * 4)
 #define CLKGATE_DISABLE_MAC_AHB                      (1 << 16)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define CLKGATE_DISABLE_FFT_AHB                      (1 << 15)
 #define CLKGATE_DISABLE_USB_AHB                      (1 << 14)
 #endif
 #define CLKGATE_DISABLE_SDIO_AHB                     (1 << 13)
 #define CLKGATE_DISABLE_SARADC_APB                   (1 << 12)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define CLKGATE_DISABLE_PWM_APB                      (1 << 11)
 #define CLKGATE_DISABLE_TIMER_APB                    (1 << 10)
 #else
@@ -156,62 +156,62 @@
 #define JTAG_SEL_RD_TL4                              (0x00000001)
 
 #define ICU_INTERRUPT_ENABLE                         (ICU_BASE + 16 * 4)
-#if (CFG_SOC_NAME == SOC_BK7231N)
-#define FIQ_BT_EN_BIT                                (1 << 31) 
-#define FIQ_BLE_EN_BIT                               (1 << 30) 
-#define FIQ_BTDM_EN_BIT                              (1 << 29) 
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#define FIQ_BT_EN_BIT                                (1 << 31)
+#define FIQ_BLE_EN_BIT                               (1 << 30)
+#define FIQ_BTDM_EN_BIT                              (1 << 29)
 #endif
-#define FIQ_DPLL_UNLOCK_EN_BIT                       (1 << 28) 
-#if (CFG_SOC_NAME != SOC_BK7231N)
-#define FIQ_SPI_DMA_EN_BIT                           (1 << 27) 
+#define FIQ_DPLL_UNLOCK_EN_BIT                       (1 << 28)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#define FIQ_SPI_DMA_EN_BIT                           (1 << 27)
 #endif
 #define FIQ_MAC_WAKEUP_EN_BIT                        (1 << 26)
 #if (CFG_SOC_NAME == SOC_BK7231)
-#define FIQ_MAILBOX1_EN_BIT                          (1 << 25) 
+#define FIQ_MAILBOX1_EN_BIT                          (1 << 25)
 #define FIQ_MAILBOX0_EN_BIT                          (1 << 24)
-#elif (CFG_SOC_NAME != SOC_BK7231N)
-#define FIQ_SECURITY_EN_BIT                          (1 << 25) 
-#define FIQ_USB_PLUG_INOUT_EN_BIT                    (1 << 24)  
+#elif (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#define FIQ_SECURITY_EN_BIT                          (1 << 25)
+#define FIQ_USB_PLUG_INOUT_EN_BIT                    (1 << 24)
 #endif // (CFG_SOC_NAME == SOC_BK7231)
-#if (CFG_SOC_NAME != SOC_BK7231N)
-#define FIQ_SDIO_DMA_EN_BIT                          (1 << 23) 
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#define FIQ_SDIO_DMA_EN_BIT                          (1 << 23)
 #endif
-#define FIQ_MAC_GENERAL_EN_BIT                       (1 << 22) 
-#define FIQ_MAC_PROT_TRIGGER_EN_BIT                  (1 << 21) 
-#define FIQ_MAC_TX_TRIGGER_EN_BIT                    (1 << 20) 
-#define FIQ_MAC_RX_TRIGGER_EN_BIT                    (1 << 19) 
-#define FIQ_MAC_TX_RX_MISC_EN_BIT                    (1 << 18) 
-#define FIQ_MAC_TX_RX_TIMER_EN_BIT                   (1 << 17) 
-#define FIQ_MODEM_EN_BIT                             (1 << 16) 
-#define IRQ_GDMA_EN_BIT                              (1 << 15) 
-#if (CFG_SOC_NAME == SOC_BK7231N)
-#define IRQ_LA_EN_BIT                                (1 << 14) 
-#define IRQ_SECURITY_EN_BIT                          (1 << 13) 
+#define FIQ_MAC_GENERAL_EN_BIT                       (1 << 22)
+#define FIQ_MAC_PROT_TRIGGER_EN_BIT                  (1 << 21)
+#define FIQ_MAC_TX_TRIGGER_EN_BIT                    (1 << 20)
+#define FIQ_MAC_RX_TRIGGER_EN_BIT                    (1 << 19)
+#define FIQ_MAC_TX_RX_MISC_EN_BIT                    (1 << 18)
+#define FIQ_MAC_TX_RX_TIMER_EN_BIT                   (1 << 17)
+#define FIQ_MODEM_EN_BIT                             (1 << 16)
+#define IRQ_GDMA_EN_BIT                              (1 << 15)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#define IRQ_LA_EN_BIT                                (1 << 14)
+#define IRQ_SECURITY_EN_BIT                          (1 << 13)
 #else
-#define IRQ_FFT_EN_BIT                               (1 << 14) 
-#define IRQ_USB_EN_BIT                               (1 << 13) 
+#define IRQ_FFT_EN_BIT                               (1 << 14)
+#define IRQ_USB_EN_BIT                               (1 << 13)
 #endif
-#define IRQ_SDIO_EN_BIT                              (1 << 12) 
-#define IRQ_SARADC_EN_BIT                            (1 << 11) 
-#if (CFG_SOC_NAME != SOC_BK7231N)
-#define IRQ_AUDIO_EN_BIT                             (1 << 10) 
+#define IRQ_SDIO_EN_BIT                              (1 << 12)
+#define IRQ_SARADC_EN_BIT                            (1 << 11)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#define IRQ_AUDIO_EN_BIT                             (1 << 10)
 #endif
-#define IRQ_PWM_EN_BIT                               (1 << 9) 
-#if (CFG_SOC_NAME == SOC_BK7231N)
-#define IRQ_TIMER_EN_BIT                             (1 << 8) 
+#define IRQ_PWM_EN_BIT                               (1 << 9)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#define IRQ_TIMER_EN_BIT                             (1 << 8)
 #else
-#define IRQ_TL410_WATCHDOG_EN_BIT                    (1 << 8) 
+#define IRQ_TL410_WATCHDOG_EN_BIT                    (1 << 8)
 #endif
-#define IRQ_GPIO_EN_BIT                              (1 << 7) 
-#define IRQ_SPI_EN_BIT                               (1 << 6) 
-#define IRQ_I2C2_EN_BIT                              (1 << 5) 
-#if (CFG_SOC_NAME != SOC_BK7231N)
-#define IRQ_I2S_PCM_EN_BIT                           (1 << 4) 
+#define IRQ_GPIO_EN_BIT                              (1 << 7)
+#define IRQ_SPI_EN_BIT                               (1 << 6)
+#define IRQ_I2C2_EN_BIT                              (1 << 5)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#define IRQ_I2S_PCM_EN_BIT                           (1 << 4)
 #endif
-#define IRQ_IRDA_EN_BIT                              (1 << 3) 
-#define IRQ_I2C1_EN_BIT                              (1 << 2) 
-#define IRQ_UART2_EN_BIT                             (1 << 1) 
-#define IRQ_UART1_EN_BIT                             (1 << 0) 
+#define IRQ_IRDA_EN_BIT                              (1 << 3)
+#define IRQ_I2C1_EN_BIT                              (1 << 2)
+#define IRQ_UART2_EN_BIT                             (1 << 1)
+#define IRQ_UART1_EN_BIT                             (1 << 0)
 
 #define ICU_GLOBAL_INT_EN                            (ICU_BASE + 17 * 4)
 #define GINTR_FIQ_EN                                 (1 << 1)
@@ -223,8 +223,8 @@
 #define FIQ_MAILBOX1_STATUS_BIT                      (1 << 25)
 #define FIQ_MAILBOX0_STATUS_BIT                      (1 << 24)
 #else
-#define FIQ_SECURITY_STATUS_BIT                      (1 << 25) 
-#define FIQ_USB_PLUG_INOUT_STATUS_BIT                (1 << 24) 
+#define FIQ_SECURITY_STATUS_BIT                      (1 << 25)
+#define FIQ_USB_PLUG_INOUT_STATUS_BIT                (1 << 24)
 #endif // (CFG_SOC_NAME == SOC_BK7231)
 #define FIQ_SDIO_DMA_STATUS_BIT                      (1 << 23)
 #define FIQ_MAC_GENERAL_STATUS_BIT                   (1 << 22)
@@ -252,14 +252,14 @@
 #define IRQ_UART1_STATUS_BIT                         (1 << 0)
 
 #define ICU_ARM_WAKEUP_EN                            (ICU_BASE + 20 * 4)
-#if (CFG_SOC_NAME == SOC_BK7231N)
-#define BT_WAKEUP_EN_BIT                            (1 << 31) 
-#define BLE_WAKEUP_EN_BIT                           (1 << 30) 
-#define BTDM_WAKEUP_EN_BIT                          (1 << 29) 
-#define DPLL_WAKEUP_EN_BIT                          (1 << 28) 
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#define BT_WAKEUP_EN_BIT                            (1 << 31)
+#define BLE_WAKEUP_EN_BIT                           (1 << 30)
+#define BTDM_WAKEUP_EN_BIT                          (1 << 29)
+#define DPLL_WAKEUP_EN_BIT                          (1 << 28)
 #endif
-#define MAC_ARM_WAKEUP_EN_BIT                       	 (1 << 26) 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#define MAC_ARM_WAKEUP_EN_BIT                       	 (1 << 26)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define MAILBOX1_ARM_WAKEUP_EN_BIT                      (1 << 25)
 #define MAILBOX0_ARM_WAKEUP_EN_BIT                      (1 << 24)
 #define SDIO_DMA_ARM_WAKEUP_EN_BIT                      (1 << 23)
@@ -272,7 +272,7 @@
 #define MAC_TX_RX_TIMER_ARM_WAKEUP_EN_BIT               (1 << 17)
 #define MODEM_ARM_WAKEUP_EN_BIT                         (1 << 16)
 #define GENERDMA_ARM_WAKEUP_EN_BIT                      (1 << 15)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define LA_ARM_WAKEUP_EN_BIT                            (1 << 14)
 #define SECURITY_ARM_WAKEUP_EN_BIT                      (1 << 13)
 #else
@@ -281,7 +281,7 @@
 #endif
 #define SDIO_ARM_WAKEUP_EN_BIT                          (1 << 12)
 #define SARADC_ARM_WAKEUP_EN_BIT                        (1 << 11)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
 #define AUDIO_ARM_WAKEUP_EN_BIT                         (1 << 10)
 #endif
 #define PWM_ARM_WAKEUP_EN_BIT                           (1 << 9)
@@ -365,5 +365,5 @@
 * Function Declarations
 *******************************************************************************/
 #endif
-#endif //_ICU_H_ 
+#endif //_ICU_H_
 

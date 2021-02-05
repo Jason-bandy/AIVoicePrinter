@@ -74,7 +74,7 @@ enum
 #define GDMA_X_SRC_UART1_RX_REQ           (0x4)
 #define GDMA_X_SRC_UART2_RX_REQ           (0x5)
 #define GDMA_X_SRC_I2S_RX_REQ             (0x6)
-#define GDMA_X_SRC_GSPI_RX_REQ            (0x7)
+//#define GDMA_X_SRC_GSPI_RX_REQ          (0x7)
 #define GDMA_X_SRC_JPEG_WR_REQ            (0x8)
 #define GDMA_X_SRC_PSRAM_V_RD_REQ         (0x9)
 #define GDMA_X_SRC_PSRAM_A_RD_REQ         (0xA)

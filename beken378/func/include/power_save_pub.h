@@ -42,7 +42,7 @@ typedef enum {
     PS_BMSG_IOCTL_AP_PS_STOP = 14,
     PS_BMSG_IOCTL_AP_PS_START = 15,
     PS_BMSG_IOCTL_AP_PS_RUN = 16,
-    
+
 } PS_BMSG_IOCTL_CMD;
 
 #define ICU_BASE                                     (0x00802000)
@@ -142,6 +142,8 @@ extern void *power_save_rf_ps_wkup_semlist_insert ( void );
 extern void power_save_rf_ps_wkup_semlist_wait ( void * );
 extern void power_save_rf_ps_wkup_semlist_destroy ( void * );
 extern void power_save_rf_ps_wkup_semlist_get ( void * );
+extern void power_save_set_temp_use_rf_flag(void);
+extern void power_save_clr_temp_use_rf_flag(void);
 
 
 extern void power_save_set_dtim_count ( UINT8 );
