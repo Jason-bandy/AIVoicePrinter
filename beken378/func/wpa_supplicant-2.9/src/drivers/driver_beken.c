@@ -1617,6 +1617,7 @@ struct wpa_scan_results *wpa_driver_get_scan_results2(void *priv)
     }
 
 fail_result:
+    os_free(buf);
     wpa_scan_results_free(results);
 
     return NULL;
