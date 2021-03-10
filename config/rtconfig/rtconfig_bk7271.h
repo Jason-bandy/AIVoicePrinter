@@ -213,7 +213,7 @@
 /* security packages */
 #define PKG_USING_TINYCRYPT
 #define TINY_CRYPT_MD5
-#define TINY_CRYPT_AES  
+#define TINY_CRYPT_AES
 #define TINY_CRYPT_AES_ROM_TABLES
 //#define TINY_CRYPT_BASE64
 
@@ -295,7 +295,7 @@
 
 /* Player Config */
 
-/* PLAYER 1.2.7 ************************************************************************** */ 
+/* PLAYER 1.2.7 ************************************************************************** */
 #define PKG_USING_PLAYER
 #define PKG_USING_PLAYER_V127
 #define PLAYER_DEVICE "sound"
@@ -311,9 +311,9 @@
 #define PLAYER_ENABLE_HTTP_STREAM           /* HTTP流音频播放支持 */
 #define PLAYER_ENABLE_HTTPS_STREAM          /* HTTPS流音频播放支持 */
 #define PLAYER_ENABLE_TTS_STREAM            /* TTS流音频播放支持 */
-// #define PLAYER_ENABLE_HLS_STREAM         /* HLS流音频播放支持 */ 
+// #define PLAYER_ENABLE_HLS_STREAM         /* HLS流音频播放支持 */
 // #define PLAYER_ENABLE_HLS_ACCELERATE     /* HLS TLS加速 */
-// #define PLAYER_ENABLE_PLS_STREAM         /* PLS流音频播放支持 */ 
+// #define PLAYER_ENABLE_PLS_STREAM         /* PLS流音频播放支持 */
 
 #define PLAYER_USING_NETSTREAM_BUFSZ 96     /* 网络缓存 */
 
@@ -324,7 +324,7 @@
 #define PLAYER_USING_EXAMPLE00
 //#define PLAYER_USING_EXAMPLE02
 //#define PLAYER_USING_EXAMPLE03
-/* PLAYER END **************************************************************************** */ 
+/* PLAYER END **************************************************************************** */
 /* Application Samples Config */
 
 

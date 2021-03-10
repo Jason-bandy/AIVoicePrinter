@@ -53,7 +53,6 @@
 #define TX_GAIN_LOOPBACK_IMB_CAL            1
 #define TX_PHASE_IMB_CAL            0
 #define TX_PHASE_LOOPBACK_IMB_CAL            1
-#define BLE_POWER_GAIN_BASE           0xE0A91000
 
 #define CAL_DEBUG          1
 #include "uart_pub.h"
@@ -333,8 +332,9 @@ struct cal_pwr_st g_pwr_current;
      .pregain    = gain,         \
      .regc_8_10  = pactrl,      \
      .regc_4_6   = padctrl,       \
-} 
+}
 
+#define PWR_GAIN_BASE_B                 (0xE0A2A000)
 #define TCP_PAMAP_TAB_B_LEN             (48)
 const static PWR_REGS cfg_tab_b[TCP_PAMAP_TAB_B_LEN] = {
     // pregain REGB<31:28> REGC<10:8> REGC<6:4> REGC<2:0> REGA<13:8> REGA<7:4> REGA<1:0>
@@ -388,6 +388,7 @@ PWRI(  0xB4A ,     0xA,       7,        5,         5,      0x20,       0x1,     
 PWRI(  0xB7C ,     0xA,       7,        5,         5,      0x20,       0x1,     0x1   ),   // 47  31  dBm
 };
 
+#define PWR_GAIN_BASE_G                 (0xE0AB1000)
 #define TCP_PAMAP_TAB_G_LEN             (80)
 const static PWR_REGS cfg_tab_g[TCP_PAMAP_TAB_G_LEN] = {
     // pregain REGB<31:28> REGC<10:8> REGC<6:4> REGC<2:0> REGA<13:8> REGA<7:4> REGA<1:0>
@@ -474,6 +475,7 @@ PWRI(  0xB75 ,      0xA,       7,        3,         2,      0x20,     0x0,     0
 PWRI(  0xB8F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 79   22.25  dBm
 };
 
+#define PWR_GAIN_BASE_BLE               (0xE0A91000)
 #define TCP_PAMAP_TAB_BLE_LEN			(80)
 const static PWR_REGS cfg_tab_ble[TCP_PAMAP_TAB_BLE_LEN] =
 {
@@ -562,147 +564,6 @@ PWRI(  0xB8F ,      0xA,       7,        3,         2,      0x20,     0x0,     0
 };
 
 #define TCP_PAMAP_TAB_LEN               (TCP_PAMAP_TAB_B_LEN+TCP_PAMAP_TAB_G_LEN)
-#define TCP_PAMAP_DEF_PREGAIN           (0x0)
-#define TCP_PAMAP_DEF_A13_8             (0x20)
-#define TCP_PAMAP_DEF_A7_4              (0x1)
-#define TCP_PAMAP_DEF_A1_0              (0x1)
-
-#define TPCI(rb_12_31, rc_0_11)  (rb_12_31<<12)|(rc_0_11)
-
-const PWR_REGS_TPC cfg_tab_tpc[TCP_PAMAP_TAB_LEN] = {
-    // 802.11b        index dbM
-    TPCI(0xE0A2A, 0x83C),   // 0  5.00
-    TPCI(0xE0A2A, 0x83F),   // 1  5.50
-    TPCI(0xE0A2A, 0x843),   // 2  6.00
-    TPCI(0xE0A2A, 0x847),   // 3  6.50
-    TPCI(0xE0A2A, 0x84B),   // 4  7.00
-    TPCI(0xE0A2A, 0x84F),   // 5  7.50
-    TPCI(0xE0A2A, 0x854),   // 6  8.00
-    TPCI(0xE0A2A, 0x859),   // 7  8.50
-    TPCI(0xE0A2A, 0x85E),   // 8  9.00
-    TPCI(0xE0A2A, 0x864),   // 9  9.50
-    TPCI(0xE0A2A, 0x86A),   // 10 10.00
-    TPCI(0xE0A2A, 0x870),   // 11 10.50
-    TPCI(0xE0A2A, 0x877),   // 12 11.00
-    TPCI(0xE0A2A, 0x87E),   // 13 11.50
-    TPCI(0xE0A2A, 0x885),   // 14 12.00
-    TPCI(0xE0A2A, 0x88D),   // 15 12.50
-    TPCI(0xE0A2A, 0x896),   // 16 13.00
-    TPCI(0xE0A2A, 0x89F),   // 17 13.50
-    TPCI(0xE0A2A, 0x8A8),   // 18 14.00
-    TPCI(0xE0A2A, 0x8B2),   // 19 14.50
-    TPCI(0xE0A2A, 0x8BC),   // 20 15.00
-    TPCI(0xE0A2A, 0x8C8),   // 21 15.50
-    TPCI(0xE0A2A, 0x8D3),   // 22 16.00
-    TPCI(0xE0A2A, 0x8E0),   // 23 16.50
-    TPCI(0xE0A2A, 0x8ED),   // 24 17.00
-    TPCI(0xE0A2A, 0x8FB),   // 25 17.50
-    TPCI(0xE0A2A, 0x90A),   // 26 18.00
-    TPCI(0xE0A2A, 0x91A),   // 27 18.50
-    TPCI(0xE0A2A, 0x92B),   // 28 19.00
-    TPCI(0xE0A2A, 0x93C),   // 29 19.50
-    TPCI(0xE0A2A, 0x94F),   // 30 20.00
-    TPCI(0xE0A2A, 0x963),   // 31 20.50
-    TPCI(0xE0A2A, 0x978),   // 32 21.00
-    TPCI(0xE0A2A, 0x98E),   // 33 21.50
-    TPCI(0xE0A2A, 0x9A6),   // 34 22.00
-    TPCI(0xE0A2A, 0x9BF),   // 35 22.50
-    TPCI(0xE0A2A, 0x9D9),   // 36 23.00
-    TPCI(0xE0A2A, 0x9F5),   // 37 23.50
-    TPCI(0xE0A2A, 0xA13),   // 38 24.00
-    TPCI(0xE0A2A, 0xA33),   // 39 24.50
-    TPCI(0xE0A2A, 0xA54),   // 40 25.00
-    TPCI(0xE0A2A, 0xA77),   // 41 25.50
-    TPCI(0xE0A2A, 0xA9D),   // 42 26.00
-    TPCI(0xE0A2A, 0xAC4),   // 43 26.50
-    TPCI(0xE0A2A, 0xAEE),   // 44 27.00
-    TPCI(0xE0A2A, 0xB1B),   // 45 27.50
-    TPCI(0xE0A2A, 0xB4A),   // 46 28.00
-    TPCI(0xE0A2A, 0xB7C),   // 47 28.50
-    
-    // 802.11g        index dbM
-    TPCI(0xE0AB1, 0x85E),  //  0  2.5  dBm
-    TPCI(0xE0AB1, 0x860),  //  1  2.75  dBm
-    TPCI(0xE0AB1, 0x863),  //  2  3  dBm
-    TPCI(0xE0AB1, 0x866),  //  3  3.25  dBm
-    TPCI(0xE0AB1, 0x869),  //  4  3.5  dBm
-    TPCI(0xE0AB1, 0x86C),  //  5  3.75  dBm
-    TPCI(0xE0AB1, 0x86F),  //  6  4  dBm
-    TPCI(0xE0AB1, 0x873),  //  7  4.25  dBm
-    TPCI(0xE0AB1, 0x876),  //  8  4.5  dBm
-    TPCI(0xE0AB1, 0x879),  //  9  4.75  dBm
-    TPCI(0xE0AB1, 0x87D),  //  10  5  dBm
-    TPCI(0xE0AB1, 0x881),  //  11  5.25  dBm
-    TPCI(0xE0AB1, 0x884),  //  12  5.5  dBm
-    TPCI(0xE0AB1, 0x888),  //  13  5.75  dBm
-    TPCI(0xE0AB1, 0x88C),  //  14  6  dBm
-    TPCI(0xE0AB1, 0x890),  //  15  6.25  dBm
-    TPCI(0xE0AB1, 0x895),  //  16  6.5  dBm
-    TPCI(0xE0AB1, 0x899),  //  17  6.75  dBm
-    TPCI(0xE0AB1, 0x89D),  //  18  7  dBm
-    TPCI(0xE0AB1, 0x8A2),  //  19  7.25  dBm
-    TPCI(0xE0AB1, 0x8A7),  //  20  7.5  dBm
-    TPCI(0xE0AB1, 0x8AC),  //  21  7.75  dBm
-    TPCI(0xE0AB1, 0x8B1),  //  22  8  dBm
-    TPCI(0xE0AB1, 0x8B6),  //  23  8.25  dBm
-    TPCI(0xE0AB1, 0x8BB),  //  24  8.5  dBm
-    TPCI(0xE0AB1, 0x8C0),  //  25  8.75  dBm
-    TPCI(0xE0AB1, 0x8C6),  //  26  9  dBm
-    TPCI(0xE0AB1, 0x8CC),  //  27  9.25  dBm
-    TPCI(0xE0AB1, 0x8D2),  //  28  9.5  dBm
-    TPCI(0xE0AB1, 0x8D8),  //  29  9.75  dBm
-    TPCI(0xE0AB1, 0x8DE),  //  30  10  dBm
-    TPCI(0xE0AB1, 0x8E5),  //  31  10.25  dBm
-    TPCI(0xE0AB1, 0x8EB),  //  32  10.5  dBm
-    TPCI(0xE0AB1, 0x8F2),  //  33  10.75  dBm
-    TPCI(0xE0AB1, 0x8F9),  //  34  11  dBm
-
-    TPCI(0xE0AB1, 0x901),  //  35  11.25  dBm
-    TPCI(0xE0AB1, 0x908),  //  36  11.5  dBm
-    TPCI(0xE0AB1, 0x910),  //  37  11.75  dBm
-    TPCI(0xE0AB1, 0x918),  //  38  12  dBm
-    TPCI(0xE0AB1, 0x920),  //  39  12.25  dBm
-    TPCI(0xE0AB1, 0x928),  //  40  12.5  dBm
-    TPCI(0xE0AB1, 0x931),  //  41  12.75  dBm
-    TPCI(0xE0AB1, 0x93A),  //  42  13  dBm
-    TPCI(0xE0AB1, 0x943),  //  43  13.25  dBm
-    TPCI(0xE0AB1, 0x94D),  //  44  13.5  dBm
-    TPCI(0xE0AB1, 0x956),  //  45  13.75  dBm
-    TPCI(0xE0AB1, 0x960),  //  46  14  dBm
-    TPCI(0xE0AB1, 0x96B),  //  47  14.25  dBm
-    TPCI(0xE0AB1, 0x975),  //  48  14.5  dBm
-    TPCI(0xE0AB1, 0x980),  //  49  14.75  dBm
-    TPCI(0xE0AB1, 0x98B),  //  50  15  dBm
-    TPCI(0xE0AB1, 0x997),  //  51  15.25  dBm
-    TPCI(0xE0AB1, 0x9A3),  //  52  15.5  dBm
-    TPCI(0xE0AB1, 0x9AF),  //  53  15.75  dBm
-    TPCI(0xE0AB1, 0x9BB),  //  54  16  dBm
-    TPCI(0xE0AB1, 0x9C8),  //  55  16.25  dBm
-    TPCI(0xE0AB1, 0x9D6),  //  56  16.5  dBm
-    TPCI(0xE0AB1, 0x9E0),  //  57  16.75  dBm
-    TPCI(0xE0AB1, 0x9F2),  //  58  17  dBm
-    TPCI(0xE0AB1, 0xA00),  //  59  17.25  dBm
-    TPCI(0xE0AB1, 0xA0F),  //  60  17.5  dBm
-    TPCI(0xE0AB1, 0xA1E),  //  61  17.75  dBm
-    TPCI(0xE0AB1, 0xA2E),  //  62  18  dBm
-    TPCI(0xE0AB1, 0xA3F),  //  63  18.25  dBm
-    TPCI(0xE0AB1, 0xA4F),  //  64  18.5  dBm
-    TPCI(0xE0AB1, 0xA61),  //  65  18.75  dBm
-    TPCI(0xE0AB1, 0xA72),  //  66  19  dBm
-    TPCI(0xE0AB1, 0xA85),  //  67  19.25  dBm
-    TPCI(0xE0AB1, 0xA98),  //  68  19.5  dBm
-    TPCI(0xE0AB1, 0xAAB),  //  69  19.75  dBm
-    TPCI(0xE0AB1, 0xABF),  //  70  20  dBm
-    TPCI(0xE0AB1, 0xAD3),  //  71  20.25  dBm
-    TPCI(0xE0AB1, 0xAE9),  //  72  20.5  dBm
-    TPCI(0xE0AB1, 0xAFE),  //  73  20.75  dBm
-    TPCI(0xE0AB1, 0xB15),  //  74  21  dBm
-    TPCI(0xE0AB1, 0xB2C),  //  75  21.25  dBm
-    TPCI(0xE0AB1, 0xB43),  //  76  21.5  dBm
-    TPCI(0xE0AB1, 0xB5C),  //  77  21.75  dBm
-    TPCI(0xE0AB1, 0xB75),  //  78  22  dBm
-    TPCI(0xE0AB1, 0xB8F),  //  79  22.25  dBm
-};
 
 struct BK7011RCBEKEN_TypeDef BK7231N_RC_REG =
 {
@@ -1456,7 +1317,6 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
 #define RECOVER_MAC_TXRX()          *((volatile unsigned int *)0XC0010004) = 0
 void ble_cal_set_txpwr(uint8_t idx)
 {
-	UINT32 pwr_gain_base = BLE_POWER_GAIN_BASE;
 	const PWR_REGS *pcfg;
 	int16_t pwr_idx = (int16_t)idx + g_temp_pwr_current.shift_ble;
 
@@ -1481,7 +1341,7 @@ void ble_cal_set_txpwr(uint8_t idx)
 
 	BK7231N_RC_REG.REG0x3C->bits.RXHPFBYPASS = 0x1;
 
-	REG_WRITE((RCB_POWER_TABLE_ADDR + (0x7F * 4)), pwr_gain_base | pcfg->pregain);
+	REG_WRITE((RCB_POWER_TABLE_ADDR + (0x7F * 4)), PWR_GAIN_BASE_BLE | pcfg->pregain);
 }
 
 void ble_cal_recover_txpwr(void)
@@ -1559,6 +1419,8 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
 {
     UINT32 ret, ret_bak;
     UINT32 pwr_gain;
+    UINT32 pwr_gain_base = 0;
+    const PWR_REGS *pcfg;
     static UINT32 last_ret = 0;
 
     struct phy_channel_info info;
@@ -1582,15 +1444,19 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
     }
 
     ret_bak = ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain);
-    
-    if(!ret ){
-        os_printf("unable get txpwr shift %d, %d, %d\r\n", rate, channel, bandwidth);
-        return 0;
-    } else if(ret == 1) {
+
+    if(ret == 1) {
         ret = rwnx_tpc_pwr_idx_translate(pwr_gain, EVM_DEFUALT_B_RATE, 0);
+        pwr_gain_base = PWR_GAIN_BASE_B;
+        pcfg = cfg_tab_b + ret;
     } else if(ret == 2) {
         ret = rwnx_tpc_pwr_idx_translate(pwr_gain, EVM_DEFUALT_RATE, 0);
+        pwr_gain_base = PWR_GAIN_BASE_G;
+        pcfg = cfg_tab_g + ret;
         ret += TCP_PAMAP_TAB_B_LEN;
+    } else {
+        os_printf("unable get txpwr shift %d, %d, %d\r\n", rate, channel, bandwidth);
+        return 0;
     }
 
     if (last_ret != ret || print_log)
@@ -1603,13 +1469,12 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
         CAL_PRT("tpc info- r:%d, c:%d, b:%d -- idx1:%d+(%d), idx2: %d\r\n",
             rate, channel, bandwidth, pwr_gain, shift, ret);
 
-        const PWR_REGS_TPC value = cfg_tab_tpc[ret];
-        CAL_PRT("b[31-12]:0x%05x, c[11-0]:0x%03x\r\n", value >> 12, value & 0xFFF);
+        CAL_PRT("b[31-12]:0x%05x, c[11-0]:0x%03x\r\n", pwr_gain_base >> 12, pcfg->pregain);
     }
     last_ret = ret;
-    
+
     return ret;
-    
+
 }
 
 void rwnx_use_tpc_set_pwr(void)
@@ -1651,11 +1516,20 @@ UINT32 rwnx_sys_is_enable_hw_tpc(void)
 void rwnx_tpc_pa_map_init(void)
 {
     UINT32 index;
+    const PWR_REGS *pcfg;
 
     BK7231N_RC_REG.REG0x4C->bits.TXPOWTBLEN = 0;
-    for (index = 0; index < TCP_PAMAP_TAB_LEN; index++)
+    pcfg = cfg_tab_b;
+    for (index = 0; index < TCP_PAMAP_TAB_B_LEN; index++)
     {
-        REG_WRITE((RCB_POWER_TABLE_ADDR + (index * 4)), cfg_tab_tpc[index]);
+        REG_WRITE((RCB_POWER_TABLE_ADDR + (index * 4)), PWR_GAIN_BASE_B | pcfg->pregain);
+        pcfg++;
+    }
+    pcfg = cfg_tab_g;
+    for (index = TCP_PAMAP_TAB_B_LEN; index < TCP_PAMAP_TAB_LEN; index++)
+    {
+        REG_WRITE((RCB_POWER_TABLE_ADDR + (index * 4)), PWR_GAIN_BASE_G | pcfg->pregain);
+        pcfg++;
     }
     rwnx_use_tpc_set_pwr();
 
@@ -1824,24 +1698,24 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
 
     if(grate == EVM_DEFUALT_B_RATE) {
     // for b
-        if(pwr_gain > TCP_PAMAP_TAB_B_LEN - 1) 
+        if(pwr_gain > TCP_PAMAP_TAB_B_LEN - 1)
         {
-            pwr_gain = TCP_PAMAP_TAB_B_LEN - 1; 
+            pwr_gain = TCP_PAMAP_TAB_B_LEN - 1;
             g_temp_pwr_current.idx = pwr_gain;
         }
         pcfg = cfg_tab_b + pwr_gain;
-	pwr_gain_base = 0xE0A2A000;  //E0A2A800
+        pwr_gain_base = PWR_GAIN_BASE_B;
     } else if(grate == EVM_DEFUALT_RATE) {
     // for g
-        if(pwr_gain > TCP_PAMAP_TAB_G_LEN - 1) 
+        if(pwr_gain > TCP_PAMAP_TAB_G_LEN - 1)
         {
-            pwr_gain = TCP_PAMAP_TAB_G_LEN - 1; 
+            pwr_gain = TCP_PAMAP_TAB_G_LEN - 1;
             g_temp_pwr_current.idx = pwr_gain;
         }
         pcfg = cfg_tab_g + pwr_gain;
-	pwr_gain_base = 0xE0AB1000  ;//  E0AB1800
+        pwr_gain_base = PWR_GAIN_BASE_G;
     } else {
-        os_printf("set_txpwr unknow rate:%d \r\n", grate);  
+        os_printf("set_txpwr unknow rate:%d \r\n", grate);
         return;
     }
 
@@ -1926,14 +1800,16 @@ void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_b
     if(g_temp_pwr_current.shift_ble != shift_ble)
     {
         g_temp_pwr_current.shift_ble = shift_ble;
+        should_do = 1;
     }
 
     if( should_do)
     {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("td set pwr: shift_b:%d, shift_g:%d, rate:%d\r\n",
+        os_printf("td set pwr: shift_b:%d, shift_g:%d, shift_ble:%d rate:%d\r\n",
             g_temp_pwr_current.shift,
             g_temp_pwr_current.shift_g,
+            g_temp_pwr_current.shift_ble,
             g_temp_pwr_current.mode);
 #endif
 
@@ -1941,9 +1817,10 @@ void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_b
         {
             rwnx_cal_set_txpwr(g_temp_pwr_current.idx, g_temp_pwr_current.mode);
         }
-        else
+        else if (ble_in_dut_mode() == 1)
         {
-
+            extern uint8_t tx_pwr_idx;
+	    ble_cal_set_txpwr(tx_pwr_idx);
         }
     }
 }  
@@ -2588,93 +2465,15 @@ void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
     last_temperature_type = new_temperature_type;
 }
 
-/**
- * patch for vddig too low case
- * normal temperature: decrement vddig
- * low/high temperature: increment vddig
- */
-void bk7231n_vddig_patch(int increment)
+void manual_cal_load_bandgap_calm(void)
 {
 #define VDDIG_MAX 6
 #define VDDIG_MIN 3
     int32_t old_vddig;
     int32_t new_vddig;
     uint32_t analog2;
-    int32_t old_bandgap_calm;
-    int32_t new_bandgap_calm;
-
-#if 0
-    if (0xFF != bandgap_calm_in_efuse)
-    {
-        bk_printf("vddig_patch calibrated\n");
-        return;
-    }
-
-    if ((TEMPERATURE_TYPE_LOW != last_temperature_type) && (TEMPERATURE_TYPE_HIGH != last_temperature_type))
-    {
-        bk_printf("last_temperature_type=%d ignore vdddig\r\n", last_temperature_type);
-        return;
-    }
-#endif
-
-    old_vddig = (int32_t)sctrl_ctrl(CMD_SCTRL_GET_VDD_VALUE, NULL);
-    analog2 = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG2, &analog2);
-    old_bandgap_calm = (int32_t)((analog2 >> BANDGAP_CAL_MANUAL_POSI) & BANDGAP_CAL_MANUAL_MASK);
-    if (1 == increment)
-    {
-        new_bandgap_calm = old_bandgap_calm + 0x10;
-        if (new_bandgap_calm >= 0x30)
-        {
-            new_vddig = old_vddig + 1;
-            new_bandgap_calm = new_bandgap_calm - 0x20;
-        }
-        else
-        {
-            new_vddig = old_vddig;
-        }
-
-        if (new_vddig > VDDIG_MAX)
-        {
-            new_vddig = old_vddig;
-            new_bandgap_calm = old_bandgap_calm;
-        }
-    }
-    else
-    {
-        new_bandgap_calm = old_bandgap_calm - 0x10;
-        if (new_bandgap_calm < 0x10)
-        {
-            new_vddig = old_vddig - 1;
-            new_bandgap_calm = new_bandgap_calm + 0x20;
-        }
-        else
-        {
-            new_vddig = old_vddig;
-        }
-
-        if (new_vddig < VDDIG_MIN)
-        {
-            new_vddig = old_vddig;
-            new_bandgap_calm = old_bandgap_calm;
-        }
-    }
-    bk_printf("bandgap_calm=0x%x->0x%x,vddig=%d->%d\r\n", old_bandgap_calm, new_bandgap_calm, old_vddig, new_vddig);
-    if (old_bandgap_calm != new_bandgap_calm)
-    {
-        analog2 &= ~(BANDGAP_CAL_MANUAL_MASK << BANDGAP_CAL_MANUAL_POSI);
-        analog2 |= ((uint32_t)new_bandgap_calm << BANDGAP_CAL_MANUAL_POSI);
-        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG2, &analog2);
-    }
-    if (old_vddig != new_vddig)
-    {
-        sctrl_ctrl(CMD_SCTRL_SET_VDD_VALUE, (void *)&new_vddig);
-    }
-}
-
-void manual_cal_load_bandgap_calm(void)
-{
-    uint32_t analog2;
     uint32_t old_bandgap_calm;
+    uint32_t new_bandgap_calm;
 
     bandgap_calm_in_efuse = wifi_read_efuse(17);
     if ((0xFF == bandgap_calm_in_efuse) || (0x00 == bandgap_calm_in_efuse))
@@ -2684,15 +2483,43 @@ void manual_cal_load_bandgap_calm(void)
     }
     bk_printf("bandgap_calm_in_efuse=0x%x\r\n", bandgap_calm_in_efuse);
     analog2 = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG2, &analog2);
-    old_bandgap_calm = (analog2 >> BANDGAP_CAL_MANUAL_POSI) & analog2;
+    old_bandgap_calm = (analog2 >> BANDGAP_CAL_MANUAL_POSI) & BANDGAP_CAL_MANUAL_MASK;
     if (old_bandgap_calm != (uint32_t)bandgap_calm_in_efuse)
     {
-        analog2 &= ~(BANDGAP_CAL_MANUAL_MASK << BANDGAP_CAL_MANUAL_POSI);
-        analog2 |= ((uint32_t)bandgap_calm_in_efuse << BANDGAP_CAL_MANUAL_POSI);
-        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG2, &analog2);
-    }
+        /* keep bandgap_calm in [0x10, 0x30) */
+        old_vddig = (int32_t)sctrl_ctrl(CMD_SCTRL_GET_VDD_VALUE, NULL);
+        new_bandgap_calm = (uint32_t)bandgap_calm_in_efuse;
+        if (new_bandgap_calm >= 0x30)
+        {
+            new_vddig = old_vddig + 1;
+            new_bandgap_calm = new_bandgap_calm - 0x20;
+        }
+        else if (new_bandgap_calm < 0x10)
+        {
+            new_vddig = old_vddig - 1;
+            new_bandgap_calm = new_bandgap_calm + 0x20;
+        }
+        else
+        {
+            new_vddig = old_vddig;
+        }
 
-    bk7231n_vddig_patch(1);
+        if ((new_vddig < VDDIG_MIN) || (new_vddig > VDDIG_MAX))
+        {
+            new_vddig = old_vddig;
+            new_bandgap_calm = (uint32_t)bandgap_calm_in_efuse;
+        }
+
+        bk_printf("[load]bandgap_calm=0x%x->0x%x,vddig=%d->%d\r\n", bandgap_calm_in_efuse, new_bandgap_calm, old_vddig, new_vddig);
+
+        analog2 &= ~(BANDGAP_CAL_MANUAL_MASK << BANDGAP_CAL_MANUAL_POSI);
+        analog2 |= (new_bandgap_calm << BANDGAP_CAL_MANUAL_POSI);
+        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_ANALOG2, &analog2);
+        if (old_vddig != new_vddig)
+        {
+            sctrl_ctrl(CMD_SCTRL_SET_VDD_VALUE, (void *)&new_vddig);
+        }
+    }
 }
 
 void bk7011_cal_pll(void)

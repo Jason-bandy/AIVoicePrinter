@@ -1559,68 +1559,47 @@ int wpa_driver_scan2(void *priv, struct wpa_driver_scan_params *params)
 
 struct wpa_scan_results *wpa_driver_get_scan_results2(void *priv)
 {
-    struct hostap_driver_data *drv = priv;
-    struct prism2_hostapd_param *param;
-    struct wpa_scan_results *results = NULL;
-    u8 *buf;
-    size_t blen;
-    int ret = 0;
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	struct wpa_scan_results *results = NULL;
+	u8 *buf;
+	size_t blen;
+	int ret = 0;
 
-    blen = sizeof(*param);
-    buf = os_zalloc(blen);
-    if(buf == NULL)
-    {
-        goto fail_result;
-    }
+	blen = sizeof(*param);
+	buf = os_zalloc(blen);
+	if(buf == NULL) {
+		goto fail_result;
+	}
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->cmd = PRISM2_HOSTAPD_GET_SCAN_RESULT;
-    param->vif_idx = drv->vif_index;
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_GET_SCAN_RESULT;
+	param->vif_idx = drv->vif_index;
 
-    results = os_zalloc(sizeof(*results));
-    if(results == NULL)
-    {
-        goto fail_result;
-    }
-    results->res = os_calloc(MAX_BSS_LIST, sizeof(struct wpa_scan_res *));
-    if (results->res == NULL)
-    {
-        goto fail_result;
-    }
+	results = os_zalloc(sizeof(*results));
+	if(results == NULL) {
+		goto fail_result;
+	}
+	results->res = os_calloc(MAX_BSS_LIST, sizeof(struct wpa_scan_res *));
+	if (results->res == NULL) {
+		goto fail_result;
+	}
 
-    param->u.scan_rst = results;
+	param->u.scan_rst = results;
 
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	if (hostapd_ioctl(drv, param, blen)) {
+		ret = -1;
+	}
 
-    if(!ret)
-    {
-    	os_free(buf);
-        return results;
-    }
+	if(!ret) {
+		os_free(buf);
+		return results;
+	}
 
 fail_result:
-	if(results && results->res)
-	{
-		os_free(results->res);
-		results->res = NULL;
-	}
-
-	if(results)
-	{
-		os_free(results);
-		results = NULL;
-	}
-
-	if(buf)
-	{
-		os_free(buf);
-		buf = NULL;
-	}
-
-    return NULL;
+	os_free(buf);
+	wpa_scan_results_free(results);
+	return NULL;
 }
 
 int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)

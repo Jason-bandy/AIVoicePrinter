@@ -4,7 +4,7 @@
 #define TADC_DEBUG_PRTF                     0
 
 #define TADC_FATAL_PRINTF                   os_printf
-#define TADC_WARNING_PRINTF                 os_printf
+#define TADC_WARNING_PRINTF                 os_null_printf
 
 #if TADC_DEBUG_PRTF
 #define TADC_PRINTF                         os_printf
@@ -12,7 +12,7 @@
 #define TADC_PRINTF(...)
 #endif //TADC_DEBUG_PRTF
 
-#define TURING_ADC_SCAN_INTERVALV           (100)  // ms
+#define TURING_ADC_SCAN_INTERVALV           (10)  // ms
 
 typedef void (*adc_obj_callback)(int new_mv, void *user_data);
 

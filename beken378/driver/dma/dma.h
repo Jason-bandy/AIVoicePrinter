@@ -174,6 +174,6 @@ void dma_init(void);
  *
  ****************************************************************************************
  */
-uint32_t dma_push(struct dma_desc *first, struct dma_desc *last, int channel_idx);
+uint32_t dma_push(struct dma_desc *first, struct dma_desc *last, uint32_t channel_idx);
 #endif // _IPC_DMA_H_
 

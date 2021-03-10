@@ -83,7 +83,6 @@ typedef struct _saradc_calibrate_val_
     unsigned short high;
 } saradc_calibrate_val;
 
-extern int adc_offfset,  adc_value_2v, adc_voltage; 
 
 /*******************************************************************************
 * Function Declarations
@@ -95,6 +94,8 @@ void saradc_isr(void);
 float saradc_calculate(UINT16 adc_val);
 void saradc_config_param_init(saradc_desc_t * adc_config);
 void saradc_ensure_close(void);
+UINT32 saradc_check_busy(void);
+UINT32 saradc_check_accuracy(void);
 
 extern saradc_calibrate_val saradc_val;
 #endif //_SARADC_PUB_H_

@@ -41,6 +41,11 @@ gather_out_files()
 	PLATFORM=$1
 	OUT_FOLDER=$2
 
+	if [ ! -f ./out/all_2M.1220.bin ]; then
+		echo "Not found firmware all_2M.1220.bin"
+		return 1
+	fi
+
 	if [ ! -d $OUT_FOLDER ]; then
 		mkdir $OUT_FOLDER
 	fi

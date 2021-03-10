@@ -1837,20 +1837,22 @@ int bk_wlan_dtim_rf_ps_get_enable_flag(void)
 int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 {
 #if CFG_USE_MCU_PS
-	#if (CFG_OS_FREERTOS)
-    GLOBAL_INT_DECLARATION();
-    GLOBAL_INT_DISABLE();
-    TickType_t missed_ticks = 0;
-    missed_ticks = mcu_power_save( sleep_ticks );
+#if (CFG_OS_FREERTOS)
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+	TickType_t missed_ticks = 0;
+
+	missed_ticks = mcu_power_save( sleep_ticks );
 	if(missed_ticks >= 0){
-	    fclk_update_tick( missed_ticks );
-	}
-    else{
+		fclk_update_tick( missed_ticks );
+	} else{
+		GLOBAL_INT_RESTORE();
 		return -1;
 	}
-    GLOBAL_INT_RESTORE();
-	#endif
+	GLOBAL_INT_RESTORE();
 #endif
+#endif
+
     return 0;
 }
 

@@ -45,7 +45,7 @@
 
 extern void bk7011_cal_pll(void);
 void rwnx_cal_set_txpwr_ble(UINT32 pwr_gain);
-void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g);
+void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble);
 extern UINT32 ble_in_dut_mode(void);
 extern uint8 is_rf_switch_to_ble(void);
@@ -553,7 +553,7 @@ struct BK7011TRxV2A_TypeDef BK7011TRXONLY =
     (volatile BK7011_TRxV2A_REG0x1C_TypeDef *)(TRX_BEKEN_BASE + 28 * 4),
 };
 
-struct temp_cal_pwr_st g_temp_pwr_current = {16, EVM_DEFUALT_RATE, 0, 0};
+struct temp_cal_pwr_st g_temp_pwr_current = {16, EVM_DEFUALT_RATE, 0, 0, 0};
 
 void delay05us(INT32 num)
 {
@@ -809,7 +809,7 @@ void rwnx_cal_set_txpwr_by_channel(UINT32 channel)
 extern void tpc_init(void);
 extern void tpc_deinit(void);
 struct temp_cal_pwr_st g_temp_pwr_current_tpc = {0, EVM_DEFUALT_RATE, 0, 0};
-void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g)
+void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble)
 {
     g_temp_pwr_current_tpc.shift_g = shift_g;
     g_temp_pwr_current_tpc.shift = shift_b;
@@ -1175,7 +1175,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
 } 
 
 #if CFG_USE_TEMPERATURE_DETECT
-void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g)
+void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble)
 {
     UINT32 should_do = 0;
     
@@ -1362,17 +1362,16 @@ void rwnx_cal_ble_recover_rfconfig(void)
 #if CFG_USE_TEMPERATURE_DETECT
 void rwnx_cal_do_temp_detect(UINT16 cur_val, UINT16 thre, UINT16 *last)
 {
-    TMP_PWR_PTR tmp_pwr_ptr;
-    tmp_pwr_ptr = manual_cal_set_tmp_pwr(cur_val, thre, last);
-    if(tmp_pwr_ptr) 
-    {
+	TMP_PWR_PTR tmp_pwr_ptr;
+	tmp_pwr_ptr = manual_cal_set_tmp_pwr(cur_val, thre, last);
+	if (tmp_pwr_ptr) {
 		manual_cal_do_xtal_temp_delta_set(tmp_pwr_ptr->xtal_c_dlta);
-        manual_cal_do_xtal_cali(cur_val, 0, 0, 0);
-        
-		rwnx_cal_set_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g);
-        rwnx_set_tpc_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g);
-        rwnx_cal_set_ble_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta_ble);
-    }
+		manual_cal_do_xtal_cali(cur_val, 0, 0, 0);
+
+		rwnx_cal_set_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g, (INT16)tmp_pwr_ptr->p_index_delta_ble);
+		rwnx_set_tpc_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g, (INT16)tmp_pwr_ptr->p_index_delta_ble);
+		rwnx_cal_set_ble_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta_ble);
+	}
 }
 #endif // CFG_USE_TEMPERATURE_DETECT
 

@@ -173,6 +173,7 @@ void scanu_scan_next(void);
  */
 void scanu_confirm(uint8_t status);
 
+void scanu_change_ht_supported(int8_t scan_rst_rssi);
 
 /// @} end of group
 

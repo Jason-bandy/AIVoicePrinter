@@ -1,9 +1,8 @@
 #ifndef __TEMP_DETECT_PUB_H__
 #define __TEMP_DETECT_PUB_H__
 
-
-//#define TMP_DETECT_DEBUG
-#ifdef TMP_DETECT_DEBUG
+#define TMP_DETECT_DEBUG   0
+#if TMP_DETECT_DEBUG
 #define TMP_DETECT_PRT      os_printf
 #define TMP_DETECT_WARN     warning_prf
 #define TMP_DETECT_FATAL    fatal_prf
@@ -15,10 +14,13 @@
 
 #if (CFG_SOC_NAME == SOC_BK7221U)
 #define ADC_TEMP_SENSER_CHANNEL                     8
+#elif(CFG_SOC_NAME == SOC_BK7271)
+#define ADC_TEMP_SENSER_CHANNEL                     0
 #else
 #define ADC_TEMP_SENSER_CHANNEL                     7
 #endif
-#if (CFG_SOC_NAME == SOC_BK7231N)
+
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define ADC_TEMP_BUFFER_SIZE                        (5+5)//(+5 for skip)
 #else
 #define ADC_TEMP_BUFFER_SIZE                        5
@@ -33,15 +35,15 @@
 #define ADC_TMEP_DIST_INTIAL_VAL                    (0)
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define ADC_TMEP_LSB_PER_10DEGREE                   (24)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define ADC_TMEP_LSB_PER_10DEGREE                   (20)
 #else
 #define ADC_TMEP_LSB_PER_10DEGREE                   (12)// 7231:24,7231U:22,
 #endif
+
 #define ADC_TMEP_10DEGREE_PER_DBPWR                 (1) // 7231:1,7231U:1,
 #define ADC_TEMP_VAL_MIN                            (50)
 #define ADC_TEMP_VAL_MAX                            (700)
-
 #define ADC_XTAL_DIST_INTIAL_VAL                    (70)
 
 /*******************************************************************************
@@ -55,10 +57,9 @@ void temp_detect_restart_detect(void);
 UINT32 temp_get_detect_time(void);
 UINT32 temp_detect_is_opened_saradc(void) ;
 UINT32 temp_detect_is_init(void);
-
 #endif
 
 UINT32 temp_single_get_current_temperature(UINT32 *temp_value);
-
 #endif
+// eof
 

@@ -227,7 +227,10 @@ void sctrl_dco_cali(UINT32 speed)
 
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
     reg_val &= ~(SPI_RST_BIT);
-    sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val); 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    reg_val &= ~(DCO_AMSEL_BIT);
+#endif
+    sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val);
 
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
     reg_val |= SPI_RST_BIT;
@@ -235,14 +238,11 @@ void sctrl_dco_cali(UINT32 speed)
 
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
     reg_val |= DCO_TRIG_BIT;
-    sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val); 
-    
+    sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val);
+
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
-#if (CFG_SOC_NAME == SOC_BK7231N)
-    reg_val &= ~(DCO_AMSEL_BIT);
-#endif
     reg_val &= ~(DCO_TRIG_BIT);
-    sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val); 
+    sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val);
 }
 
 void sctrl_set_cpu_clk_dco(void)
@@ -1228,6 +1228,51 @@ void sctrl_fix_dpll_div(void)
 	for(i = 0; i < 100; i ++);
 
 	GLOBAL_INT_RESTORE();
+}
+
+void sctrl_mdm_reset(void)
+{
+    volatile INT32 i;
+    GLOBAL_INT_DECLARATION();
+
+    os_printf("sctrl_mdm_reset\r\n");
+
+    // Disable the interrupts
+    GLOBAL_INT_DISABLE();
+
+    if (1)
+    {
+        /* MAC reset */
+        REG_WRITE(SCTRL_MODEM_SUBCHIP_RESET_REQ, MODEM_SUBCHIP_RESET_WORD);
+        REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) | DPLL_CLKDIV_RESET_BIT);
+
+        for(i = 0; i < 100; i++);
+
+        REG_WRITE(SCTRL_MODEM_SUBCHIP_RESET_REQ, 0);
+        REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) & ~DPLL_CLKDIV_RESET_BIT);
+
+        for(i = 0; i < 100; i++);
+    }
+    else
+    {
+        /* Modem pwd */
+        sctrl_ctrl(CMD_SCTRL_MODEM_POWERDOWN, NULL);
+        REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) | DPLL_CLKDIV_RESET_BIT);
+
+        for(i = 0; i < 100; i++);
+
+        /* Modem pwu */
+        sctrl_ctrl(CMD_SCTRL_MODEM_POWERUP, NULL);
+        REG_WRITE(SCTRL_CONTROL, REG_READ(SCTRL_CONTROL) & ~DPLL_CLKDIV_RESET_BIT);
+
+        for(i = 0; i < 100; i++);
+    }
+
+    phy_wakeup_rf_reinit();
+    phy_wakeup_wifi_reinit();
+
+    // Restore the interrupts
+    GLOBAL_INT_RESTORE();
 }
 #endif
 
@@ -2801,6 +2846,16 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
         reg &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
         reg |= ((*(UINT32 *)param) & MCLK_DIV_MASK) << MCLK_DIV_POSI;
         REG_WRITE(SCTRL_CONTROL, reg);
+        break;
+
+    case CMD_SCTRL_MCLK_MUX_GET:
+        reg = ((REG_READ(SCTRL_CONTROL) >> MCLK_MUX_POSI) & MCLK_MUX_MASK);
+        *(UINT32 *)param = reg;
+        break;
+
+    case CMD_SCTRL_MCLK_DIV_GET:
+        reg = ((REG_READ(SCTRL_CONTROL) >> MCLK_DIV_POSI) & MCLK_DIV_MASK);
+        *(UINT32 *)param = reg;
         break;
 
     case CMD_SCTRL_RESET_SET:

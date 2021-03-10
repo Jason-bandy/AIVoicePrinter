@@ -587,6 +587,8 @@ int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 		}
 		mhdr_set_station_status(RW_EVT_STA_NO_AP_FOUND);
 
+		UINT32 reg = RF_HOLD_BY_SCAN_BIT;
+		sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 #if CFG_ROLE_LAUNCH
 		if(rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER))
 		{

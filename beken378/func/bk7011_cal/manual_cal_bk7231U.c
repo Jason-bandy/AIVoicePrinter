@@ -3084,7 +3084,7 @@ void manual_cal_tmp_pwr_init_reg(UINT16 reg_mod, UINT16 reg_pa)
 extern struct temp_cal_pwr_st g_temp_pwr_current;
 extern struct temp_cal_pwr_st g_temp_pwr_current_tpc;
 extern INT16 g_ble_pwr_indx, g_ble_pwr_shift;
-extern void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g);
+extern void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 UINT16 g_tmp_pwr_indx_bak = 255;
 void manual_cal_store_cur_temp(void)
 {
@@ -3105,12 +3105,12 @@ void manual_cal_recover_cur_temp(void)
     os_printf("recover g_tmp_pwr.indx:%d\r\n", g_tmp_pwr.indx);
 }
 
-extern void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g);
+extern void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 extern void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble);
 void manual_cal_temp_pwr_unint(void)
 {
-    rwnx_cal_set_txpwr_by_tmpdetect(0, 0);
-    rwnx_set_tpc_txpwr_by_tmpdetect(0, 0);
+    rwnx_cal_set_txpwr_by_tmpdetect(0, 0, 0);
+    rwnx_set_tpc_txpwr_by_tmpdetect(0, 0, 0);
 
 #if (CFG_SOC_NAME != SOC_BK7231N)
     rwnx_cal_set_ble_txpwr_by_tmpdetect(0);

@@ -36,7 +36,7 @@
 #define CFG_ROLE_LAUNCH                            1
 #define CFG_USE_WPA_29							   1
 #define CFG_NEW_SUPP							   0
-#define CFG_RWNX_QOS_MSDU                          0
+#define CFG_RWNX_QOS_MSDU                          1
 /* PMF */
 #define CFG_IEEE80211W							   0
 #if CFG_NEW_SUPP

@@ -7,6 +7,7 @@ ARM_GCC_TOOLCHAIN=${RTT_EXEC_PATH}
 
 if [ "$2" == "" ]; then
 	old_sys_config=config/sys_config.h
+	old_rtconfig=rtconfig.h
 fi
 
 if [ ! -d "config" ]; then
@@ -17,26 +18,32 @@ case $1 in
 	bk7231u)
 		new_sys_config=beken378/app/config/sys_config_bk7231u.h
 		new_linkscript=config/bk72xx.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7231u.h
 		;;
 	bk7231n)
 		new_sys_config=beken378/app/config/sys_config_bk7231n.h
 		new_linkscript=config/bk7231n_boot.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7231n.h
 		;;
 	bk7251)
 		new_sys_config=beken378/app/config/sys_config_bk7251.h
 		new_linkscript=config/bk72xx.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7251.h
 		;;
 	bk7231)
 		new_sys_config=beken378/app/config/sys_config_bk7231.h
 		new_linkscript=config/bk72xx.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7231.h
 		;;
 	bk7271)
 		new_sys_config=beken378/app/config/sys_config_bk7271.h
 		new_linkscript=config/bk72xx.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7271.h
 		;;
 	*)
 		new_sys_config=beken378/app/config/$1.h
 		new_linkscript=config/bk72xx.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7231u.h
 esac
 
 if [ -f $new_sys_config ]; then
@@ -57,6 +64,7 @@ fi
 
 if [ "$new_hash" != "$old_hash" ]; then
 	cp -f $new_sys_config $old_sys_config
+	cp -f $new_rt_config $old_rtconfig
 #	echo "update $old_sys_config with $new_sys_config"
 fi
 

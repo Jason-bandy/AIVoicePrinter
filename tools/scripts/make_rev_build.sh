@@ -14,6 +14,10 @@ if [ "$1" != "" ]; then
 	fi
 fi
 
+if [ "$PLATFORMS" == "all" ]; then
+	PLATFORMS="$SUPPORTED_BUILD_PLATFORMS"
+fi
+
 for PLATFORM in ${PLATFORMS}
 do
 	validate_platform $PLATFORM

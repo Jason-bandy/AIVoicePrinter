@@ -29,6 +29,7 @@ fi
 # make clean and remove output files
 echo "clean unused files ..."
 rm -rf config/sys_config.h
+rm -f rtconfig.h
 rm -rf build
 rm -rf bugzilla
 rm -f README.md

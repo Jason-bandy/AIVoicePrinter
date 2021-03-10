@@ -33,7 +33,7 @@
 #define CFG_ROLE_LAUNCH                            1
 #define CFG_USE_WPA_29							   1
 #define CFG_NEW_SUPP							   0
-#define CFG_RWNX_QOS_MSDU                          0
+#define CFG_RWNX_QOS_MSDU                          1
 
 /* PMF */
 #define CFG_IEEE80211W							   0
@@ -220,6 +220,14 @@
 #undef  CFG_USE_MCU_PS
 #define CFG_USE_MCU_PS                             RHINO_CONFIG_CPU_PWR_MGMT
 #endif
+
+
+///config ble master role number
+#define CFG_BLE_MASTER_ROLE_NUM                   0
+///adv number
+#define CFG_BLE_SLAVE_ADV_NUM                     1
+///slave role connect number
+#define CFG_BLE_SLAVE_ROLE_CONN_NUM               1
 
 
 #define LWIP_DEFAULT_MEM_POLICY                   1

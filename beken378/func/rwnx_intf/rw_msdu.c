@@ -680,42 +680,6 @@ int qos_need_enabled(struct sta_info_tag *sta)
 	if (!(sta->info.capa_flags & STA_QOS_CAPA))
 		return 0;
 
-#define CONFIG_WRT3200_ISSUE
-#ifdef CONFIG_WRT3200_ISSUE
-	/* workaround for WRT3200 */
-
-	/* find rate 22mbps */
-	rate_set = &sta->info.rate_set;
-	for (i = 0; i < rate_set->length; i++)	 {
-		if (rate_set->array[i] == 0x2c) {
-			rate_22mbps_found = 1;
-			break;
-		}
-	}
-
-	/* ignore rate doesn't contain 22Mbps */
-	if (!rate_22mbps_found)
-		return 0;
-
-	/* ignore 11AC */
-	if (sta->info.capa_flags & STA_VHT_CAPA)
-		return 0;
-
-	/* ignore non-HT */
-	if (!(sta->info.capa_flags & STA_HT_CAPA))
-		return 0;
-
-	/* ingore nss != 3*/
-	nss = sta_11n_nss(sta->info.ht_cap.mcs_rate);
-	if (nss != 3)
-		return 0;
-
-	/* ignore LDPC and DSSS/CCK in 40M not both enabled */
-	if (!((sta->info.ht_cap.ht_capa_info & MAC_HTCAPA_LDPC) && 
-		(sta->info.ht_cap.ht_capa_info & MAC_HTCAPA_DSSS_CCK_40)))
-		return 0;
-#endif
-
 	return 1;
 }
 #endif
