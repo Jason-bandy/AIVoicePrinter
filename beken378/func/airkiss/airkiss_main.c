@@ -15,6 +15,8 @@
 #include "airkiss_main.h"
 #include "mac_frame.h"
 #include "co_utils.h"
+#include "flash.h"
+#include "role_launch.h"
 
 static airkiss_context_t *ak_contex = NULL;
 const airkiss_config_t ak_conf =
@@ -302,7 +304,6 @@ void airkiss_doing_timeout_callback(void *data)
 
 void airkiss_monitor_callback(uint8_t *data, int len, wifi_link_info_t *info)
 {
-    u16 fctl;
     GLOBAL_INT_DECLARATION();
 
     if(len < AIRKISS_MIN_RX_BUF_SIZE)
@@ -410,7 +411,6 @@ void airkiss_main( void *arg )
     int result;
     u32 con_time;
     airkiss_result_t ak_result;
-    int airkiss_read_size;
     u8 *airkiss_read_buf = NULL;
 
     result = pingpong_init();
@@ -480,15 +480,13 @@ void airkiss_main( void *arg )
 
     while(0 == airkiss_exit)
     {    	
-		int read_size;
 		uint32_t actual;
-        GLOBAL_INT_DECLARATION();
 
         result = rtos_get_semaphore(&ak_semaphore, BEKEN_WAIT_FOREVER);
 
         // count received packet
         actual = 0;
-        read_size = read_from_pingpong_buf(read_buf, AIRKISS_MIN_RX_BUF_SIZE, &actual);
+        read_from_pingpong_buf(read_buf, AIRKISS_MIN_RX_BUF_SIZE, &actual);
 
         if(g_chans.mode == AIRKISS_SCAN_SELECTED_CHAN)
         {

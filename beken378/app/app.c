@@ -47,6 +47,7 @@
 #endif
 #include "ap_idle_pub.h"
 #include "arbitrate.h"
+#include "ke_event.h"
 
 beken_thread_t  init_thread_handle;
 beken_thread_t  app_thread_handle;
@@ -65,6 +66,7 @@ static void core_thread_main( void *arg ) __SECTION(".itcm");
 
 #if CFG_IEEE80211AX
 #include "macif.h"
+#include "rwnx_rx.h"
 #endif
 
 extern void net_wlan_initial(void);
@@ -74,6 +76,11 @@ void bk_wlan_app_init(void)
 {
 #if (!CFG_SUPPORT_RTT)
     net_wlan_initial();
+#endif
+
+#if CFG_IEEE80211AX
+	// initial wlan rx buf only once after lwip has been initialized
+    fhost_rxbuf_push();
 #endif
 
     wpas_thread_start();
@@ -152,6 +159,7 @@ void bmsg_tx_handler(BUS_MSG_T *msg)
     struct pbuf *q = p;
     uint8_t vif_idx = (uint8_t)msg->len;
 
+#if !CFG_IEEE80211AX
     if(p->next)
     {
         q = pbuf_coalesce(p, PBUF_RAW);
@@ -161,6 +169,7 @@ void bmsg_tx_handler(BUS_MSG_T *msg)
             goto tx_handler_exit;
         }
     }
+#endif
 
     ps_set_data_prevent();
 
@@ -169,10 +178,14 @@ void bmsg_tx_handler(BUS_MSG_T *msg)
     bk_wlan_dtim_rf_ps_mode_do_wakeup();
 #endif
 
+#if CFG_IEEE80211AX
+    rwm_transfer(vif_idx, q, q->payload, q->tot_len, 0, 0);
+#else
     rwm_transfer(vif_idx, q->payload, q->len, 0, 0);
 
 tx_handler_exit:
     pbuf_free(q);
+#endif
 }
 
 
@@ -214,15 +227,14 @@ void bmsg_tx_raw_handler(BUS_MSG_T *msg)
 	struct umacdesc *umac;
 
 	node = rwm_tx_node_alloc(len);
-	if (node == NULL) {
+	if (node == NULL)
 		goto exit;
-	}
 
 	rwm_tx_msdu_renew(pkt, len, node->msdu_ptr);
 	content_ptr = rwm_get_msdu_content_ptr(node);
 
 	txdesc_new = tx_txdesc_prepare(queue_idx);
-	if(txdesc_new == NULL || TXDESC_STA_USED == txdesc_new->status) {
+	if (txdesc_new == NULL || TXDESC_STA_USED == txdesc_new->status) {
 		rwm_node_free(node);
 		goto exit;
 	}
@@ -247,13 +259,32 @@ void bmsg_tx_raw_handler(BUS_MSG_T *msg)
 	txdesc_new->lmac.agg_desc = NULL;
 	txdesc_new->lmac.hw_desc->cfm.status = 0;
 
-    ps_set_data_prevent();
+	ps_set_data_prevent();
 #if CFG_USE_STA_PS
-    bmsg_ps_handler_rf_ps_mode_real_wakeup();
-    bk_wlan_dtim_rf_ps_mode_do_wakeup();
+	bmsg_ps_handler_rf_ps_mode_real_wakeup();
+	bk_wlan_dtim_rf_ps_mode_do_wakeup();
 #endif
 
 	txl_cntrl_push(txdesc_new, queue_idx);
+
+exit:
+	os_free(pkt);
+#else // CFG_IEEE80211AX
+	uint8_t *pkt = (uint8_t *)msg->arg;
+	uint16_t len = msg->len;
+	MSDU_NODE_T *node;
+
+	node = rwm_tx_node_alloc(len, PBUF_RAW);
+	if (node == NULL)
+		goto exit;
+
+	// XXX: copy
+	rwm_tx_mpdu_renew(pkt, len, node->msdu_ptr);
+	node->sta_idx = 0xFF;
+	node->vif_idx = rwm_first_vif_idx();  // TODO: BK7236 USE the corrent vif
+	node->cb = msg->cb;
+	node->args = msg->param;
+	rwm_transfer_mgmt_node(node);
 
 exit:
 	os_free(pkt);
@@ -431,6 +462,8 @@ int bmsg_tx_sender(struct pbuf *p, uint32_t vif_idx)
     msg.arg = (uint32_t)p;
     msg.len = vif_idx;
     msg.sema = NULL;
+    msg.cb = NULL;
+    msg.param = NULL;
 
     pbuf_ref(p);
     ret = rtos_push_to_queue(&g_wifi_core.io_queue, &msg, 1 * SECONDS);
@@ -452,6 +485,8 @@ int bmsg_tx_raw_sender(uint8_t *payload, uint16_t length)
 	msg.arg = (uint32_t)payload;
 	msg.len = length;
 	msg.sema = NULL;
+	msg.cb = NULL;
+	msg.param = NULL;
 
 	ret = rtos_push_to_queue(&g_wifi_core.io_queue, &msg, 1*SECONDS);
 
@@ -571,8 +606,8 @@ void bmsg_ps_sender(uint8_t arg)
         os_printf("g_wifi_core.io_queue null\r\n");
     }
 }
-#if CFG_USE_STA_PS
 
+#if CFG_USE_STA_PS
 void bmsg_ps_handler(BUS_MSG_T *msg)
 {
     UINT8 arg;
@@ -581,75 +616,83 @@ void bmsg_ps_handler(BUS_MSG_T *msg)
     ps_msg_process(arg);
 }
 #endif
+
 static void core_thread_main( void *arg )
 {
     OSStatus ret;
     BUS_MSG_T msg;
     uint8_t ke_skip = 0;
+#if CFG_USE_STA_PS
     uint8_t ps_flag = 0;
+#endif
 
-    while(1)
-    {
+    while (1) {
         ret = rtos_pop_from_queue(&g_wifi_core.io_queue, &msg, BEKEN_WAIT_FOREVER);
-        if(kNoErr == ret)
-        {
-            switch(msg.type)
-            {
+        if(kNoErr == ret) {
+            switch(msg.type) {
 #if CFG_USE_STA_PS
             case BMSG_STA_PS_TYPE:
                 if(msg.arg == PS_BMSG_IOCTL_RF_DISANABLE)
-                {
                     bmsg_ps_handler(&msg);
-                }
                 else
-                {
                     ps_flag = 1;
-                }
                 break;
 #endif
 
             case BMSG_RX_TYPE:
+                /* ieee 802.11 rx handler */
                 APP_PRT("bmsg_rx_handler\r\n");
                 bmsg_rx_handler(&msg);
                 break;
 
             case BMSG_TX_TYPE:
+                /* ieee 802.3 data tx handler */
                 APP_PRT("bmsg_tx_handler\r\n");
                 bmsg_tx_handler(&msg);
                 break;
 
             case BMSG_SKT_TX_TYPE:
+                /* ieee 802.11 mlme frame tx handler, used by wpa_s/hapd */
                 APP_PRT("bmsg_skt_tx_handler\r\n");
                 bmsg_skt_tx_handler(&msg);
                 break;
 
+                case BMSG_TX_RAW_CB_TYPE:
+#if CFG_IEEE80211AX
+                /* fallthru */
+#else
+                /* ieee 802.11 mgmt frame tx handler with callback */
+                bmsg_tx_raw_cb_handler(&msg);
+                break;
+#endif
+            case BMSG_TX_RAW_TYPE:
+                /* ieee 802.11 mgmt frame tx handler */
+                bmsg_tx_raw_handler(&msg);
+                break;
+
+#if CFG_USE_AP_PS
+            case BMSG_TXING_TYPE:
+                /* tx handler of buffered frame for sta, used by hapd. */
+                bmsg_txing_handler(&msg);
+                break;
+#endif
+
             case BMSG_IOCTL_TYPE:
+                /* ke_msg tx handler */
                 APP_PRT("bmsg_ioctl_handler\r\n");
                 bmsg_ioctl_handler(&msg);
                 break;
+
             case BMSG_MEDIA_TYPE:
                 ke_skip = 1;
                 bmsg_music_handler(&msg);
                 break;
 
-#if CFG_USE_AP_PS
-            case BMSG_TXING_TYPE:
-                bmsg_txing_handler(&msg);
-                break;
-#endif
-
-			case BMSG_TX_RAW_TYPE:
-				bmsg_tx_raw_handler(&msg);
-				break;
-
-            case BMSG_TX_RAW_CB_TYPE:
-                bmsg_tx_raw_cb_handler(&msg);
-                break;
 
 #if (SUPPORT_LSIG_MONITOR)
-			case BMSG_RX_LSIG:
-				bmsg_rx_lsig_handler(&msg);
-				break;
+            case BMSG_RX_LSIG:
+                bmsg_rx_lsig_handler(&msg);
+                break;
 #endif
             default:
                 APP_PRT("unknown_msg\r\n");
@@ -657,9 +700,8 @@ static void core_thread_main( void *arg )
             }
 
             if (msg.sema != NULL)
-            {
                 rtos_set_semaphore(&msg.sema);
-            }
+
             if(!ke_skip)
                 ke_evt_core_scheduler();
             else
@@ -667,8 +709,7 @@ static void core_thread_main( void *arg )
         }
 
 #if CFG_USE_STA_PS
-        if(ps_flag == 1)
-        {
+        if(ps_flag == 1) {
             bmsg_ps_handler(&msg);
             ps_flag = 0;
         }

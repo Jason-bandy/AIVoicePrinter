@@ -60,12 +60,11 @@ int stream_buffer(int argc, char **argv)
 
 int stream_pipe_dump(void)
 {
-	rt_uint32_t total_size, used_size, remain_size;
+	rt_uint32_t total_size, used_size;
 	struct stream_pipe *pipe = netstream_get_pipe();
 
 	total_size = pipe->ringbuffer.buffer_size;
 	used_size = rb_buffer_data_len(&pipe->ringbuffer);
-	remain_size = total_size - used_size;
 
 	rt_kprintf("\nPlayer NetCache:\n");
 	rt_kprintf("total size   - %d \n", total_size);

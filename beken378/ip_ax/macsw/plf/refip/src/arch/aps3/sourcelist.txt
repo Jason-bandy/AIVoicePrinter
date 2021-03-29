@@ -1,0 +1,4 @@
+# APS3 specific files
+    arch_main.c
+    boot/$BUILDTOOL/boot.c
+    boot/$BUILDTOOL/interrupt.c

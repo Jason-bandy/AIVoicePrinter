@@ -1,5 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
+#include "co_list.h"
 #include "audio.h"
 #include "audio_pub.h"
 #include "intc_pub.h"
@@ -282,6 +283,7 @@ void audio_adc_set_dma(UINT32 enable)
 #endif
 }
 
+__maybe_unused static void audio_adc_eixt_dma(void);
 static void audio_adc_eixt_dma(void)
 {
 #if (CFG_SOC_NAME == SOC_BK7271)
@@ -324,6 +326,7 @@ void audio_adc_disable_linein(void)
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_DISALBLE_ADC_LINE_IN, NULL);
 }
 
+__maybe_unused static void audio_adc_init_linein_detect_pin(UINT32 pin);
 static void audio_adc_init_linein_detect_pin(UINT32 pin)
 {
     UINT32 param;
@@ -332,11 +335,6 @@ static void audio_adc_init_linein_detect_pin(UINT32 pin)
 
     param = GPIO_CFG_PARAM(pin, GMODE_INPUT_PULLUP);
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-}
-
-static void audio_adc_linein_detect(void)
-{
-    // TODO:
 }
 
 void audio_adc_set_volume(UINT32 volume)

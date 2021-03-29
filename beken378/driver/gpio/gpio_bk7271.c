@@ -11,7 +11,7 @@
 
 static void (*p_gpio_intr_handler[GPIONUM])(unsigned char);
 static int gpio_ops_filter_flag = 0;
-static SDD_OPERATIONS gpio_op = {
+static const SDD_OPERATIONS gpio_op = {
 	gpio_ctrl
 };
 
@@ -649,7 +649,7 @@ void gpio_init(void)
 #endif
 	gpio_disable_jtag();
 
-	sddev_register_dev(GPIO_DEV_NAME, &gpio_op);
+	sddev_register_dev(GPIO_DEV_NAME, (SDD_OPERATIONS*)&gpio_op);
 #if CFG_SYS_START_TIME
 	param = 3 | (GMODE_OUTPUT << 8);
 	gpio_ctrl(CMD_GPIO_CFG, &param);

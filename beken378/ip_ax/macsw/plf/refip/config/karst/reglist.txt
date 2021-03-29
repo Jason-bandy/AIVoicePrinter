@@ -1,0 +1,11 @@
+# MDM
+    import/modem/${MDM}/MDM_STAT.xls                  ${MDM_STAT_ADDR} REG_PL MDM short
+    import/modem/${MDM}/MDM_CFG.xls                   ${MDM_CFG_ADDR}  REG_PL MDM short
+    import/modem/${MDM}/MDMDSSS_CFG.xls               ${MDMDSSS_CFG_ADDR} REG_PL MDM short
+
+# RC/RIU
+    import/${PHY}/${MDM}/RIU.xls                      ${RIU_ADDR} REG_PL RIU short
+    import/${PHY}/${MDM}/RC.xls                       ${RC_ADDR} REG_PL RC short
+    import/${PHY}/${PLATFORM}/${PLFVER}/KARST_IF.xls  ${RF_IF_ADDR} REG_PL KARST short
+    import/${PHY}/MACBYPASS.xls                       ${MACBYPASS_ADDR} REG_PL MACBYP short
+

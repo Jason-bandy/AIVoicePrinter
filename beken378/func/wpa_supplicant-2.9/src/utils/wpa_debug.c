@@ -19,7 +19,7 @@ void wpa_set_debug_level(int level)
 {
 	if (level >= 0 && level <= MSG_ERROR) {
 		wpa_debug_level = level;
-		os_printf("set wpa debug level to %d\r\n", wpa_debug_level);
+		WPA_LOGI("set wpa debug level to %d\r\n", wpa_debug_level);
 	}
 }
 
@@ -33,7 +33,7 @@ void wpa_debug_print_timestamp(void)
 		return;
 
 	os_get_time(&tv);
-	os_printf("%ld.%06u: ", (long) tv.sec, (unsigned int) tv.usec);
+	WPA_LOGI("%ld.%06u: ", (long) tv.sec, (unsigned int) tv.usec);
 #endif
 }
 
@@ -53,7 +53,6 @@ void wpa_dbg(void *ctx, int level, const char *fmt, ...)
 	va_list ap;
 	char *buf;
 	int buflen;
-	int len;
 
 	if (level >= wpa_debug_level) {
 		va_start(ap, fmt);
@@ -62,18 +61,18 @@ void wpa_dbg(void *ctx, int level, const char *fmt, ...)
 
 		buf = os_malloc(buflen);
 		if (buf == NULL) {
-			os_printf("wpa_msg: Failed to allocate message "
+			WPA_LOGE("wpa_msg: Failed to allocate message "
 				   "buffer");
 			return;
 		}
 		va_start(ap, fmt);
 
-		len = vsnprintf(buf, buflen, fmt, ap);
+		vsnprintf(buf, buflen, fmt, ap);
 		va_end(ap);
 		bk_send_string(uart_print_port, buf);
 		os_free(buf);
 
-		os_printf("\r\n");
+		WPA_LOGI("\r\n");
 	}
 }
 
@@ -85,7 +84,7 @@ static void _wpa_hexdump(int level, const char *title, const u8 *buf,
 	if (level < wpa_debug_level)
 		return;
 	wpa_debug_print_timestamp();
-	os_printf("%s - hexdump(len=%lu):", title, (unsigned long) len);
+	WPA_LOGI("%s - hexdump(len=%lu):", title, (unsigned long) len);
 	if (buf == NULL) {
 		os_printf(" [NULL]");
 	} else if (show) {
@@ -118,16 +117,16 @@ static void _wpa_hexdump_ascii(int level, const char *title, const void *buf,
 		return;
 	wpa_debug_print_timestamp();
 	if (!show) {
-		os_printf("%s - hexdump_ascii(len=%lu): [REMOVED]\r\n",
+		WPA_LOGI("%s - hexdump_ascii(len=%lu): [REMOVED]\r\n",
 		       title, (unsigned long) len);
 		return;
 	}
 	if (buf == NULL) {
-		os_printf("%s - hexdump_ascii(len=%lu): [NULL]\r\n",
+		WPA_LOGI("%s - hexdump_ascii(len=%lu): [NULL]\r\n",
 		       title, (unsigned long) len);
 		return;
 	}
-	os_printf("%s - hexdump_ascii(len=%lu):\r\n", title, (unsigned long) len);
+	WPA_LOGI("%s - hexdump_ascii(len=%lu):\r\n", title, (unsigned long) len);
 	while (len) {
 		llen = len > line_len ? line_len : len;
 		os_printf("    ");

@@ -13,6 +13,15 @@
 ////Difference between pieces
 #define DIFFERENCE_PIECES_CFG        0
 
+#define BK_PWR_BASE_11B			170	/* unit 0.1dBm */
+#define BK_PWR_BASE_11G			150	/* unit 0.1dBm */
+#define BK_PWR_BASE_HT20		140	/* unit 0.1dBm */
+#define BK_PWR_BASE_HT40		130	/* unit 0.1dBm */
+
+#define BK_PWR_11B_STEP_SIZE	50	/* unit 0.01dBm */
+#define BK_PWR_11G_STEP_SIZE	25	/* unit 0.01dBm */
+#define BK_PWR_HT20_STEP_SIZE	25	/* unit 0.01dBm */
+#define BK_PWR_HT40_STEP_SIZE	25	/* unit 0.01dBm */
 void delay05us(INT32 num);
 
 #define trx_reg_is_write(st_trxreg)     while(BK7231N_RC_REG.REG0x1->value & st_trxreg) 	{cpu_delay(1);}
@@ -1436,5 +1445,9 @@ typedef struct
 * Function Declarations
 *******************************************************************************/
 #endif // (CFG_SOC_NAME != SOC_BK7231)
+
+void rwnx_cal_en_rx_filter_offset(void);
+void rwnx_cal_set_bw_i2v(int enable);
+void rwnx_cal_dis_rx_filter_offset(void);
 
 #endif // _BK7231U_CAL_H_

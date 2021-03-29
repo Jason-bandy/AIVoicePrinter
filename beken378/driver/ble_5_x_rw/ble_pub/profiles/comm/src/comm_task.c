@@ -59,7 +59,7 @@ static uint8_t bk_ble_get_prf_by_task(kernel_task_id_t task, struct prf_task_env
 static void bk_ble_ntf_val(struct bk_ble_env_tag* ble_env,struct bk_ble_ntf_upd_req const *param)
 {
 	
-	//  UART_PRINTF("%s\r\n",__func__);
+	//  BLE_LOGI("%s\r\n",__func__);
     //Allocate the GATT notification message
     struct gattc_send_evt_cmd *ntf_value = KERNEL_MSG_ALLOC_DYN(GATTC_SEND_EVT_CMD,
             KERNEL_BUILD_ID(TASK_BLE_GATTC, 0), prf_src_task_get(&(ble_env->prf_env),0),
@@ -72,7 +72,7 @@ static void bk_ble_ntf_val(struct bk_ble_env_tag* ble_env,struct bk_ble_ntf_upd_
     ntf_value->length = param->length;
     ntf_value->seq_num = param->att_id;
   
-    //UART_PRINTF("fed6_value->handle = 0x%x\r\n",fed6_value->handle);
+    //BLE_LOGI("fed6_value->handle = 0x%x\r\n",fed6_value->handle);
     memcpy(&ntf_value->value[0],param->value,ntf_value->length);
 
     //send notification to peer device
@@ -108,7 +108,7 @@ static int bk_ble_ntf_upd_req_handler(kernel_msg_id_t const msgid,
         }
         else
         {
-            //UART_PRINTF("KE_MSG_SAVED6\r\n");
+            //BLE_LOGI("KE_MSG_SAVED6\r\n");
             msg_status = KERNEL_MSG_SAVED;
         }
     }
@@ -120,7 +120,7 @@ static int bk_ble_ntf_upd_req_handler(kernel_msg_id_t const msgid,
 static void bk_ble_ind_val(struct bk_ble_env_tag* ble_env,struct bk_ble_ind_upd_req const *param)
 {
 	
-	//  UART_PRINTF("%s\r\n",__func__);
+	//  BLE_LOGI("%s\r\n",__func__);
     //Allocate the GATT notification message
     struct gattc_send_evt_cmd *ntf_value = KERNEL_MSG_ALLOC_DYN(GATTC_SEND_EVT_CMD,
             KERNEL_BUILD_ID(TASK_BLE_GATTC, 0), prf_src_task_get(&(ble_env->prf_env),0),
@@ -133,7 +133,7 @@ static void bk_ble_ind_val(struct bk_ble_env_tag* ble_env,struct bk_ble_ind_upd_
     ntf_value->length = param->length;
     ntf_value->seq_num = param->att_id;
   
-    //UART_PRINTF("fed6_value->handle = 0x%x\r\n",fed6_value->handle);
+    //BLE_LOGI("fed6_value->handle = 0x%x\r\n",fed6_value->handle);
     memcpy(&ntf_value->value[0],param->value,ntf_value->length);
 
     //send notification to peer device
@@ -169,7 +169,7 @@ static int bk_ble_ind_upd_req_handler(kernel_msg_id_t const msgid,
         }
         else
         {
-            //UART_PRINTF("KE_MSG_SAVED6\r\n");
+            //BLE_LOGI("KE_MSG_SAVED6\r\n");
             msg_status = KERNEL_MSG_SAVED;
         }
     }
@@ -294,7 +294,7 @@ static int gattc_write_req_ind_handler(kernel_msg_id_t const msgid, struct gattc
 static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,  struct gattc_cmp_evt const *param,
                                  kernel_task_id_t const dest_id, kernel_task_id_t const src_id)
 {
-  	//UART_PRINTF("%s\r\n",__func__);
+  	//BLE_LOGI("%s\r\n",__func__);
   	struct prf_task_env *prf_env = NULL;
     struct bk_ble_env_tag* ble_env = NULL;
     

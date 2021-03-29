@@ -1,8 +1,10 @@
 #include "include.h"
+#include "common.h"
 #include "fake_socket.h"
 #include "mem_pub.h"
 #include "uart_pub.h"
 #include "hostapd_intf_pub.h"
+#include "wpa_debug.h"
 
 /*
  * RWIP use ke_sk_xx to recv/send mesages, while non-RWIP use fsocket_xxxx.
@@ -25,7 +27,7 @@ int ke_sk_send(SOCKET sk, const unsigned char *buf, int len, int flag)
 	SOCKET_MSG *sk_msg;
 	GLOBAL_INT_DECLARATION();
 
-	SK_PRT("ke_tx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
+	WPA_LOGD("ke_tx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
 	element = sk_get_sk_element(sk);
 	if(0 == element)
 	{
@@ -73,7 +75,7 @@ int ke_sk_recv(SOCKET sk, const unsigned char *buf, int len, int flag)
 	SOCKET_MSG *sk_msg, *tmp;
 	GLOBAL_INT_DECLARATION();
 
-	SK_PRT("ke_rx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
+	WPA_LOGD("ke_rx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
 	element = sk_get_sk_element(sk);
 	if(0 == element)
 	{
@@ -87,7 +89,7 @@ int ke_sk_recv(SOCKET sk, const unsigned char *buf, int len, int flag)
 
 		ASSERT(count);
 		ASSERT(sk_msg);
-		SK_PRT("r1:%d,buf:0x%x, len:%d\r\n", sk, buf, count);
+		WPA_LOGD("r1:%d,buf:0x%x, len:%d\r\n", sk, buf, count);
 		os_memcpy((void *)buf, (void *)sk_msg->msg, count);
 
 		ret = count;
@@ -192,14 +194,14 @@ SOCKET fsocket_init(int af, int type, int protocol)
 	sk = af + type + protocol;
 	if (0 != sk_get_sk_element(sk))
 	{
-	    os_printf("%s sk=%d exist\n", __FUNCTION__, sk);
+	    WPA_LOGD("%s sk=%d exist\n", __FUNCTION__, sk);
 	    return sk;
 	}
 
 	sk_ptr = (BK_SOCKET *)os_malloc(sizeof(BK_SOCKET));
 	if(0 == sk_ptr)
 	{
-		SK_PRT("create fsocket_init unexceptionally\r\n");
+		WPA_LOGE("create fsocket_init unexceptionally\r\n");
 		return 0;
 	}
 
@@ -212,7 +214,7 @@ SOCKET fsocket_init(int af, int type, int protocol)
 	dl_list_add(&socket_entity.sk_head, &sk_ptr->sk_element);
 	GLOBAL_INT_RESTORE();
 
-	SK_PRT("create fsocket_init:%d\r\n", sk);
+	WPA_LOGD("create fsocket_init:%d\r\n", sk);
 	return sk;
 }
 
@@ -227,7 +229,7 @@ int fsocket_send(SOCKET sk, const unsigned char *buf, int len, S_TYPE_PTR type)
 	unsigned char *data_buf;
 	GLOBAL_INT_DECLARATION();
 
-	SK_PRT("hapd_tx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
+	WPA_LOGD("hapd_tx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
 	element = sk_get_sk_element(sk);
 	if(0 == element)
 	{
@@ -274,7 +276,7 @@ int fsocket_recv(SOCKET sk, const unsigned char *buf, int len, int flag)
 	SOCKET_MSG *sk_msg, *tmp;
 	GLOBAL_INT_DECLARATION();
 
-	SK_PRT("hapd_rx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
+	WPA_LOGD("hapd_rx:%d,buf:0x%x, len:%d\r\n", sk, buf, len);
 	element = sk_get_sk_element(sk);
 	if(0 == element)
 	{
@@ -286,7 +288,7 @@ int fsocket_recv(SOCKET sk, const unsigned char *buf, int len, int flag)
 	{
 		if(sk_msg->len > len)
 		{
-			SK_WPRT("recv_buf_small:%d:%d\r\n", sk_msg->len, len);
+			WPA_LOGW("recv_buf_small:%d:%d\r\n", sk_msg->len, len);
 		}
 
 		count = MIN(sk_msg->len, len);
@@ -321,7 +323,7 @@ void fsocket_close(SOCKET sk)
 	SOCKET_MSG *sk_msg, *tmp;
 	GLOBAL_INT_DECLARATION();
 
-	SK_PRT("close_sk:%d\r\n", sk);
+	WPA_LOGD("close_sk:%d\r\n", sk);
 	element = sk_get_sk_element(sk);
 	if(0 == element)
 	{

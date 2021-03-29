@@ -40,6 +40,7 @@
 #include "lwip/timeouts.h"
 #include "rtos_pub.h"
 #include "portmacro.h"
+#include "bk_log.h"
 
 #define CFG_ENABLE_LWIP_MUTEX      1
 
@@ -471,11 +472,9 @@ void sys_arch_unprotect(sys_prot_t pval)
  */
 void sys_assert( const char *msg )
 {	
-	(void) msg;
-	
 	/*FSL:only needed for debugging*/
-	os_printf(msg);
-	os_printf("\n\r");		
+	LWIP_LOGI("%s", msg);
+	LWIP_LOGI("\n\r");		
     vPortEnterCritical();
 	
     for(;;)

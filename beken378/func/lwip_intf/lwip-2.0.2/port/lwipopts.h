@@ -33,6 +33,7 @@
 #define __LWIPOPTS_H__
 
 #include "sys_config.h"
+#include "bk_log.h"
 
 /**
  * Loopback demo related options.
@@ -109,9 +110,9 @@
  */
 #define MEM_ALIGNMENT                   4
 
-#define MAX_SOCKETS_TCP 12
+#define MAX_SOCKETS_TCP 8
 #define MAX_LISTENING_SOCKETS_TCP 4
-#define MAX_SOCKETS_UDP 22
+#define MAX_SOCKETS_UDP 8
 #define TCP_SND_BUF_COUNT 5
 
 /* Value of TCP_SND_BUF_COUNT denotes the number of buffers and is set by
@@ -221,7 +222,12 @@
  * designed to accomodate single full size TCP frame in one pbuf, including
  * TCP_MSS, IP header, and link header.
  */
+#if CFG_IEEE80211AX
+#define PBUF_LINK_ENCAPSULATION_HLEN    CFG_MSDU_RESV_HEAD_LEN
+#define PBUF_POOL_BUFSIZE               (1580 + PBUF_LINK_ENCAPSULATION_HLEN)
+#else
 #define PBUF_POOL_BUFSIZE               1580
+#endif
 
 
 /*
@@ -456,6 +462,12 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 /* Beken specific LWIP options */
 #define BK_DHCP                         1
+
+#define LWIP_TAG "lwip"
+#define LWIP_LOGI(...) BK_LOGI(LWIP_TAG, ##__VA_ARGS__)
+#define LWIP_LOGW(...) BK_LOGW(LWIP_TAG, ##__VA_ARGS__)
+#define LWIP_LOGE(...) BK_LOGE(LWIP_TAG, ##__VA_ARGS__)
+#define LWIP_LOGD(...) BK_LOGD(LWIP_TAG, ##__VA_ARGS__)
 
 #endif /* __LWIPOPTS_H__ */
 

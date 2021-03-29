@@ -10,6 +10,10 @@
 #include "sys_ctrl_pub.h"
 #include "mcu_ps_pub.h"
 #include "mem_pub.h"
+#include "bk_log.h"
+#include "ate_app.h"
+
+#define TAG "flash"
 
 static const flash_config_t flash_config[] =
 {
@@ -29,9 +33,10 @@ static const flash_config_t flash_config[] =
     {0x000000, 2, 0x400000, 2,  0, 2, 0x1F, 0x00, 0x00, 0x00, 0x000, 0, 0, 0x00, 0x01}, //default
 };
 
+__maybe_unused static void flash_enable_cpu_data_wr(void);
 static const flash_config_t *flash_current_config = NULL;
 static UINT32 flash_id;
-static DD_OPERATIONS flash_op =
+static const DD_OPERATIONS flash_op =
 {
     NULL,
     NULL,
@@ -56,7 +61,7 @@ static void flash_get_current_flash_config(void)
     if(i == (sizeof(flash_config) / sizeof(flash_config_t) - 1))
     {
         flash_current_config = &flash_config[i];
-        os_printf("don't config this flash, choose default config\r\n");
+        BK_LOGI(TAG, "don't config this flash, choose default config\r\n");
     }
 }
 
@@ -137,7 +142,7 @@ static UINT16 flash_read_sr(UINT8 sr_width)
 	    sr |= (value & 0x00FF) << 8;
 	}
 
-	//os_printf("--read sr:%x--\r\n",sr);
+	//BK_LOGI(TAG, "--read sr:%x--\r\n",sr);
 
     return sr;
 }
@@ -433,7 +438,7 @@ static void set_flash_protect(PROTECT_TYPE type)
 		value &= ~(1 << flash_current_config->cmp_post);
 		value |= ((cmp & 0x01) << flash_current_config->cmp_post);
 
-		os_printf("--write status reg:%x,%x--\r\n", value, flash_current_config->sr_size);
+		BK_LOGI(TAG, "--write status reg:%x,%x--\r\n", value, flash_current_config->sr_size);
 		flash_write_sr(flash_current_config->sr_size, value);
 	}
 }
@@ -612,7 +617,7 @@ void flash_init(void)
     while(REG_READ(REG_FLASH_OPERATE_SW) & BUSY_SW);
 
     id = flash_get_id();
-    FLASH_PRT("[Flash]id:0x%x\r\n", id);
+    BK_LOGI(TAG, "id:0x%x\r\n", id);
     flash_get_current_flash_config();
 
 	set_flash_protect(FLASH_UNPROTECT_LAST_BLOCK);
@@ -625,9 +630,9 @@ void flash_init(void)
 
     flash_set_clk(5);  // 60M
 
-    ddev_register_dev(FLASH_DEV_NAME, &flash_op);
+    ddev_register_dev(FLASH_DEV_NAME, (DD_OPERATIONS*)&flash_op);
 
-    os_printf("[Flash]init over\r\n");
+    BK_LOGI(TAG, "[Flash]init over\r\n");
 }
 
 void flash_exit(void)
@@ -702,7 +707,11 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
 
         reg = REG_READ(REG_FLASH_CONF);
         reg &= ~(FLASH_CLK_CONF_MASK << FLASH_CLK_CONF_POSI);
-        reg = reg | (9 << FLASH_CLK_CONF_POSI);
+        if (get_ate_mode_state()) {
+            reg = reg | (0xB << FLASH_CLK_CONF_POSI);
+        } else {
+            reg = reg | (9 << FLASH_CLK_CONF_POSI);
+        }
         REG_WRITE(REG_FLASH_CONF, reg);
         break;
 
@@ -780,7 +789,7 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
     if(4 == flash_current_config->line_mode)
     {
         flash_set_line_mode(LINE_MODE_FOUR);
-        //os_printf("change line mode 4\r\n");
+        //BK_LOGI(TAG, "change line mode 4\r\n");
     }
 
     peri_busy_count_dec();

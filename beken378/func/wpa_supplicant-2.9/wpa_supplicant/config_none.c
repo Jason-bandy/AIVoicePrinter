@@ -37,6 +37,7 @@ static void wpa_config_ht_cap_by_sec(int sec)
 }
 #endif
 
+#if !CFG_WPA_CTRL_IFACE
 static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 {
 	int errors = 0;
@@ -62,13 +63,14 @@ static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 
 	return errors;
 }
+#endif
 
 static int set_wpa_psk(struct wpa_ssid *ssid)
 {
 	int errors = 0;
 
 	if (g_sta_param_ptr->key_len < 8 || g_sta_param_ptr->key_len > 64) {
-		os_printf("Invalid passphrase "
+		WPA_LOGE("Invalid passphrase "
 				  "length %lu (expected: 8..63) '%s'.",
 				  (unsigned long) g_sta_param_ptr->key_len, (char *)g_sta_param_ptr->key);
 		errors++;
@@ -122,7 +124,7 @@ static int set_wep_key(struct wpa_ssid *ssid)
 
 static int cipher2security(struct wpa_ie_data *ie)
 {
-	bk_printf("%s %d %d %d %d\n", __FUNCTION__, ie->key_mgmt, ie->proto, ie->pairwise_cipher, ie->group_cipher);
+	WPA_LOGI("%s %d %d %d %d\n", __FUNCTION__, ie->key_mgmt, ie->proto, ie->pairwise_cipher, ie->group_cipher);
 	switch (ie->key_mgmt) {
 	case WPA_KEY_MGMT_PSK:
 		if (ie->proto == WPA_PROTO_WPA) {
@@ -152,6 +154,7 @@ static int cipher2security(struct wpa_ie_data *ie)
 	}
 }
 
+#if !CFG_WPA_CTRL_IFACE
 static int security2cipher(struct wpa_ie_data *ie, int security)
 {
 	os_memset(ie, 0, sizeof(*ie));
@@ -199,10 +202,11 @@ static int security2cipher(struct wpa_ie_data *ie, int security)
 	default:
 		break;
 	}
-	bk_printf("%s %d %d %d %d security=%d\n", __FUNCTION__, ie->key_mgmt, ie->proto, ie->pairwise_cipher, ie->group_cipher, security);
+	WPA_LOGI("%s %d %d %d %d security=%d\n", __FUNCTION__, ie->key_mgmt, ie->proto, ie->pairwise_cipher, ie->group_cipher, security);
 
 	return 0;
 }
+#endif
 
 int wpa_config_set_none(struct wpa_ssid *ssid)
 {
@@ -246,8 +250,10 @@ int wpa_config_set_wpa(struct wpa_ssid *ssid, struct wpa_ie_data *ie)
 	if ((ssid->psk_set) || (ssid->passphrase != NULL))
 		return 0;
 #else
-	if (ssid->psk_set)
+	if (ssid->psk_set) {
+		g_sta_param_ptr->cipher_suite = cipher2security(ie);
 		return 0;
+	}
 #endif /* CFG_WPA_CTRL_IFACE */
 
 	ret = set_wpa_psk(ssid);
@@ -271,8 +277,10 @@ int wpa_config_set_wpa(struct wpa_ssid *ssid, struct wpa_ie_data *ie)
 static struct wpa_ssid *wpa_config_read_network(int *line, int id)
 {
 	struct wpa_ssid *ssid;
+#if !CFG_WPA_CTRL_IFACE
 	struct wpa_ie_data ie;
 	int errors = 0;
+#endif
 
 	ssid = os_zalloc(sizeof(*ssid));
 	if (ssid == NULL)
@@ -290,7 +298,7 @@ static struct wpa_ssid *wpa_config_read_network(int *line, int id)
 
 	if ((g_sta_param_ptr->fast_connect_set) && (g_sta_param_ptr->cipher_suite != BK_SECURITY_TYPE_AUTO)) {
 		os_memcpy(ssid->bssid, g_sta_param_ptr->fast_connect.bssid, 6);
-		bk_printf("bssid %02x-%02x-%02x-%02x-%02x-%02x\r\n",
+		WPA_LOGI("bssid %02x-%02x-%02x-%02x-%02x-%02x\r\n",
 				  ssid->bssid[0], ssid->bssid[1], ssid->bssid[2],
 				  ssid->bssid[3], ssid->bssid[4], ssid->bssid[5]);
 		ssid->bssid_set = 1;

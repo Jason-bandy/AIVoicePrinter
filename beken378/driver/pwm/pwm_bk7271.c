@@ -12,12 +12,11 @@
 #include "icu_bk7271.h"
 #include "uart_pub.h"
 
-static SDD_OPERATIONS pwm_op = {
+static const SDD_OPERATIONS pwm_op = {
 	pwm_ctrl
 };
 
 void (*p_PWM_Int_Handler[PWM_CHANNEL_NUM])(UINT8);
-void pwm2_isr(void);
 
 static int volatile pwm_group = 0;
 static int volatile current_pwm_channel = 0;
@@ -92,24 +91,24 @@ static void pwm_gpio_configuration(UINT8 chan, UINT8 enable)
 static void pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
 {
 	UINT32 ret;
-	UINT32 prm;
+	UINT32 param;
 
 	/* set clock power down of icu module*/
 	switch (pwm_group) {
 	case 0:
-		prm = PWD_PWM0_CLK_BIT;
+		param = PWD_PWM0_CLK_BIT;
 		break;
 
 	case 1:
-		prm = PWD_PWM1_CLK_BIT;
+		param = PWD_PWM1_CLK_BIT;
 		break;
 
 	case 2:
-		prm = PWD_PWM2_CLK_BIT;
+		param= PWD_PWM2_CLK_BIT;
 		break;
 
 	case 3:
-		prm = PWD_PWM3_CLK_BIT;
+		param= PWD_PWM3_CLK_BIT;
 		break;
 
 	default:
@@ -118,36 +117,36 @@ static void pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
 	}
 
 	if (enable) {
-		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&prm);
+		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&param);
 		ASSERT(ICU_SUCCESS == ret);
 
 		if (PWM_CLK_32K == pwm_param->cfg.bits.clk) {
-			prm = PCLK_POSI_PWMS;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_LPOCLK, (void *)&prm);
+			param = PCLK_POSI_PWMS;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_LPOCLK, (void *)&param);
 		} else if (PWM_CLK_26M == pwm_param->cfg.bits.clk) {
-			prm = PCLK_POSI_PWMS;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, (void *)&prm);
+			param = PCLK_POSI_PWMS;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, (void *)&param);
 
-			prm = pwm_param->channel;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&prm);
+			param = pwm_param->channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&param);
 		} else {
-			prm = PCLK_POSI_PWMS;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, (void *)&prm);
+			param = PCLK_POSI_PWMS;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, (void *)&param);
 
-			prm = pwm_param->channel;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&prm);
+			param = pwm_param->channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&param);
 
 		}
 		ASSERT(ICU_SUCCESS == ret);
 
 	} else {
-		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&prm);
+		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&param);
 		ASSERT(ICU_SUCCESS == ret);
 	}
 
 	if (PWM_INT_EN == pwm_param->cfg.bits.int_en) {
-		prm = IRQ_PWM_BIT;
-		ret = sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, (void *)&prm);
+		param = IRQ_PWM_BIT;
+		ret = sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, (void *)&param);
 
 	}
 
@@ -156,28 +155,37 @@ exit_icu:
 	return;
 }
 
+static bk_err_t get_pwm_current_channel(UINT8 channel)
+{
+	if (channel >= PWM_CHANNEL_NUM)
+		return BK_ERR_PARAM;
+
+	if (channel < CHANNEL_3)
+	{
+		pwm_group = group0;
+		current_pwm_channel = channel ;
+	} else if (channel < CHANNEL_6)
+	{
+		pwm_group = group1;
+		current_pwm_channel = channel - CHANNEL_3;
+	} else if (channel < CHANNEL_9)
+	{
+		pwm_group = group2;
+		current_pwm_channel = channel - CHANNEL_6;
+	} else
+	{
+		pwm_group = group3;
+		current_pwm_channel = channel - CHANNEL_9;
+	}
+
+	return pwm_group;
+}
+
 static void init_pwm_param(pwm_param_t *pwm_param, UINT8 enable)
 {
 	UINT32 value;
 
-	if ((pwm_param == NULL)
-		|| (pwm_param->channel >= PWM_CHANNEL_NUM)
-		|| (pwm_param->duty_cycle > pwm_param->end_value))
-		return;
-
-	if (pwm_param->channel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = pwm_param->channel ;
-	} else if (pwm_param->channel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = pwm_param->channel - 3;
-	} else if (pwm_param->channel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = pwm_param->channel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = pwm_param->channel - 9;
-	}
+	pwm_group =  get_pwm_current_channel(pwm_param->channel);
 
 	if (pwm_param->cfg.bits.mode != PWM_TIMER_MODE)
 		pwm_gpio_configuration(pwm_param->channel, enable);
@@ -217,7 +225,7 @@ static void init_pwm_param(pwm_param_t *pwm_param, UINT8 enable)
 			| (pwm_param->cfg.bits.int_en << PWM_INT_ENABLE_BIT(current_pwm_channel));
 	REG_WRITE(PWM_GROUNP_CTL(pwm_group), value);
 
-	PWM_PRT("group:%d, current_pwm:%d,mode: %x, REG_PWM_GROUP_CTRL= 0x%lx\r\n", pwm_group, current_pwm_channel, pwm_param->cfg.val, REG_READ(PWM_GROUNP_CTL(pwm_group)));
+	PWM_LOGD(TAG,"group:%d, current_pwm:%d,mode: %x, REG_PWM_GROUP_CTRL= 0x%lx\r\n", pwm_group, current_pwm_channel, pwm_param->cfg.val, REG_READ(PWM_GROUNP_CTL(pwm_group)));
 
 	pwm_icu_configuration(pwm_param, enable);
 }
@@ -227,22 +235,7 @@ static void pwm_unit_enable(UINT8 ucChannel)
 
 	UINT32 value;
 
-	if (ucChannel > PWM_CHANNEL_NUM)
-		return;
-
-	if (ucChannel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = ucChannel;
-	} else if (ucChannel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = ucChannel - 3;
-	} else if (ucChannel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = ucChannel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = ucChannel - 9;
-	}
+	pwm_group =  get_pwm_current_channel(ucChannel);
 
 	value = REG_READ(PWM_GROUNP_CTL(pwm_group));
 	value |= PWM_ENABLE_SET(current_pwm_channel);
@@ -254,49 +247,16 @@ void pwm_unit_disable(UINT8 ucChannel)
 
 	UINT32 value;
 
-	if (ucChannel > PWM_CHANNEL_NUM)
-		return;
-
-	if (ucChannel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = ucChannel;
-	} else if (ucChannel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = ucChannel - 3;
-	} else if (ucChannel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = ucChannel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = ucChannel - 9;
-	}
+	pwm_group =  get_pwm_current_channel(ucChannel);
 
 	value = REG_READ(PWM_GROUNP_CTL(pwm_group));
 	value &= ~(PWM_ENABLE_SET(current_pwm_channel));
 	REG_WRITE(PWM_GROUNP_CTL(pwm_group), value);
 
 }
-static UINT8 pwm_param_clear(UINT8 ucChannel)
+static void pwm_param_clear(UINT8 ucChannel)
 {
-
-	UINT32 value;
-
-	if (ucChannel > PWM_CHANNEL_NUM)
-		return;
-
-	if (ucChannel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = ucChannel;
-	} else if (ucChannel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = ucChannel - 3;
-	} else if (ucChannel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = ucChannel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = ucChannel - 9;
-	}
+	pwm_group =  get_pwm_current_channel(ucChannel);
 
 	if (current_pwm_channel == 0)
 		REG_WRITE(PWM0_END_VALUE(pwm_group), 0);
@@ -304,13 +264,13 @@ static UINT8 pwm_param_clear(UINT8 ucChannel)
 		REG_WRITE(PWM1_END_VALUE(pwm_group), 0);
 	else
 		REG_WRITE(PWM2_END_VALUE(pwm_group), 0);
-
-
 }
 
-static UINT16 pwm_capture_value_get(UINT8 ucChannel)
+static UINT32 pwm_capture_value_get(UINT8 ucChannel)
 {
 	//return REG_READ(REG_APB_BK_PWMn_CAP_ADDR(ucChannel));
+	//TODO need to implemented
+	return -1;
 }
 
 static void pwm_set_duty_cycle(UINT8 ucChannel, UINT32 u32DutyCycle)
@@ -318,22 +278,8 @@ static void pwm_set_duty_cycle(UINT8 ucChannel, UINT32 u32DutyCycle)
 
 	UINT32 value;
 
-	if (ucChannel > PWM_CHANNEL_NUM)
-		return;
+	pwm_group =  get_pwm_current_channel(ucChannel);
 
-	if (ucChannel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = ucChannel;
-	} else if (ucChannel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = ucChannel - 3;
-	} else if (ucChannel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = ucChannel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = ucChannel - 9;
-	}
 
 	if (current_pwm_channel == 0) {
 		//enable update bit
@@ -363,22 +309,7 @@ static void pwm_set_end_value(UINT8 ucChannel, UINT32 u32EndValue)
 {
 	UINT32 value;
 
-	if (ucChannel > PWM_CHANNEL_NUM)
-		return;
-
-	if (ucChannel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = ucChannel;
-	} else if (ucChannel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = ucChannel - 3;
-	} else if (ucChannel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = ucChannel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = ucChannel - 9;
-	}
+	pwm_group =  get_pwm_current_channel(ucChannel);
 
 	if (current_pwm_channel == 0) {
 		//enable update bit
@@ -409,27 +340,13 @@ UINT32 pwm_get_counter(UINT8 ucChannel)
 {
 	UINT32 value;
 
-	if (ucChannel > PWM_CHANNEL_NUM)
-		return;
-
-	if (ucChannel < 3) {
-		pwm_group = 0;
-		current_pwm_channel = ucChannel;
-	} else if (ucChannel < 6) {
-		pwm_group = 1;
-		current_pwm_channel = ucChannel - 3;
-	} else if (ucChannel < 9) {
-		pwm_group = 2;
-		current_pwm_channel = ucChannel - 6;
-	} else {
-		pwm_group = 3;
-		current_pwm_channel = ucChannel - 9;
-	}
+	pwm_group =  get_pwm_current_channel(ucChannel);
 
 	//wait read bit is 0
 	value = REG_READ(PWM_GROUNP_READ(pwm_group));
-	if (value && PWM_READ_CNT_MASK) {
-		os_printf("pwm read error\r\n");
+	if (value & PWM_READ_CNT_ENABLE_MASK)
+	{
+		PWM_LOGE(TAG,"pwm read error\r\n");
 		return 0;
 	}
 
@@ -439,6 +356,75 @@ UINT32 pwm_get_counter(UINT8 ucChannel)
 	value = PWM_GROUNP_READ_CNT(pwm_group);
 
 	return value;
+}
+
+
+void pwm_update_param(pwm_param_t *pwm_param)
+{
+	UINT32 value;
+
+	pwm_group =  get_pwm_current_channel(pwm_param->channel);
+
+	if (current_pwm_channel == 0)
+	{
+		//enable update bit
+		value = REG_READ(PWM0_UPDATE(pwm_group));
+		value |= PWM_UPDATE_ENABLE;
+		REG_WRITE(PWM0_UPDATE(pwm_group), value);
+
+		REG_WRITE(PWM0_DUTY_CYCLE(pwm_group), pwm_param->duty_cycle);
+		REG_WRITE(PWM0_END_VALUE(pwm_group), pwm_param->end_value);
+	} else if (current_pwm_channel == 1)
+	{
+		//enable update bit
+		value = REG_READ(PWM1_UPDATE(pwm_group));
+		value |= PWM_UPDATE_ENABLE;
+		REG_WRITE(PWM1_UPDATE(pwm_group), value);
+
+		REG_WRITE(PWM1_DUTY_CYCLE(pwm_group), pwm_param->duty_cycle);
+		REG_WRITE(PWM1_END_VALUE(pwm_group), pwm_param->end_value);
+	} else
+	{
+		//enable update bit
+		value = REG_READ(PWM2_UPDATE(pwm_group));
+		value |= PWM_UPDATE_ENABLE;
+
+		REG_WRITE(PWM2_UPDATE(pwm_group), value);
+		REG_WRITE(PWM2_DUTY_CYCLE(pwm_group), pwm_param->duty_cycle);
+		REG_WRITE(PWM2_END_VALUE(pwm_group), pwm_param->end_value);
+	}
+}
+
+bk_err_t pwm_update_param_enable(UINT8 ucChannel)
+{
+	UINT32 value;
+
+	pwm_group =  get_pwm_current_channel(ucChannel);
+
+	if (current_pwm_channel == 0)
+	{
+		//enable update bit
+		value = REG_READ(PWM0_UPDATE(pwm_group));
+		value |= PWM_UPDATE_ENABLE;
+
+		REG_WRITE(PWM0_UPDATE(pwm_group), value);
+	} else if (current_pwm_channel == 1)
+	{
+		//enable update bit
+		value = REG_READ(PWM1_UPDATE(pwm_group));
+		value |= PWM_UPDATE_ENABLE;
+
+		REG_WRITE(PWM1_UPDATE(pwm_group), value);
+	} else
+	{
+		//enable update bit
+		value = REG_READ(PWM2_UPDATE(pwm_group));
+		value |= PWM_UPDATE_ENABLE;
+
+		REG_WRITE(PWM2_UPDATE(pwm_group), value);
+	}
+
+	return BK_OK;
 }
 
 static void pwm_int_handler_clear(UINT8 ucChannel)
@@ -454,9 +440,9 @@ void pwm_init(void)
 	REG_WRITE(PWM_GROUNP_CTL(3), 0x0);
 
 	intc_service_register(IRQ_PWM, PRI_IRQ_PWM, pwm_isr);
-	intc_service_register(IRQ_PWM2, PRI_IRQ_PWM, pwm2_isr);
+	intc_service_register(IRQ_PWM2, PRI_IRQ_PWM, pwm_isr);
 
-	sddev_register_dev(PWM_DEV_NAME, &pwm_op);
+	sddev_register_dev(PWM_DEV_NAME, (SDD_OPERATIONS*)&pwm_op);
 }
 
 void pwm_exit(void)
@@ -468,7 +454,6 @@ UINT32 pwm_ctrl(UINT32 cmd, void *param)
 {
 	UINT32 ret = PWM_SUCCESS;
 	UINT32 ucChannel;
-	UINT32 value;
 	pwm_param_t *p_param;
 	pwm_capture_t *p_capture;
 
@@ -532,6 +517,10 @@ UINT32 pwm_ctrl(UINT32 cmd, void *param)
 		}
 		p_capture->value = pwm_capture_value_get(p_capture->ucChannel);
 		break;
+	case CMD_PWM_UPDATE_PARAM:
+		p_param = (pwm_param_t *)param;
+		pwm_update_param(p_param);
+		break;
 	case CMD_PWM_DEINIT_PARAM:
 		p_param = (pwm_param_t *)param;
 		init_pwm_param(p_param, 0);
@@ -567,10 +556,4 @@ void pwm_isr(void)
 	} while (REG_READ(PWM_GROUNP_INTERRUPT_STATUS(pwm_group)) & status & 0x3F);
 }
 
-void pwm2_isr(void)
-{
-
-}
-
 #endif
-

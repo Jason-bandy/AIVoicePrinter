@@ -24,11 +24,11 @@ struct IR_KEY_ST
 	UINT8 timer_cnt;
 };
 
-static struct IR_KEY_ST IR_key;
+static struct IR_KEY_ST IR_key = {0};
 
 
 static UINT32 irda_ctrl(UINT32 cmd, void *param);
-static SDD_OPERATIONS irda_op = {
+static const SDD_OPERATIONS irda_op = {
             irda_ctrl
 };
 
@@ -36,7 +36,7 @@ static SDD_OPERATIONS irda_op = {
 static int IR_send_key(UINT32 msg)
 {
 	if(NULL != IR_key.IRkey_mq)
-		return rtos_push_to_queue(IR_key.IRkey_mq, (void *)&msg, sizeof(msg));
+		return rtos_push_to_queue(&IR_key.IRkey_mq, (void *)&msg, sizeof(msg));
 	else
 		return -1;
 }
@@ -208,17 +208,20 @@ static UINT32 irda_ctrl(UINT32 cmd, void *param)
 	return ret;
 }
 
-#if CFG_SUPPORT_RTT
 long IR_get_key(void *buffer, unsigned long  size, INT32 timeout)
 {
-	return rt_mq_recv(IR_key.IRkey_mq, buffer, size, timeout);
+	OSStatus ret;
+
+	ret = rtos_pop_from_queue(&IR_key.IRkey_mq, buffer, timeout);
+
+	//TODO double check whether need to to return value convert!!!
+	return ret;
 }
-#endif
 
 void irda_init(void)
 {
 	intc_service_register(IRQ_IRDA, PRI_IRQ_IRDA, irda_isr);
-	sddev_register_dev(IRDA_DEV_NAME, &irda_op);
+	sddev_register_dev(IRDA_DEV_NAME, (SDD_OPERATIONS*)&irda_op);
 }
 
 void irda_exit(void)
@@ -231,19 +234,18 @@ void set_irda_usrcode(UINT16 ir_usercode)
 	IR_key.IR_UserCode = ir_usercode;
 }
 
-#if CFG_SUPPORT_RTT
 void Irda_init_app(void)
 {
+	OSStatus ret;
 	UINT32 param;
-	
+
 	IR_key.valid_flag = 0;
-	IR_key.IRkey_mq = rt_mq_create("ir_mq",4,3,RT_IPC_FLAG_FIFO);
-	if(NULL == IR_key.IRkey_mq)
-	{
+	ret = rtos_init_queue(&IR_key.IRkey_mq, "ir_mq", 4, 3);
+	if(kNoErr != ret) {
 		os_printf("create ir mq error!!\r\n");
 		return;
 	}
-	
+
 	param = PCLK_POSI_IRDA;
 	sddev_control(ICU_DEV_NAME,CMD_CONF_PCLK_26M,&param);//irda clk:26M
 	
@@ -263,7 +265,6 @@ void Irda_init_app(void)
     param = GINTR_IRQ_BIT;
     sddev_control(ICU_DEV_NAME, CMD_ICU_GLOBAL_INT_ENABLE, &param);
 }
-#endif
 
 
 void irda_isr(void)

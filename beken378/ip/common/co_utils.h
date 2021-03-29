@@ -13,6 +13,7 @@
 #ifndef _CO_UTILS_H_
 #define _CO_UTILS_H_
 
+#include "co_log.h"
 /**
  ****************************************************************************************
  * @defgroup CO_UTILS CO_UTILS

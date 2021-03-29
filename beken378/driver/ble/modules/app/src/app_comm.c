@@ -87,11 +87,9 @@ ble_err_t bk_ble_conn_enable_prf(uint8_t conidx, uint16_t prf_id)
     ble_err_t ret = ERR_SUCCESS;
     uint16_t prf_task_id = prf_id + TASK_BLE_ID_COMMON;
     struct prf_task_env *prf_env = NULL;
-    struct bk_ble_env_tag* ble_env = NULL;
 
     uint8_t status = bk_ble_get_prf_by_id(prf_task_id, &prf_env);
-    ble_env = (struct bk_ble_env_tag*)(prf_env->env);
-    
+
     if(status == GAP_ERR_NO_ERROR)
     {
         // Allocate the message
@@ -120,11 +118,9 @@ ble_err_t bk_ble_send_ntf_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uin
     ble_err_t ret = ERR_SUCCESS;
     uint16_t prf_task_id = prf_id + TASK_BLE_ID_COMMON;
     struct prf_task_env *prf_env = NULL;
-    struct bk_ble_env_tag* ble_env = NULL;
 
     uint8_t status = bk_ble_get_prf_by_id(prf_task_id, &prf_env);
-    ble_env = (struct bk_ble_env_tag*)(prf_env->env);
-    
+
     if(status == GAP_ERR_NO_ERROR)
     {
         // Allocate the message
@@ -153,11 +149,9 @@ ble_err_t bk_ble_send_ind_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uin
     ble_err_t ret = ERR_SUCCESS;
     uint16_t prf_task_id = prf_id + TASK_BLE_ID_COMMON;
     struct prf_task_env *prf_env = NULL;
-    struct bk_ble_env_tag* ble_env = NULL;
 
     uint8_t status = bk_ble_get_prf_by_id(prf_task_id, &prf_env);
-    ble_env = (struct bk_ble_env_tag*)(prf_env->env);
-    
+
     if(status == GAP_ERR_NO_ERROR)
     {
         // Allocate the message

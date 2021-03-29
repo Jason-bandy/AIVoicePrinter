@@ -21,28 +21,30 @@
  * */
 static unsigned short CRC16_CCITT_FALSE(unsigned char *puchMsg, unsigned int usDataLen)  
 {  
-  unsigned short wCRCin = 0xFFFF;  
-  unsigned short wCPoly = 0x8005;  
-  unsigned char wChar = 0;  
-    
-  while (usDataLen--)     
-  {  
-        wChar = *(puchMsg++);  
-        wCRCin ^= (wChar << 8);  
-        for(int i = 0;i < 8;i++)  
-        {  
-          if(wCRCin & 0x8000)  
-            wCRCin = (wCRCin << 1) ^ wCPoly;  
-          else  
-            wCRCin = wCRCin << 1;  
-        }  
-  }  
-  return (wCRCin) ;  
+	unsigned short wCRCin = 0xFFFF;
+	unsigned short wCPoly = 0x8005;
+	unsigned char wChar = 0;
+
+	while (usDataLen--) {
+		wChar = *(puchMsg++);
+		wCRCin ^= (wChar << 8);
+
+		for(int i = 0;i < 8;i++)  {
+			if(wCRCin & 0x8000) {
+				wCRCin = (wCRCin << 1) ^ wCPoly;
+			} else {
+				wCRCin = wCRCin << 1;
+			}
+		}
+	}
+
+	return (wCRCin); 
 }
 
 static int init(void)
 {
-    /* do nothing now */
+	/* do nothing now */
+	return RT_EOK;
 }
 
 static int read(long offset, uint8_t *buf, size_t size)
@@ -67,19 +69,19 @@ static int read(long offset, uint8_t *buf, size_t size)
         stage1_offset = beken_onchip_flash_crc.addr + offset / 32 * 34;
         stage1_len = size;
     }
-    
+
     if(stage0_len > 0)
     {
-        flash_read(&buf[index], (unsigned long)stage0_len, (unsigned long)stage0_offset);
+        flash_read((char*)&buf[index], (unsigned long)stage0_len, (unsigned long)stage0_offset);
         index += stage0_len;
     }
-    
+
     if(stage1_len > 0)
     {
         while(stage1_len > 0)
         {
             len = stage1_len > 32 ? 32: stage1_len;
-            flash_read(&buf[index], (unsigned long)len, (unsigned long)stage1_offset);
+            flash_read((char*)&buf[index], (unsigned long)len, (unsigned long)stage1_offset);
             stage1_offset += 34;
             index += len;
             stage1_len -= len;
@@ -90,7 +92,7 @@ static int read(long offset, uint8_t *buf, size_t size)
 
 static int write(long offset, const uint8_t *buf, size_t size)
 {
-    char crc16_buf[34] = {0xff};
+    unsigned char crc16_buf[34] = {0xff};
 
     uint32_t addr, index = 0;
     uint32_t crc_offset = 0;
@@ -113,7 +115,7 @@ static int write(long offset, const uint8_t *buf, size_t size)
         }
         else{
             len = 32;
-            size -= 32;        
+            size -= 32;
         }
 
         memcpy(crc16_buf, &buf[index], len);
@@ -121,9 +123,9 @@ static int write(long offset, const uint8_t *buf, size_t size)
 
         crc_value = CRC16_CCITT_FALSE(crc16_buf, 32);
         crc16_buf[32] = (unsigned char)(crc_value >> 8);
-        crc16_buf[33] = (unsigned char)(crc_value & 0x00FF);     
-        
-        flash_write((unsigned char *)(&crc16_buf[0]), (unsigned long)34, addr + crc_offset);
+        crc16_buf[33] = (unsigned char)(crc_value & 0x00FF);
+
+        flash_write((char *)(&crc16_buf[0]), (unsigned long)34, addr + crc_offset);
 
         crc_offset += 34;
     }

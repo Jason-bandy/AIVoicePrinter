@@ -64,6 +64,7 @@
 
 #if MEM_LIBC_MALLOC
 #include <stdlib.h> /* for malloc()/free() */
+#include "mem_pub.h" /* for os_malloc()/os_free() */
 #endif
 
 #if MEM_LIBC_MALLOC || MEM_USE_POOLS

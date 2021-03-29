@@ -755,7 +755,7 @@ void dhcp_start_timeout_check(u32_t secs, u32_t usecs)
 
 	if(rtos_is_oneshot_timer_init(&dhcp_tmr))
 	{
-		os_printf("dhcp_check_status_reload_timer\r\n\r\n");
+		LWIP_LOGI("dhcp_check_status_reload_timer\r\n\r\n");
 		rtos_oneshot_reload_timer(&dhcp_tmr);
 	}
 	else
@@ -769,7 +769,7 @@ void dhcp_start_timeout_check(u32_t secs, u32_t usecs)
 		
 		err = rtos_start_oneshot_timer(&dhcp_tmr);
 		ASSERT(kNoErr == err);
-		os_printf("\r\ndhcp_check_status_init_timer:%d\r\n", clk_time);
+		LWIP_LOGI("\r\ndhcp_check_status_init_timer:%d\r\n", clk_time);
 	}		
 
 	return;

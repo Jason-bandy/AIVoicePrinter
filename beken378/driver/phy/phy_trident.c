@@ -1910,6 +1910,9 @@ static void phy_agc_init(void)
 
     // ADC sat thd
     agc_rwnxagcsat_set(0x8373335);
+
+    // RSSI +4
+    agc_rwnxagcdsp1_set(0x3000000C);
 #else
 #if (SOC_BK7271 == CFG_SOC_NAME)
     REG_PL_WR(MDM_REG_36_ADDR, (REG_PL_RD(MDM_REG_36_ADDR) | MDM_REG_36_AGC_GAIN_SET_BIT)); 
@@ -2468,6 +2471,10 @@ uint8_t check_large_singal_status(void)
     return large_singal_status;
 }
 
+void update_large_singal_status(uint8_t status)
+{
+    large_singal_status = status;
+}
 
 int large_signal_cnt;
 int small_signal_cnt;
@@ -2488,12 +2495,12 @@ void phy_large_signal_support(int8_t rssi)
         rssi += 15;
     }
 
-    if (rssi >= -20)
+    if (rssi >= -25)
     {
         large_signal_cnt ++;
         small_signal_cnt = 0;
     }
-    else if (rssi <= -40)
+    else if (rssi <= -35)
     {
         large_signal_cnt = 0;
         small_signal_cnt ++;

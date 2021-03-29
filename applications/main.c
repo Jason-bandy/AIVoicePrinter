@@ -29,6 +29,9 @@
 
 #if defined(PKG_USING_PLAYER)
 #include "player.h"
+#include "codec_helixmp3.h"
+#include "format_m4a.h"
+#include "codec_opencore_amr.h"
 #endif
 
 #include "include.h"
@@ -40,11 +43,13 @@
 #include <fal.h>
 #include "rt_ota.h"
 #include "sys_ctrl_pub.h"
+#include "wlan_ui_pub.h"
+#include "drv_wdt.h"
 
 static int wlan_app_init(void);
 
 extern const struct romfs_dirent romfs_root;
-#define DFS_ROMFS_ROOT          (&romfs_root) 
+#define DFS_ROMFS_ROOT          (&romfs_root)
 extern rt_err_t rt_audio_codec_hw_init(void);
 extern int player_system_init(void);
 extern void user_main( beken_thread_arg_t args );
@@ -78,7 +83,6 @@ int main(int argc, char **argv)
 #endif
 
 	rt_hw_wdg_start(0, NULL);
-	rt_hw_wdg_stop();
 
 #if CFG_USE_STA_PS
 	bk_wlan_dtim_rf_ps_mode_enable();

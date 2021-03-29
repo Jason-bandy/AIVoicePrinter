@@ -1,31 +1,20 @@
 #include "include.h"
 #include <stdio.h>
+#include "str_pub.h"
+#include "mem_pub.h"
 
 #if (CFG_SOC_NAME == SOC_BK7271)
 #include <rtthread.h>
 #include <rthw.h>
 #include <msh.h>
 #include "co_list.h"
+#include "data_node.h"
 #include "mailbox_pub.h"
 #include "dfs_posix.h"
 #include "drv_model_pub.h"
 #include "rtos_pub.h"
 #include "arm_mcu_pub.h"
 #include "sys_ctrl_pub.h"
-
-#define USB_PLAY_NODE_ADDR (0x0C900000)
-#define USB_PLAY_NODE_SIZE (2048)
-
-typedef struct dma_buffer_node {
-	struct co_list_hdr header;
-	uint8_t *buffer;
-	uint32_t size;
-} dma_buffer_node;
-
-struct adc_dac_context {
-	struct co_list using_list;
-	struct co_list free_list;
-};
 
 static dma_buffer_node record_buffer_nodes[8];
 struct adc_dac_context g_record_context;
@@ -122,12 +111,12 @@ static uint32_t dsp_atoi(char *src)
 	if (NULL == src)
 		return 0;
 
-	while ((*src != NULL) && ((*src < '0') || (*src > '9')))
+	while ((*src != 0) && ((*src < '0') || (*src > '9')))
 		src++;
 
 	if ((*src == '0') && ((*(src + 1) == 'x') || ((*(src + 1) == 'X')))) {
 		src += 2;
-		while (*src != NULL) {
+		while (*src != 0) {
 			if ((*src >= '0') && (*src <= '9'))
 				num = num * 16 + *src - '0';
 			else if ((*src >= 'A') && (*src <= 'F'))
@@ -139,7 +128,7 @@ static uint32_t dsp_atoi(char *src)
 			src++;
 		}
 	} else {
-		while (*src != NULL) {
+		while (*src != 0) {
 			if ((*src >= '0') && (*src <= '9'))
 				num = num * 10 + *src - '0';
 			else
@@ -168,9 +157,9 @@ void pcm_test(int argc, char **argv)
 {
 	int i;
 	uint32_t rate;
-	uint32_t *aud_ptr;
-	uint32_t aud_len;
-	uint32_t *aud_addr = (uint32_t *)USB_PLAY_NODE_ADDR;
+	uint32_t *aud_ptr = NULL;
+	uint32_t aud_len = 0;
+	uint32_t *aud_addr = (uint32_t *)DAC_PLAY_NODE_ADDR;
 	mailbox_t mailbox;
 
 	if (argc > 1)
@@ -190,8 +179,10 @@ void pcm_test(int argc, char **argv)
 	} else if (rate == 48000) {
 		aud_ptr = (uint32_t *)PCM_48000;
 		aud_len = sizeof(PCM_48000) / sizeof(PCM_48000[0]);
-	} else
+	} else {
 		rt_kprintf("rate error: %d.\r\n", rate);
+		return;
+	}
 
 	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &rate);
 
@@ -414,6 +405,12 @@ void dac_sample_rate(int argc, char **argv)
 void usb_mount(int argc, char **argv)
 {
 	int ret;
+
+	if (mount_flag == 1)
+	{
+		rt_kprintf("usb already mount!\n");
+		return;
+	}
 
 	ret = dfs_mount("usb0", "/udisk", "elm", 0, 0);
 	if (ret == 0) {
@@ -645,7 +642,7 @@ void usb_play(int argc, char **argv)
 {
 	int ret;
 	uint32_t index = 0;
-	uint32_t address = USB_PLAY_NODE_ADDR;
+	uint32_t address = DAC_PLAY_NODE_ADDR;
 	mailbox_t mailbox;
 	dma_buffer_node *node;
 	char file_name[50];
@@ -681,9 +678,9 @@ void usb_play(int argc, char **argv)
 	co_list_init(&g_record_context.free_list);
 	for (index = 0; index < sizeof(record_buffer_nodes) / sizeof(record_buffer_nodes[0]); index++) {
 		record_buffer_nodes[index].buffer = (uint8_t *)address;
-		record_buffer_nodes[index].size = USB_PLAY_NODE_SIZE;
+		record_buffer_nodes[index].size = DAC_PLAY_NODE_SIZE;
 		co_list_push_back(&g_record_context.free_list, &record_buffer_nodes[index].header);
-		address += USB_PLAY_NODE_SIZE;
+		address += DAC_PLAY_NODE_SIZE;
 	}
 
 	/*set mailbox callback*/
@@ -711,7 +708,7 @@ void usb_play(int argc, char **argv)
 			retry_cnt = 0;
 
 		/*read data to dsp*/
-		br = read(record_file, node->buffer, USB_PLAY_NODE_SIZE);
+		br = read(record_file, node->buffer, DAC_PLAY_NODE_SIZE);
 		node->size = br;
 		co_list_push_back(&g_record_context.using_list, (struct co_list_hdr *)node);
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_PCM_WRITE, ((uint32_t)node->buffer) - W_DSP_DMEM_64KB_BASE_ADDR, node->size, 0);

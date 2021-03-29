@@ -34,6 +34,7 @@
 #include "rw_ieee80211.h"
 #include "sys_ctrl_pub.h"
 
+#define TAG "sasta"
 extern struct mac_scan_result *scanu_search_by_ssid(struct mac_ssid const *ssid);
 
 #ifdef CONFIG_SME
@@ -44,7 +45,7 @@ int sa_station_send_associate_cmd(ASSOC_PARAM_T *assoc_param)
 	struct mac_scan_result *desired_ap_ptr;
 	struct sm_assoc_cfm cfm;
 
-	os_printf("%s %d\n", __func__, __LINE__);
+	BK_LOGI(TAG, "%s %d\n", __func__, __LINE__);
 
 	if (0/*assoc_param->chan.freq*/) {
 		/* for fast connect */
@@ -103,7 +104,7 @@ int sa_station_send_associate_cmd(CONNECT_PARAM_T *connect_param)
 
     if(rw_ieee80211_is_scan_rst_in_countrycode(rw_ieee80211_get_chan_id(connect_param->chan.freq)) == 0)
     {
-        os_printf("ch:%d not in countrycode\r\n", connect_param->chan.freq);
+        BK_LOGE(TAG, "ch:%d not in countrycode\r\n", connect_param->chan.freq);
         return -1;
     }
 
@@ -138,7 +139,7 @@ int sa_station_send_associate_cmd(CONNECT_PARAM_T *connect_param)
 static void sa_station_cfg80211_init(void)
 {
 	if (rwm_mgmt_is_vif_first_used() == NULL) {
-		SASTA_PRT("[sa_sta]MM_RESET_REQ\r\n");
+		BK_LOGI(TAG, "MM_RESET_REQ\r\n");
 		rw_msg_send_reset();
 
 #if CFG_IEEE80211AX
@@ -148,13 +149,13 @@ static void sa_station_cfg80211_init(void)
 		rwnx_handle_dynparams();
 #endif
 
-		SASTA_PRT("[sa_sta]ME_CONFIG_REQ\r\n");
+		BK_LOGI(TAG, "ME_CONFIG_REQ\r\n");
 		rw_msg_send_me_config_req();
 
-		SASTA_PRT("[sa_sta]ME_CHAN_CONFIG_REQ\r\n");
+		BK_LOGI(TAG, "ME_CHAN_CONFIG_REQ\r\n");
 		rw_msg_send_me_chan_config_req();
 
-		SASTA_PRT("[sa_sta]MM_START_REQ\r\n");
+		BK_LOGI(TAG, "MM_START_REQ\r\n");
 		rw_msg_send_start();
 	}
 }
@@ -167,7 +168,7 @@ uint32_t  reconnect_stack_size = 2000;
 void sa_reconnect_main(void *arg)
 {
     sa_station_init();
-    os_printf("sa_reconnect_main\r\n");
+    BK_LOGI(TAG, "sa_reconnect_main\r\n");
 
     rtos_delete_thread( NULL );
     reconnect_thread_handle = NULL;
@@ -189,7 +190,7 @@ void sa_reconnect_init(void)
     }
     else
     {
-        os_printf("sa_reconnect_init_strange\r\n");
+        BK_LOGI(TAG, "sa_reconnect_init_strange\r\n");
     }
 }
 #endif

@@ -1,0 +1,7 @@
+# ARM specific files
+    arch_main.c
+# boot vectors
+    boot/$BUILDTOOL/boot_vectors.s
+    boot/$BUILDTOOL/boot_handlers.s
+# architecture specific low level functions
+    ll/$BUILDTOOL/ll.s

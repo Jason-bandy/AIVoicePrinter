@@ -61,6 +61,8 @@
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             0
 #define CFG_AP_SUPPORT_HT_IE                       0
+#define CFG_AP_SUPPORT_VHT                         0
+#define CFG_AP_SUPPORT_HE                          0
 #define CFG_SUPPORT_BSSID_CONNECT                  0
 
 /*section 3-----driver macro config-----*/
@@ -92,6 +94,7 @@
 #define CFG_BACKGROUND_PRINT                       0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
+#define CFG_NX_IP_DBG                              0
 #define CFG_IPERF_TEST                             0
 #define CFG_TCP_SERVER_TEST                        0
 #define CFG_AIRKISS_TEST                           0
@@ -141,6 +144,7 @@
 #define CFG_USE_TEMPERATURE_DETECT                 1
 
 /*section 12-----for SPIDMA interface*/
+#define CFG_USE_APP_DEMO_VIDEO_TRANSFER            0
 #define CFG_USE_SPIDMA                             0
 #define CFG_USE_CAMERA_INTF                        0
 
@@ -154,15 +158,15 @@
 #define CFG_SUPPORT_TIANZHIHENG_DRONE              0
 
 /*section 16-----support mcu & deep sleep*/
-#define CFG_USE_MCU_PS                             0
+#define CFG_USE_MCU_PS                             1
 
-#define CFG_USE_DEEP_PS                            0
-#define CFG_USE_BLE_PS                             0
+#define CFG_USE_DEEP_PS                            1
+#define CFG_USE_BLE_PS                             1
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
 
 /*section 17-----support sta power sleep*/
-#define CFG_USE_STA_PS                             0
+#define CFG_USE_STA_PS                             1
 
 /*section 18-----AP support stas in power save*/
 #define CFG_USE_AP_PS                              0
@@ -198,7 +202,7 @@
 /*section 25 ----- use tick time calibrate*/
 #define CFG_USE_TICK_CAL                           1
 
-#define CFG_SUPPORT_BLE                            0
+#define CFG_SUPPORT_BLE                            1
 #define CFG_SUPPORT_BLE_MESH                       0
 #define CFG_USE_PTA                                0
 
@@ -257,5 +261,13 @@
 #define CFG_LWIP_MEM_POLICY                       LWIP_REDUCE_THE_PLAN
 #endif
 
+/*section 26 ----- power table for country code */
+#define CFG_POWER_TABLE                            0
+
+/* watchdog, freertos only */
+#define CFG_INT_WDG_ENABLED                        1
+#define CFG_INT_WDG_PERIOD_MS                      10000
+#define CFG_TASK_WDG_ENABLED                       1
+#define CFG_TASK_WDG_PERIOD_MS                     60000
 
 #endif // _SYS_CONFIG_H_

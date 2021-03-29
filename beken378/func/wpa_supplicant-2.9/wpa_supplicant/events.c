@@ -60,6 +60,13 @@ static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 					      int new_scan, int own_request);
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 
+__maybe_unused static const char * reg_init_str(enum reg_change_initiator init);
+__maybe_unused static const char * reg_type_str(enum reg_type type);
+__maybe_unused static void wpa_supplicant_notify_avoid_freq(struct wpa_supplicant *wpa_s,
+					     union wpa_event_data *event);
+__maybe_unused static void wpas_event_dfs_cac_started(struct wpa_supplicant *wpa_s,
+				       struct dfs_event *radar);
+
 
 int wpas_temp_disabled(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid)
 {
@@ -372,6 +379,7 @@ static void wpa_find_assoc_pmkid(struct wpa_supplicant *wpa_s)
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static void wpa_supplicant_event_pmkid_candidate(struct wpa_supplicant *wpa_s,
 						 union wpa_event_data *data)
 {
@@ -390,6 +398,7 @@ static void wpa_supplicant_event_pmkid_candidate(struct wpa_supplicant *wpa_s,
 			    data->pmkid_candidate.index,
 			    data->pmkid_candidate.preauth);
 }
+#endif
 
 
 static int wpa_supplicant_dynamic_keys(struct wpa_supplicant *wpa_s)
@@ -1011,7 +1020,7 @@ struct wpa_ssid * wpa_scan_res_match(struct wpa_supplicant *wpa_s,
 	struct wpa_blacklist *e;
 	const u8 *ie;
 	struct wpa_ssid *ssid;
-	int osen, rsn_osen = 0;
+	int osen;
 #ifdef CONFIG_MBO
 	const u8 *assoc_disallow;
 #endif /* CONFIG_MBO */
@@ -1019,6 +1028,7 @@ struct wpa_ssid * wpa_scan_res_match(struct wpa_supplicant *wpa_s,
 	size_t match_ssid_len;
 #ifdef CONFIG_FULL_SUPPLICANT
 	struct wpa_ie_data data;
+	int rsn_osen = 0;
 #endif
 
 	ie = wpa_bss_get_vendor_ie(bss, WPA_IE_VENDOR_TYPE);
@@ -1560,7 +1570,7 @@ int wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
 			   struct wpa_bss *selected,
 			   struct wpa_ssid *ssid)
 {
-	os_printf("wpa_supplicant_connect\r\n");
+	WPA_LOGI("wpa_supplicant_connect\r\n");
 	if (wpas_wps_scan_pbc_overlap(wpa_s, selected, ssid)) {
 		wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_OVERLAP
 			"PBC session overlap");
@@ -1616,6 +1626,7 @@ int wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static struct wpa_ssid *
 wpa_supplicant_pick_new_network(struct wpa_supplicant *wpa_s)
 {
@@ -1648,6 +1659,7 @@ wpa_supplicant_pick_new_network(struct wpa_supplicant *wpa_s)
 	}
 	return NULL;
 }
+#endif
 
 
 /* TODO: move the rsn_preauth_scan_result*() to be called from notify.c based
@@ -2027,7 +2039,7 @@ static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 		}
 
 		if (wpa_supplicant_connect(wpa_s, selected, ssid) < 0) {
-			os_printf("Connect failed\r\n");
+			WPA_LOGI("Connect failed\r\n");
 			return -1;
 		}
 		if (new_scan)
@@ -2038,7 +2050,7 @@ static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 		 */
 		return 1;
 	} else {
-		os_printf("No suitable network found\r\n");
+		WPA_LOGI("No suitable network found\r\n");
 
 		extern u8 supplicant_main_is_exit(void);
 		// if del sta command has send, return;
@@ -2050,7 +2062,7 @@ static int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
 #ifdef CONFIG_FULL_SUPPLICANT
 		ssid = wpa_supplicant_pick_new_network(wpa_s);
 		if (ssid) {
-			os_printf("Setup a new network\r\n");
+			WPA_LOGI("Setup a new network\r\n");
 			wpa_supplicant_associate(wpa_s, NULL, ssid);
 			if (new_scan)
 				wpa_supplicant_rsn_preauth_scan_results(wpa_s);
@@ -2146,7 +2158,7 @@ static int wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 		 * Interface may have been removed, so must not dereference
 		 * wpa_s after this.
 		 */
-		os_printf("Interface may removed\r\n");
+		WPA_LOGI("Interface may removed\r\n");
 		return 1;
 	}
 
@@ -2699,6 +2711,7 @@ no_pfs:
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static int wpa_supplicant_assoc_update_ie(struct wpa_supplicant *wpa_s)
 {
 	const u8 *bss_wpa = NULL, *bss_rsn = NULL;
@@ -2721,6 +2734,7 @@ static int wpa_supplicant_assoc_update_ie(struct wpa_supplicant *wpa_s)
 
 	return 0;
 }
+#endif
 
 
 static void wpas_fst_update_mb_assoc(struct wpa_supplicant *wpa_s,
@@ -2767,7 +2781,9 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 {
 	u8 bssid[ETH_ALEN];
 	int ft_completed = 0, already_authorized;
+#ifdef CONFIG_FULL_SUPPLICANT
 	int new_bss = 0;
+#endif
 
 #ifdef CONFIG_AP
 	if (wpa_s->ap_iface) {
@@ -2819,10 +2835,10 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 			wpas_notify_auth_changed(wpa_s);
 			os_get_reltime(&wpa_s->session_start);
 		}
+		new_bss = 1;
 #endif
 		wpa_dbg(wpa_s, MSG_DEBUG, "Associated to a new BSS: BSSID="
 			MACSTR, MAC2STR(bssid));
-		new_bss = 1;
 		random_add_randomness(bssid, ETH_ALEN);
 		os_memcpy(wpa_s->bssid, bssid, ETH_ALEN);
 		os_memset(wpa_s->pending_bssid, 0, ETH_ALEN);
@@ -3226,6 +3242,7 @@ void wpa_supplicant_delayed_mic_error_report(void *eloop_ctx, void *sock_ctx)
 #endif /* CONFIG_DELAYED_MIC_ERROR_REPORT */
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static void
 wpa_supplicant_event_michael_mic_failure(struct wpa_supplicant *wpa_s,
 					 union wpa_event_data *data)
@@ -3318,6 +3335,7 @@ wpa_supplicant_event_michael_mic_failure(struct wpa_supplicant *wpa_s,
 	wpa_s->last_michael_mic_error = t;
 	wpa_s->mic_errors_seen++;
 }
+#endif
 
 
 #ifdef CONFIG_TERMINATE_ONLASTIF
@@ -3333,6 +3351,7 @@ static int any_interfaces(struct wpa_supplicant *head)
 #endif /* CONFIG_TERMINATE_ONLASTIF */
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static void
 wpa_supplicant_event_interface_status(struct wpa_supplicant *wpa_s,
 				      union wpa_event_data *data)
@@ -3403,6 +3422,7 @@ wpa_supplicant_event_interface_status(struct wpa_supplicant *wpa_s,
 		break;
 	}
 }
+#endif
 
 
 #ifdef CONFIG_TDLS
@@ -3832,6 +3852,9 @@ static void wpas_event_rx_mgmt_action(struct wpa_supplicant *wpa_s,
 	category = *payload++;
 	plen = len - IEEE80211_HDRLEN - 1;
 
+	__maybe_unused_var(category);
+	__maybe_unused_var(plen);
+	__maybe_unused_var(mgmt);
 	wpa_dbg(wpa_s, MSG_DEBUG, "Received Action frame: SA=" MACSTR
 		" Category=%u DataLen=%d freq=%d MHz",
 		MAC2STR(mgmt->sa), category, (int) plen, freq);
@@ -4049,6 +4072,7 @@ static void wpas_event_dfs_cac_started(struct wpa_supplicant *wpa_s,
 }
 
 
+#ifdef CONFIG_DFS
 static void wpas_event_dfs_cac_finished(struct wpa_supplicant *wpa_s,
 					struct dfs_event *radar)
 {
@@ -4079,6 +4103,7 @@ static void wpas_event_dfs_cac_aborted(struct wpa_supplicant *wpa_s,
 		wpas_auth_timeout_restart(wpa_s, 0);
 	}
 }
+#endif
 
 
 static void wpa_supplicant_event_assoc_auth(struct wpa_supplicant *wpa_s,
@@ -4122,6 +4147,7 @@ static void wpa_supplicant_event_assoc_auth(struct wpa_supplicant *wpa_s,
 }
 
 
+#ifdef CONFIG_SME
 static void wpas_event_assoc_reject(struct wpa_supplicant *wpa_s,
 				    union wpa_event_data *data)
 {
@@ -4251,13 +4277,16 @@ static void wpas_event_assoc_reject(struct wpa_supplicant *wpa_s,
 	wpa_supplicant_mark_disassoc(wpa_s);
 #endif /* !CONFIG_SME */
 }
+#endif
 
 
 void wpa_supplicant_event_sta(void *ctx, enum wpa_event_type event,
 			  union wpa_event_data *data)
 {
 	struct wpa_supplicant *wpa_s = ctx;
+#ifdef CONFIG_FULL_SUPPLICANT
 	int resched;
+#endif
 #ifndef CONFIG_NO_STDOUT_DEBUG
 	int level = MSG_DEBUG;
 #endif /* CONFIG_NO_STDOUT_DEBUG */
@@ -4287,6 +4316,8 @@ void wpa_supplicant_event_sta(void *ctx, enum wpa_event_type event,
 	wpa_dbg(wpa_s, level, "Event %s (%d) received",
 		event_to_string(event), event);
 #endif /* CONFIG_NO_STDOUT_DEBUG */
+
+	WPA_LOGD("event (%d) received\n", event);
 
 	switch (event) {
 #ifdef CONFIG_SME
@@ -4375,7 +4406,7 @@ void wpa_supplicant_event_sta(void *ctx, enum wpa_event_type event,
 			os_reltime_sub(&now, &wpa_s->scan_start_time, &diff);
 			wpa_s->scan_start_time.sec = 0;
 			wpa_s->scan_start_time.usec = 0;
-			os_printf("Scan completed in %ld.%06ld seconds\r\n",
+			WPA_LOGI("scan completed in %ld.%06ld seconds\r\n",
 				diff.sec, diff.usec);
 		}
 		if (wpa_supplicant_event_scan_results(wpa_s, data))
@@ -4419,7 +4450,9 @@ void wpa_supplicant_event_sta(void *ctx, enum wpa_event_type event,
 		break;
 #endif /* CONFIG_IBSS_RSN */
 	case EVENT_ASSOC_REJECT:
+#ifdef CONFIG_SME
 		wpas_event_assoc_reject(wpa_s, data);
+#endif
 		break;
 #ifdef CONFIG_SME
 	case EVENT_AUTH_TIMED_OUT:

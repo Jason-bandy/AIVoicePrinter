@@ -14,6 +14,7 @@
 #include "cmd_evm.h"
 #include "temp_detect_pub.h"
 #include "power_save_pub.h"
+#include "cal_log.h"
 
 #define CAL_RESULT_TO_FLASH		           0
 #define CAL_RESULT_FLASH_ADDR		       0x000F1000UL
@@ -523,13 +524,13 @@ void calibration_result_print(void)
     int max, min;
 
 
-    os_printf("gtx_dcorMod_temp: 0x%x\r\n", gtx_dcorMod_temp);
-    os_printf("gtx_dcorPA_temp: 0x%x\r\n", gtx_dcorPA_temp);
-    os_printf("gtx_pre_gain_temp: 0x%x\r\n", gtx_pre_gain_temp);
+    CAL_LOGI("gtx_dcorMod_temp: 0x%x\r\n", gtx_dcorMod_temp);
+    CAL_LOGI("gtx_dcorPA_temp: 0x%x\r\n", gtx_dcorPA_temp);
+    CAL_LOGI("gtx_pre_gain_temp: 0x%x\r\n", gtx_pre_gain_temp);
 
-    os_printf("gtx_dcorMod_temp_loopback: 0x%x\r\n", gtx_dcorMod_temp_loopback);
-    os_printf("gtx_dcorPA_temp_loopback: 0x%x\r\n", gtx_dcorPA_temp_loopback);
-    os_printf("gtx_pre_gain_temp_loopback: 0x%x\r\n", gtx_pre_gain_temp_loopback);
+    CAL_LOGI("gtx_dcorMod_temp_loopback: 0x%x\r\n", gtx_dcorMod_temp_loopback);
+    CAL_LOGI("gtx_dcorPA_temp_loopback: 0x%x\r\n", gtx_dcorPA_temp_loopback);
+    CAL_LOGI("gtx_pre_gain_temp_loopback: 0x%x\r\n", gtx_pre_gain_temp_loopback);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -543,7 +544,7 @@ void calibration_result_print(void)
             min = p_gbias_after_cal_array[i];
         }
     }
-    os_printf("gbias_after_cal: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("gbias_after_cal: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -557,9 +558,9 @@ void calibration_result_print(void)
             min = p_gav_tssi_array[i];
         }
     }
-    os_printf("gav_tssi: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("gav_tssi: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -573,7 +574,7 @@ void calibration_result_print(void)
             min = p_gtx_ifilter_corner_array[i];
         }
     }
-    os_printf("gtx_ifilter_corner: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("gtx_ifilter_corner: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -587,9 +588,9 @@ void calibration_result_print(void)
             min = p_gtx_qfilter_corner_array[i];
         }
     }
-    os_printf("gtx_qfilter_corner: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("gtx_qfilter_corner: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -603,7 +604,7 @@ void calibration_result_print(void)
             min = p_gtx_i_dc_comp_array[i];
         }
     }
-    os_printf("tx_i_dc_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_i_dc_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -617,7 +618,7 @@ void calibration_result_print(void)
             min = p_gtx_q_dc_comp_array[i];
         }
     }
-    os_printf("tx_q_dc_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_q_dc_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -631,7 +632,7 @@ void calibration_result_print(void)
             min = p_gtx_i_gain_comp_array[i];
         }
     }
-    os_printf("tx_i_gain_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_i_gain_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -645,7 +646,7 @@ void calibration_result_print(void)
             min = p_gtx_q_gain_comp_array[i];
         }
     }
-    os_printf("tx_q_gain_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_q_gain_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -659,9 +660,9 @@ void calibration_result_print(void)
             min = p_gtx_phase_comp_array[i];
         }
     }
-    os_printf("tx_phase_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_phase_comp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -675,7 +676,7 @@ void calibration_result_print(void)
             min = p_gtx_i_dc_comp_temp_array[i];
         }
     }
-    os_printf("tx_i_dc_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_i_dc_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -689,7 +690,7 @@ void calibration_result_print(void)
             min = p_gtx_q_dc_comp_temp_array[i];
         }
     }
-    os_printf("tx_q_dc_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_q_dc_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
 
     max = -1100, min = 1100;
@@ -704,7 +705,7 @@ void calibration_result_print(void)
             min = p_gtx_i_gain_comp_temp_array[i];
         }
     }
-    os_printf("tx_i_gain_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_i_gain_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -718,7 +719,7 @@ void calibration_result_print(void)
             min = p_gtx_q_gain_comp_temp_array[i];
         }
     }
-    os_printf("tx_q_gain_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_q_gain_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -732,9 +733,9 @@ void calibration_result_print(void)
             min = p_gtx_phase_comp_temp_array[i];
         }
     }
-    os_printf("tx_phase_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("tx_phase_comp_temp: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -748,7 +749,7 @@ void calibration_result_print(void)
             min = p_rx_amp_err_rd_array[i];
         }
     }
-    os_printf("rx_amp_err_rd: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("rx_amp_err_rd: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -762,7 +763,7 @@ void calibration_result_print(void)
             min = p_rx_phase_err_rd_array[i];
         }
     }
-    os_printf("rx_phase_err_rd: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("rx_phase_err_rd: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     max = -1100, min = 1100;
     for (i = 0; i < calibrate_time; i++)
@@ -776,12 +777,12 @@ void calibration_result_print(void)
             min = p_rx_ty2_rd_array[i];
         }
     }
-    os_printf("rx_ty2_rd: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
+    CAL_LOGI("rx_ty2_rd: min = %d, max = %d, max-min = %d\r\n", min, max, max - min);
 
     for (j = 0; j < 8; j++)
     {
         int iTemp;
-        os_printf("\r\n");
+        CAL_LOGI("\r\n");
 
         max = -1100, min = 1100;
         for (i = 0; i < calibrate_time; i++)
@@ -796,7 +797,7 @@ void calibration_result_print(void)
                 min = iTemp & 0x00FF;
             }
         }
-        os_printf("g_rx_dc_gain_tab[%d].i_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6, min, max, max - min);
+        CAL_LOGI("g_rx_dc_gain_tab[%d].i_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6, min, max, max - min);
 
         max = -1100, min = 1100;
         for (i = 0; i < calibrate_time; i++)
@@ -811,7 +812,7 @@ void calibration_result_print(void)
                 min = iTemp & 0x00FF;
             }
         }
-        os_printf("g_rx_dc_gain_tab[%d].q_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6, min, max, max - min);
+        CAL_LOGI("g_rx_dc_gain_tab[%d].q_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6, min, max, max - min);
 
         max = -1100, min = 1100;
         for (i = 0; i < calibrate_time; i++)
@@ -826,7 +827,7 @@ void calibration_result_print(void)
                 min = iTemp & 0x00FF;
             }
         }
-        os_printf("g_rx_dc_gain_tab[%d].i_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6 + 3, min, max, max - min);
+        CAL_LOGI("g_rx_dc_gain_tab[%d].i_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6 + 3, min, max, max - min);
 
         max = -1100, min = 1100;
         for (i = 0; i < calibrate_time; i++)
@@ -841,7 +842,7 @@ void calibration_result_print(void)
                 min = iTemp & 0x00FF;
             }
         }
-        os_printf("g_rx_dc_gain_tab[%d].q_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6 + 3, min, max, max - min);
+        CAL_LOGI("g_rx_dc_gain_tab[%d].q_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6 + 3, min, max, max - min);
     }
 }
 
@@ -890,14 +891,14 @@ void calibration_auto_test(void)
     p_g_rx_dc_gain_tab_array = &(g_rx_dc_gain_tab_array[0][0]);
 
     calibrate_time = 0;
-    os_printf("\r\n\r\n***********************************************************************\r\n"
+    CAL_LOGI("\r\n\r\n***********************************************************************\r\n"
               "calibration_auto_test: \r\n");
     for (i = 0; i < CALIBRATE_TIMES; i++)
     {
         calibration_main();
     }
     calibration_result_print();
-    os_printf("***********************************************************************\r\n");
+    CAL_LOGI("***********************************************************************\r\n");
 
     p_gbias_after_cal_array = NULL;
     p_gav_tssi_array = NULL;
@@ -952,31 +953,31 @@ void rwnx_cal_read_current_cal_result(void)
     else
 #endif
     {
-        CAL_FATAL("*********** finally result **********\r\n");
-        CAL_FATAL("gbias_after_cal: 0x%x\r\n", gbias_after_cal);
-        CAL_FATAL("gav_tssi: 0x%x\r\n", gav_tssi);
-        CAL_FATAL("gtx_q_dc_comp:0x%x\r\n", gtx_q_dc_comp);
-        CAL_FATAL("gtx_i_dc_comp:0x%x\r\n", gtx_i_dc_comp);
-        CAL_FATAL("gtx_i_gain_comp:%d\r\n", gtx_i_gain_comp);
-        CAL_FATAL("gtx_q_gain_comp:%d\r\n", gtx_q_gain_comp);
-        CAL_FATAL("gtx_phase_comp:%d\r\n", gtx_phase_comp);
-        CAL_FATAL("gtx_phase_ty2:%d\r\n", gtx_phase_ty2);
-        CAL_FATAL("gtx_ifilter_corner over: 0x%x\r\n", gtx_ifilter_corner);
-        CAL_FATAL("gtx_qfilter_corner over: 0x%x\r\n", gtx_qfilter_corner);
-        CAL_FATAL("gtx_dcorMod:0x%x, gtx_dcorPA:0x%x\r\n", gtx_dcorMod, gtx_dcorPA);
-        CAL_FATAL("gtx_pre_gain:0x%x\r\n", gtx_pre_gain);
-        CAL_FATAL("g_rx_dc_gain_tab 0 over: 0x%x\r\n", g_rx_dc_gain_tab[0]);
-        CAL_FATAL("g_rx_dc_gain_tab 1 over: 0x%x\r\n", g_rx_dc_gain_tab[1]);
-        CAL_FATAL("g_rx_dc_gain_tab 2 over: 0x%x\r\n", g_rx_dc_gain_tab[2]);
-        CAL_FATAL("g_rx_dc_gain_tab 3 over: 0x%x\r\n", g_rx_dc_gain_tab[3]);
-        CAL_FATAL("g_rx_dc_gain_tab 4 over: 0x%x\r\n", g_rx_dc_gain_tab[4]);
-        CAL_FATAL("g_rx_dc_gain_tab 5 over: 0x%x\r\n", g_rx_dc_gain_tab[5]);
-        CAL_FATAL("g_rx_dc_gain_tab 6 over: 0x%x\r\n", g_rx_dc_gain_tab[6]);
-        CAL_FATAL("g_rx_dc_gain_tab 7 over: 0x%x\r\n", g_rx_dc_gain_tab[7]);
+        CAL_LOGI("*********** finally result **********\r\n");
+        CAL_LOGI("gbias_after_cal: 0x%x\r\n", gbias_after_cal);
+        CAL_LOGI("gav_tssi: 0x%x\r\n", gav_tssi);
+        CAL_LOGI("gtx_q_dc_comp:0x%x\r\n", gtx_q_dc_comp);
+        CAL_LOGI("gtx_i_dc_comp:0x%x\r\n", gtx_i_dc_comp);
+        CAL_LOGI("gtx_i_gain_comp:%d\r\n", gtx_i_gain_comp);
+        CAL_LOGI("gtx_q_gain_comp:%d\r\n", gtx_q_gain_comp);
+        CAL_LOGI("gtx_phase_comp:%d\r\n", gtx_phase_comp);
+        CAL_LOGI("gtx_phase_ty2:%d\r\n", gtx_phase_ty2);
+        CAL_LOGI("gtx_ifilter_corner over: 0x%x\r\n", gtx_ifilter_corner);
+        CAL_LOGI("gtx_qfilter_corner over: 0x%x\r\n", gtx_qfilter_corner);
+        CAL_LOGI("gtx_dcorMod:0x%x, gtx_dcorPA:0x%x\r\n", gtx_dcorMod, gtx_dcorPA);
+        CAL_LOGI("gtx_pre_gain:0x%x\r\n", gtx_pre_gain);
+        CAL_LOGI("g_rx_dc_gain_tab 0 over: 0x%x\r\n", g_rx_dc_gain_tab[0]);
+        CAL_LOGI("g_rx_dc_gain_tab 1 over: 0x%x\r\n", g_rx_dc_gain_tab[1]);
+        CAL_LOGI("g_rx_dc_gain_tab 2 over: 0x%x\r\n", g_rx_dc_gain_tab[2]);
+        CAL_LOGI("g_rx_dc_gain_tab 3 over: 0x%x\r\n", g_rx_dc_gain_tab[3]);
+        CAL_LOGI("g_rx_dc_gain_tab 4 over: 0x%x\r\n", g_rx_dc_gain_tab[4]);
+        CAL_LOGI("g_rx_dc_gain_tab 5 over: 0x%x\r\n", g_rx_dc_gain_tab[5]);
+        CAL_LOGI("g_rx_dc_gain_tab 6 over: 0x%x\r\n", g_rx_dc_gain_tab[6]);
+        CAL_LOGI("g_rx_dc_gain_tab 7 over: 0x%x\r\n", g_rx_dc_gain_tab[7]);
 
-        CAL_FATAL("grx_amp_err_wr:0x%03x\r\n", grx_amp_err_wr);
-        CAL_FATAL("grx_phase_err_wr:0x%03x\r\n", grx_phase_err_wr);
-        CAL_FATAL("**************************************\r\n");
+        CAL_LOGI("grx_amp_err_wr:0x%03x\r\n", grx_amp_err_wr);
+        CAL_LOGI("grx_phase_err_wr:0x%03x\r\n", grx_phase_err_wr);
+        CAL_LOGI("**************************************\r\n");
     }
 }
 
@@ -1083,7 +1084,7 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
     }
     if(test_mode)
     {
-        os_printf("add extral movement in test\r\n"); 
+        CAL_LOGI("add extral movement in test\r\n"); 
 
          #if CFG_USE_TEMPERATURE_DETECT
          temp_detect_uninit();
@@ -1172,7 +1173,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     const PWR_REGS *pcfg;
 
     if(pwr_gain > 32) {
-        os_printf("set_txpwr unknow pwr idx:%d \r\n", pwr_gain); 
+        CAL_LOGI("set_txpwr unknow pwr idx:%d \r\n", pwr_gain); 
         return;
     }
 
@@ -1181,7 +1182,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     
     #if CFG_USE_TEMPERATURE_DETECT
     pwr_gain = g_pwr_current.idx + g_pwr_current.shift;
-    //os_printf("temp shift: %d\r\n", g_pwr_current.shift);
+    //CAL_LOGI("temp shift: %d\r\n", g_pwr_current.shift);
 
     if(pwr_gain > 32) {
         pwr_gain = 31; 
@@ -1195,18 +1196,18 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     // for g
         pcfg = cfg_tab_g + pwr_gain;
     } else {
-        os_printf("set_txpwr unknow rate:%d \r\n", grate);  
+        CAL_LOGI("set_txpwr unknow rate:%d \r\n", grate);  
         return;
     }
 
-	//os_printf("idx_t:%d\r\n", pwr_gain);
+	//CAL_LOGI("idx_t:%d\r\n", pwr_gain);
     if(pwr_gain > 32) {
         pwr_gain = 31; 
     }
 
     if(get_ate_mode_state()) 
     {
-        os_printf("idx:%02d,r:%03d- pg:0x%02x, %01x, %01x, %01x, %01x, %02x \r\n", pwr_gain, grate,
+        CAL_LOGI("idx:%02d,r:%03d- pg:0x%02x, %01x, %01x, %01x, %01x, %02x \r\n", pwr_gain, grate,
             pcfg->pregain, pcfg->regb_28_31, pcfg->regc_8_10,pcfg->regc_4_6, pcfg->regc_0_2, pcfg->rega_8_11);
     }
 
@@ -1236,7 +1237,7 @@ void rwnx_cal_set_txpwr_by_tmpdetect(UINT16 shift)
     g_pwr_current.shift = shift;
     if(shift)
     {
-        os_printf("temd set pwr: idx:%d, rate:%d\r\n", g_pwr_current.idx + shift, g_pwr_current.mode);
+        CAL_LOGI("temd set pwr: idx:%d, rate:%d\r\n", g_pwr_current.idx + shift, g_pwr_current.mode);
         rwnx_cal_set_txpwr(g_pwr_current.idx, g_pwr_current.mode);
     }
 }  
@@ -2103,12 +2104,12 @@ void bk7011_micopwr_tssi_show(void)
 {
     UINT32 i, s = 0;
     double sd = 0;
-    os_printf("\r\n tssi tab: \r\n");
+    CAL_LOGI("\r\n tssi tab: \r\n");
     for(i = 0; i < TSSI_TAB_LEN; i++)
     {
-        os_printf("%d, ", tssi_tab[i]);
+        CAL_LOGI("%d, ", tssi_tab[i]);
         if((i + 1) % 16 == 0)
-            os_printf("\r\n");
+            CAL_LOGI("\r\n");
     }
 
     for(i = 0; i < TSSI_TAB_LEN; i++)
@@ -2116,7 +2117,7 @@ void bk7011_micopwr_tssi_show(void)
         s += tssi_tab[i] * tssi_tab[i];
     }
     sd = sqrt((double)(s / TSSI_TAB_LEN));
-    os_printf("\r\nsd = %f\r\n", sd);
+    CAL_LOGI("\r\nsd = %f\r\n", sd);
 }
 #endif
 
@@ -3672,7 +3673,7 @@ void write_cal_result_to_flash(void)
 
     bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
 
-    os_printf("write cal result to flash OK\r\n");
+    CAL_LOGI("write cal result to flash OK\r\n");
 }
 #endif
 
@@ -3694,7 +3695,7 @@ char read_cal_result_from_flash(void)
         memcpy(bk7011_trx_val, cTemp + sizeof(bk7011_rc_val), sizeof(bk7011_trx_val));
         rwnx_cal_load_default_result();
         rwnx_cal_load_trx_rcbekn_reg_val();
-        os_printf("read cal result from flash OK\r\n");
+        CAL_LOGI("read cal result from flash OK\r\n");
 
         return 1;
     }
@@ -3712,61 +3713,61 @@ void flash_test(void)
     int i;
 
     flash_read(cTemp, 0x1000, 0xF4000);
-    os_printf("cTemp:\r\n");
+    CAL_LOGI("cTemp:\r\n");
     for (i = 0; i < 0x1000; i++)
     {
-        os_printf("%x ", cTemp[i]);
+        CAL_LOGI("%x ", cTemp[i]);
     }
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     bk_flash_enable_security(FLASH_PROTECT_NONE);
     param = 0xF4000;
     flash_ctrl(CMD_FLASH_ERASE_SECTOR, &param);
 
     flash_read(cTemp, 0x1000, 0xF4000);
-    os_printf("cTemp:\r\n");
+    CAL_LOGI("cTemp:\r\n");
     for (i = 0; i < 0x1000; i++)
     {
-        os_printf("%x ", cTemp[i]);
+        CAL_LOGI("%x ", cTemp[i]);
     }
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     for (i = 0; i < 0x1000; i++)
     {
         cTemp[i] = i;
     }
-    os_printf("cTemp:\r\n");
+    CAL_LOGI("cTemp:\r\n");
     for (i = 0; i < 0x1000; i++)
     {
-        os_printf("%x ", cTemp[i]);
+        CAL_LOGI("%x ", cTemp[i]);
     }
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
 
     flash_write(cTemp, 0x1000, 0xF4000);
 
     memset(cTemp1, 0, 0x1000);
-    os_printf("cTemp1:\r\n");
+    CAL_LOGI("cTemp1:\r\n");
     for (i = 0; i < 0x1000; i++)
     {
-        os_printf("%x ", cTemp1[i]);
+        CAL_LOGI("%x ", cTemp1[i]);
     }
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
     flash_read(cTemp1, 0x1000, 0xF4000);
 
-    os_printf("cTemp1:\r\n");
+    CAL_LOGI("cTemp1:\r\n");
     for (i = 0; i < 0x1000; i++)
     {
-        os_printf("%x ", cTemp1[i]);
+        CAL_LOGI("%x ", cTemp1[i]);
     }
 
-    os_printf("\r\n");
+    CAL_LOGI("\r\n");
     if (memcmp(cTemp, cTemp1, sizeof(cTemp)) == 0)
     {
-        os_printf("memcmp OK\r\n");
+        CAL_LOGI("memcmp OK\r\n");
     }
     else
     {
-        os_printf("memcmp ERROR\r\n");
+        CAL_LOGI("memcmp ERROR\r\n");
     }
 }
 #endif

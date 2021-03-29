@@ -178,6 +178,7 @@ struct add_sta_st {
     void *sta_addr;
 	u8 tx_supp_rates;
     u8 ap_vif_idx;
+	u32 flags;
 } ;
 
 typedef struct cfg80211_key_params
@@ -219,6 +220,20 @@ typedef struct sta_info_tag* STA_INF_PTR;
 extern struct co_list rw_msg_tx_head;
 extern struct co_list rw_msg_rx_head;
 
+#if defined(CFG_USE_SOFTAP_PROBEREQ_CB) && CFG_USE_SOFTAP_PROBEREQ_CB
+typedef void (*apvif_probereq_frame_t)(unsigned char *data,unsigned int length);
+#endif
+struct scan_chan_duration_item{
+	unsigned char ch_nb;
+	unsigned int duration;   ///uS
+};
+
+struct scan_chan_duration_tag{
+	unsigned char table_nm;
+	struct scan_chan_duration_item *tb;
+};
+
+
 extern void mt_msg_dispatch(UINT16 cmd, void *param);
 extern void mr_kmsg_flush(void);
 extern UINT32 mr_kmsg_fwd(struct ke_msg *msg);
@@ -233,7 +248,6 @@ extern UINT32 rw_ieee80211_get_centre_frequency(UINT32 chan_id);
 extern UINT8 rw_ieee80211_get_chan_id(UINT32 freq);
 extern void *sr_get_scan_results(void);
 extern void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr);
-extern UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void *arg);
 extern void* rwm_transfer_pre(UINT8 vif_idx, UINT8 *buf, UINT32 len);
 extern UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len);
 extern UINT32 rwm_get_rx_valid_node_len(void);
@@ -246,6 +260,16 @@ extern int rw_msg_send_me_chan_config_req(void);
 extern int rw_msg_send_add_if(const unsigned char *mac,
                      enum nl80211_iftype iftype, bool p2p, struct mm_add_if_cfm *cfm);
 extern int rw_msg_send_remove_if(u8 vif_index);
+#if CFG_IEEE80211AX
+extern int rw_msg_send_config_monitor_req(struct mac_chan_op *chan,
+			struct me_config_monitor_cfm *cfm);
+extern int rwnx_monitor_open();
+extern int rwnx_monitor_close();
+extern UINT32 rwm_transfer(UINT8 vif_idx, struct pbuf *p, UINT8 *buf, UINT32 len, int sync, void *arg);
+#else
+extern UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void *arg);
+#endif
+
 extern int rw_msg_send_apm_start_req(u8 vif_index, u8 channel,
                      struct apm_start_cfm *cfm);
 extern int rw_msg_send_bcn_change(void *bcn_param);
@@ -286,6 +310,7 @@ void rwm_mgmt_set_vif_netif(struct netif *net_if);
 struct netif *rwm_mgmt_get_vif2netif(UINT8 vif_idx);
 UINT8 rwm_mgmt_get_netif2vif(struct netif *netif);
 UINT8 rwm_mgmt_tx_get_staidx(UINT8 vif_idx, void *dstmac);
+UINT8 rwm_first_vif_idx();
 u8 rwn_mgmt_is_only_sta_role_add(void);
 void rwm_msdu_init(void);
 void rwm_flush_txing_list(UINT8 sta_idx);
@@ -329,6 +354,10 @@ UINT8 rw_ieee80211_init_scan_chan(struct scanu_start_req *req);
 UINT8 rw_ieee80211_is_scan_rst_in_countrycode(UINT8 freq);
 #if CFG_IEEE80211N
 void rw_ieee80211_set_ht_cap(UINT8 ht_supp);
+#endif
+
+#if defined(CFG_USE_SOFTAP_PROBEREQ_CB) && CFG_USE_SOFTAP_PROBEREQ_CB
+extern void ap_vif_probe_req_frame_cb_register(apvif_probereq_frame_t cb);
 #endif
 #endif //_RW_PUB_H_
 // eof

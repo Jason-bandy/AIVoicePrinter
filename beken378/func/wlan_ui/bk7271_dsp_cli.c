@@ -13,6 +13,10 @@
 #include "ff.h"
 #include "diskio.h"
 #include "audio_pub.h"
+#include "str_pub.h"
+#include "bk_log.h"
+
+#define TAG "dsp_cli"
 
 #if CFG_USE_USB_HOST
 static dma_buffer_node record_buffer_nodes[8];
@@ -20,7 +24,8 @@ struct adc_dac_context g_record_context;
 volatile int record_flag = 0;
 volatile int thread_flag = 0;
 beken_thread_t usb_record_thread_handle;
-beken_semaphore_t usb_record_sem;
+beken_semaphore_t usb_record_sem = NULL;
+beken_semaphore_t usb_play_sem = NULL;
 FIL record_file;
 
 FATFS *pfs = NULL;
@@ -110,12 +115,12 @@ static uint32_t dsp_atoi(char *src)
 	if (NULL == src)
 		return 0;
 
-	while ((*src != NULL) && ((*src < '0') || (*src > '9')))
+	while ((*src != 0) && ((*src < '0') || (*src > '9')))
 		src++;
 
 	if ((*src == '0') && ((*(src + 1) == 'x') || ((*(src + 1) == 'X')))) {
 		src += 2;
-		while (*src != NULL) {
+		while (*src != 0) {
 			if ((*src >= '0') && (*src <= '9'))
 				num = num * 16 + *src - '0';
 			else if ((*src >= 'A') && (*src <= 'F'))
@@ -127,7 +132,7 @@ static uint32_t dsp_atoi(char *src)
 			src++;
 		}
 	} else {
-		while (*src != NULL) {
+		while (*src != 0) {
 			if ((*src >= '0') && (*src <= '9'))
 				num = num * 10 + *src - '0';
 			else
@@ -143,7 +148,7 @@ void dsp_wake_up_cb(MAILBOX_TYPE_T type, mailbox_t *param)
 {
 	if (type == MAILBOX_FROM_DSP) {
 		if (param->cmd == MAILBOX_CMD_AUDIO_WIFI_WAKEUP) {
-			os_printf("recv wake up from dsp!!!!\r\n");
+			BK_LOGI(TAG, "recv wake up from dsp!!!!\r\n");
 		}
 	}
 }
@@ -172,7 +177,7 @@ void usb_mount_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 
 	pfs = os_malloc(sizeof(FATFS));
 	if (NULL == pfs) {
-		os_printf("f_mount malloc failed!\r\n");
+		BK_LOGI(TAG, "f_mount malloc failed!\r\n");
 		return;
 	}
 
@@ -181,10 +186,10 @@ void usb_mount_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 	fr = f_mount(pfs, sys_path, 1);
 	if (fr != FR_OK) {
 		mount_flag = 0;
-		os_printf("usb mount failed:%d\r\n", fr);
+		BK_LOGI(TAG, "usb mount failed:%d\r\n", fr);
 	} else {
 		mount_flag = 1;
-		os_printf("usb mount OK!\r\n");
+		BK_LOGI(TAG, "usb mount OK!\r\n");
 	}
 }
 
@@ -197,7 +202,7 @@ void usb_unmount_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
 	int number = DISK_NUMBER_UDISK;
 
 	if (mount_flag != 1) {
-		os_printf("usb hasn't initialization!\r\n");
+		BK_LOGI(TAG, "usb hasn't initialization!\r\n");
 		return;
 	}
 
@@ -205,7 +210,7 @@ void usb_unmount_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
 	sprintf(sys_path, "%d:", number);
 	fr = f_mount(NULL, sys_path, 1);
 	if (fr != FR_OK) {
-		os_printf("unmount %s fail.\r\n", sys_path);
+		BK_LOGI(TAG, "unmount %s fail.\r\n", sys_path);
 		return;
 	}
 
@@ -215,7 +220,7 @@ void usb_unmount_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
 	}
 
 	mount_flag = 0;
-	os_printf("usb unmount OK!\r\n");
+	BK_LOGI(TAG, "usb unmount OK!\r\n");
 }
 
 static FRESULT usb_scan_files(char *path)
@@ -241,12 +246,12 @@ static FRESULT usb_scan_files(char *path)
 				if (fr != FR_OK) break;
 			} else {
 				/* It is a file. */
-				os_printf("%s/%s\r\n", path, fno.fname);
+				BK_LOGI(TAG, "%s/%s\r\n", path, fno.fname);
 			}
 		}
 		f_closedir(&dir);
 	} else
-		os_printf("f_opendir failed\r\n");
+		BK_LOGI(TAG, "f_opendir failed\r\n");
 
 	return fr;
 }
@@ -258,7 +263,7 @@ void usb_ls_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **a
 	int number = DISK_NUMBER_UDISK;
 
 	if (mount_flag != 1) {
-		os_printf("usb hasn't initialization!\r\n");
+		BK_LOGI(TAG, "usb hasn't initialization!\r\n");
 		return;
 	}
 
@@ -266,15 +271,15 @@ void usb_ls_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **a
 	sprintf(sys_path, "%d:", number);
 	fr = usb_scan_files(sys_path);
 	if (fr != FR_OK)
-		os_printf("scan_files failed!\r\n");
+		BK_LOGI(TAG, "scan_files failed!\r\n");
 }
 
 void pcm_test_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
 	int i;
 	uint32_t rate;
-	uint32_t *aud_ptr;
-	uint32_t aud_len;
+	uint32_t *aud_ptr = 0;
+	uint32_t aud_len = 0;
 	uint32_t *aud_addr = (uint32_t *)DAC_PLAY_NODE_ADDR;
 	mailbox_t mailbox;
 
@@ -296,7 +301,7 @@ void pcm_test_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 		aud_ptr = (uint32_t *)PCM_48000;
 		aud_len = sizeof(PCM_48000) / sizeof(PCM_48000[0]);
 	} else
-		os_printf("rate error: %d.\r\n", rate);
+		BK_LOGI(TAG, "rate error: %d.\r\n", rate);
 
 	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &rate);
 
@@ -320,12 +325,12 @@ void record2dac_cb(MAILBOX_TYPE_T type, mailbox_t *param)
 	switch (param->cmd) {
 	case MAILBOX_CMD_AUDIO_ADC_PCM_READ:
 		if (NULL == (uint8_t *)param->param1) {
-			os_printf("%s:%d param1 is invalid\r\n", __FUNCTION__, __LINE__);
+			BK_LOGI(TAG, "%s:%d param1 is invalid\r\n", __FUNCTION__, __LINE__);
 			break;
 		}
 		node = (dma_buffer_node *)co_list_pop_front(&g_record_context.free_list);
 		if (NULL == node) {
-			os_printf("free_list is empty\r\n");
+			BK_LOGI(TAG, "free_list is empty\r\n");
 			break;
 		}
 
@@ -338,12 +343,12 @@ void record2dac_cb(MAILBOX_TYPE_T type, mailbox_t *param)
 
 	case MAILBOX_CMD_AUDIO_DAC_PCM_WRITE_DONE:
 		if (NULL == (uint8_t *)param->param1) {
-			os_printf("%s:%d param1 is invalid\r\n", __FUNCTION__, __LINE__);
+			BK_LOGI(TAG, "%s:%d param1 is invalid\r\n", __FUNCTION__, __LINE__);
 			break;
 		}
 		node = (dma_buffer_node *)co_list_pick(&g_record_context.using_list);
 		if (NULL == node) {
-			os_printf("using_list is empty\r\n");
+			BK_LOGI(TAG, "using_list is empty\r\n");
 			break;
 		}
 
@@ -355,7 +360,7 @@ void record2dac_cb(MAILBOX_TYPE_T type, mailbox_t *param)
 		}
 
 		if (node == NULL)
-			os_printf("can't find 0x%x in dac_list\r\n", param->param1);
+			BK_LOGI(TAG, "can't find 0x%x in dac_list\r\n", param->param1);
 		else {
 			co_list_push_back(&g_record_context.free_list, (struct co_list_hdr *)node);
 			mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_PCM_READ_DONE, param->param1, param->param2, 0);
@@ -364,7 +369,7 @@ void record2dac_cb(MAILBOX_TYPE_T type, mailbox_t *param)
 		break;
 
 	default:
-		os_printf("%s:%d cmd=0x%x\r\n", __FUNCTION__, __LINE__, param->cmd);
+		BK_LOGI(TAG, "%s:%d cmd=0x%x\r\n", __FUNCTION__, __LINE__, param->cmd);
 		break;
 	}
 }
@@ -375,14 +380,14 @@ void record2dac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("record2dac <start> <adcx|adc1|adc2>\r\n");
-		os_printf("record2dac <stop>\r\n");
+		BK_LOGI(TAG, "record2dac <start> <adcx|adc1|adc2>\r\n");
+		BK_LOGI(TAG, "record2dac <stop>\r\n");
 		return;
 	}
 
 	if (os_strcmp(argv[1], "start") == 0) {
 		if (argc < 3) {
-			os_printf("record2dac <start> <adcx|adc1|adc2>\r\n");
+			BK_LOGI(TAG, "record2dac <start> <adcx|adc1|adc2>\r\n");
 			return;
 		}
 		co_list_init(&g_record_context.using_list);
@@ -416,7 +421,7 @@ void record2dac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 
 		mailbox_ctrl(CMD_MAILBOX_CLEAR_CALLBACK, (void *)record2dac_cb);
 	} else
-		os_printf("NOT support command %s.\r\n", argv[1]);
+		BK_LOGI(TAG, "NOT support command %s.\r\n", argv[1]);
 }
 
 static void usb_record_thread_main(void *arg)
@@ -424,13 +429,13 @@ static void usb_record_thread_main(void *arg)
 	int ret;
 	mailbox_t mailbox;
 	dma_buffer_node *node;
-	uint32_t bw;
+	UINT bw;
 	FRESULT fr;
 
 	while (record_flag) {
 		ret = rtos_get_semaphore(&usb_record_sem, BEKEN_WAIT_FOREVER);
 		if (ret) {
-			os_printf("get usb record semaphore fail.\r\n");
+			BK_LOGI(TAG, "get usb record semaphore fail.\r\n");
 			break;
 		}
 
@@ -441,9 +446,9 @@ static void usb_record_thread_main(void *arg)
 				co_list_extract(&g_record_context.using_list, (struct co_list_hdr *)node);
 				fr = f_write(&record_file, node->buffer, node->size, &bw);
 				if (fr != FR_OK)
-					os_printf("write %x to usb fail.\r\n", (uint32_t)node->buffer);
+					BK_LOGI(TAG, "write %x to usb fail.\r\n", (uint32_t)node->buffer);
 				if (node->size != bw)
-					os_printf("write %x to usb bytes %d/%d.\r\n", (uint32_t)node->buffer, bw, node->size);
+					BK_LOGI(TAG, "write %x to usb bytes %d/%d.\r\n", (uint32_t)node->buffer, bw, node->size);
 				co_list_push_back(&g_record_context.free_list, (struct co_list_hdr *)node);
 				mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_PCM_READ_DONE, ((uint32_t)node->buffer) - W_DSP_DMEM_64KB_BASE_ADDR, node->size, 0);
 				mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
@@ -464,13 +469,13 @@ static void usb_record_cb_hdl(MAILBOX_TYPE_T type, mailbox_t *param)
 	switch (param->cmd) {
 	case MAILBOX_CMD_AUDIO_ADC_PCM_READ:
 		if ((uint8_t *)param->param1 == NULL) {
-			os_printf("%s:%d param1 is invalid!\r\n", __FUNCTION__, __LINE__);
+			BK_LOGI(TAG, "%s:%d param1 is invalid!\r\n", __FUNCTION__, __LINE__);
 			break;
 		}
 
 		node = (dma_buffer_node *)co_list_pop_front(&g_record_context.free_list);
 		if (node == NULL) {
-			os_printf("free_list is empty!\r\n");
+			BK_LOGI(TAG, "free_list is empty!\r\n");
 			break;
 		}
 
@@ -479,10 +484,10 @@ static void usb_record_cb_hdl(MAILBOX_TYPE_T type, mailbox_t *param)
 		co_list_push_back(&g_record_context.using_list, (struct co_list_hdr *)node);
 		ret = rtos_set_semaphore(&usb_record_sem);
 		if (ret)
-			os_printf("set usb record semaphore fail.\r\n");
+			BK_LOGI(TAG, "set usb record semaphore fail.\r\n");
 		break;
 	default:
-		os_printf("%s:%d cmd=0x%x!\r\n", __FUNCTION__, __LINE__, param->cmd);
+		BK_LOGI(TAG, "%s:%d cmd=0x%x!\r\n", __FUNCTION__, __LINE__, param->cmd);
 		break;
 	}
 }
@@ -497,20 +502,25 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	int number = DISK_NUMBER_UDISK;
 
 	if (argc < 2) {
-		os_printf("record2usb <start> <adcx|adc1|adc2|aec> [file name]\r\n");
-		os_printf("record2usb <stop>\r\n");
+		BK_LOGI(TAG, "record2usb <start> <adcx|adc1|adc2|aec> [file name]\r\n");
+		BK_LOGI(TAG, "record2usb <stop>\r\n");
 		return;
 	}
 
 	if (mount_flag != 1) {
-		os_printf("usb hasn't initialization!\r\n");
+		BK_LOGI(TAG, "usb hasn't initialization!\r\n");
 		return;
 	}
 
 	if (os_strcmp(argv[1], "start") == 0) {
 
 		if (argc < 3) {
-			os_printf("record2usb <start> <adcx|adc1|adc2|aec> [file name]\r\n");
+			BK_LOGI(TAG, "record2usb <start> <adcx|adc1|adc2|aec> [file name]\r\n");
+			return;
+		}
+
+		if (record_flag) {
+			BK_LOGW(TAG, "record thread is running cmd is invalid!\r\n");
 			return;
 		}
 
@@ -522,7 +532,7 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 			sprintf(file_name, "%d:/record.pcm", number);
 		fr = f_open(&record_file, file_name, FA_CREATE_ALWAYS | FA_READ | FA_WRITE);
 		if (fr != FR_OK) {
-			os_printf("open %s fail.\r\n", file_name);
+			BK_LOGI(TAG, "open %s fail.\r\n", file_name);
 			return;
 		}
 
@@ -538,7 +548,7 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		/*create thread to write usb*/
 		ret = rtos_init_semaphore(&usb_record_sem, 3);
 		if (ret) {
-			os_printf("create usb record semaphore fail.\r\n");
+			BK_LOGI(TAG, "create usb record semaphore fail.\r\n");
 			return;
 		}
 		record_flag = 1;
@@ -550,7 +560,7 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 								 2048,
 								 (beken_thread_arg_t)0);
 		if (ret) {
-			os_printf("create usb record thread fail.\r\n");
+			BK_LOGI(TAG, "create usb record thread fail.\r\n");
 			return;
 		}
 
@@ -571,6 +581,11 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		}
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
 	} else if (os_strcmp(argv[1], "stop") == 0) {
+		if(!usb_record_sem) {
+			BK_LOGW(TAG, "please start record thread.\r\n");
+			return;
+		}
+
 		/*send record stop to dsp*/
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_ADC_RECORD, 0, 0, 0);
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
@@ -579,32 +594,33 @@ void record2usb_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		record_flag = 0;
 		ret = rtos_set_semaphore(&usb_record_sem);
 		if (ret) {
-			os_printf("set usb record semaphore fail.\r\n");
+			BK_LOGI(TAG, "set usb record semaphore fail.\r\n");
 			return;
 		}
 		while (thread_flag)
 			rtos_delay_milliseconds(2);
 		ret = rtos_deinit_semaphore(&usb_record_sem);
 		if (ret)
-			os_printf("delete usb record semaphore fail.\r\n");
+			BK_LOGI(TAG, "delete usb record semaphore fail.\r\n");
 		mailbox_ctrl(CMD_MAILBOX_CLEAR_CALLBACK, (void *)usb_record_cb_hdl);
 
 		/*close record file*/
 		fr = f_close(&record_file);
 		if (fr != FR_OK)
-			os_printf("close record file fail.\r\n");
+			BK_LOGI(TAG, "close record file fail.\r\n");
 	}
 }
 
 static void usb_play_cb_hdl(MAILBOX_TYPE_T type, mailbox_t *param)
 {
+	int ret;
 	dma_buffer_node *node;
 
 	switch (param->cmd) {
 	case MAILBOX_CMD_AUDIO_DAC_PCM_WRITE_DONE:
 		node = (dma_buffer_node *)co_list_pick(&g_record_context.using_list);
 		if (node == NULL) {
-			os_printf("%s:%d using list is empty!\r\n", __FUNCTION__, __LINE__);
+			BK_LOGI(TAG, "%s:%d using list is empty!\r\n", __FUNCTION__, __LINE__);
 			break;
 		}
 
@@ -616,12 +632,18 @@ static void usb_play_cb_hdl(MAILBOX_TYPE_T type, mailbox_t *param)
 		}
 
 		if (node == NULL)
-			os_printf("can not find 0x%x in dac_list!\r\n", param->param1);
+			BK_LOGI(TAG, "can not find 0x%x in dac_list!\r\n", param->param1);
 		else
 			co_list_push_back(&g_record_context.free_list, (struct co_list_hdr *)node);
 		break;
+
+		if (param->param2 == 0) {
+			ret = rtos_set_semaphore(&usb_play_sem);
+			if (ret)
+				BK_LOGI(TAG, "set usb play semaphore fail.\r\n");
+		}
 	default:
-		os_printf("%s:%d cmd=0x%x!\r\n", __FUNCTION__, __LINE__, param->cmd);
+		BK_LOGI(TAG, "%s:%d cmd=0x%x!\r\n", __FUNCTION__, __LINE__, param->cmd);
 		break;
 	}
 }
@@ -636,11 +658,18 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 	char file_name[50];
 	FRESULT fr;
 	int number = DISK_NUMBER_UDISK;
-	uint32_t br;
+	UINT br;
 	uint32_t retry_cnt = 0;
 
 	if (mount_flag != 1) {
-		os_printf("usb hasn't initialization!\r\n");
+		BK_LOGI(TAG, "usb hasn't initialization!\r\n");
+		return;
+	}
+
+	/*init usb play semaphore*/
+	ret = rtos_init_semaphore(&usb_play_sem, 1);
+	if (ret) {
+		BK_LOGI(TAG, "create usb play semaphore fail.\r\n");
 		return;
 	}
 
@@ -653,7 +682,7 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 
 	fr = f_open(&record_file, file_name, FA_OPEN_EXISTING | FA_READ);
 	if (fr != FR_OK) {
-		os_printf("open %s fail.\r\n", file_name);
+		BK_LOGI(TAG, "open %s fail.\r\n", file_name);
 		return;
 	}
 
@@ -680,19 +709,19 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 		if (node == NULL) {
 			retry_cnt++;
 			if (retry_cnt > 10000) {
-				os_printf("get free list fail.\r\n");
+				retry_cnt = 0;
+				BK_LOGI(TAG, "get free list fail.\r\n");
 			}
-			rtos_delay_milliseconds(5);
+			rtos_delay_milliseconds(2);
 			continue;
 		}
 
+		if (retry_cnt)
+			retry_cnt = 0;
+
 		fr = f_read(&record_file, node->buffer, DAC_PLAY_NODE_SIZE, &br);
 		if (fr != FR_OK) {
-			os_printf("read record file fail.\r\n");
-			break;
-		}
-		if (br == 0) {
-			co_list_push_back(&g_record_context.free_list, (struct co_list_hdr *)node);
+			BK_LOGI(TAG, "read record file fail.\r\n");
 			break;
 		}
 
@@ -700,7 +729,14 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 		co_list_push_back(&g_record_context.using_list, (struct co_list_hdr *)node);
 		mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_PCM_WRITE, ((uint32_t)node->buffer) - W_DSP_DMEM_64KB_BASE_ADDR, node->size, 0);
 		mailbox_ctrl(CMD_MAILBOX_CPU2DSP_SEND, &mailbox);
+
+		if (br == 0) break;
 	}
+
+	/*wait for play stop*/
+	ret = rtos_get_semaphore(&usb_play_sem, BEKEN_WAIT_FOREVER);
+	if (ret)
+		BK_LOGI(TAG, "get usb play semaphore fail.\r\n");
 
 	/*send play stop to dsp*/
 	mailbox_set_param(&mailbox, MAILBOX_CMD_AUDIO_DAC_ENABLE, 0, 0, 0);
@@ -711,7 +747,7 @@ void usb_play_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
 	/*close record file*/
 	fr = f_close(&record_file);
 	if (fr != FR_OK)
-		os_printf("close %s fail.\r\n", file_name);
+		BK_LOGI(TAG, "close %s fail.\r\n", file_name);
 }
 
 void line_in_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -735,7 +771,7 @@ void adc_analog_gain_command(char *pcWriteBuffer, int xWriteBufferLen, int argc,
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("please input gain.\r\n");
+		BK_LOGI(TAG, "please input gain.\r\n");
 		return;
 	}
 	param = dsp_atoi(argv[1]);
@@ -749,7 +785,7 @@ void adc_digital_gain_command(char *pcWriteBuffer, int xWriteBufferLen, int argc
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("please input gain.\r\n");
+		BK_LOGI(TAG, "please input gain.\r\n");
 		return;
 	}
 	param = dsp_atoi(argv[1]);
@@ -763,7 +799,7 @@ void adc_sample_rate_command(char *pcWriteBuffer, int xWriteBufferLen, int argc,
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("please input sample rate.\r\n");
+		BK_LOGI(TAG, "please input sample rate.\r\n");
 		return;
 	}
 	param = dsp_atoi(argv[1]);
@@ -777,7 +813,7 @@ void dac_analog_gain_command(char *pcWriteBuffer, int xWriteBufferLen, int argc,
 	uint32_t param;
 
 	if (argc < 2) {
-		os_printf("please input gain.\r\n");
+		BK_LOGI(TAG, "please input gain.\r\n");
 		return;
 	}
 	param = dsp_atoi(argv[1]);
@@ -790,7 +826,7 @@ void dac_digital_gain_command(char *pcWriteBuffer, int xWriteBufferLen, int argc
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("please input gain.\r\n");
+		BK_LOGI(TAG, "please input gain.\r\n");
 		return;
 	}
 	param = dsp_atoi(argv[1]);
@@ -804,7 +840,7 @@ void dac_sample_rate_command(char *pcWriteBuffer, int xWriteBufferLen, int argc,
 	mailbox_t mailbox;
 
 	if (argc < 2) {
-		os_printf("please input sample rate.\r\n");
+		BK_LOGI(TAG, "please input sample rate.\r\n");
 		return;
 	}
 	param = dsp_atoi(argv[1]);
@@ -838,6 +874,6 @@ void bk7271_dsp_cli_init(void)
 	mailbox_ctrl(CMD_MAILBOX_SET_CALLBACK, (void *)dsp_wake_up_cb);
 	ret = cli_register_commands(dsp_clis, sizeof(dsp_clis) / sizeof(struct cli_command));
 	if (ret)
-		os_printf("register dsp commands fail.\r\n");
+		BK_LOGI(TAG, "register dsp commands fail.\r\n");
 }
 #endif

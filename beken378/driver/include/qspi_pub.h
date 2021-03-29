@@ -1,6 +1,19 @@
 #ifndef _QSPI_PUB_H_
 #define _QSPI_PUB_H_
 
+#include "uart_pub.h"
+
+#define BK_QSPI_DEBUG                0
+#if BK_QSPI_DEBUG
+#define BK_QSPI_PRT               os_printf
+#define BK_QSPI_WPRT              warning_prf
+#define BK_QSPI_FATAL             fatal_prf
+#else
+#define BK_QSPI_PRT               null_prf
+#define BK_QSPI_WPRT              null_prf
+#define BK_QSPIFATAL	          null_prf
+#endif
+
 #define QSPI_FAILURE                (1)
 #define QSPI_SUCCESS                (0)
 
@@ -9,8 +22,8 @@
 
 #define QSPI_CMD_MAGIC              (0xa250000)
 
-//#define QSPI_DEBUG
-#ifdef  QSPI_DEBUG
+#define QSPI_DEBUG               0
+#if QSPI_DEBUG
 #define QSPI_WPRT                os_printf
 #define QSPI_EPRT                os_printf
 #define QSPI_DEBUG_PRINTF		 os_printf
@@ -32,19 +45,6 @@ enum
     QSPI_DCACHE_CMD_OPEN,
     QSPI_DCACHE_CMD_CLOSE,
 };
-
-#define BK_QSPI_DEBUG                1
-#include "uart_pub.h"
-#if BK_QSPI_DEBUG
-#define BK_QSPI_PRT               os_printf
-#define BK_QSPI_WPRT              warning_prf
-#define BK_QSPI_FATAL             fatal_prf
-#else
-#define BK_QSPI_PRT               null_prf
-#define BK_QSPI_WPRT              null_prf
-#define BK_QSPIFATAL	          null_prf
-#endif
-
 
 //----------------------------------------------
 // QSPI GE0 driver description

@@ -18,7 +18,7 @@ saradc_desc_t *saradc_desc = NULL;
 saradc_calibrate_val saradc_val = {0x55, 0x354};
 static volatile u8 saradc_is_busy = 0;
 static volatile u8 saradc_accuracy = 0;
-static DD_OPERATIONS saradc_op = {
+static const DD_OPERATIONS saradc_op = {
             saradc_open,
             saradc_close,
             NULL,
@@ -53,7 +53,7 @@ void saradc_init(void)
 {
 	intc_service_register(IRQ_SARADC, PRI_IRQ_SARADC, saradc_isr);
 
-	ddev_register_dev(SARADC_DEV_NAME, &saradc_op);
+	ddev_register_dev(SARADC_DEV_NAME, (DD_OPERATIONS*)&saradc_op);
 
     saradc_flush();
 }
@@ -130,7 +130,7 @@ static void saradc_gpio_config(void)
 		break;
 	}
 
-#if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
+#if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME) || (SOC_BK7231N == CFG_SOC_NAME))
 	case 4: {
 		param = GFUNC_MODE_ADC4;
 		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
@@ -146,6 +146,8 @@ static void saradc_gpio_config(void)
 		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
 		break;
 	}
+#endif
+#if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))
 	case 7: {
 		param = GFUNC_MODE_ADC7;
 		sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
@@ -631,6 +633,14 @@ static UINT32 saradc_ctrl(UINT32 cmd, void *param)
             value &= ~SARADC_ADC_BYPASS_CALIB;
         }
         REG_WRITE(SARADC_ADC_CTRL_CFG, value);
+        break;
+    case SARADC_CMD_SET_SAT_CTRL:
+        value = REG_READ(SARADC_ADC_SATURATION_CFG);
+        /* clear with mask */
+        value &= ~(SARADC_ADC_SAT_CTRL_MASK << SARADC_ADC_SAT_CTRL_POSI);
+        /* set with param */
+        value |= ((*(UINT32 *)param & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
+        REG_WRITE(SARADC_ADC_SATURATION_CFG, value);
         break;
 #endif
 	default:

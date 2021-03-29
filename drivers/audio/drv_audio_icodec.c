@@ -10,6 +10,7 @@
 #include "general_dma.h"
 #include "general_dma_pub.h"
 #include "board.h"
+#include "sys_config.h"
 
 #if (CFG_SOC_NAME == SOC_BK7271)
 #include "mailbox_pub.h"
@@ -136,10 +137,8 @@ __exit:
 
 int rt_data_node_is_empty(struct rt_data_node_list *node_list)
 {
-	struct rt_data_node *node = RT_NULL;
-	rt_uint32_t read_index, write_index, next_index;
+	rt_uint32_t read_index, write_index;
 	rt_base_t level;
-	rt_uint32_t result;
 
 	level = rt_hw_interrupt_disable();
 	read_index = node_list->read_index;
@@ -163,7 +162,6 @@ int rt_data_node_write(struct rt_data_node_list *node_list, void *buffer, rt_uin
 	struct rt_data_node *node = RT_NULL;
 	rt_uint32_t read_index, write_index, next_index;
 	rt_base_t level;
-	rt_uint32_t result;
 
 	level = rt_hw_interrupt_disable();
 	read_index = node_list->read_index;
@@ -194,7 +192,7 @@ int rt_data_node_read(struct rt_data_node_list *node_list, void *buffer, rt_uint
 {
 	struct rt_data_node *node = RT_NULL;
 	rt_uint32_t read_index, write_index, next_index;
-	rt_int32_t remain_len, copy_size, read_len;
+	rt_int32_t remain_len, copy_size;
 	rt_uint32_t read_offset, data_offset;
 	rt_base_t level;
 	rt_uint32_t result = size;
@@ -273,6 +271,7 @@ void rt_data_node_empty(struct rt_data_node_list *node_list)
 /**
  * RT-Thread Audio Driver Interface
  */
+__maybe_unused static void dac_speaker_enable(rt_uint32_t enable);
 static void dac_speaker_enable(rt_uint32_t enable)
 {
 	UINT32 param;
@@ -361,7 +360,6 @@ static rt_err_t audio_codec_init(rt_device_t dev)
 }
 #endif
 
-static void net_transmit_init(void);
 static rt_err_t audio_codec_open(rt_device_t dev, rt_uint16_t oflag)
 {
 #define AVOID_POP_NOISE      1
@@ -434,8 +432,6 @@ static rt_size_t audio_codec_write(rt_device_t dev, rt_off_t pos,
 	mailbox_t mailbox;
 	dma_buffer_node *node;
 	uint32_t offset, length = 0;
-	uint32_t *adc_ptr;
-	uint32_t *dac24_ptr;
 	uint32_t try_count = 20;
 #else
 	int ret;
@@ -507,7 +503,7 @@ static rt_size_t audio_codec_write(rt_device_t dev, rt_off_t pos,
 	}
 
 	if (dev->tx_complete != RT_NULL)
-		dev->tx_complete(dev, buffer);
+		dev->tx_complete(dev, (void*)buffer);
 
 	return offset;
 #else
@@ -532,11 +528,10 @@ static rt_size_t audio_codec_write(rt_device_t dev, rt_off_t pos,
 
 static rt_err_t audio_codec_control(rt_device_t dev, int cmd, void *args)
 {
-	rt_err_t result = RT_EOK, stat;
+	rt_err_t result = RT_EOK;
 	struct audio_codec_device *audio = RT_NULL;
 
 	audio = (struct audio_codec_device *)dev;
-	stat = audio->stat;
 
 	switch (cmd) {
 	case CODEC_CMD_SET_VOLUME: {
@@ -618,7 +613,7 @@ static rt_err_t audio_codec_control(rt_device_t dev, int cmd, void *args)
 		result = RT_ERROR;
 	}
 
-	return RT_EOK;
+	return result;
 }
 
 #define WAIT_FADE_OUT_TIME 100
@@ -666,6 +661,7 @@ static rt_err_t audio_codec_close(rt_device_t dev)
 	return RT_EOK;
 }
 
+__maybe_unused static void data_node_read_complete(struct rt_data_node *node, void *user_data);
 static void data_node_read_complete(struct rt_data_node *node, void *user_data)
 {
 	struct rt_device *dev = RT_NULL;
@@ -678,10 +674,7 @@ static void data_node_read_complete(struct rt_data_node *node, void *user_data)
 #if (CFG_SOC_NAME == SOC_BK7271)
 static void audio_codec_callback_handler(MAILBOX_TYPE_T type, mailbox_t *param)
 {
-	mailbox_t mailbox;
 	dma_buffer_node *node;
-	uint32_t *adc_ptr;
-	uint32_t *dac24_ptr;
 
 	switch (param->cmd) {
 	case MAILBOX_CMD_AUDIO_DAC_PCM_WRITE_DONE:
@@ -813,6 +806,7 @@ int dac_dma_init(struct audio_codec_device *audio)
 	en_cfg.channel = AUDIO_DAC_DEF_DMA_CHANNEL;
 	en_cfg.param = AUDIO_SEND_BUFFER_SIZE; // dma translen
 	sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, &en_cfg);
+	return 0;
 }
 #endif
 
@@ -900,7 +894,9 @@ int rt_audio_codec_hw_init(void)
 
 	return RT_EOK;
 
+#if (CFG_SOC_NAME != SOC_BK7271)
 __exit:
+#endif
 	if (audio->send_fifo) {
 		rt_free(audio->send_fifo);
 		audio->send_fifo = RT_NULL;
@@ -913,8 +909,6 @@ INIT_DEVICE_EXPORT(rt_audio_codec_hw_init);
 
 int audio_dump(void)
 {
-	int val;
-	int i = 0;
 #if (CFG_SOC_NAME == SOC_BK7271)
 #else
 	struct rt_data_node_list *node_list = _g_audio_codec.node_list;
@@ -925,6 +919,7 @@ int audio_dump(void)
 	rt_kprintf("size = %d \n", node_list->size);
 #endif
 	rt_kprintf("audio->dma_irq_cnt = %d \n", _g_audio_codec.dma_irq_cnt);
+	return 0;
 }
 
 MSH_CMD_EXPORT(audio_dump, audio_dump);

@@ -1,4 +1,5 @@
 #include "include.h"
+#include "doubly_list.h"
 #include "rw_msdu.h"
 #include "rw_pub.h"
 #include "str_pub.h"
@@ -20,14 +21,19 @@
 #include "fake_clock_pub.h"
 #include "power_save_pub.h"
 #if CFG_IEEE80211AX
-#include "fhost_msdu.h"
-#include "fhost_defs.h"
+#include "rwnx_rx.h"
 #include "rxl_hwdesc.h"
+#include "ieee802_11_defs.h"
+#include "wpa_ctrl.h"
+#include "macif.h"
+#include "ip_port.h"
 #endif
+#include "rwnx_defs.h"
 
 void ethernetif_input(int iface, struct pbuf *p);
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag);
 extern int bmsg_ps_handler_rf_ps_mode_real_wakeup(void);
+extern int ke_mgmt_packet_tx(unsigned char *buf, int len, int flag);
 
 LIST_HEAD_DEFINE(msdu_rx_list);
 
@@ -116,12 +122,32 @@ void rwm_tx_confirm(void *param)
 		txdesc->host.msdu_node = NULL;
 	}
 #else
-	struct fhost_txdesc *fhost_txdesc = (struct fhost_txdesc *)param;
-	struct txdesc *txdesc = &fhost_txdesc->txdesc;
-	MSDU_NODE_T *node = fhost_txdesc->node;
+	struct txdesc *txdesc = (struct txdesc *)param;
+	MSDU_NODE_T *node = txdesc->host.buf;
+
 	if (txdesc && node) {
+		struct fhost_txdesc *fhost_txdesc = container_of(txdesc, struct fhost_txdesc, txdesc);
+		void (*cfm_cb)(void *) = txdesc->host.cfm_cb;
+
+		os_null_printf("%s %d: txdesc %p, fhost_txdesc %p, cfm_cb %p, arg %p\n",
+				__func__, __LINE__, txdesc, fhost_txdesc, cfm_cb, txdesc->host.cfm_cb_arg);
+
+		// callback for mgmt frame tx
+		if (cfm_cb)
+			cfm_cb(txdesc->host.cfm_cb_arg);
+
+		os_null_printf("flush_desc: node %p, pbuf %p\n", node, node->p);
+
+		if (node->p) {
+			pbuf_free(node->p);
+			node->p = NULL;
+		}
+		// free msdu
 		os_free(node);
-		fhost_txdesc->node = 0;
+		txdesc->host.buf = NULL;
+
+		// free fhost tx descriptor
+		os_free(fhost_txdesc);
 	}
 #endif
 }
@@ -135,9 +161,27 @@ void rwm_tx_msdu_renew(UINT8 *buf, UINT32 len, UINT8 *orig_addr)
 #endif
 }
 
+void rwm_tx_mpdu_renew(UINT8 *buf, UINT32 len, UINT8 *orig_addr)
+{
+#if CFG_GENERAL_DMA
+    gdma_memcpy((void *)((UINT32)orig_addr), buf, len);
+#else
+    os_memmove((void *)((UINT32)orig_addr), buf, len);
+#endif
+}
+
 UINT8 *rwm_get_msdu_content_ptr(MSDU_NODE_T *node)
 {
+#if !CFG_IEEE80211AX
     return (UINT8 *)((UINT32)node->msdu_ptr + CFG_MSDU_RESV_HEAD_LEN);
+#else
+    return node->msdu_ptr;
+#endif
+}
+
+UINT8 *rwm_get_mpdu_content_ptr(MSDU_NODE_T *node)
+{
+    return (UINT8 *)((UINT32)node->msdu_ptr);
 }
 
 void rwm_txdesc_copy(struct txdesc *dst_local, ETH_HDR_PTR eth_hdr_ptr)
@@ -209,11 +253,12 @@ int rwm_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param)
 exit:
 	return ret;
 #else /* CFG_IEEE80211AX */
-	/* TODO: BK7236 */
+	/* TODO: BK7236 monitor tx */
 	return len;
 #endif
 }
 
+#if !CFG_IEEE80211AX
 MSDU_NODE_T *rwm_tx_node_alloc(UINT32 len)
 {
     UINT8 *buff_ptr;
@@ -250,9 +295,67 @@ alloc_exit:
     return node_ptr;
 }
 
+#else
+
+MSDU_NODE_T *rwm_tx_node_alloc(UINT32 len, pbuf_layer layer)
+{
+	MSDU_NODE_T *node_ptr = 0;
+	struct pbuf *p;
+
+	/* no payload here */
+	node_ptr = (MSDU_NODE_T *)os_zalloc(sizeof(MSDU_NODE_T));
+
+	if (!node_ptr)
+		goto alloc_exit;
+
+	p = pbuf_alloc(layer, len, PBUF_RAM);
+	if (!p) {
+		os_free(node_ptr);
+		node_ptr = 0;
+		goto alloc_exit;
+	}
+
+	node_ptr->p = p;
+	node_ptr->msdu_ptr = p->payload;
+	node_ptr->len = p->tot_len;
+
+alloc_exit:
+	return node_ptr;
+}
+
+MSDU_NODE_T *rwm_tx_node_alloc_with_pbuf(struct pbuf *p)
+{
+	MSDU_NODE_T *node_ptr = 0;
+
+	node_ptr = (MSDU_NODE_T *)os_zalloc(sizeof(MSDU_NODE_T));
+
+	if (!node_ptr)
+		goto alloc_exit;
+
+	node_ptr->p = p;
+	node_ptr->msdu_ptr = p->payload;
+	node_ptr->len = p->tot_len;
+
+alloc_exit:
+	return node_ptr;
+}
+
+#endif
+
 void rwm_node_free(MSDU_NODE_T *node)
 {
     ASSERT(node);
+
+#if CFG_IEEE80211AX
+	if (node->ftxdesc) {
+		os_free(node->ftxdesc);
+		node->ftxdesc = NULL;
+	}
+	if (node->p) {
+		pbuf_free(node->p);
+		node->p = NULL;
+	}
+#endif
     os_free(node);
 }
 
@@ -379,7 +482,7 @@ void rwm_flush_txing_list(UINT8 sta_idx)
 
     if(rwm_txling_list_node_count(sta_idx))
     {
-        os_printf("flush buffered node, staid:%d\r\n", sta_idx);
+        RWNX_LOGI("flush buffered node, staid:%d\r\n", sta_idx);
         while(1) {
             node_ptr = rwm_pop_txing_list(sta_idx);
             if(node_ptr)
@@ -391,7 +494,7 @@ void rwm_flush_txing_list(UINT8 sta_idx)
 
     if(rtos_is_timer_running(&g_ap_ps.sta_ps[sta_idx].timer))
     {
-        os_printf("stop ap ps timer, staid:%d\r\n", sta_idx);
+        RWNX_LOGI("stop ap ps timer, staid:%d\r\n", sta_idx);
         ret = rtos_stop_timer(&g_ap_ps.sta_ps[sta_idx].timer);
         ASSERT(0 == ret);
     }
@@ -438,7 +541,7 @@ void rwm_ps_tranfer_node(MSDU_NODE_T *node)
                     u16 aid = sta_mgmt_get_aid(sta_idx);
                     int ret;
 
-                    //os_printf("on bcn tim: vif:%d, aid:%d, sta:%d\r\n", vif_idx, aid, sta_idx);
+                    //RWNX_LOGI("on bcn tim: vif:%d, aid:%d, sta:%d\r\n", vif_idx, aid, sta_idx);
 
                     //rwnx_send_me_uapsd_traffic_ind(sta_idx, 1);
                     rw_msg_send_tim_update(vif_idx, aid, 1);
@@ -449,7 +552,7 @@ void rwm_ps_tranfer_node(MSDU_NODE_T *node)
                 }
 
                 // add this node to txing list
-                //os_printf("addto txing list node:%p, sta:%d\r\n", node, sta_idx);
+                //RWNX_LOGI("addto txing list node:%p, sta:%d\r\n", node, sta_idx);
                 rwm_push_txing_list(node, sta_idx);
              }
              else
@@ -480,7 +583,7 @@ void rwm_msdu_send_txing_node(UINT8 sta_idx)
     txl_cntrl_inc_pck_cnt();
     #endif
 
-    //os_printf("pop txing list node:%p, sta:%d\r\n",node, sta_idx);
+    //RWNX_LOGI("pop txing list node:%p, sta:%d\r\n",node, sta_idx);
     rwm_transfer_node(node, TXU_CNTRL_MORE_DATA);
 
     if(node_left && !sta_mgmt_is_in_ps(sta_idx)) {
@@ -492,7 +595,7 @@ void rwm_msdu_send_txing_node(UINT8 sta_idx)
         u8 vif_idx = sta_mgmt_get_vif_idx(sta_idx);
         u16 aid = sta_mgmt_get_aid(sta_idx);
 
-        //os_printf("off bcn tim: vif:%d, aid:%d, sta:%d\r\n", vif_idx, aid, sta_idx);
+        //RWNX_LOGI("off bcn tim: vif:%d, aid:%d, sta:%d\r\n", vif_idx, aid, sta_idx);
 
         //rwnx_send_me_uapsd_traffic_ind(sta_idx, 0);
         rw_msg_send_tim_update(vif_idx, aid, 0);
@@ -514,7 +617,7 @@ void rwm_msdu_ps_change_ind_handler(void *msg)
 
     if((ind->ps_state == PS_MODE_OFF) && node_left) {
         // trigger txing sending
-       // os_printf("ps off, trigger txing sending %d\r\n", node_left);
+       // RWNX_LOGI("ps off, trigger txing sending %d\r\n", node_left);
         bmsg_txing_sender(ind->sta_idx);
 
         if(rtos_is_timer_running(&g_ap_ps.sta_ps[ind->sta_idx].timer)) {
@@ -523,7 +626,7 @@ void rwm_msdu_ps_change_ind_handler(void *msg)
         }
     } else if((ind->ps_state == PS_MODE_ON) && node_left)  {
 
-        //os_printf("ps_change on:%d\r\n", node_left);
+        //RWNX_LOGI("ps_change on:%d\r\n", node_left);
         // do something
         if(!rtos_is_timer_running(&g_ap_ps.sta_ps[ind->sta_idx].timer)) {
             ret = rtos_start_timer(&g_ap_ps.sta_ps[ind->sta_idx].timer);
@@ -588,6 +691,46 @@ uint8_t ipv6_ieee8023_dscp(UINT8 *buf)
 }
 #endif
 
+void ieee80211_data_tx_cb(void *param)
+{
+	struct txdesc *txdesc_new = (struct txdesc *)param;
+#if CFG_IEEE80211AX
+	MSDU_NODE_T *node = txdesc_new->host.buf;
+#else
+	MSDU_NODE_T *node = (MSDU_NODE_T *)txdesc_new->host.msdu_node;
+#endif
+	struct tx_hd *txhd = &txdesc_new->lmac.hw_desc->thd;
+	struct ieee80211_tx_cb *cb = (struct ieee80211_tx_cb *)node->args;
+	uint32_t status = txhd->statinfo;
+
+	if (0 == node) {
+		RWNX_LOGI("zero_node\r\n");
+		return;
+	}
+
+	if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/)
+		cb->result = RW_SUCCESS;
+	else
+		cb->result = RW_FAILURE;
+
+	rtos_set_semaphore(&cb->sema);
+}
+
+int qos_need_enabled(struct sta_info_tag *sta)
+{
+	if (!sta)
+		return 0;
+#if CFG_IEEE80211AX
+	if (!STA_CAPA(sta, QOS))
+		return 0;
+#else
+	if (!(sta->info.capa_flags & STA_QOS_CAPA))
+		return 0;
+#endif
+
+	return 1;
+}
+
 /*
  * get user priority from @buf.
  * ipv4 dscp/tos, ipv6 flow control. for eapol packets, disable qos.
@@ -612,15 +755,12 @@ uint8_t classify8021d(UINT8 *buf)
 #endif
 }
 
+#if !CFG_IEEE80211AX
 UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void *args)
 {
     UINT32 ret = 0;
     MSDU_NODE_T *node;
     ETH_HDR_PTR eth_hdr_ptr;
-
-#if CFG_IEEE80211AX
-    // FIXME: BK7236: don't mem copy
-#endif
 
     ret = RW_FAILURE;
     node = rwm_tx_node_alloc(len);
@@ -630,7 +770,7 @@ UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void *args)
         txl_cntrl_dec_pck_cnt();
         #endif
 
-        os_printf("rwm_transfer no node\r\n");
+        RWNX_LOGI("rwm_transfer no node\r\n");
         goto tx_exit;
     }
     rwm_tx_msdu_renew(buf, len, node->msdu_ptr);
@@ -652,70 +792,6 @@ tx_exit:
     return ret;
 }
 
-void ieee80211_data_tx_cb(void *param)
-{
-#if CFG_IEEE80211AX
-	struct fhost_txdesc *fhost_txdesc = (struct fhost_txdesc *)param;
-	struct txdesc *txdesc_new = &fhost_txdesc->txdesc;
-	MSDU_NODE_T *node = fhost_txdesc->node;
-#else
-	struct txdesc *txdesc_new = (struct txdesc *)param;
-	MSDU_NODE_T *node = (MSDU_NODE_T *)txdesc_new->host.msdu_node;
-#endif
-	struct tx_hd *txhd = &txdesc_new->lmac.hw_desc->thd;
-	struct ieee80211_tx_cb *cb = (struct ieee80211_tx_cb *)node->args;
-	uint32_t status = txhd->statinfo;
-
-#if CFG_IEEE80211AX
-	rwm_tx_confirm(param);		// call default callback handler
-#endif
-
-	if (0 == node) {
-		os_printf("zero_node\r\n");
-		return;
-	}
-
-	if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/)
-		cb->result = RW_SUCCESS;
-	else
-		cb->result = RW_FAILURE;
-
-	rtos_set_semaphore(&cb->sema);
-}
-
-
-#if CFG_RWNX_QOS_MSDU
-int sta_11n_nss(uint8_t *mcs_set)
-{
-	int i;
-	int nss = 0;	/* spartial stream num */
-
-	// Go through the MCS map to find out one valid mcs
-	for (i = 0; i < 4; i++) {	// 4 == sizeof(rc_ss->rate_map.ht)
-		if (mcs_set[i] != 0)
-			nss++;
-	}
-
-	return nss;
-}
-
-int qos_need_enabled(struct sta_info_tag *sta)
-{
-	int i;
-	struct mac_rateset *rate_set;
-	int rate_22mbps_found = 0;
-	int nss = 0;
-
-	if (!sta)
-		return 0;
-	if (!(sta->info.capa_flags & STA_QOS_CAPA))
-		return 0;
-
-	return 1;
-}
-#endif
-
-#if !CFG_IEEE80211AX
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 {
     UINT8 tid;
@@ -741,7 +817,7 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 	vif = rwm_mgmt_vif_idx2ptr(node->vif_idx);
 	if (NULL == vif)
 	{
-		os_printf("%s: vif is NULL!\r\n", __func__);
+		RWNX_LOGI("%s: vif is NULL!\r\n", __func__);
 		goto tx_exit;
 	}
 	if (likely(vif->active)) {
@@ -778,7 +854,7 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
     txdesc_new = tx_txdesc_prepare(queue_idx);
     if(TXDESC_STA_USED == txdesc_new->status)
     {
-        os_printf("rwm_transfer no txdesc \r\n");
+        RWNX_LOGI("rwm_transfer no txdesc \r\n");
         goto tx_exit;
     }
 
@@ -828,14 +904,80 @@ tx_exit:
 #endif
     return ret;
 }
+
+UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len)
+{
+    struct pbuf *p;
+
+    p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
+    *p_ret = p;
+
+    return RW_SUCCESS;
+}
+
+UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
+{
+    struct pbuf *p = (struct pbuf *)rx_info->data;
+
+    os_null_printf("s:%d, v:%d, d:%d, r:%d, c:%d, l:%d, %p\r\n",
+                   rx_info->sta_idx,
+                   rx_info->vif_idx,
+                   rx_info->dst_idx,
+                   rx_info->rssi,
+                   rx_info->center_freq,
+                   rx_info->length,
+                   rx_info->data);
+
+    ethernetif_input(rx_info->vif_idx, p);
+
+    return RW_SUCCESS;
+}
+
 #else /* CFG_IEEE80211AX */
+
+//pbuf_coalesce, pbuf_copy
+static int rwm_add_payload(struct pbuf *p, struct fhost_txdesc *ftxdesc)
+{
+	int i;
+	struct tx_pbd *pbd;
+	struct txl_buffer_tag *txl_buf;
+	txl_buf = &ftxdesc->txl_buf;
+
+	/* iterate through pbuf chain */
+	pbd = txl_buf->pbd;
+	for (i = 0; p && i < TX_PBD_CNT; i++) {
+		pbd->upatterntx = TX_PAYLOAD_DESC_PATTERN;
+		if (i == 0) {
+			/* pbd[0] trim ethernet hdr */
+			pbd->datastartptr = (uint32_t)p->payload + sizeof(ETH_HDR_T);
+		} else {
+			pbd->datastartptr = (uint32_t)p->payload;
+		}
+		pbd->dataendptr = (uint32_t)p->payload + p->len - 1;
+		pbd->bufctrlinfo = 0;
+		pbd->next = CPU2HW(pbd + 1);
+
+		pbd++;
+		p = p->next;
+	}
+
+	if (i > 0)
+		txl_buf->pbd[i - 1].next = 0;
+
+	if (p || i == TX_PBD_CNT) {
+		RWNX_LOGE("not all data are pushed\n");
+		return -1;
+	}
+
+	return 0;
+}
+
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 {
 	uint8_t                 queue_idx;
-	struct fhost_txdesc     *fhost_txdesc;
+	struct fhost_txdesc     *fhost_txdesc = 0;
 	struct txdesc           *txdesc;
 	struct hostdesc         *host;
-	//struct eth_hdr        *eth = (struct eth_hdr *)msdu->pld;
 	struct txl_buffer_tag   *txl_buf;
 	struct tx_pbd           *pbd;
 	struct tx_hw_desc       *hwdesc;
@@ -843,7 +985,8 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 	UINT32 ret = 0;
 	UINT8 *content_ptr;
 	ETH_HDR_PTR eth_hdr_ptr;
-	struct txdesc *txdesc_new;
+	struct pbuf *p;
+
 #if CFG_RWNX_QOS_MSDU
 	struct sta_info_tag *sta;
 	struct vif_info_tag *vif;
@@ -852,13 +995,15 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 	if (!node)
 		goto tx_exit;
 
-	content_ptr = rwm_get_msdu_content_ptr(node);
+	p = node->p;
+
+	content_ptr = p->payload;
 	eth_hdr_ptr = (ETH_HDR_PTR)content_ptr;
 
 #if CFG_RWNX_QOS_MSDU
 	vif = rwm_mgmt_vif_idx2ptr(node->vif_idx);
 	if (NULL == vif) {
-		os_printf("%s: vif is NULL!\r\n", __func__);
+		RWNX_LOGI("%s: vif is NULL!\r\n", __func__);
 		goto tx_exit;
 	}
 
@@ -866,7 +1011,7 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 		sta = &sta_info_tab[vif->u.sta.ap_id];
 		if (qos_need_enabled(sta)) {
 			int i;
-			tid = classify8021d(eth_hdr_ptr);
+			tid = classify8021d((UINT8 *)eth_hdr_ptr);
 			/* check admission ctrl */
 			for (i = mac_tid2ac[tid]; i >= 0; i--)
 				if (!(vif->bss_info.edca_param.acm & BIT(i)))
@@ -894,9 +1039,11 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 #endif /* CFG_RWNX_QOS_MSDU */
 
 	//alloc tx desc
-	fhost_txdesc = (struct fhost_txdesc *)os_malloc(sizeof(struct fhost_txdesc));
-	FHOST_ASSERT_ERR(fhost_txdesc != NULL);
-	os_memset(fhost_txdesc, 0, sizeof(struct fhost_txdesc));
+	fhost_txdesc = (struct fhost_txdesc *)os_zalloc(sizeof(struct fhost_txdesc));
+	if (!fhost_txdesc)
+		goto tx_exit;
+
+	node->ftxdesc = fhost_txdesc;
 
 	txdesc = &fhost_txdesc->txdesc;
 	host = &txdesc->host;
@@ -905,7 +1052,8 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 	hwdesc = &fhost_txdesc->hwdesc;
 
 	//fill host desc
-	rwm_txdesc_copy(txdesc_new, eth_hdr_ptr);
+	rwm_txdesc_copy(txdesc, eth_hdr_ptr);
+	host->buf = node;
 	host->flags = flag;
 #if NX_AMSDU_TX
 	host->orig_addr[0]     = (UINT32)node->msdu_ptr;
@@ -913,7 +1061,6 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 	host->packet_len[0]    = node->len - sizeof(ETH_HDR_T);
 	host->packet_cnt       = 1;
 #else
-	host->orig_addr        = (UINT32)node->msdu_ptr;
 	host->packet_addr      = (UINT32)content_ptr + sizeof(ETH_HDR_T);
 	host->packet_len       = node->len - sizeof(ETH_HDR_T);
 #endif
@@ -928,12 +1075,8 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 
 	if (node->sync) {
 		host->cfm_cb      = ieee80211_data_tx_cb;
-		host->cfm_cb_arg  = node;
-	} else {
-		host->cfm_cb	  = rwm_tx_confirm;
-		host->cfm_cb_arg  = node;
+		host->cfm_cb_arg  = txdesc;
 	}
-
 	//fill lmac desc
 	txdesc->lmac.hw_desc = hwdesc;
 	txdesc->lmac.buffer  = txl_buf;
@@ -946,113 +1089,412 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 	hwdesc->thd.dataendptr = 0;
 	hwdesc->thd.datastartptr = 0;
 
-	txl_buf->txdesc = txdesc;
-	txl_buf->next   = NULL;
-#if NX_HE
-	txl_buf->flags  = BUF_SINGLETON_READY;
-#endif
-
-	pbd->upatterntx = TX_PAYLOAD_DESC_PATTERN;
-	pbd->datastartptr = (uint32_t)eth_hdr_ptr + sizeof(struct eth_hdr);
-	pbd->dataendptr = (uint32_t)eth_hdr_ptr + node->len - 1;
-	pbd->bufctrlinfo = 0;
-	pbd->next = 0;
+	rwm_add_payload(p, fhost_txdesc);
 
 	//notify fw
-	fhost_txbuf_push((void *)txdesc, queue_idx);
+	ret = fhost_txbuf_push(txdesc, queue_idx);
+	if (ret)
+		goto tx_exit;
+
 	return 0;
 
 tx_exit:
-	if (NULL != node)
+	if (node)
 		rwm_node_free(node);
 #if NX_POWERSAVE
 	txl_cntrl_dec_pck_cnt();
 #endif
 	return ret;
 }
-#endif /* CFG_IEEE80211AX */
 
-UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len)
+UINT32 rwm_transfer(UINT8 vif_idx, struct pbuf *p, UINT8 *buf, UINT32 len, int sync, void *args)
 {
+	UINT32 ret = 0;
+	MSDU_NODE_T *node;
+	ETH_HDR_PTR eth_hdr_ptr;
+
+	ret = RW_FAILURE;
+	node = rwm_tx_node_alloc_with_pbuf(p);
+	if (NULL == node) {
+#if NX_POWERSAVE
+		txl_cntrl_dec_pck_cnt();
+#endif
+
+		RWNX_LOGI("rwm_transfer no node\r\n");
+		goto tx_exit;
+	}
+
+	eth_hdr_ptr = (ETH_HDR_PTR)buf;
+	node->vif_idx = vif_idx;
+	node->sync = sync;
+	node->args = args;
+	node->sta_idx = rwm_mgmt_tx_get_staidx(vif_idx,
+										   &eth_hdr_ptr->e_dest);
+#if CFG_USE_AP_PS
+	rwm_ps_tranfer_node(node);
+#else
+	rwm_transfer_node(node, 0);
+#endif
+
+	return ret;
+
+tx_exit:
+	if (node)
+		rwm_node_free(node);
+
+	return ret;
+}
+
+/**
+ * transmit mgmt frame
+ */
+void rwm_transfer_mgmt_node(MSDU_NODE_T *node)
+{
+	struct hostdesc *host;
+	UINT8 *content_ptr;
+	UINT32 queue_idx = AC_VI;
+	struct txdesc *txdesc;
+	struct fhost_txdesc *fhost_txdesc;
+	struct txl_buffer_tag *txl_buf;
+	struct tx_pbd *pbd;
+	struct tx_hw_desc *hwdesc;
+	int ret = 0;
+	//uint8_t vif_index = 0xFF;
+	//struct vif_info_tag *vif;
+    bool robust;
+
+	content_ptr = rwm_get_mpdu_content_ptr(node);
+
+	// alloc fhost tx desc
+	fhost_txdesc = (struct fhost_txdesc *)os_zalloc(sizeof(struct fhost_txdesc));
+
+	if (!fhost_txdesc)
+		goto tx_exit;
+
+	node->ftxdesc = fhost_txdesc;
+
+	// initialize variable
+	txdesc = &fhost_txdesc->txdesc;
+	host = &txdesc->host;
+	txl_buf = &fhost_txdesc->txl_buf;
+	pbd = &txl_buf->pbd[0];
+	hwdesc = &fhost_txdesc->hwdesc;
+
+	robust = ieee80211_is_robust_mgmt_frame(content_ptr, node->len);
+
+	// setup hostdesc
+	host->flags = TXU_CNTRL_MGMT;
+
+	if (robust)
+		host->flags |= TXU_CNTRL_MGMT_ROBUST;
+
+#if 0 //keepme
+    bool robust;
+    robust = ieee80211_is_robust_mgmt_frame(content_ptr, len); // TBD: BK7236
+
+    if (robust)
+        host.flags |= TXU_CNTRL_MGMT_ROBUST;
+
+    if (params->no_cck)
+        desc->host.flags |= TXU_CNTRL_MGMT_NO_CCK;
+#endif
+	host->buf = node;
+	host->packet_addr = (UINT32)content_ptr;	//mark not-internal frame
+	host->packet_len = node->len;
+	host->tid = 0xff;
+	host->vif_idx = node->vif_idx;
+	host->staid = node->sta_idx;
+
+	host->cfm_cb = node->cb;
+	host->cfm_cb_arg = node->args;
+
+	// fill lmac desc
+	txdesc->lmac.hw_desc = hwdesc;
+	txdesc->lmac.buffer  = txl_buf;
+	txdesc->lmac.agg_desc = NULL;
+
+	hwdesc->thd.first_pbd_ptr = (uint32_t)pbd;
+	hwdesc->thd.dataendptr = 0;
+	hwdesc->thd.datastartptr = 0;
+
+	// fill tx_pbd
+	pbd->upatterntx = TX_PAYLOAD_DESC_PATTERN;
+	pbd->datastartptr = (uint32_t)content_ptr;
+	pbd->dataendptr = (uint32_t)content_ptr + node->len - 1;
+	pbd->bufctrlinfo = 0;
+	pbd->next = 0;
+
+	// notify fw
+	ret = fhost_txbuf_push((void *)txdesc, queue_idx);
+	if (ret)
+		goto tx_exit;
+
+    ps_set_data_prevent();
+#if CFG_USE_STA_PS
+    bmsg_ps_handler_rf_ps_mode_real_wakeup();
+    bk_wlan_dtim_rf_ps_mode_do_wakeup();
+#endif
+
+	return;
+
+tx_exit:
+	if (fhost_txdesc)
+		os_free(fhost_txdesc);
+	if (node)
+		rwm_node_free(node);
+}
+
+/* Get RX Buffer */
+UINT32 rwm_get_rx_free_node(uint32_t *host_id, int len)
+{
+    uint32_t buf_addr;
     struct pbuf *p;
 
     p = pbuf_alloc(PBUF_RAW, len, PBUF_RAM);
-    *p_ret = p;
+    if (p) {
+        *host_id = (uint32_t)p;
+        buf_addr = (uint32_t)(p->payload);
+    } else {
+        *host_id = 0;
+        buf_addr = 0;
+    }
 
-    return RW_SUCCESS;
+    //if (!buf_addr)
+    //    os_printf("%s: xxxxxxxxxx oom\n", __func__);
+    return buf_addr;
 }
 
-#if !CFG_IEEE80211AX
-UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
+/**
+ * rwnx_rx_mgmt - Process one 802.11 management frame
+ *
+ * @pbuf: pbuf received
+ * @rxhdr: HW rx descriptor
+ *
+ * return: dont_free: 0: need free pbuf, 1: dont free pbuf
+ *
+ * Process the management frame and free the corresponding skb.
+ * If vif is not specified in the rx descriptor, the the frame is uploaded
+ * on all active vifs.
+ */
+static int rwnx_rx_mgmt(struct pbuf *p, struct fhost_rx_header *rxhdr, int vif_idx)
 {
-    struct pbuf *p = (struct pbuf *)rx_info->data;
+	struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)p->payload;
 
-    os_null_printf("s:%d, v:%d, d:%d, r:%d, c:%d, l:%d, %p\r\n",
-                   rx_info->sta_idx,
-                   rx_info->vif_idx,
-                   rx_info->dst_idx,
-                   rx_info->rssi,
-                   rx_info->center_freq,
-                   rx_info->length,
-                   rx_info->data);
+	if (ieee80211_is_beacon(mgmt->frame_control)) {
+		//cfg80211_report_obss_beacon
+		ke_mgmt_packet_tx(p->payload, p->len, vif_idx);
 
-    ethernetif_input(rx_info->vif_idx, p);
-
-    return RW_SUCCESS;
-}
-#else
-UINT32 rwm_upload_data(void *buff_addr, uint32_t frame_len)
-{
-	/*
-	 *            +-----  buffer addr
-	 *            |
-	 *            V
-	 * +----------+----------+-------------------+
-	 * | pbuf ptr |  rxvect  |   IEEE 802.3 Data |
-	 * +----------+----------+-------------------+
-     */
-	struct fhost_rx_header *rxhdr;
-	struct pbuf *p;
-	s16_t offset;
-
-	if (!buff_addr)
-		return RW_FAILURE;
-
-	rxhdr = (struct fhost_rx_header *)buff_addr;
-	p = (struct pbuf *)((uint32_t)buff_addr - sizeof(uint32));
-
-	//pbuf_header(p, -sizeof(struct fhost_rx_header) - 4);	// skb_pull(skb, sizeof(struct fhost_rx_header)+4)
-	pbuf_header(p, -(s16)RXL_PAYLOAD_OFFSET - 4);
-
-	if (rxhdr->flags_is_80211_mpdu) {
-		/* mgmt frame: refer ke_mgmt_packet_tx */
-		ke_mgmt_packet_tx(p->payload, p->len, rxhdr->flags_vif_idx);
-
-		/* since ke_mgmt_packet_tx copy all the data, free pbuf */
-		pbuf_free(p);
+		return 0;
+	} else if ((ieee80211_is_deauth(mgmt->frame_control) ||
+				ieee80211_is_disassoc(mgmt->frame_control)) &&
+			   (mgmt->u.deauth.reason_code == WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA ||
+				mgmt->u.deauth.reason_code == WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA)) {
+		if (mgmt->u.deauth.reason_code == WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA)
+			wpa_ctrl_request_async(WPA_CTRL_EVENT_UNPROT_DEAUTHENTICATE, p);
+		else
+			wpa_ctrl_request_async(WPA_CTRL_EVENT_UNPROT_DISASSOCIATE, p);
+		return 1;
 	} else {
-		/* for 802.3 frame, pass it to lwip */
-	    ethernetif_input(rxhdr->flags_vif_idx, p);
+		ke_mgmt_packet_tx(p->payload, p->len, vif_idx);
+
+		return 0;
+	}
+}
+
+static void rwnx_rx_mgmt_any(struct pbuf *p, struct fhost_rx_header *rxhdr)
+{
+	int vif_idx = rxhdr->flags_vif_idx;
+	int dont_free = 0;
+	int i;
+	struct vif_info_tag *vif;
+
+	if (vif_idx == INVALID_VIF_IDX) {
+		/* FIXME: BK7236 */
+		for (i = 0; i < NX_VIRT_DEV_MAX; i++)  {
+			vif = &vif_info_tab[i];
+			if (vif->active && vif->type != VIF_MONITOR)
+				dont_free = rwnx_rx_mgmt(p, rxhdr, vif->index);
+		}
+	} else {
+		rwnx_rx_mgmt(p, rxhdr, vif_idx);
 	}
 
-    return RW_SUCCESS;
+	if (!dont_free)
+		pbuf_free(p);
+}
+
+
+void ethernetif_input_amsdu(struct fhost_rx_header *rxhdr, struct pbuf *p)
+{
+    struct mac_addr temp_mac;
+    struct llc_snap *llc_snap;
+    struct mac_eth_hdr *eth_hdr;
+    struct amsdu_hdr *amsdu_subfrm_hdr = (struct amsdu_hdr *)p->payload;
+#if (RW_MESH_EN)
+    VIF_INF_PTR p_vif_entry = rwm_mgmt_vif_idx2ptr(rxhdr->flags_vif_idx);
+#endif //(RW_MESH_EN)
+
+    /*
+     * format of p->payload
+     * 1 MESH type
+     ****************************************************
+     *  |  DA  |  SA  |  LENGTH  |  MESH_CONTROL  |  DATA  |  PADDING  |
+     ****************************************************
+     * 2 SNAP type
+     ***********************************************************************
+     *  |  DA  |  SA  |  LENGTH  |  LLC/SNAP  |  DATA  |  PADDING  |
+     ***********************************************************************
+     * 3 RAW type (should not happen actually)
+     ****************************************************
+     *  |  DA  |  SA  |  LENGTH  |  DATA  |  PADDING  |
+     ****************************************************
+     */
+
+    //os_printf("%s amsdu_len=%d\n", __FUNCTION__, p->len);
+
+    //ieee802.11 amsdu_hdr to ieee802.3 mac_eth_hdr
+#if (RW_MESH_EN)
+    if ((p_vif_entry->type == VIF_MESH_POINT) && (rxhdr->flags_dst_idx != INVALID_STA_IDX))
+    {
+        /*
+            ****************************************************
+            *  |  DA  |  SA  |  LENGTH  |  MESH_CONTROL  |  LLC/SNAP    |  DATA  |  PADDING  |
+            ****************************************************
+            * ==>
+            ****************************************************
+            *  |  DA  |  SA  |  ETHERTYPE  |  MESH_CONTROL  |  LLC/SNAP    |  DATA  |  PADDING  |
+            ****************************************************
+            *  Keep subframe as mesh frame, since amsdu_hdr=mac_eth_hdr
+            *  set eth_hdr->len as ethertype like rxu_cntrl_mac2eth_update
+            */
+        eth_hdr = (struct mac_eth_hdr *)amsdu_subfrm_hdr;
+        llc_snap = (struct llc_snap *)((uint8_t *)amsdu_subfrm_hdr + sizeof(struct mac_eth_hdr) + rxhdr->mesh_ctrl_len);
+        eth_hdr->len = llc_snap->proto_id;
+    }
+    else
+#endif //(RW_MESH_EN)
+    {
+        llc_snap = (struct llc_snap *)(amsdu_subfrm_hdr + 1);
+
+        if ((!memcmp(llc_snap, &llc_rfc1042_hdr, sizeof(llc_rfc1042_hdr))
+             //&& (llc_snap->ether_type != RX_ETH_PROT_ID_AARP) - Appletalk depracated ?
+             && (llc_snap->proto_id != LLC_ETHERTYPE_IPX))
+            || (!memcmp(llc_snap, &llc_bridge_tunnel_hdr, sizeof(llc_bridge_tunnel_hdr))))
+        {
+            /*
+                ****************************************************
+                *  |  DA  |  SA  |  LENGTH  |  LLC/SNAP  |  DATA  |  PADDING  |
+                ****************************************************
+                * ==>
+                ****************************************************
+                *  |  DA  |  SA  |  DATA  |  PADDING  |
+                ****************************************************
+                */
+            eth_hdr = (struct mac_eth_hdr *)((uint8_t *)amsdu_subfrm_hdr + sizeof(struct llc_snap_short) + sizeof(amsdu_subfrm_hdr->len));
+            MAC_ADDR_CPY(&eth_hdr->sa, &amsdu_subfrm_hdr->sa);
+            MAC_ADDR_CPY(&eth_hdr->da, &amsdu_subfrm_hdr->da);
+
+            pbuf_header(p, -(s16)(sizeof(struct llc_snap_short) + sizeof(amsdu_subfrm_hdr->len)));	// skip off
+        }
+        else
+        {
+            /*
+                ****************************************************
+                *  |  DA  |  SA  |  LENGTH  |  DATA  |  PADDING  |
+                ****************************************************
+                * ==>
+                ****************************************************
+                *  |  DA  |  SA  |  DATA  |  PADDING  |
+                ****************************************************
+                */
+            eth_hdr = (struct mac_eth_hdr *)((uint8_t *)amsdu_subfrm_hdr + sizeof(amsdu_subfrm_hdr->len));
+            MAC_ADDR_CPY(&temp_mac, &amsdu_subfrm_hdr->sa);
+            MAC_ADDR_CPY(&eth_hdr->sa, &temp_mac);
+            MAC_ADDR_CPY(&temp_mac, &amsdu_subfrm_hdr->da);
+            MAC_ADDR_CPY(&eth_hdr->da, &temp_mac);
+
+            pbuf_header(p, -(s16)sizeof(amsdu_subfrm_hdr->len));	// skip off
+        }
+    }
+
+    ethernetif_input(rxhdr->flags_vif_idx, p);
+}
+
+/**
+ * rwm_upload_data - upload 802.3 frame to lwip, and 802.11 frame to wpa_s/hostapd
+ *
+ * @host_id: pbuf address
+ * @frame_len: 802.3/802.11 frame len
+ */
+UINT32 rwm_upload_data(void *host_id, uint32_t frame_len)
+{
+	/*
+	 * +-----  host_id (struct pbuf{} *)
+	 * |
+	 * V
+	 * +----------+-------------------+
+	 * |  rxvect  |   IEEE 802.3 Data |
+	 * +----------+-------------------+
+	 */
+	struct fhost_rx_header *rxhdr;
+	struct pbuf *p;
+	struct pbuf *q;
+
+	if (!host_id)
+		return RW_FAILURE;
+
+	p = (struct pbuf *)host_id;
+
+	/* TBD: Do we need to linearize pbuf here ? Will lwip do the work */
+	if (p->next) {
+		q = pbuf_coalesce(p, PBUF_RAW);
+		if (q == p) // OOM
+			warning_prf("nonlinear pbuf\n");
+	} else {
+		q = p;
+	}
+
+	q->len = frame_len + RXL_PAYLOAD_OFFSET;
+	rxhdr = (struct fhost_rx_header *)q->payload;
+
+	pbuf_header(q, -(s16)RXL_PAYLOAD_OFFSET);
+
+	if (rxhdr->flags_is_80211_mpdu) {
+		rwnx_rx_mgmt_any(q, rxhdr);
+	} else if (rxhdr->flags_is_amsdu) {
+		/* A-MSDU subframe, convert like `rxu_cntrl_mac2eth_update()' and then pass it to lwip */
+		ethernetif_input_amsdu(rxhdr, q);
+	} else {
+		/* for 802.3 frame, pass it to lwip */
+		ethernetif_input(rxhdr->flags_vif_idx, q);
+	}
+
+	return RW_SUCCESS;
 }
 
 /**
  * NOTE: monitor frame is converted to 802.3 frame if the original
  * 802.11 frameis Data format, but the 802.11 mac header is backed
  * up to `fhost_rx_header.mac_hdr_backup'.
+ *
+ * host_id: struct pbuf *
+ * frame_len: ieee80211 len(rxvect not included)
  */
-void rwm_rx_monitor(void *buff_addr, uint32_t frame_len)
+UINT32 rwm_rx_monitor(void *host_id, uint32_t frame_len)
 {
 	monitor_cb_t cb;
 	cb = bk_wlan_get_monitor_cb();
+
 	if (cb) {
 		wifi_link_info_t wli;
-		uint32_t payload = (uint32)buff_addr + RXL_PAYLOAD_OFFSET;
-
 		struct fhost_rx_header *rxhdr;
-		rxhdr = (struct fhost_rx_header *)buff_addr;
+		struct pbuf *p;
+
+		p = (struct pbuf *)host_id;
+		p->len = frame_len + RXL_PAYLOAD_OFFSET;
+		rxhdr = (struct fhost_rx_header *)p->payload;
+
+		pbuf_header(p, -(s16)RXL_PAYLOAD_OFFSET);	// strip rxvect
 
 		wli.rssi = (rxhdr->hwvect.recvec1c >> 24) & 0xff;
 
@@ -1060,11 +1502,17 @@ void rwm_rx_monitor(void *buff_addr, uint32_t frame_len)
 		 * payload is 802.3 format if original 802.11 is Data format, see
 		 * function `rxu_cntrl_mac2eth_update()'.
 		 */
-		cb((uint8_t *)payload, rxhdr->hwvect.len, &wli);
-	}
-}
-#endif
+		cb(p->payload, frame_len, &wli);
 
+		// recovery pbuf for rwm_upload_data if needed
+		pbuf_header(p, (s16)RXL_PAYLOAD_OFFSET);
+	}
+
+	return 0;
+}
+#endif /* CFG_IEEE80211AX */
+
+#if !CFG_IEEE80211AX
 UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len)
 {
     UINT32 count;
@@ -1088,6 +1536,7 @@ UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len)
 
     return ret;
 }
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 VIF_INF_PTR rwm_mgmt_vif_idx2ptr(UINT8 vif_idx)
@@ -1186,17 +1635,33 @@ UINT8 rwm_mgmt_vif_mac2idx(void *mac)
 {
     VIF_INF_PTR vif_entry = NULL;
     UINT8 vif_idx = INVALID_VIF_IDX;
+#if CFG_IEEE80211AX
+    UINT8 vif_monitor = INVALID_VIF_IDX;
+#endif
     UINT32 i;
 
     for(i = 0; i < NX_VIRT_DEV_MAX; i++)
     {
         vif_entry = &vif_info_tab[i];
         if(MAC_ADDR_CMP((void *)&vif_entry->mac_addr, mac))
+        {
+#if CFG_IEEE80211AX
+            if (VIF_MONITOR == vif_entry->type)
+            {
+                vif_monitor = i;
+                continue;
+            }
+#endif
             break;
+        }
     }
 
     if(i < NX_VIRT_DEV_MAX)
         vif_idx = i;
+#if CFG_IEEE80211AX
+    else if(vif_monitor < NX_VIRT_DEV_MAX)
+        vif_idx = vif_monitor;
+#endif
 
     return vif_idx;
 }
@@ -1274,7 +1739,7 @@ void rwm_mgmt_set_vif_netif(struct netif *net_if)
     }
     else
     {
-        os_printf("warnning: set_vif_netif failed\r\n");
+        RWNX_LOGI("warnning: set_vif_netif failed\r\n");
     }
 }
 
@@ -1332,6 +1797,15 @@ UINT8 rwm_mgmt_tx_get_staidx(UINT8 vif_idx, void *dstmac)
     return staid;
 }
 
+UINT8 rwm_first_vif_idx()
+{
+	VIF_INF_PTR vif = rwm_mgmt_is_vif_first_used();
+	if (vif)
+		return vif->index;
+
+	return INVALID_VIF_IDX;
+}
+
 u8 rwn_mgmt_is_only_sta_role_add(void)
 {
     VIF_INF_PTR vif_entry = (VIF_INF_PTR)rwm_mgmt_is_vif_first_used();
@@ -1369,7 +1843,7 @@ void rwn_mgmt_show_vif_peer_sta_list(UINT8 role)
                     ipptr = (UINT8 *)inet_ntoa(netif->gw);
                 }
 
-                os_printf("%d: mac:%02x-%02x-%02x-%02x-%02x-%02x, ip:%s\r\n", num++,
+                RWNX_LOGI("%d: mac:%02x-%02x-%02x-%02x-%02x-%02x, ip:%s\r\n", num++,
                     macptr[0], macptr[1], macptr[2],
                     macptr[3], macptr[4], macptr[5],ipptr);
 
@@ -1383,13 +1857,10 @@ void rwn_mgmt_show_vif_peer_sta_list(UINT8 role)
 UINT8 rwn_mgmt_if_ap_stas_empty()
 {
     struct vif_info_tag *vif = (VIF_INF_PTR)rwm_mgmt_is_vif_first_used();
-    struct sta_info_tag *sta;
-    UINT8 num = 0;
     UINT8 role = VIF_AP;
 
     while(vif) {
         if ( vif->type == role) {
-            sta = (struct sta_info_tag *)co_list_pick(&vif->sta_list);
             if(co_list_is_empty(&vif->sta_list))
                 {
                 return 1;

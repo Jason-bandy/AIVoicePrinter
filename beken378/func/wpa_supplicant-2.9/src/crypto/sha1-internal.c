@@ -158,7 +158,7 @@ A million repetitions of "a"
 #ifdef VERBOSE  /* SAK */
 void SHAPrintContext(SHA1_CTX *context, char *msg)
 {
-	os_printf("%s (%d,%d) %x %x %x %x %x\n",
+	WPA_LOGI("%s (%d,%d) %x %x %x %x %x\n",
 	       msg,
 	       context->count[0], context->count[1], 
 	       context->state[0],

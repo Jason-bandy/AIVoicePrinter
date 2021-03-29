@@ -14,7 +14,7 @@
 
 #if (CFG_SOC_NAME == SOC_BK7271)
 
-static DD_OPERATIONS mailbox_op = {
+static const DD_OPERATIONS mailbox_op = {
 	mailbox_open,
 	mailbox_close,
 	NULL,
@@ -36,7 +36,7 @@ void mailbox_init(void)
 	param = IRQ_MAILBOX_BT_BIT;
 	sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
 
-	ddev_register_dev(MAILBOX_DEV_NAME, &mailbox_op);
+	ddev_register_dev(MAILBOX_DEV_NAME, (DD_OPERATIONS*)&mailbox_op);
 }
 
 void mailbox_exit(void)
@@ -59,7 +59,6 @@ static UINT32 mailbox_cpu2dsp_send(mailbox_t *param)
 	UINT32 ret = MAILBOX_SUCCESS;
 	UINT32 reg;
 	UINT32 ready;
-	UINT32 max_wait = 5;
 
 	if (!dsp_is_inited()) {
 		os_printf("dsp not initialized\r\n");

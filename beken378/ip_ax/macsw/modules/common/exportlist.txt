@@ -1,0 +1,4 @@
+# Common header files for mac_types.h
+    src/co_int.h
+    src/co_bool.h
+    src/co_bit.h

@@ -123,6 +123,5 @@ result_t sdp_connect(btaddr_t *laddr, btaddr_t *raddr);
 
 int analyze_sdp_serviceSearchResponse(uint8_t *buff);
 int analyze_sdp_serviceAttributeResponse(uint8_t *buff);
-__INLINE__ uint16_t change2bigEndian16(uint16_t in_16);
 
 #endif

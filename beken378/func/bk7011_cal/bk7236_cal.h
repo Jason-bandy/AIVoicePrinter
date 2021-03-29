@@ -12,6 +12,15 @@
 ////Difference between pieces
 #define DIFFERENCE_PIECES_CFG        0
 
+#define BK_PWR_BASE_11B			170	/* unit 0.1dBm */
+#define BK_PWR_BASE_11G			150	/* unit 0.1dBm */
+#define BK_PWR_BASE_HT20		140	/* unit 0.1dBm */
+#define BK_PWR_BASE_HT40		130	/* unit 0.1dBm */
+
+#define BK_PWR_11B_STEP_SIZE	50	/* unit 0.01dBm */
+#define BK_PWR_11G_STEP_SIZE	25	/* unit 0.01dBm */
+#define BK_PWR_HT20_STEP_SIZE	25	/* unit 0.01dBm */
+#define BK_PWR_HT40_STEP_SIZE	25	/* unit 0.01dBm */
 void delay05us(INT32 num);
 
 #define trx_reg_is_write(st_trxreg)     {}
@@ -19,10 +28,12 @@ void delay05us(INT32 num);
 #define DETECT_LOOPCNT		        10
 #define GOLD_OUTPUT_POWER		    56
 #define UNSIGNEDOFFSET10		    0x800
+#define OFFSET_0x80		            0x80
 #define I_Q_CAP_DIF					32
 #define CONSTANT_RCIQ				117
 #define SUMNUMBERS					1
 #define MINOFFSET			    	64//16
+#define OFFSET_0x20			    	32//16
 
 //#define DPDCALILEN				  256
 
@@ -787,6 +798,41 @@ typedef union
 /// REG31
 typedef union
 {
+    struct
+    {
+        volatile unsigned long dacselection     : 1; //0: external dac, 1: internal dac
+        volatile unsigned long lpfrxbw          : 1; //lpf rx bandwidth selection 1: high bandwidth(19MHz) 0: low bandwidth(9MHz);
+        volatile unsigned long lpftxbw          : 1; //lpf tx bandwidth selection 1: high bandwidth(29MHz) 0: low bandwidth(14MHz);
+        volatile unsigned long lpftrxsw         : 1; //LPF tx rx switch(1:tx,0:rx)
+        volatile unsigned long enlpf            : 1; //LPF enable
+        volatile unsigned long enif             : 1; //ADC, DAC Ldo enable
+        volatile unsigned long endcoc           : 1; //DCOC DAC enable
+        volatile unsigned long enrxadc          : 1; //RX ADC enable
+        volatile unsigned long entxdac          : 1; //TX dac enable
+        volatile unsigned long entxdacbias      : 1; //TX dac bias enable
+        volatile unsigned long enrxrssi         : 1; //RX RF Rssi enable
+        volatile unsigned long enrxref          : 1; //RX RF Vref enable
+        volatile unsigned long enrxi2v          : 1; //RX I2V enable
+        volatile unsigned long enrxmix          : 1; //RX mixer enable
+        volatile unsigned long enlnacal         : 1; //RX look back lna input enable
+        volatile unsigned long enlna            : 1; //Rxfe lna enable
+        volatile unsigned long txvinsel         : 1; //Txfe input selection(0,cal when need bypass TX filter,1:normal)
+        volatile unsigned long entssi           : 1; //Txfe tssi enable
+        volatile unsigned long entssiadc        : 1; //Txfe tssi adc enable
+        volatile unsigned long entxferef        : 1; //Txfe reference enable
+        volatile unsigned long entxfebias       : 1; //Txfe bias enable
+        volatile unsigned long entxv2i          : 1; //Tx v2i enable
+        volatile unsigned long entxlo           : 1; //Tx LO enable
+        volatile unsigned long entxpga          : 1; //TX PGA enable
+        volatile unsigned long enpa             : 1; //Tx PA enable
+        volatile unsigned long enrxsw           : 1; //RX switch enable
+        volatile unsigned long entxsw           : 1; //TX switch enable
+        volatile unsigned long trswpll          : 1; //rf pll tx rx switch
+        volatile unsigned long enrfpll          : 1; //rf pll enable
+        volatile unsigned long endobuler        : 1; //dobuler enable
+        volatile unsigned long endpll           : 1; //digital pll enable
+        volatile unsigned long enxtal           : 1; //xtal enable signal
+    } bits;
     volatile unsigned int value;
 } BK7011_RC_BEKEN_REG0x1F_TypeDef;
 
@@ -2191,6 +2237,11 @@ typedef struct
     INT32  rx_ty2_rd;
 
     INT32 g_rx_dc_gain_tab[8];
+
+    INT32  dcoci_ble;
+    INT32  dcocq_ble;
+
+    INT8   adc_dlym; /* workaround for MPW */
 } BK7011_CALI_RESULT;
 
 /*******************************************************************************

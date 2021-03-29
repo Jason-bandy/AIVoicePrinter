@@ -7,6 +7,9 @@
 #include "wlan_dev.h"
 #include "rtdef.h"
 #include "direct_connect.h"
+#include "easyflash.h"
+#include "msh.h"
+#include "net.h"
 
 #define AP_DIERCT_CONNECT_TEST
 #ifdef AP_DIERCT_CONNECT_TEST
@@ -21,80 +24,73 @@ static int save_ap_info(void)
 	int replace_times;
 	replace_times=atoi(ef_get_env("replace_times"));
 	dir_link_prf("\r\n-------------@@@@@@@@@replace_times=%d @@@@@@@@@@@-----------\r\n",replace_times);
-	
-	if(strcmp(direct_ap_info.direct_ssid,"")==0)
+	if(strcmp((char*)direct_ap_info.direct_ssid,"")==0)
 	{
 		dir_link_prf("\r\n--------@@@@@@@@ direct_ap_info.direct_ssid is null@@@@@@@@@-------\r\n");
 		return 0;
 	}
-	
-	if(strcmp(direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_1))==0) 
-		{
-			ef_set_env(DIERCT_CONNECT_PWD_1, direct_ap_info.direct_pwd);				
-			dir_link_prf("-------------@@@@@@@@@direct_pwd_1    direct_ssid_1  @@@@@@@@@@@-----------\r\n");
-		}
-    else if(strcmp(direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_2))==0) 
-		{
-			ef_set_env(DIERCT_CONNECT_PWD_2, direct_ap_info.direct_pwd);
-			dir_link_prf("-------------@@@@@@@@@direct_pwd_2    direct_ssid_2 @@@@@@@@@@@-----------\r\n");
-		}
-    else if(strcmp(direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_3))==0) 
-		{
-			ef_set_env(DIERCT_CONNECT_PWD_3, direct_ap_info.direct_pwd);
-			dir_link_prf("-------------@@@@@@@@@direct_pwd_3    direct_ssid_3  @@@@@@@@@@@-----------\r\n");
-		}
 
-    else if(strcmp(direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_4))==0) 
+	if(strcmp((char*)direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_1))==0) {
+		ef_set_env(DIERCT_CONNECT_PWD_1, (char*)direct_ap_info.direct_pwd);
+		dir_link_prf("-------------@@@@@@@@@direct_pwd_1    direct_ssid_1  @@@@@@@@@@@-----------\r\n");
+	} else if(strcmp((char*)direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_2))==0) {
+		ef_set_env(DIERCT_CONNECT_PWD_2, (char*)direct_ap_info.direct_pwd);
+		dir_link_prf("-------------@@@@@@@@@direct_pwd_2    direct_ssid_2 @@@@@@@@@@@-----------\r\n");
+	} else if(strcmp((char*)direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_3))==0) {
+		ef_set_env(DIERCT_CONNECT_PWD_3, (char*)direct_ap_info.direct_pwd);
+		dir_link_prf("-------------@@@@@@@@@direct_pwd_3    direct_ssid_3  @@@@@@@@@@@-----------\r\n");
+	} else if(strcmp((char*)direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_4))==0) {
+		ef_set_env(DIERCT_CONNECT_PWD_4, (char*)direct_ap_info.direct_pwd);
+		dir_link_prf("-------------@@@@@@@@@direct_pwd_4    direct_ssid_4  @@@@@@@@@@@-----------\r\n");
+	} else if(strcmp((char*)direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_5))==0) {
+		ef_set_env(DIERCT_CONNECT_PWD_5, (char*)direct_ap_info.direct_pwd);
+		dir_link_prf("-------------@@@@@@@@@direct_pwd_5    direct_ssid_5  @@@@@@@@@@@-----------\r\n");
+	} else {
+		switch (replace_times){
+		case 0:
 		{
-			ef_set_env(DIERCT_CONNECT_PWD_4, direct_ap_info.direct_pwd);
-			dir_link_prf("-------------@@@@@@@@@direct_pwd_4    direct_ssid_4  @@@@@@@@@@@-----------\r\n");
+			ef_set_env(DIERCT_CONNECT_SSID_1, (char*)direct_ap_info.direct_ssid);
+			ef_set_env(DIERCT_CONNECT_PWD_1, (char*)direct_ap_info.direct_pwd);
+			ef_set_env("replace_times", "1");
+			break;
 		}
-    else if(strcmp(direct_ap_info.direct_ssid,ef_get_env(DIERCT_CONNECT_SSID_5))==0) 
+		case 1:
 		{
-			ef_set_env(DIERCT_CONNECT_PWD_5, direct_ap_info.direct_pwd);
-			dir_link_prf("-------------@@@@@@@@@direct_pwd_5    direct_ssid_5  @@@@@@@@@@@-----------\r\n");
+			ef_set_env(DIERCT_CONNECT_SSID_2, (char*)direct_ap_info.direct_ssid);
+			ef_set_env(DIERCT_CONNECT_PWD_2, (char*)direct_ap_info.direct_pwd);
+			ef_set_env("replace_times", "2");
+			break;
 		}
-	else
-		{		
-			switch (replace_times){
-				case 0:
-				{
-						ef_set_env(DIERCT_CONNECT_SSID_1, direct_ap_info.direct_ssid);	
-						ef_set_env(DIERCT_CONNECT_PWD_1, direct_ap_info.direct_pwd);	
-						ef_set_env("replace_times", "1");	
-				}break;
-				case 1:
-				{
-						ef_set_env(DIERCT_CONNECT_SSID_2, direct_ap_info.direct_ssid);	
-						ef_set_env(DIERCT_CONNECT_PWD_2, direct_ap_info.direct_pwd);	
-						ef_set_env("replace_times", "2");	
-				}break;
-				case 2:
-				{
-						ef_set_env(DIERCT_CONNECT_SSID_3, direct_ap_info.direct_ssid);	
-						ef_set_env(DIERCT_CONNECT_PWD_3, direct_ap_info.direct_pwd);	
-						ef_set_env("replace_times", "3");	
-				}break;
-				case 3:
-				{
-						ef_set_env(DIERCT_CONNECT_SSID_4, direct_ap_info.direct_ssid);	
-						ef_set_env(DIERCT_CONNECT_PWD_4, direct_ap_info.direct_pwd);	
-						ef_set_env("replace_times", "4");	
-				}break;
-				case 4:
-				{
-						ef_set_env(DIERCT_CONNECT_SSID_5, direct_ap_info.direct_ssid);	
-						ef_set_env(DIERCT_CONNECT_PWD_5, direct_ap_info.direct_pwd);	
-						ef_set_env("replace_times", "0");	
-				}break;		
-			}
+		case 2:
+		{
+			ef_set_env(DIERCT_CONNECT_SSID_3, (char*)direct_ap_info.direct_ssid);
+			ef_set_env(DIERCT_CONNECT_PWD_3, (char*)direct_ap_info.direct_pwd);
+			ef_set_env("replace_times", "3");
+			break;
 		}
-		ef_save_env();
-		return 0;
+		case 3:
+		{
+			ef_set_env(DIERCT_CONNECT_SSID_4, (char*)direct_ap_info.direct_ssid);
+			ef_set_env(DIERCT_CONNECT_PWD_4, (char*)direct_ap_info.direct_pwd);
+			ef_set_env("replace_times", "4");
+			break;
+		}
+		case 4:
+		{
+			ef_set_env(DIERCT_CONNECT_SSID_5, (char*)direct_ap_info.direct_ssid);
+			ef_set_env(DIERCT_CONNECT_PWD_5, (char*)direct_ap_info.direct_pwd);
+			ef_set_env("replace_times", "0");
+			break;
+		}
+		}
+	}
+
+	ef_save_env();
+	return 0;
 }
 
 static int wifi_got_ip_cb(void)
-{	
+{
 	rt_sem_release(direct_conn_done_sem);
 	dir_link_prf("-------------@@@@@@@@@wifi_got_ip_cb@@@@@@@@@@@-----------\r\n");
 	save_ap_info();	
@@ -110,67 +106,67 @@ static void station_connect(char *ssid, char *passwd)
     msh_exec(argv, strlen(argv));
 }
 
-static int direct_connect_thread(void)
+static void direct_connect_thread(void *arg)
 {
-	u8_t direct_connect_flag=0;
 	int poll_times=0;
-	memset(&direct_ap_info, 0, sizeof(direct_ap_info_t));	
-	dir_link_prf("\r\n-------direct_ap_info.direct_ssid=%s------\r\n",direct_ap_info.direct_ssid);
-	
-    if (!direct_conn_done_sem)
-    {
-        dir_link_prf("Create direct_connect done sem failed! \n");
-        goto _exit;
-    }
 
-	if(ef_get_env(DIERCT_CONNECT_SSID_1)==NULL)//默认第一个信息为空时不连接,注意手动删除后要进行添加
-	{
+	__maybe_unused_var(arg);
+	memset(&direct_ap_info, 0, sizeof(direct_ap_info_t));
+	dir_link_prf("\r\n-------direct_ap_info.direct_ssid=%s------\r\n",direct_ap_info.direct_ssid);
+
+	if (!direct_conn_done_sem) {
+		dir_link_prf("Create direct_connect done sem failed! \n");
+		goto _exit;
+	}
+
+	if(ef_get_env(DIERCT_CONNECT_SSID_1)==NULL) {//默认第一个信息为空时不连接,注意手动删除后要进行添加
 		dir_link_prf("ap_info is null! \n");
 		goto _exit;
 	}
-	
-    do
-    {	
+
+	do {
 		switch (poll_times){
-			case 0:
-				{
-				 	dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
-					station_connect(ef_get_env(DIERCT_CONNECT_SSID_1),ef_get_env(DIERCT_CONNECT_PWD_1));
-				}break;
-			case 1:
-				{
-					dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
-					station_connect(ef_get_env(DIERCT_CONNECT_SSID_2),ef_get_env(DIERCT_CONNECT_PWD_2));
-				}break;
-			case 2:
-				{
-					dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
-					station_connect(ef_get_env(DIERCT_CONNECT_SSID_3),ef_get_env(DIERCT_CONNECT_PWD_3));
-				}break;
-			case 3:
-				{
-					dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
-					station_connect(ef_get_env(DIERCT_CONNECT_SSID_4),ef_get_env(DIERCT_CONNECT_PWD_4));
-				}break;
-			case 4:
-				{
-					dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
-					station_connect(ef_get_env(DIERCT_CONNECT_SSID_5),ef_get_env(DIERCT_CONNECT_PWD_5));
-				}break;
+		case 0:
+		{
+			dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
+			station_connect(ef_get_env(DIERCT_CONNECT_SSID_1),ef_get_env(DIERCT_CONNECT_PWD_1));
+			break;
+		}
+		case 1:
+		{
+			dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
+			station_connect(ef_get_env(DIERCT_CONNECT_SSID_2),ef_get_env(DIERCT_CONNECT_PWD_2));
+			break;
+		}
+		case 2:
+		{
+			dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
+			station_connect(ef_get_env(DIERCT_CONNECT_SSID_3),ef_get_env(DIERCT_CONNECT_PWD_3));
+			break;
+		}
+		case 3:
+		{
+			dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
+			station_connect(ef_get_env(DIERCT_CONNECT_SSID_4),ef_get_env(DIERCT_CONNECT_PWD_4));
+			break;
+		}
+		case 4:
+		{
+			dir_link_prf("@@@@@@@@@@@@@@ poll_times=%d \r\n",poll_times);
+			station_connect(ef_get_env(DIERCT_CONNECT_SSID_5),ef_get_env(DIERCT_CONNECT_PWD_5));
+			break;
+		}
 		}
 		poll_times++;
 		if(poll_times>4)poll_times=0;
-    }while (rt_sem_take(direct_conn_done_sem, rt_tick_from_millisecond(POLLING_TIMEOUT))!=RT_EOK);
+	} while (rt_sem_take(direct_conn_done_sem, rt_tick_from_millisecond(POLLING_TIMEOUT))!=RT_EOK);
 
 _exit:
-	
-	if (direct_conn_done_sem)
-    {
-        rt_sem_delete(direct_conn_done_sem);
-        direct_conn_done_sem = RT_NULL;
-    }
-
-	 return RT_EOK;
+	if (direct_conn_done_sem) {
+		rt_sem_delete(direct_conn_done_sem);
+		direct_conn_done_sem = RT_NULL;
+	}
+	return;
 }
 
 int direct_connect_init(void)

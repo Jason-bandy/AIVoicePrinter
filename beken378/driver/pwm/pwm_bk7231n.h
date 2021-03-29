@@ -1,8 +1,18 @@
 #ifndef _PWM_H_
 #define _PWM_H_
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#include "bk_err.h"
+#include "bk_log.h"
 
+#define TAG						"pwm"
+#define PWM_LOGE				BK_LOGE
+#define PWM_LOGI				BK_LOGI
+#define PWM_LOGW				BK_LOGW
+#define PWM_LOGD				BK_LOGD
+
+#define PWM_HIGH_LEVEL				1
+#define PWM_LOW_LEVEL				0
 
 #ifdef  PWM_DEBUG
 #define PWM_PRT      bk_printf
@@ -102,13 +112,17 @@ UINT32 pwm_ctrl(UINT32 cmd, void *param);
 void pwm_init(void);
 void pwm_exit(void);
 void pwm_isr(void);
-extern void init_pwm_param(pwm_param_t *pwm_param, UINT8 enable);
-extern void pwm_group_mode_set(UINT8 ucChannel);
-extern void pwm_init_levl_set_low(UINT8 ucChannel);
-extern void pwm_init_levl_set_high(UINT8 ucChannel);
-extern void pwm_unit_enable(UINT8 ucChannel);
+bk_err_t init_pwm_param(pwm_param_t *pwm_param, UINT8 enable);
+bk_err_t pwm_unit_enable(UINT8 ucChannel);
+bk_err_t pwm_unit_disable(UINT8 ucChannel);
+bk_err_t pwm_group_mode_enable(UINT8 ucChannel);
+bk_err_t pwm_group_mode_disable(UINT8 ucChannel);
+bk_err_t pwm_update_param_enable(UINT8 channel);
+bk_err_t pwm_group_update_param_enable(UINT8 channel1,UINT8 channel2);
+bk_err_t pwm_init_levl_set_low(UINT8 ucChannel);
+bk_err_t pwm_init_levl_set_high(UINT8 ucChannel);
+bk_err_t pwm_init_levl_get(UINT8 ucChannel);
+bk_err_t pwm_check_group(UINT32 channel1, UINT32 channel2);
 
 #endif
-
 #endif //_PWM_H_
-

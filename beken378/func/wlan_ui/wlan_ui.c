@@ -23,10 +23,15 @@
 #include "rwnx.h"
 #include "net.h"
 #include "mm_bcn.h"
+#include "mm_task.h"
 #include "mcu_ps_pub.h"
 #include "manual_ps_pub.h"
 #include "gpio_pub.h"
-//#include "phy_trident.h"
+#if CFG_SOC_NAME != SOC_BK7236
+#include "phy_trident.h"
+#endif
+#include "rw_msg_rx.h"
+#include "app.h"
 #include "wdt_pub.h"
 #include "start_type_pub.h"
 #include "wpa_psk_cache.h"
@@ -44,6 +49,9 @@
 #include "utils_httpc.h"
 #endif
 
+#include "target_util_pub.h"
+
+#define TAG "wui"
 
 monitor_cb_t g_monitor_cb = 0;
 unsigned char g_monitor_is_not_filter = 0;
@@ -64,6 +72,10 @@ extern uint8_t phy_open_cca(void);
 extern uint8_t phy_close_cca(void);
 extern uint8_t phy_show_cca(void);
 
+extern void phy_enable_lsig_intr(void);
+extern void phy_disable_lsig_intr(void);
+
+#if !CFG_IEEE80211AX
 static void rwnx_remove_added_interface(void)
 {
     int ret;
@@ -79,7 +91,7 @@ static void rwnx_remove_added_interface(void)
     ret = rw_msg_send_add_if((const unsigned char *)&test_mac, 3, 0, cfm);
     if(ret || (cfm->status != CO_OK))
     {
-        os_printf("[saap]MM_ADD_IF_REQ failed!\r\n");
+        BK_LOGI(TAG, "[saap]MM_ADD_IF_REQ failed!\r\n");
         goto ERR_RETURN;
     }
 
@@ -88,7 +100,7 @@ static void rwnx_remove_added_interface(void)
 
     if(ret || (apm_cfm->status != CO_OK))
     {
-        os_printf("[saap]APM_START_REQ failed!\r\n");
+        BK_LOGI(TAG, "[saap]APM_START_REQ failed!\r\n");
         goto ERR_RETURN;
     }
 
@@ -105,6 +117,7 @@ ERR_RETURN:
         os_free(apm_cfm);
     }
 }
+#endif
 
 void bk_wlan_connection_loss(void)
 {
@@ -114,7 +127,7 @@ void bk_wlan_connection_loss(void)
     {
         if(p_vif_entry->type == VIF_STA)
         {
-            os_printf("bk_wlan_connection_loss vif:%d\r\n", p_vif_entry->index);
+            BK_LOGI(TAG, "bk_wlan_connection_loss vif:%d\r\n", p_vif_entry->index);
             sta_ip_down();
             rw_msg_send_connection_loss_ind(p_vif_entry->index);
         }
@@ -312,7 +325,7 @@ void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy)
     frequency = bk_wlan_sta_get_frequency();
     if(frequency)
     {
-        os_printf("hostapd_channel_switch\n");
+        BK_LOGI(TAG, "hostapd_channel_switch\n");
 #if CFG_ROLE_LAUNCH
         if(!fl_get_pre_sta_cancel_status())
 #endif
@@ -322,7 +335,7 @@ void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy)
 
         if(ret)
         {
-            os_printf("csa_failed:%x\r\n", ret);
+            BK_LOGI(TAG, "csa_failed:%x\r\n", ret);
         }
     }
 }
@@ -336,13 +349,13 @@ void bk_wlan_reg_csa_cb_coexist_mode(void)
 void bk_wlan_phy_open_cca(void)
 {
 	phy_open_cca();
-	os_printf("bk_wlan cca opened\r\n");
+	BK_LOGI(TAG, "bk_wlan cca opened\r\n");
 }
 
 void bk_wlan_phy_close_cca(void)
 {
 	phy_close_cca();
-	os_printf("bk_wlan cca closed\r\n");
+	BK_LOGI(TAG, "bk_wlan cca closed\r\n");
 }
 
 void bk_wlan_phy_show_cca(void)
@@ -352,10 +365,9 @@ void bk_wlan_phy_show_cca(void)
 
 void bk_reboot(void)
 {
-    FUNCPTR reboot = 0;
     UINT32 wdt_val = 5;
 
-    os_printf("bk_reboot\r\n");
+    BK_LOGI(TAG, "bk_reboot\r\n");
 
     bk_misc_update_set_type(RESET_SOURCE_REBOOT);
 
@@ -364,7 +376,7 @@ void bk_reboot(void)
     GLOBAL_INT_DISABLE();
 
     sddev_control(WDT_DEV_NAME, WCMD_POWER_DOWN, NULL);
-    os_printf("wdt reboot\r\n");
+    BK_LOGI(TAG, "wdt reboot\r\n");
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     delay_ms(100); //add delay for bk_writer BEKEN_DO_REBOOT cmd
 #endif
@@ -376,7 +388,7 @@ void bk_reboot(void)
 
 void bk_wlan_ap_init(network_InitTypeDef_st *inNetworkInitPara)
 {
-    os_printf("Soft_AP_start\r\n");
+    BK_LOGI(TAG, "Soft_AP_start\r\n");
 #if CFG_ROLE_LAUNCH
 	rl_init_csa_status();
 #endif
@@ -486,7 +498,7 @@ OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitParaAP)
     ret = hostapd_main_entry(2, 0);
     if(ret)
     {
-        os_printf("bk_wlan_start softap failed!!\r\n");
+        BK_LOGI(TAG, "bk_wlan_start softap failed!!\r\n");
         bk_wlan_stop(BK_SOFT_AP);
         return -1;
     }
@@ -647,7 +659,7 @@ void wlan_write_fast_connect_info(struct wlan_fast_connect_info *fci)
 	ddev_control(flash_hdl, CMD_FLASH_SET_PROTECT, (void *)&protect_flag);
 	ddev_close(flash_hdl);
 
-	bk_printf("writed fci to flash\n");
+	BK_LOGI(TAG, "writed fci to flash\n");
 
 wr_exit:
 	return;
@@ -699,10 +711,10 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 
 #if 0
 	print_hex_dump("fci: ", &fci, sizeof(fci));
-	bk_printf("  ssid: |%s|\n", fci.ssid);
-	bk_printf("  bssid: %pM\n", fci.bssid);
-	bk_printf("  chan: %d\n", fci.channel);
-	bk_printf("  desire ssid: |%s|\n", inNetworkInitPara->wifi_ssid);
+	BK_LOGI(TAG, "  ssid: |%s|\n", fci.ssid);
+	BK_LOGI(TAG, "  bssid: %pM\n", fci.bssid);
+	BK_LOGI(TAG, "  chan: %d\n", fci.channel);
+	BK_LOGI(TAG, "  desire ssid: |%s|\n", inNetworkInitPara->wifi_ssid);
 #endif
 
 	if (ssid_len == req_ssid_len &&
@@ -712,10 +724,10 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 		psk = fci.psk;
 		psk_len = PMK_LEN * 2;
 
-		bk_printf("fast_connect\n");
+		BK_LOGI(TAG, "fast_connect\n");
 #if 0
-		bk_printf("  chan: %d\n", chan);
-		bk_printf("  PMK: %s\n", psk);
+		BK_LOGI(TAG, "  chan: %d\n", chan);
+		BK_LOGI(TAG, "  PMK: %s\n", psk);
 #endif
 		if (os_strlen(psk) == 0) {
 			// no psk info, calcuate pmk
@@ -759,16 +771,17 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 
 OSStatus bk_wlan_start(network_InitTypeDef_st *inNetworkInitPara)
 {
-    int ret = 0;
 #if CFG_ROLE_LAUNCH
     LAUNCH_REQ lreq;
 #endif
 
+#if !CFG_IEEE80211AX
     if(bk_wlan_is_monitor_mode())
     {
-        os_printf("monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
-        return ret;
+        BK_LOGI(TAG, "monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
+        return 0;
     }
+#endif
 
     if(inNetworkInitPara->wifi_mode == BK_SOFT_AP)
     {
@@ -799,38 +812,41 @@ OSStatus bk_wlan_start(network_InitTypeDef_st *inNetworkInitPara)
 
 void bk_wlan_start_scan(void)
 {
-    SCAN_PARAM_T scan_param = {0};
+#if !CFG_WPA_CTRL_IFACE
+	SCAN_PARAM_T scan_param = {0};
+#endif
 
 #if CFG_USE_STA_PS
-    bk_wlan_dtim_rf_ps_disable_send_msg();
+	bk_wlan_dtim_rf_ps_disable_send_msg();
 #endif
 
 #if CFG_ROLE_LAUNCH
 	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
 #endif
 
-    if(bk_wlan_is_monitor_mode())
-    {
-        os_printf("monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
+#if !CFG_IEEE80211AX
+	if(bk_wlan_is_monitor_mode()) {
+		BK_LOGI(TAG, "monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
 
 		#if CFG_ROLE_LAUNCH
 		rl_pre_sta_set_status(RL_STATUS_STA_LAUNCH_FAILED);
 		#endif
 
-        return;
-    }
+		return;
+	}
+#endif
 
-    bk_wlan_sta_init(0);
+	bk_wlan_sta_init(0);
 
 #if CFG_WPA_CTRL_IFACE
-	wlan_sta_enable();
-	wlan_sta_scan_once();
+	BK_ERR_CHECK(wlan_sta_enable());
+	BK_ERR_CHECK(wlan_sta_scan_once());
 #else /* !CFG_WPA_CTRL_IFACE */
-    os_memset(&scan_param.bssid, 0xff, ETH_ALEN);
+	os_memset(&scan_param.bssid, 0xff, ETH_ALEN);
 	scan_param.vif_idx = INVALID_VIF_IDX;
 	scan_param.num_ssids = 1;
 
-    rw_msg_send_scanu_req(&scan_param);
+	rw_msg_send_scanu_req(&scan_param);
 #endif
 }
 
@@ -1040,10 +1056,12 @@ void bk_wlan_sta_adv_param_2_sta(network_InitTypeDef_adv_st *sta_adv,network_Ini
 
 OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 {
+#if !CFG_IEEE80211AX
 	if (bk_wlan_is_monitor_mode()) {
-		os_printf("airkiss is not finish yet, stop airkiss or waiting it finish!\r\n");
+		BK_LOGI(TAG, "airkiss is not finish yet, stop airkiss or waiting it finish!\r\n");
 		return 0;
 	}
+#endif
 
 #if !CFG_WPA_CTRL_IFACE
 #if CFG_ROLE_LAUNCH
@@ -1093,7 +1111,7 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 	 * XXX: If you know psk value, fill last two parameters of `wpa_psk_request()'.
 	 */
 	wpa_psk_request(g_sta_param_ptr->ssid.array, g_sta_param_ptr->ssid.length,
-					g_sta_param_ptr->key, NULL, 0);
+					(char*)g_sta_param_ptr->key, NULL, 0);
 
 	/* disconnect previous connected network */
 	wlan_sta_disconnect();
@@ -1102,8 +1120,8 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 	wlan_sta_enable();
 
 	/* set network parameters: ssid, passphase */
-	wlan_sta_set(inNetworkInitParaAdv->ap_info.ssid, os_strlen(inNetworkInitParaAdv->ap_info.ssid),
-				 inNetworkInitParaAdv->key);
+	wlan_sta_set((uint8_t*)inNetworkInitParaAdv->ap_info.ssid, os_strlen(inNetworkInitParaAdv->ap_info.ssid),
+				 (uint8_t*)inNetworkInitParaAdv->key);
 
 	/* set fast connect bssid */
 	os_memset(&config, 0, sizeof(config));
@@ -1135,11 +1153,15 @@ OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
 {
     int ret = 0;
 
+#if !CFG_IEEE80211AX
     if(bk_wlan_is_monitor_mode())
     {
-        os_printf("monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
+        BK_LOGI(TAG, "monitor (ie.airkiss) is not finish yet, stop it or waiting it finish!\r\n");
         return ret;
     }
+#else
+    __maybe_unused_var(ret);
+#endif
 
 #if CFG_USE_STA_PS
     bk_wlan_dtim_rf_ps_disable_send_msg();
@@ -1160,7 +1182,7 @@ OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
     ret = hostapd_main_entry(2, 0);
     if(ret)
     {
-        os_printf("bk_wlan_start_ap_adv failed!!\r\n");
+        BK_LOGI(TAG, "bk_wlan_start_ap_adv failed!!\r\n");
         bk_wlan_stop(BK_SOFT_AP);
         return -1;
     }
@@ -1207,7 +1229,7 @@ int bk_wlan_stop_scan(void)
 	struct scan_cancel_cfm cfm = {0};
 	int ret = -1;
 
-	os_printf("%s\r\n",__FUNCTION__);
+	BK_LOGI(TAG, "%s\r\n",__FUNCTION__);
 	ret = rw_msg_send_scan_cancel_req(&cfm);
 	if(ret == 0){
 		/*if(CO_FAIL == cfm.status){
@@ -1526,6 +1548,7 @@ int bk_wlan_get_ap_monitor_coexist()
  */
 int bk_wlan_start_monitor(void)
 {
+#if !CFG_IEEE80211AX
 #if CFG_AP_MONITOR_COEXIST
 	if (bk_wlan_get_ap_monitor_coexist()) {
 		/* AP+Monitor Mode, don't need to remove all interfaces */
@@ -1534,10 +1557,10 @@ int bk_wlan_start_monitor(void)
 #endif
 	uint32_t ret;
 
-	os_printf("bk_wlan_stop-ap\r\n");
+	BK_LOGI(TAG, "bk_wlan_stop-ap\r\n");
 	bk_wlan_stop(BK_SOFT_AP);
 
-	os_printf("bk_wlan_stop-sta\r\n");
+	BK_LOGI(TAG, "bk_wlan_stop-sta\r\n");
 	bk_wlan_stop(BK_STATION);
 
 #if (SUPPORT_LSIG_MONITOR)
@@ -1553,12 +1576,25 @@ int bk_wlan_start_monitor(void)
 	if(g_wlan_general_param)
 		g_wlan_general_param->role = CONFIG_ROLE_NULL;
 
-	os_printf("mm_enter_monitor_mode\r\n");
+	BK_LOGI(TAG, "mm_enter_monitor_mode\r\n");
 	ret = mm_enter_monitor_mode();
 	ASSERT(0 == ret);
 
 #if CFG_AP_MONITOR_COEXIST
 	}
+#endif
+
+#else // !CFG_IEEE80211AX
+	UINT32 reg = RF_HOLD_BY_MONITOR_BIT;
+
+	// init mac
+	sa_station_init();
+
+	// hold rf
+    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+
+	// add/open monitor interface
+	rwnx_monitor_open();
 #endif
 
     return 0;
@@ -1570,7 +1606,11 @@ int bk_wlan_stop_monitor(void)
     if(g_monitor_cb)
     {
         g_monitor_cb = 0;
+#if !CFG_IEEE80211AX
         hal_machw_exit_monitor_mode();
+#else
+		rwnx_monitor_close();
+#endif
     }
 
 	UINT32 reg = RF_HOLD_BY_MONITOR_BIT;
@@ -1845,8 +1885,8 @@ int bk_wlan_dtim_rf_ps_mode_do_wakeup()
 
 	if (!sem_list)
     {
-        os_printf("err ---- NULL\r\n");
-        ASSERT(0);
+        BK_LOGI(TAG, "err ---- NULL\r\n");
+        return -1;
     }
 
     GLOBAL_INT_DECLARATION();
@@ -1877,41 +1917,26 @@ int bk_wlan_dtim_rf_ps_mode_do_wakeup()
 }
 #if CFG_USE_STA_PS
 static uint32_t rf_ps_enabled = 0;
-/** @brief  Enable dtim power save,close rf,and wakeup by ieee dtim dynamical
- *
- */
+
 int bk_wlan_dtim_rf_ps_mode_enable(void )
 {
-        rf_ps_enabled = 1;
-        bmsg_ps_sender(PS_BMSG_IOCTL_RF_ENABLE);
-        return 0;
+    rf_ps_enabled = 1;
+    bmsg_ps_sender(PS_BMSG_IOCTL_RF_ENABLE);
+    bmsg_ps_sender(PS_BMSG_IOCTL_RF_PS_TIMER_INIT);
+    return 0;
 }
 
 int bk_wlan_dtim_rf_ps_disable_send_msg(void)
 {
-#if 0
-    if(power_save_if_ps_rf_dtim_enabled()
-            && power_save_if_rf_sleep())
-    {
-        power_save_wkup_event_set(NEED_DISABLE_BIT);
-    }
-    else
-    {
-        power_save_dtim_rf_ps_disable_send_msg();
-    }
-#endif
     power_save_dtim_rf_ps_disable_send_msg();
     return 0;
 }
 
-/** @brief  Request exit dtim dynamical ps mode
- */
 int bk_wlan_dtim_rf_ps_mode_disable(void)
 {
     rf_ps_enabled = 0;
-    if (bk_wlan_dtim_rf_ps_disable_send_msg())
-		return 1;
-
+    bk_wlan_dtim_rf_ps_disable_send_msg();
+    bmsg_ps_sender(PS_BMSG_IOCTL_RF_PS_TIMER_DEINIT);
     return 0;
 }
 
@@ -1953,27 +1978,27 @@ int bk_wlan_dtim_rf_ps_get_enable_flag(void)
 int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 {
 #if CFG_USE_MCU_PS
-	#if (CFG_OS_FREERTOS)
-    GLOBAL_INT_DECLARATION();
-    GLOBAL_INT_DISABLE();
-    TickType_t missed_ticks = 0;
-    missed_ticks = mcu_power_save( sleep_ticks );
+#if (CFG_OS_FREERTOS)
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+	TickType_t missed_ticks = 0;
+
+	missed_ticks = mcu_power_save( sleep_ticks );
 	if(missed_ticks >= 0){
-	    fclk_update_tick( missed_ticks );
-	}
-    else{
+		fclk_update_tick( missed_ticks );
+	} else{
+		GLOBAL_INT_RESTORE();
 		return -1;
 	}
-    GLOBAL_INT_RESTORE();
-	#endif
+	GLOBAL_INT_RESTORE();
 #endif
+#endif
+
     return 0;
 }
 
 #if CFG_USE_MCU_PS
 static uint32_t mcu_ps_enabled = 0;
-/** @brief  Enable mcu power save,close mcu ,and wakeup by irq
- */
 int bk_wlan_mcu_ps_mode_enable(void)
 {
 	mcu_ps_enabled = 1;
@@ -1982,8 +2007,6 @@ int bk_wlan_mcu_ps_mode_enable(void)
     return 0;
 }
 
-/** @brief  Disable mcu power save mode
- */
 int bk_wlan_mcu_ps_mode_disable(void)
 {
 	mcu_ps_enabled = 0;
@@ -1997,62 +2020,6 @@ int bk_wlan_mcu_ps_get_enable_flag(void)
 	return mcu_ps_enabled;
 }
 #endif
-
-BK_PS_LEVEL global_ps_level = 0;
-int bk_wlan_power_save_set_level(BK_PS_LEVEL level)
-{
-    if(level & PS_DEEP_SLEEP_BIT)
-    {
-#if CFG_USE_STA_PS
-        if(global_ps_level & PS_RF_SLEEP_BIT)
-        {
-            bk_wlan_dtim_rf_ps_mode_disable();
-        }
-#endif
-#if CFG_USE_MCU_PS
-        if(global_ps_level & PS_MCU_SLEEP_BIT)
-        {
-            bk_wlan_mcu_ps_mode_disable();
-        }
-#endif
-        rtos_delay_milliseconds(100);
-#if CFG_USE_DEEP_PS
-        bk_enter_deep_sleep(0xc00, 0xc00, 0, 0, 5, 2, 0, 0);
-#endif
-    }
-
-    if((global_ps_level & PS_RF_SLEEP_BIT) ^ (level & PS_RF_SLEEP_BIT))
-    {
-#if CFG_USE_STA_PS
-        if(global_ps_level & PS_RF_SLEEP_BIT)
-        {
-            bk_wlan_dtim_rf_ps_mode_disable();
-        }
-        else
-        {
-            bk_wlan_dtim_rf_ps_mode_enable();
-        }
-#endif
-    }
-
-    if((global_ps_level & PS_MCU_SLEEP_BIT) ^ (level & PS_MCU_SLEEP_BIT))
-    {
-#if CFG_USE_MCU_PS
-        if(global_ps_level & PS_MCU_SLEEP_BIT)
-        {
-            bk_wlan_mcu_ps_mode_disable();
-        }
-        else
-        {
-            bk_wlan_mcu_ps_mode_enable();
-        }
-#endif
-    }
-
-    global_ps_level = level;
-
-    return 0;
-}
 
 void bk_wlan_status_register_cb(FUNC_1PARAM_PTR cb)
 {
@@ -2152,7 +2119,8 @@ UINT32 if_other_mode_rf_sleep(void)
 uint32_t bk_wlan_reg_rx_mgmt_cb(mgmt_rx_cb_t cb, uint32_t rx_mgmt_flag)
 {
 #if CFG_IEEE80211AX
-	/* TODO: BK7236 */
+	/* TODO: BK7236 monitor  */
+	return 1;
 #else
 	return rxu_reg_mgmt_cb(cb, rx_mgmt_flag);
 #endif
@@ -2173,7 +2141,6 @@ int bk_wlan_send_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *par
 extern int bmsg_tx_raw_sender(uint8_t *payload, uint16_t length);
 int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len)
 {
-#if !CFG_IEEE80211AX
 	uint8_t *pkt;
 	int ret;
 
@@ -2186,10 +2153,6 @@ int bk_wlan_send_80211_raw_frame(uint8_t *buffer, int len)
 	os_memcpy(pkt, buffer, len);
 	ret = bmsg_tx_raw_sender(pkt, len);
 	return ret;
-#else
-	/* TODO: BK7236 */
-	//refer: bmsg_tx_sender
-#endif
 }
 
 void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn)
@@ -2231,9 +2194,9 @@ int http_ota_download(const char *uri)
                             &httpclient_data);
 
     if (0 != ret) {
-        os_printf("request epoch time from remote server failed.");
+        BK_LOGI(TAG, "request epoch time from remote server failed.");
     } else {
-        os_printf("sucess.\r\n");
+        BK_LOGI(TAG, "sucess.\r\n");
         bk_reboot();
     }
 
@@ -2273,7 +2236,7 @@ OSStatus bk_wlan_get_bssid_info(apinfo_adv_t *ap, uint8_t **key, int *key_len)
 	bk_wlan_get_link_status(&link_stat);
 	ap->channel = link_stat.channel;
 	os_memcpy(ap->bssid, link_stat.bssid, 6);
-	os_strcpy(ap->ssid, link_stat.ssid);
+	os_strcpy((char*)ap->ssid, (char*)link_stat.ssid);
 
 	*key = g_sta_param_ptr->key;
 	*key_len = g_sta_param_ptr->key_len;

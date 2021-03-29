@@ -4,6 +4,7 @@
 #include "include.h"
 #include "rtos_pub.h"
 #include "rwble_config.h"
+#include "ble_api.h"
 
 #define BLE_PS_DEBUG
 #ifdef BLE_PS_DEBUG
@@ -128,5 +129,14 @@ extern UINT16 ble_ps_forbid_trace(BLE_PS_FORBID_STATUS forbid);
 uint8_t ble_flash_read(uint8_t flash_space, uint32_t address, uint32_t len, uint8_t *buffer, void (*callback)(void));
 uint8_t ble_flash_write(uint8_t flash_space, uint32_t address, uint32_t len, uint8_t *buffer, void (*callback)(void));
 uint8_t ble_flash_erase(uint8_t flash_type, uint32_t address, uint32_t len, void (*callback)(void));
+void ble_request_rf_by_isr(void);
+void ble_release_rf_by_isr(void);
+void ble_stop_delegate_restore_mac_state(int flag);
+int blemsg_is_empty(void);
+
+void ble_set_write_cb(bk_ble_write_cb_t func);
+void ble_set_read_cb(bk_ble_read_cb_t func);
+void ble_set_event_cb(ble_event_cb_t func);
+void ble_activate(char *ble_name);
 
 #endif /* _BLE_H_ */

@@ -146,7 +146,7 @@ tcp_init(void)
 {
 #if LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS && defined(LWIP_RAND)
   tcp_port = TCP_ENSURE_LOCAL_PORT_RANGE(LWIP_RAND());
-  os_printf("tcp_port:%d\r\n", tcp_port);
+  LWIP_LOGI("tcp_port:%d\r\n", tcp_port);
 #endif /* LWIP_RANDOMIZE_INITIAL_LOCAL_PORTS && defined(LWIP_RAND) */
 }
 

@@ -6,7 +6,7 @@
 //#define SK_DEBUG
 
 #ifdef SK_DEBUG
-    #define SK_PRT       os_printf
+    #define SK_PRT       WPA_LOGI
     #define SK_WPRT      warning_prf
 #else
     #define SK_PRT       os_null_printf

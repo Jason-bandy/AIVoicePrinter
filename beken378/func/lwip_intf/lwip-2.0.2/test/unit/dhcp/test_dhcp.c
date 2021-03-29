@@ -148,11 +148,11 @@ static void send_pkt(struct netif *netif, const u8_t *data, size_t len)
   if (debug) {
     /* Dump data */
     u32_t i;
-    os_printf("RX data (len %d)", p->tot_len);
+    LWIP_LOGI("RX data (len %d)", p->tot_len);
     for (i = 0; i < len; i++) {
-      os_printf(" %02X", data[i]);
+      BK_LOG_RAW(" %02X", data[i]);
     }
-    os_printf("\n");
+    BK_LOG_RAW("\n");
   }
 
   fail_unless(p != NULL);
@@ -243,17 +243,17 @@ static err_t lwip_tx_func(struct netif *netif, struct pbuf *p)
   if (debug) {
     struct pbuf *pp = p;
     /* Dump data */
-    os_printf("TX data (pkt %d, len %d, tick %d)", txpacket, p->tot_len, tick);
+    LWIP_LOGI("TX data (pkt %d, len %d, tick %d)", txpacket, p->tot_len, tick);
     do {
       int i;
       for (i = 0; i < pp->len; i++) {
-        os_printf(" %02X", ((u8_t *) pp->payload)[i]);
+        BK_LOG_RAW(" %02X", ((u8_t *) pp->payload)[i]);
       }
       if (pp->next) {
         pp = pp->next;
       }
     } while (pp->next);
-    os_printf("\n");
+    BK_LOG_RAW("\n");
   }
 
   switch (tcase) {

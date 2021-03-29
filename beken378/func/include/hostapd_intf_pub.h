@@ -9,6 +9,9 @@ extern void wpa_buffer_scan_results(void);
 extern void wpa_clear_scan_results(void);
 extern void wpa_enable_traffic_port_at_opensystem(void);
 
+typedef void (*bk_ap_no_password_cb_t)(void);
+void bk_ap_no_password_connected_register_cb(bk_ap_no_password_cb_t func);
+
 #endif
 // eof
 

@@ -49,7 +49,7 @@ UART_S uart[2] =
 };
 #endif
 
-static DD_OPERATIONS uart1_op =
+static const DD_OPERATIONS uart1_op =
 {
 	uart1_open,
 	uart1_close,
@@ -58,7 +58,7 @@ static DD_OPERATIONS uart1_op =
 	uart1_ctrl
 };
 
-static DD_OPERATIONS uart2_op =
+static const DD_OPERATIONS uart2_op =
 {
 	uart2_open,
 	uart2_close,
@@ -68,7 +68,7 @@ static DD_OPERATIONS uart2_op =
 };
 
 #if (CFG_SOC_NAME == SOC_BK7271)
-static DD_OPERATIONS uart3_op =
+static const DD_OPERATIONS uart3_op =
 {
 	uart3_open,
 	uart3_close,
@@ -710,7 +710,7 @@ void uart1_init(void)
 	ASSERT(UART_SUCCESS == ret);
 	#endif
 
-	ddev_register_dev(UART1_DEV_NAME, &uart1_op);
+	ddev_register_dev(UART1_DEV_NAME, (DD_OPERATIONS*)&uart1_op);
 
 	intc_service_register(IRQ_UART1, PRI_IRQ_UART1, uart1_isr);
 
@@ -946,7 +946,7 @@ void uart2_init(void)
 	ASSERT(UART_SUCCESS == ret);
 	#endif
 
-	ddev_register_dev(UART2_DEV_NAME, &uart2_op);
+	ddev_register_dev(UART2_DEV_NAME, (DD_OPERATIONS*)&uart2_op);
 
 	intc_service_register(IRQ_UART2, PRI_IRQ_UART2, uart2_isr);
 
@@ -1183,7 +1183,7 @@ void uart3_init(void)
 	ASSERT(UART_SUCCESS == ret);
 	#endif
 
-	ddev_register_dev(UART3_DEV_NAME, &uart3_op);
+	ddev_register_dev(UART3_DEV_NAME, (DD_OPERATIONS*)&uart3_op);
 
 	intc_service_register(IRQ_UART3, PRI_IRQ_UART3, uart3_isr);
 

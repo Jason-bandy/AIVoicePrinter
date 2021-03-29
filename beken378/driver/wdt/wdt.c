@@ -7,7 +7,7 @@
 #include "start_type_pub.h"
 #include "uart_pub.h"
 
-static SDD_OPERATIONS wdt_op = {
+static const SDD_OPERATIONS wdt_op = {
             wdt_ctrl
 };
 static uint32_t g_wdt_period = 0;
@@ -15,7 +15,7 @@ static uint32_t g_wdt_period = 0;
 /*******************************************************************/
 void wdt_init(void)
 {
-	sddev_register_dev(WDT_DEV_NAME, &wdt_op);
+	sddev_register_dev(WDT_DEV_NAME, (SDD_OPERATIONS*)&wdt_op);
 }
 
 void wdt_exit(void)

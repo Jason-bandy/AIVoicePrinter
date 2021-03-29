@@ -17,13 +17,13 @@ struct rwnx_mod_params {
     bool ht_on;
     bool vht_on;
     bool he_on;
-    int mcs_map;
-    int he_mcs_map;
-    bool he_ul_on;
+    int mcs_map;	// vht mcs map
+    int he_mcs_map;	// he mcs map
+    bool he_ul_on;	// OFDMA UL
     bool ldpc_on;
     bool stbc_on;
     bool gf_rx_on;
-    int phy_cfg;
+    int phy_cfg;	// ant selection
     int uapsd_timeout;
     bool ap_uapsd_on;
     bool sgi;

@@ -47,15 +47,15 @@
 #define BK_FLASH_WRITE_CHECK_TIMES        3
 
 #define MCAL_DEBUG                        1
-#include "uart_pub.h"
+#include "cal_log.h"
 #if MCAL_DEBUG
-#define MCAL_PRT      os_printf
-#define MCAL_WARN     os_printf
-#define MCAL_FATAL    fatal_prf
+#define MCAL_PRT      CAL_LOGI
+#define MCAL_WARN     CAL_LOGI
+#define MCAL_FATAL    CAL_LOGE
 #else
-#define MCAL_PRT      null_prf
-#define MCAL_WARN     null_prf
-#define MCAL_FATAL    null_prf
+#define MCAL_PRT      CAL_LOGD
+#define MCAL_WARN     CAL_LOGD
+#define MCAL_FATAL    CAL_LOGD
 #endif
 
 #undef  DEFAULT_TXID_XTAL
@@ -1312,7 +1312,7 @@ int manual_cal_save_chipinfo_tab_to_flash(void)
 #endif  
     // for tag TXID_THERMAL
     //manual_cal_get_current_temperature();
-    os_printf("save sys temper:%d\r\n", g_cur_temp); 
+    CAL_LOGI("save sys temper:%d\r\n", g_cur_temp); 
     tag_com_ptr = (TAG_COMM_PTR)(info_buf  );
     tag_com.head.type = TXID_THERMAL;
     tag_com.head.len = sizeof(tag_com.value);
@@ -1532,7 +1532,7 @@ static UINT32 manual_cal_g_rfcali_status(void)
         else
             g_cali_status = flash_status;
     }
-    //os_printf("%d, %d\r\n", g_cali_status, g_rfcali_mode);
+    //CAL_LOGI("%d, %d\r\n", g_cali_status, g_rfcali_mode);
     
     return g_cali_status;
 }
@@ -1747,7 +1747,7 @@ void manual_cal_tmp_pwr_init_reg(UINT16 reg_mod, UINT16 reg_pa)
 
 void manual_cal_temp_pwr_unint(void)
 {
-    os_printf("manual_cal_temp_pwr_unint: mod:%d, pa:%d\r\n", g_tmp_pwr.init_mod,
+    CAL_LOGI("manual_cal_temp_pwr_unint: mod:%d, pa:%d\r\n", g_tmp_pwr.init_mod,
         g_tmp_pwr.init_pa);
     rwnx_cal_set_reg_mod_pa(g_tmp_pwr.init_mod, g_tmp_pwr.init_pa);    
 }
@@ -1778,7 +1778,7 @@ void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dis
         }
     }
 
-    os_printf("init temp pwr table: mod:%d, pa:%d, tmp:%d, idx:%d, dist:%d\r\n",
+    CAL_LOGI("init temp pwr table: mod:%d, pa:%d, tmp:%d, idx:%d, dist:%d\r\n",
         reg_mod, reg_pa, init_temp, idx, init_dist);
 
     if(init_temp < init_dist) {
@@ -1854,7 +1854,7 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 
     if(need_cal_dpll) 
     {
-        os_printf("cal dpll!\r\n");
+        CAL_LOGI("cal dpll!\r\n");
         power_save_wake_rf_if_in_sleep();      
         sctrl_cali_dpll(0);
         sctrl_dpll_int_open();
@@ -1863,7 +1863,7 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 
     bk7011_cal_bias();
 
-    os_printf("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
+    CAL_LOGI("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
         g_tmp_pwr.pwr_ptr->mod, g_tmp_pwr.pwr_ptr->pa, *last); 
 
     return g_tmp_pwr.pwr_ptr;
@@ -1904,8 +1904,8 @@ UINT32 manual_cal_load_adc_cali_flash(void)
     ddev_read(flash_handle, (char *)&head, sizeof(TXPWR_ELEM_ST), addr);
     ddev_read(flash_handle, (char *)&saradc_val, head.len, addr + sizeof(TXPWR_ELEM_ST));
 
-    os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
-    os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
+    CAL_LOGI("calibrate low value:[%x]\r\n", saradc_val.low);
+    CAL_LOGI("calibrate high value:[%x]\r\n", saradc_val.high);
 
     return SARADC_SUCCESS;
 

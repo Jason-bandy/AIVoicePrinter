@@ -116,6 +116,57 @@ static UINT32 evm_translate_tx_rate(UINT32 rate)
 }
 #endif
 
+UINT32 evm_get_auto_tx_len(UINT32 rate, UINT32 modul_format,  UINT32 bandwidth)
+{
+#if (CFG_SOC_NAME == SOC_BK7236)
+const UINT16 g_byte_per_16symbol[8]        = {  45,  69,  93, 141, 189, 285, 381, 429};
+const UINT16 n_20M_byte_per_16symbol[8]    = {  49, 101, 153, 205, 309, 413, 465, 517};
+const UINT16 n_40M_byte_per_16symbol[8]    = { 105, 213, 321, 429, 645, 861, 969,1077};
+const UINT16 ac_20M_byte_per_16symbol[10]  = { 256, 256, 256, 256, 512, 512, 512, 512, 768,1024};
+const UINT16 ac_40M_byte_per_16symbol[10]  = { 256, 256, 512, 512, 768,1024,1024,1024,1280,1536};
+const UINT16 ax_20M_n_byte_per_16symbol[10]= { 231, 465, 699, 933,1401,1869,2103,2337,2805,3117};
+#endif
+
+    UINT32 len ;
+    if ((1 == rate)||(2 == rate)||(5 == rate)||(11 == rate)){
+        len = EVM_DEFUALT_B_PACKET_LEN;
+    }
+    #if (CFG_SOC_NAME == SOC_BK7236)
+    else if(rate <= 54) {
+        rate = evm_translate_tx_rate(rate) - 4;
+        len = (UINT32)g_byte_per_16symbol[rate];
+    } else {
+        rate -= 128;
+        if(modul_format <= 3) {
+            if(bandwidth == 0)
+                len = (UINT32)n_20M_byte_per_16symbol[rate];
+            else
+                len = (UINT32)n_40M_byte_per_16symbol[rate];
+        } else if(modul_format == 4) {
+            if(bandwidth == 0)
+                len = (UINT32)ac_20M_byte_per_16symbol[rate];
+            else
+                len = (UINT32)ac_40M_byte_per_16symbol[rate];
+        } else if(modul_format == 5) {
+            if(bandwidth == 0)
+                len = (UINT32)ax_20M_n_byte_per_16symbol[rate];
+            else
+                len = (UINT32)(ax_20M_n_byte_per_16symbol[rate] * 2);
+        } else {
+            len = EVM_DEFUALT_PACKET_LEN;
+        }
+    }
+    len = (len < 1024) ? 1024 : len;
+    #else
+    else
+    {
+        len = EVM_DEFUALT_PACKET_LEN;
+    }
+    #endif
+
+    return len;
+}
+
 /*txevm [-m mode] [-c channel] [-l packet-length] [-r physical-rate]*/
 UINT32 gmode = EVM_DEFUALT_MODE;
 UINT32 gtest_mode = 0;
@@ -136,7 +187,7 @@ static int do_evm_implement(int argc, char *const argv[])
     UINT32 pwr_pa = EVM_DEFUALT_PWR_PA;
     UINT32 ble_pwr_pa = EVM_DEFUALT_PWR_PA;
     UINT32 modul_format = EVM_DEFUALT_MODUL_FORMAT;
-    UINT32 guard_i_tpye = EVM_DEFUALT_GI_TYPE;
+    UINT32 guard_i_tpye = EVM_UNINIT_GI_TYPE;
     UINT32 single_carrier = EVM_DEFUALT_SINGLE_CARRIER;
     UINT32 dif_g = 0;
     UINT32 test_mode = 0;
@@ -146,7 +197,6 @@ static int do_evm_implement(int argc, char *const argv[])
     UINT32 is_ble_test = 0;;
     UINT32 ble_test = 0;
     UINT32 reg;
-    UINT32 txdelay = 125;
     SC_TYPE_T single_carrier_type = SINGLE_CARRIER_11G;
 
 	#if (CFG_SOC_NAME != SOC_BK7231)
@@ -251,7 +301,7 @@ static int do_evm_implement(int argc, char *const argv[])
                         //os_printf("RF ATE sw ver:%s\r\n", RF_ATE_VERSON);
                         os_printf("build at %s %s\n", __DATE__, __TIME__);
                     }
-					else if(op == TXEVM_G_RFCALI_STATUS) {
+                    else if(op == TXEVM_G_RFCALI_STATUS) {
                         if(manual_cal_get_rfcali_status_inflash(&reg) != 1){
                            os_printf("get rfcali status failed\r\n");
                         } else {
@@ -306,10 +356,10 @@ static int do_evm_implement(int argc, char *const argv[])
                     os_printf("set dif ble- ch0:%d, ch19:%d, ch39:%d\r\n",
                         dif_ch0, dif_ch19, dif_ch39);
                     manual_cal_set_dif_g_ble(dif_ch0, dif_ch19, dif_ch39);
-					#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
-					dif_g = (os_strtoul(argv[arg_id + 2], NULL, 10));
-					manual_cal_set_dif_ble(dif_g);
-					#endif
+                    #elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+                    dif_g = (os_strtoul(argv[arg_id + 2], NULL, 10));
+                    manual_cal_set_dif_ble(dif_g);
+                    #endif
                 }
                 }
 
@@ -344,9 +394,10 @@ static int do_evm_implement(int argc, char *const argv[])
                         rwnx_cal_set_txpwr(pwr_mod, g_rate);
                         #endif
                     }
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N)
                     if (g_single_carrier)
                     {
+                        // bk7236,no need do it anymore
                         UINT32 pwr_gain = REG_READ(RCB_POWER_TABLE_ADDR + (0x34 * 4));
                         os_printf("pwr_gain:0x%x\r\n", pwr_gain & 0x3FF);
                         REG_WRITE((RC_BEKEN_BASE + (0x43 * 4)), pwr_gain & 0x3FF);
@@ -428,7 +479,7 @@ static int do_evm_implement(int argc, char *const argv[])
                             }
                         }
                     }
-					#endif
+                    #endif
                     else {
                         #if ATE_APP_FUN
                         if(get_ate_mode_state())
@@ -446,26 +497,26 @@ static int do_evm_implement(int argc, char *const argv[])
                     return -1;
                 }
             }
-			break;
+            break;
 
 #if (CFG_SOC_NAME != SOC_BK7231)
             case 'q':
-			{  // lpfcapcal i&q
-	            lpfcapcal_i = (os_strtoul(argv[arg_id + 1], NULL, 10));
-	            lpfcapcal_q = (os_strtoul(argv[arg_id + 2], NULL, 10));
-	            arg_cnt -= 1;
-	            arg_id += 1;
-	            os_printf("set lpfcapcal: I:%d, Q:%d\r\n", lpfcapcal_i, lpfcapcal_q);
-	            manual_cal_set_lpf_iq(lpfcapcal_i, lpfcapcal_q);
-	            return 0;
+            {  // lpfcapcal i&q
+                lpfcapcal_i = (os_strtoul(argv[arg_id + 1], NULL, 10));
+                lpfcapcal_q = (os_strtoul(argv[arg_id + 2], NULL, 10));
+                arg_cnt -= 1;
+                arg_id += 1;
+                os_printf("set lpfcapcal: I:%d, Q:%d\r\n", lpfcapcal_i, lpfcapcal_q);
+                manual_cal_set_lpf_iq(lpfcapcal_i, lpfcapcal_q);
+                return 0;
             }
 
             case 'x':
-			{  // xtal_cali
-	            xtal = os_strtoul(argv[arg_id + 1], NULL, 10);
-	            os_printf("xtal_cali:%d\r\n", xtal);
-	            manual_cal_set_xtal(xtal);
-	            return 0;
+            {  // xtal_cali
+                xtal = os_strtoul(argv[arg_id + 1], NULL, 10);
+                os_printf("xtal_cali:%d\r\n", xtal);
+                manual_cal_set_xtal(xtal);
+                return 0;
             }
 #endif // (CFG_SOC_NAME != SOC_BK7231)
 
@@ -515,14 +566,15 @@ static int do_evm_implement(int argc, char *const argv[])
                 || (0 == bandwidth))
 #if CFG_IEEE80211AX
             && (modul_format <= 5)
+            && ((guard_i_tpye <= 3) || (guard_i_tpye == EVM_UNINIT_GI_TYPE))
 #else
             && (modul_format <= 3)
+            && ((guard_i_tpye <= 1) || (guard_i_tpye == EVM_UNINIT_GI_TYPE))
 #endif
-            && (guard_i_tpye <= 1)
             && ((1 <= channel)
                 && (14 >= channel))
             && ((0 <= packet_len)
-                && (4095 >= packet_len))
+                && (8191 >= packet_len))
             && ((1 == rate)
                 || (2 == rate)
                 || (5 == rate)
@@ -552,7 +604,7 @@ static int do_evm_implement(int argc, char *const argv[])
         return 1;
     }
 
-	gtest_mode = test_mode;
+    gtest_mode = test_mode;
 
     /*step2, handle*/
     if(!is_ble_test)
@@ -586,27 +638,37 @@ static int do_evm_implement(int argc, char *const argv[])
             evm_bypass_mac_test(channel, bandwidth);
             evm_init_bypass_mac();
 
-            if(rate <= 54) {
+            if(rate <= 54)
+            {
                 modul_format = 0;
+            }
+            else if(modul_format < 2)
+            {
+                os_printf("HT/VHT/HE pkts modul_format >= 2\r\n");
+                modul_format = 2;
             }
 
             if(packet_len != 0)
             {
                 evm_bypass_mac_set_tx_data_length(modul_format, packet_len, rate, bandwidth, 0);
             }
-            else if ((rate <= 5) || (rate == 11))
-            {
-                evm_bypass_mac_set_tx_data_length(modul_format, EVM_DEFUALT_B_PACKET_LEN, rate, bandwidth, 1);
-                packet_len = EVM_DEFUALT_B_PACKET_LEN;
-            }
             else
             {
-                evm_bypass_mac_set_tx_data_length(modul_format, EVM_DEFUALT_PACKET_LEN, rate, bandwidth, 1);
-                packet_len = EVM_DEFUALT_PACKET_LEN;
+                packet_len = evm_get_auto_tx_len(rate, modul_format, bandwidth);
+                evm_bypass_mac_set_tx_data_length(modul_format, packet_len, rate, bandwidth, 1);
             }
 
             evm_bypass_mac_set_rate_mformat(rate, modul_format);
             evm_set_bandwidth(bandwidth);
+
+            if(guard_i_tpye == EVM_UNINIT_GI_TYPE)
+            {
+                //for 11.ax, "Guard Interval Type 1.6us with 2x HE-LTF" is mandatory
+                if(modul_format == 5)
+                    guard_i_tpye = EVM_AX_DEFUALT_GI_TYPE;
+                else
+                    guard_i_tpye = EVM_DEFUALT_GI_TYPE;
+            }
             evm_bypass_mac_set_guard_i_type(guard_i_tpye);
 
             rwnx_cal_en_extra_txpa();
@@ -628,7 +690,7 @@ static int do_evm_implement(int argc, char *const argv[])
             {
                 single_carrier_type = SINGLE_CARRIER_11G;
             }
-            if (g_single_carrier != single_carrier)
+            //if (g_single_carrier != single_carrier)
             {
                 g_single_carrier = single_carrier;
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
@@ -655,8 +717,8 @@ static int do_evm_implement(int argc, char *const argv[])
                 sctrl_cali_dpll(0);
                 sctrl_dpll_int_open();
             }
-        	if (test_mode)
-        	{
+            if (test_mode)
+            {
 #if 0
                 if(bandwidth == 0)
                 {

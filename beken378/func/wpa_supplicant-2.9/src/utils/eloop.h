@@ -27,7 +27,7 @@
 //#define ELOOP_DEBUG
 
 #ifdef ELOOP_DEBUG
-#define ELOOP_PRT       os_printf
+#define ELOOP_PRT       WPA_LOGI
 #define ELOOP_WPRT      warning_prf
 #else
 #define ELOOP_PRT       os_null_printf

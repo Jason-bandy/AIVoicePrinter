@@ -14,77 +14,70 @@ if [ ! -d ${BEKEN_SDK_DIR} ]; then
 fi
 echo "SDK DIR: ${BEKEN_SDK_DIR}"
 
+CUR_DIR=$(pwd)
 
-echo "clean ip lib files..."
-source ${BEKEN_SDK_DIR}/ip/lib_files.sh
-for sub in ${LIB_FILES}
+cd $BEKEN_SDK_DIR
+
+echo "clean SDK lib files ..."
+
+SDK_LIB_FILE_LIST=release/sdk_lib_files.txt
+if [ ! -f $SDK_LIB_FILE_LIST ]; then
+	echo "SDK lib file list doesn't exist!"
+	cd $CUR_DIR
+	exit 1
+fi
+
+for LINE in $(cat $SDK_LIB_FILE_LIST)
 do
-	rm -rf $sub
+	echo "rm $BEKEN_SDK_DIR/$LINE"
+	rm -f $LINE
 done
-rm -f ${BEKEN_SDK_DIR}/ip/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/ip/ip_src.mk
 
+echo "clean SDK lib files done"
 
-echo "clean ble4.x lib files..."
-source ${BEKEN_SDK_DIR}/driver/ble/lib_files.sh
-for sub in ${LIB_FILES}
+echo "check SDK source files ..."
+
+FOUND_ERROR=0
+
+SDK_SRC_FILE_LIST=release/sdk_src_files.txt
+if [ ! -f $SDK_SRC_FILE_LIST ]; then
+	echo "SDK src file list doesn't exist!"
+	cd $CUR_DIR
+	exit 1
+fi
+
+for LINE in $(find ./ -name *.c)
 do
-	rm -rf $sub
+	LINE=${LINE#*/}
+	LINE=${LINE%%* }
+
+	FOUND=0
+
+	for LINE2 in $(cat $SDK_SRC_FILE_LIST)
+	do
+		if [ "$LINE" == "$LINE2" ]; then
+			FOUND=1
+			break
+		fi
+	done
+
+	if [ $FOUND -eq 0 ]; then
+		echo "$LINE is not listed!"
+		FOUND_ERROR=1
+	fi
 done
-rm -f ${BEKEN_SDK_DIR}/driver/ble/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/driver/ble/ble_src.mk
 
+if [ $FOUND_ERROR -eq 1 ]; then
+	echo "Found files which are not listed in either sdk_src_files.txt or sdk_lib_files.txt!"
+	echo "Note: the files in sdk_lib_files.txt will be deleted when making SDK."
+	echo "check SDK source files error!"
+	cd $CUR_DIR
+	exit 1
+else
+	echo "check SDK source files done."
+fi
 
-echo "clean ble5.x lib files..."
-source ${BEKEN_SDK_DIR}/driver/ble_5_x_rw/lib_files.sh
-for sub in ${LIB_FILES}
-do
-	rm -rf $sub
-done
-rm -f ${BEKEN_SDK_DIR}/driver/ble_5_x_rw/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/driver/ble_5_x_rw/ble_src.mk
+rm -f $SDK_LIB_FILE_LIST
+rm -f $SDK_SRC_FILE_LIST
 
-
-echo "clean usb lib files..."
-source ${BEKEN_SDK_DIR}/driver/usb/lib_files.sh
-for sub in ${LIB_FILES}
-do
-	rm -rf $sub
-done
-rm -f ${BEKEN_SDK_DIR}/driver/usb/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/driver/usb/usb_src.mk
-
-echo "clean sensor lib files..."
-source ${BEKEN_SDK_DIR}/func/sensor/lib_files.sh
-for sub in ${LIB_FILES}
-do
-	rm -rf $sub
-done
-rm -f ${BEKEN_SDK_DIR}/func/sensor/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/func/sensor/sensor_src.mk
-
-echo "clean pcm_resampler lib files..."
-source ${BEKEN_SDK_DIR}/func/pcm_resampler/lib_files.sh
-for sub in ${LIB_FILES}
-do
-	rm -rf $sub
-done
-rm -f ${BEKEN_SDK_DIR}/func/pcm_resampler/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/func/pcm_resampler/pcm_resampler_src.mk
-
-echo "clean vad lib files..."
-source ${BEKEN_SDK_DIR}/func/vad/lib_files.sh
-for sub in ${LIB_FILES}
-do
-	rm -rf $sub
-done
-rm -f ${BEKEN_SDK_DIR}/func/vad/lib_files.sh
-
-echo "clean bt lib files..."
-source ${BEKEN_SDK_DIR}/driver/bt/lib_files.sh
-for sub in ${LIB_FILES}
-do
-	rm -rf $sub
-done
-rm -f ${BEKEN_SDK_DIR}/driver/bt/lib_files.sh
-rm -f ${BEKEN_SDK_DIR}/driver/bt/bt_src.mk
+cd $CUR_DIR

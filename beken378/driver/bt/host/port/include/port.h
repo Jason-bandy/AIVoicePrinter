@@ -7,6 +7,7 @@
 #include <uw_compiler.h>
 #include <uw_controllers.h>
 #include <os_common.h>
+#include "ate_app.h"
 
 #ifdef __cplusplus
 extern "C"
@@ -101,6 +102,9 @@ result_t del_generic_controller(void *handle);
 
 result_t generic_controller_suspend(void *handle);
 result_t generic_controller_resume(void *handle);
+
+void juart_receive(uint8_t *buf, uint16_t size);
+uint16 uart_send_poll(uint8 * buff, int len);
 
 #ifdef __cplusplus
 }

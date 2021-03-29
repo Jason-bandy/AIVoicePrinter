@@ -1,6 +1,5 @@
 #include "include.h"
 #include "arm_arch.h"
-
 #include "drv_model_pub.h"
 #include "intc_pub.h"
 
@@ -16,8 +15,11 @@
 #include "gpio_pub.h"
 #include "gpio.h"
 #include "uart_pub.h"
+#include "mem_pub.h"
 
 static volatile QSPI_GE0_DRV_DESC   *sg_p_qspi_ge0_drv_desc ;
+__maybe_unused static UINT8  qspi_ge0_busy(void);
+void qspi_printf(void);
 
 //#define MIN(a,b)    (((a) < (b)) ? (a) : (b))
 
@@ -27,17 +29,16 @@ static volatile QSPI_GE0_DRV_DESC   *sg_p_qspi_ge0_drv_desc ;
 #define QSPI_GE1_DEP                    0x10
 #define QSPI_FLS_DEP                    0x40
 
-static SDD_OPERATIONS qspi_op = 
+static const SDD_OPERATIONS qspi_op = 
 {
 	qspi_ctrl
 };
-
 
 void qspi_init(void)
 {
 	os_printf("QSPi_init\r\n");
 	intc_service_register(FIQ_PSRAM, PRI_IRQ_QSPI, qspi_isr); 
-	sddev_register_dev(QSPI_DEV_NAME, &qspi_op);	
+	sddev_register_dev(QSPI_DEV_NAME, (SDD_OPERATIONS*)&qspi_op);	
 	os_printf("QSPi_init1\r\n");
 }
 
@@ -54,8 +55,6 @@ static void qspi_psram_set_voltage(UINT32 mode)
     sddev_control(SCTRL_DEV_NAME, CMD_QSPI_IO_VOLTAGE, &param);
     sddev_control(SCTRL_DEV_NAME, CMD_QSPI_VDDRAM_VOLTAGE, &param);
 }
-
-
 
 static void qspi_gpio_configuration(UINT8 LineMode)
 {
@@ -141,8 +140,7 @@ static void qspi_div_clk_set(UINT32 clk)
 	UINT32 val;
 
 	val = REG_READ(QSPI_CTRL);
-	val = (val & (~(0x07 << 8)) | ((clk & 0x07) << 8));
-	
+	val = ((val & (~(0x07 << 8))) | ((clk & 0x07) << 8));
 	REG_WRITE(QSPI_CTRL, val);
 }
 
@@ -436,7 +434,6 @@ static void cpu_delay( volatile unsigned int times)
 	}				
 }
 
-
 int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
 {
     int i, reg, param;
@@ -450,7 +447,7 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
         return QSPI_FAILURE;
     }
 	
-	QSPI_DEBUG_PRINTF("\r\nqspi_set_4line_config:p_QSPI_ge0_drv_desc->mode=%x \r\n",p_QSPI_ge0_drv_desc->mode);
+	QSPI_DEBUG_PRINTF("\r\nqspi_set_line_config:p_QSPI_ge0_drv_desc->mode=%x \r\n",p_QSPI_ge0_drv_desc->mode);
 
     if ((p_QSPI_ge0_drv_desc->mode & 0x03) == 0)        // 1 line mode
     {
@@ -460,7 +457,6 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
     }
     else if ((p_QSPI_ge0_drv_desc->mode & 0x03) == 3)   // 4 line mode
     {
-    
 		QSPI_DEBUG_PRINTF("\r\n 4 line mode send cmd\r\n");
         ucBW  = 1;
         ucCNT = 2;
@@ -481,8 +477,6 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
     ucDir = (p_QSPI_ge0_drv_desc->mode & 0x04) ? 1 : 0;
     sg_p_qspi_ge0_drv_desc = p_QSPI_ge0_drv_desc;
 	
-	//qspi_icu_configuration(1);
-
 	qspi_gpio_configuration((p_QSPI_ge0_drv_desc->mode & 0x03) + 1);
 
 	reg = REG_READ(QSPI_CTRL);
@@ -496,7 +490,6 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
                      | (1     << 0);
 	REG_WRITE(REG_QSPI_SW_CMD, reg);	
 
-	
 	reg = REG_READ(REG_QSPI_SW_ADDR);
     reg = ((p_QSPI_ge0_drv_desc->data_buff_psram_addr & 0x00FFFFFF) << 2)
                      | ((ucCNT*(24/8)) << 26)
@@ -504,7 +497,6 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
                      | ((((p_QSPI_ge0_drv_desc->data_buff_psram_addr>>31) & 1) ? 1 : 0) << 0);
 	REG_WRITE(REG_QSPI_SW_ADDR, reg);
 
-	
 	reg = REG_READ(REG_QSPI_SW_DUM);
     reg  = (p_QSPI_ge0_drv_desc->dummy_size << 2)
                      | (ucBW << 1)
@@ -552,7 +544,6 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
             reg = *(unsigned long *)(p_QSPI_ge0_drv_desc->pdata_buff_ram_addr + p_QSPI_ge0_drv_desc->data_buff_offset);
 			REG_WRITE(REG_QSPI_GE0_DATA, reg);
 			
-//            REG_QSPI_GE1_DATA = *(unsigned long *)(p_QSPI_ge0_drv_desc->pdata_buff_ram_addr + p_QSPI_ge0_drv_desc->data_buff_offset);
             p_QSPI_ge0_drv_desc->data_buff_offset ++;
         }
     }
@@ -616,17 +607,13 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
     return QSPI_SUCCESS;
 }
 
-unsigned char sgucPsramSetLength   = 0;      // bit[0]: 0: 1024 Bytes    1: 32 Bytes
-unsigned char sgucPsramSetLineMode = 0;      // 0: 1 line mode    3: 4 line mode
-
 // ucEnterOrExit:  0: exit  1:enter
-void bk_qspi_psram_quad_mode_switch(unsigned char ucEnterOrExit)
+void bk_qspi_psram_quad_mode_switch(unsigned char is_single_mode)
 {
-
 	QSPI_WPRT("psram:switch line mode \r\n");
     QSPI_GE0_DRV_DESC *p_QSPI_GE0_drv_desc ;
 
-    ucEnterOrExit &= 0x01;
+    is_single_mode &= 0x01;
     p_QSPI_GE0_drv_desc = (QSPI_GE0_DRV_DESC *)os_malloc(sizeof(QSPI_GE0_DRV_DESC));
     if (p_QSPI_GE0_drv_desc == NULL)
     {
@@ -635,10 +622,9 @@ void bk_qspi_psram_quad_mode_switch(unsigned char ucEnterOrExit)
     }
     os_memset(p_QSPI_GE0_drv_desc, 0, sizeof(QSPI_GE0_DRV_DESC));
 
-
-    p_QSPI_GE0_drv_desc->mode                 = (ucEnterOrExit ? 0x00 : 0x03);
+    p_QSPI_GE0_drv_desc->mode                 = (is_single_mode ? 0x00 : 0x03);
     p_QSPI_GE0_drv_desc->clk_set              = 0x10;
-    p_QSPI_GE0_drv_desc->command              = (ucEnterOrExit ? 0x35 : 0xF5);
+    p_QSPI_GE0_drv_desc->command              = (is_single_mode ? 0x35 : 0xF5);
     p_QSPI_GE0_drv_desc->dummy_size           = 0x00;
     p_QSPI_GE0_drv_desc->data_buff_psram_addr = 0x00;
     p_QSPI_GE0_drv_desc->pdata_buff_ram_addr  = NULL;
@@ -652,23 +638,15 @@ void bk_qspi_psram_quad_mode_switch(unsigned char ucEnterOrExit)
         return;
     }
 
-   sgucPsramSetLineMode = (ucEnterOrExit ? 0x03 : 0x00);
-	
-	QSPI_DEBUG_PRINTF("sgucPsramSetLength = 0x%x\r\n", sgucPsramSetLength);
-    QSPI_DEBUG_PRINTF("sgucPsramSetLineMode = 0x%x\r\n", sgucPsramSetLineMode);
-	
-    os_free(p_QSPI_GE0_drv_desc);
+	os_free(p_QSPI_GE0_drv_desc);
+	p_QSPI_GE0_drv_desc = NULL;
 }
 
 void bk_qspi_psram_reset_enable(void)
 {
-
 	QSPI_WPRT("psram: reset enable\r\n");
 
-	int ucEnterOrExit = 0;
-
 	QSPI_GE0_DRV_DESC *p_QSPI_GE0_drv_desc ;
-	
 	p_QSPI_GE0_drv_desc = (QSPI_GE0_DRV_DESC *)os_malloc(sizeof(QSPI_GE0_DRV_DESC));
 	if (p_QSPI_GE0_drv_desc == NULL)
 	{
@@ -696,13 +674,7 @@ void bk_qspi_psram_reset_enable(void)
 		return;
 	}
 
-	sgucPsramSetLineMode = (ucEnterOrExit ? 0x03 : 0x00);
-
-	QSPI_DEBUG_PRINTF("sgucPsramSetLength = 0x%x\r\n", sgucPsramSetLength);
-	QSPI_DEBUG_PRINTF("sgucPsramSetLineMode = 0x%x\r\n", sgucPsramSetLineMode);
-
 	os_free(p_QSPI_GE0_drv_desc);
-	
 }
 
 void bk_qspi_psram_reset(void)
@@ -738,11 +710,6 @@ void bk_qspi_psram_reset(void)
 		os_printf("qspi_ge0_init ERROR!\r\n");
 		return;
 	}
-
-	sgucPsramSetLineMode = (ucEnterOrExit ? 0x03 : 0x00);
-
-	QSPI_DEBUG_PRINTF("sgucPsramSetLength = 0x%x\r\n", sgucPsramSetLength);
-	QSPI_DEBUG_PRINTF("sgucPsramSetLineMode = 0x%x\r\n", sgucPsramSetLineMode);
 
 	os_free(p_QSPI_GE0_drv_desc);
 	QSPI_WPRT("psram: reset ok\r\n");
@@ -784,11 +751,6 @@ void bk_qspi_psram_set_length(void)
 		return;
 	}
 
-	sgucPsramSetLineMode = (ucEnterOrExit ? 0x03 : 0x00);
-
-	QSPI_DEBUG_PRINTF("sgucPsramSetLength = 0x%x\r\n", sgucPsramSetLength);
-	QSPI_DEBUG_PRINTF("sgucPsramSetLineMode = 0x%x\r\n", sgucPsramSetLineMode);
-
 	os_free(p_QSPI_GE0_drv_desc);
 }
 
@@ -805,8 +767,6 @@ static UINT8  qspi_ge0_busy(void)
 
 	return 0;
 }
-
-
 
 #define GPIO_PSRSM_CE 		REG_GPIO_26_CONFIG
 #define GPIO_PSRSM_CLK 		REG_GPIO_24_CONFIG

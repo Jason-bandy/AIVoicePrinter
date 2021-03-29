@@ -465,14 +465,10 @@ int wpa_pmk_to_ptk(const u8 *pmk, size_t pmk_len, const char *label,
 	os_memcpy(ptk->tk, tmp + ptk->kck_len + ptk->kek_len, ptk->tk_len);
 	wpa_hexdump_key(MSG_DEBUG, "WPA: TK", ptk->tk, ptk->tk_len);
 
-//#ifndef CONFIG_NO_STDOUT_DEBUG
-	/* always display TK value */
-	//print_hex_dump("WPA: TK ", ptk->tk, ptk->tk_len);
-	bk_printf("WPA: TK ");
+	WPA_LOGI("WPA: TK ");
 	for (i = 0; i < ptk->tk_len; i++)
-		bk_printf("%02x", ptk->tk[i]);
-	bk_printf("\n");
-//#endif
+		os_printf("%02x", ptk->tk[i]);
+	os_printf("\n");
 
 	ptk->kek2_len = 0;
 	ptk->kck2_len = 0;

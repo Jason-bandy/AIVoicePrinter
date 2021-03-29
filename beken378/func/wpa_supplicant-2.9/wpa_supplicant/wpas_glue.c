@@ -1135,10 +1135,13 @@ static int wpa_supplicant_key_mgmt_set_pmk(void *ctx, const u8 *pmk,
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static void wpa_supplicant_fils_hlp_rx(void *ctx, const u8 *dst, const u8 *src,
 				       const u8 *pkt, size_t pkt_len)
 {
+#ifndef CONFIG_NO_STDOUT_DEBUG
 	struct wpa_supplicant *wpa_s = ctx;
+#endif
 	char *hex;
 	size_t hexlen;
 
@@ -1160,6 +1163,7 @@ static int wpa_supplicant_channel_info(void *_wpa_s,
 
 	return wpa_drv_channel_info(wpa_s, ci);
 }
+#endif
 
 #endif /* CONFIG_NO_WPA */
 

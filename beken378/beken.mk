@@ -12,6 +12,8 @@ endif
 $(NAME)_INCLUDES := app/standalone-ap \
 					app/standalone-station \
 					app/http \
+					app/video_work \
+					app/net_work \
 					driver/sdio \
 					driver/uart \
 					driver/sys_ctrl \
@@ -26,6 +28,7 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					driver/rw_pub \
 					driver/icu \
 					driver/i2c \
+					driver/jpeg \
 					driver/calendar \
 					func/sdio_intf \
 					func/power_save \
@@ -79,6 +82,13 @@ $(NAME)_SOURCES :=  app/app.c \
 					app/http/utils_net.c \
 					app/http/utils_timer.c \
 					app/http/lite-log.c \
+					app/video_work/video_transfer_tcp.c \
+					app/video_work/video_transfer_udp.c \
+					app/video_work/video_buffer.c \
+					app/net_work/video_demo_main.c \
+					app/net_work/video_demo_station.c \
+					app/net_work/video_demo_softap.c \
+					common/log.c \
 					driver/common/dd.c \
 					driver/common/drv_model.c \
 					driver/dma/dma.c \
@@ -88,6 +98,7 @@ $(NAME)_SOURCES :=  app/app.c \
 					driver/gpio/gpio.c \
 					driver/i2c/i2c1.c \
 					driver/i2c/i2c2.c \
+					driver/jpeg/jpeg_encoder.c \
 					driver/icu/icu.c \
 					driver/irda/irda.c \
 					driver/macphy_bypass/mac_phy_bypass.c \
@@ -117,6 +128,7 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/bk7011_cal/bk7221U_cal.c \
 					func/bk7011_cal/manual_cal_bk7231.c \
 					func/bk7011_cal/manual_cal_bk7231U.c \
+					func/bk7011_cal/bk_pwr_tbl.c \
 					func/func.c \
 					func/hostapd_intf/hostapd_intf.c \
 					func/misc/fake_clock.c \
@@ -152,7 +164,6 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/lwip_intf/dhcpd/dhcp-server.c \
 					func/camera_intf/camera_intf.c \
 					func/video_transfer/video_transfer.c \
-					func/video_transfer/video_buffer.c \
 					func/rf_use/arbitrate.c \
 					func/ble_wifi_exchange/ble_wifi_port.c
 

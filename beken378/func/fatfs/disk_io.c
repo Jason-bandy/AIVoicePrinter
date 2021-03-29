@@ -13,6 +13,7 @@
 #include "target_util_pub.h"
 #include "ff.h"
 #include "usb_pub.h"
+#include "usb_msd.h"
 
 #define USB_RET_OK			0
 #define USB_RET_ERROR 		1
@@ -182,7 +183,6 @@ DRESULT disk_read (
     BYTE count		/* Number of sectors to read (1..255) */
 )
 {
-    volatile int try_num = 0;
     cur_disk_type = drv;
 	DRESULT ret;
 

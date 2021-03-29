@@ -32,6 +32,14 @@
 #define CONFIG_IEEE80211N                          1
 #endif
 
+#if CFG_AP_SUPPORT_VHT
+#define CONFIG_IEEE80211AC
+#endif
+
+#if CFG_AP_SUPPORT_HE
+#define CONFIG_IEEE80211AX
+#endif
+
 /* Driver interface for beken driver */
 #define CONFIG_DRIVER_BEKEN                        1
 

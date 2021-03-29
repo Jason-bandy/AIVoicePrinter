@@ -12,6 +12,8 @@
 #include "phy.h"
 #include "mac_frame.h"
 #include "mac_ie.h"
+#include "wlan_ui_pub.h"
+
 #ifdef RT_USING_AIRKISS
 #define AIRKISS_PRINTF rt_kprintf
 #define AIRKISS_SWITCH_TIMER    rt_tick_from_millisecond(50)    // 50ms
@@ -88,7 +90,7 @@ static void  bk_wifi_scan(void)
     if (!wlan)
     {
         AIRKISS_PRINTF("no wlan device\n");
-        return 0;
+        return;
     }
     rt_wlan_scan(wlan,RT_NULL, &scan_result);
     airkiss_info->ap_num=0;
@@ -123,27 +125,25 @@ static void  bk_wifi_scan(void)
         rt_wlan_release_scan_result(&scan_result);
 }
 
-static int bk_airkiss_check_channel(uint8_t * frame) 
-{ 
-    int isvalid = 0, channel=0;; 
-    uint8_t *src=NULL,*bssi=NULL;
+static int bk_airkiss_check_channel(uint8_t * frame)
+{
+    int channel=0;
+    uint8_t *bssi=NULL;
 
-    struct mac_hdr *fmac_hdr = (struct mac_hdr *)frame;   
-    if((fmac_hdr->fctl & MAC_FCTRL_TODS_FROMDS) == MAC_FCTRL_FROMDS) 
+    struct mac_hdr *fmac_hdr = (struct mac_hdr *)frame;
+    if((fmac_hdr->fctl & MAC_FCTRL_TODS_FROMDS) == MAC_FCTRL_FROMDS)
     {
         AIRKISS_PRINTF("=======from ds===========\r\n");
-        //src = (uint8_t*)&fmac_hdr->addr3;
         bssi=(uint8_t*)&fmac_hdr->addr2;
     }
-    else if((fmac_hdr->fctl & MAC_FCTRL_TODS_FROMDS) == MAC_FCTRL_TODS) 
+    else if((fmac_hdr->fctl & MAC_FCTRL_TODS_FROMDS) == MAC_FCTRL_TODS)
     {
         AIRKISS_PRINTF("=======to ds===========\r\n");
-        //src = (uint8_t*)&fmac_hdr->addr2;
         bssi= (uint8_t*)&fmac_hdr->addr1;
     }
     AIRKISS_PRINTF("bssi %02x:%02x:%02x:%02x:%02x:%02x\n",bssi[0],bssi[1],bssi[2],bssi[3],bssi[4],bssi[5]);
     channel=get_channel_with_bssid(bssi);
- 
+
     if(0==channel)
     {
         AIRKISS_PRINTF("wifi scan null,goto normal airkiss\r\n");
@@ -158,8 +158,8 @@ static int bk_airkiss_check_channel(uint8_t * frame)
         AIRKISS_PRINTF("channel Lock right\r\n");
         channel=0;
     }
-    return channel; 
-} 
+    return channel;
+}
 
 static void get_channel_list_to_switch()
 {
@@ -226,32 +226,28 @@ static void airkiss_doing_timeout(void *parameter)
 
 static void airkiss_monitor_callback(uint8_t *data, int len, void *user_data)
 {
-
-    int ret;
     if(airkiss_recv_ret==AIRKISS_STATUS_COMPLETE)
         return;
     airkiss_recv_ret = airkiss_recv(ak_contex, data, len);
     if (airkiss_recv_ret == AIRKISS_STATUS_CHANNEL_LOCKED)
-    {      
+    {
         if(bk_airkiss_check_channel(data))
-        {   
+        {
             lock_channel_err_flag=1;
             AIRKISS_PRINTF("Lock channel error,lock again\r\n");
         }
         else
-        {  
-            AIRKISS_PRINTF("Lock channel:%d\r\n",g_current_channel);        
-            rt_timer_stop(g_switch_timer); 
+        {
+            AIRKISS_PRINTF("Lock channel:%d\r\n",g_current_channel);
+            rt_timer_stop(g_switch_timer);
             rt_timer_start(g_doing_timer);
         }
-       
     }
     else if (airkiss_recv_ret == AIRKISS_STATUS_COMPLETE)
     {
         rt_sem_release(g_cfg_done_sem);
-        rt_timer_stop(g_doing_timer);  
+        rt_timer_stop(g_doing_timer);
     }
-
 }
 
 static int get_wifi_status(struct netif *netif)
@@ -276,7 +272,6 @@ static int station_connect(char *ssid, char *passwd)
     rt_err_t result = RT_EOK;
     struct rt_wlan_info info;
     struct rt_wlan_device *wlan;
-    rt_tick_t tick = 0;
 
     wlan = (struct rt_wlan_device *)rt_device_find(WIFI_DEVICE_STA_NAME);
     if (!wlan)
@@ -331,7 +326,7 @@ static void airkiss_send_notification_thread(void *parameter)
 
     for (int i = 0; i <= 20; i++)
     {
-        int ret = sendto(sock, (char *)&random, 1, 0, (struct sockaddr *)&g_stUDPBCAddr, sizeof(g_stUDPBCAddr));
+        sendto(sock, (char *)&random, 1, 0, (struct sockaddr *)&g_stUDPBCAddr, sizeof(g_stUDPBCAddr));
         rt_thread_delay(10);
     }
 
@@ -546,11 +541,12 @@ int start_airkiss(void)
 
 int stop_airkiss(void)
 {
+	if(!airkiss_tid) {
+		return -1;
+	}
 
-    if(!airkiss_tid)
-        return -1;
-    
-    rt_sem_release(g_cfg_done_sem);
+	rt_sem_release(g_cfg_done_sem);
+	return 0;
 }
 
 MSH_CMD_EXPORT(start_airkiss, start_ariksss);

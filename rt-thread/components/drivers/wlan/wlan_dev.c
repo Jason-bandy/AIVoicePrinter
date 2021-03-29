@@ -315,6 +315,8 @@ int rt_wlan_indicate_event_handle(struct rt_wlan_device *device, rt_wlan_event_t
     case WIFI_EVT_AP_ASSOCIATE_FAILED:
         break;
 #endif
+	default:
+		break;
     }
 
     if (device->handler[event] != RT_NULL)

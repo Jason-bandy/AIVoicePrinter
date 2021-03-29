@@ -10,6 +10,8 @@
 #endif
 #endif
 
+#include "gattc.h"
+
 ble_notice_cb_t ble_event_notice = NULL;
 extern struct app_env_tag app_ble_env;
 #if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
@@ -62,11 +64,11 @@ ble_err_t bk_ble_adv_start(uint8_t actv_idx, struct adv_param *adv, ble_cmd_cb_t
 				app_ble_reset();
 			}
 		} else {
-			bk_printf("Unknow actv idx[%d]\r\n", actv_idx);
+			BLE_LOGI("Unknow actv idx[%d]\r\n", actv_idx);
 			return ERR_UNKNOW_IDX;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -87,11 +89,11 @@ ble_err_t bk_ble_adv_stop(uint8_t actv_idx, ble_cmd_cb_t callback)
 				app_ble_reset();
 			}
 		} else {
-			bk_printf("Unknow actv idx[%d]\r\n", actv_idx);
+			BLE_LOGI("Unknow actv idx[%d]\r\n", actv_idx);
 			return ERR_UNKNOW_IDX;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -113,11 +115,11 @@ ble_err_t bk_ble_scan_start(uint8_t actv_idx, struct scan_param *scan, ble_cmd_c
 				app_ble_reset();
 			}
 		} else {
-			bk_printf("Unknow actv idx[%d]\r\n", actv_idx);
+			BLE_LOGI("Unknow actv idx[%d]\r\n", actv_idx);
 			return ERR_UNKNOW_IDX;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -138,11 +140,11 @@ ble_err_t bk_ble_scan_stop(uint8_t actv_idx, ble_cmd_cb_t callback)
 				app_ble_reset();
 			}
 		} else {
-			bk_printf("Unknow actv idx[%d]\r\n", actv_idx);
+			BLE_LOGI("Unknow actv idx[%d]\r\n", actv_idx);
 			return ERR_UNKNOW_IDX;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -166,7 +168,7 @@ ble_err_t bk_ble_create_advertising(uint8_t actv_idx,
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -186,7 +188,7 @@ ble_err_t bk_ble_start_advertising(uint8_t actv_idx, uint16 duration, ble_cmd_cb
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -206,7 +208,7 @@ ble_err_t bk_ble_stop_advertising(uint8_t actv_idx, ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -226,7 +228,7 @@ ble_err_t bk_ble_delete_advertising(uint8_t actv_idx, ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -240,7 +242,7 @@ ble_err_t bk_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsigne
 
 	if(adv_len > ADV_DATA_LEN)
 	{
-		bk_printf("adv_data_len error:%d\r\n", adv_len);
+		BLE_LOGI("adv_data_len error:%d\r\n", adv_len);
 		return ERR_ADV_DATA;
 	}
 
@@ -252,7 +254,7 @@ ble_err_t bk_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsigne
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -266,7 +268,7 @@ ble_err_t bk_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, u
 
 	if (scan_len > ADV_DATA_LEN)
 	{
-		bk_printf("scan_rsp_len error:%d\r\n", scan_len);
+		BLE_LOGI("scan_rsp_len error:%d\r\n", scan_len);
 		return ERR_ADV_DATA;
 	}
 
@@ -278,7 +280,7 @@ ble_err_t bk_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, u
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -305,7 +307,7 @@ ble_err_t bk_ble_update_param(uint8_t conn_idx, uint16_t intv_min, uint16_t intv
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -325,7 +327,7 @@ ble_err_t bk_ble_disconnect(uint8_t conn_idx, ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -345,7 +347,7 @@ ble_err_t bk_ble_gatt_mtu_change(uint8_t conn_idx,ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -366,7 +368,7 @@ ble_err_t bk_ble_create_scaning(uint8_t actv_idx, ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -386,7 +388,7 @@ ble_err_t bk_ble_start_scaning(uint8_t actv_idx, uint16_t scan_intv, uint16_t sc
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -406,7 +408,7 @@ ble_err_t bk_ble_stop_scaning(uint8_t actv_idx, ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -426,7 +428,7 @@ ble_err_t bk_ble_delete_scaning(uint8_t actv_idx, ble_cmd_cb_t callback)
 			app_ble_reset();
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -451,7 +453,7 @@ ble_err_t bk_ble_create_init(uint8_t con_idx,
 			ret = ERR_INIT_CREATE;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -488,7 +490,7 @@ ble_err_t bk_ble_init_start_conn(uint8_t con_idx,ble_cmd_cb_t callback)
 			ret = ERR_INIT_CREATE;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -509,7 +511,7 @@ ble_err_t bk_ble_init_stop_conn(uint8_t con_idx,ble_cmd_cb_t callback)
 			ret = ERR_INIT_CREATE;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -537,7 +539,7 @@ ble_err_t bk_ble_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle,
 			ret = ERR_INIT_CREATE;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -558,7 +560,7 @@ ble_err_t bk_ble_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t 
 			ret = ERR_INIT_CREATE;
 		}
 	} else {
-		bk_printf("ble is not ready\r\n");
+		BLE_LOGI("ble is not ready\r\n");
 		ret = ERR_BLE_STATUS;
 	}
 

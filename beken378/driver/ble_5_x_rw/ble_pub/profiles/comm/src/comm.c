@@ -48,7 +48,7 @@ static uint8_t bk_ble_service_init (struct prf_task_env* env, uint16_t* start_hd
         env->id                     = params->prf_task_id;
         comm_task_init(&(env->desc), ble_env->state);
 
-        bk_printf("ble_env->start_hdl = 0x%x\r\n",ble_env->start_hdl);
+        BLE_LOGI("ble_env->start_hdl = 0x%x\r\n",ble_env->start_hdl);
 
         // service is ready, go into an Idle state
         kernel_state_set(env->task, BLE_IDLE);

@@ -61,7 +61,7 @@ uint8_t app_sdp_add_element_srv(uint8_t conidx,struct gattc_sdp_svc_ind const *i
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]conidx:%d,conhdl:%d,service UUID:0x%02x%02x\r\n",__func__,conidx,conhdl,ind->uuid[1],ind->uuid[0]);
+	BLE_LOGI("[%s]conidx:%d,conhdl:%d,service UUID:0x%02x%02x\r\n",__func__,conidx,conhdl,ind->uuid[1],ind->uuid[0]);
 #endif
 
 	if (app_sdp_env.filtration)
@@ -89,13 +89,13 @@ uint8_t app_sdp_add_element_srv(uint8_t conidx,struct gattc_sdp_svc_ind const *i
 	if(prf_db_env != NULL)
 	{
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("char nb:%d\r\n",prf_db_env->sdp_cont->chars_nb);
+		BLE_LOGI("char nb:%d\r\n",prf_db_env->sdp_cont->chars_nb);
 		#endif
 		for(i = 0;i < prf_db_env->sdp_cont->chars_nb;i++)
 		{
 			uint16_t val_hdl = prf_db_env->sdp_cont->chars_descs_inf.chars_inf[i].val_hdl;
 			#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-			bk_printf("char valhdl:%d[0x%02x]\r\n",val_hdl,val_hdl);
+			BLE_LOGI("char valhdl:%d[0x%02x]\r\n",val_hdl,val_hdl);
 			#endif
 			app_sdp_characteristic_callback_handler(conidx,val_hdl,
 				prf_db_env->sdp_cont->chars_descs_inf.chars_inf[i].uuid_len,
@@ -111,13 +111,16 @@ uint8_t app_sdp_add_element_srv(uint8_t conidx,struct gattc_sdp_svc_ind const *i
 
 
 #define APPM_ERROR_NO_ERROR    0
-#define APPM_ERROR_STATE      -1
+#define APPM_ERROR_STATE       (0xFF)
 
 uint8_t appc_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t data_len,uint8_t *data)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]state = %x,",__func__,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
-	bk_printf("conidx:%d,handle = 0x%04x\r\n",conidx,handle);
+	BLE_LOGI("[%s]state = %x,",__func__,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
+	BLE_LOGI("conidx:%d,handle = 0x%04x\r\n",conidx,handle);
 #endif
 	uint8_t ret = 0;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
@@ -137,13 +140,13 @@ uint8_t appc_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t data
 		req->length = data_len;
 		memcpy(req->data,data,data_len);
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("dest = 0x%04x\r\n",prf_get_task_from_id(KERNEL_BUILD_ID((TASK_BLE_ID_SDP+conhdl),0)));
-		bk_printf("data len:%d,",data_len);
+		BLE_LOGI("dest = 0x%04x\r\n",prf_get_task_from_id(KERNEL_BUILD_ID((TASK_BLE_ID_SDP+conhdl),0)));
+		BLE_LOGI("data len:%d,",data_len);
 		for(int i = 0;i<data_len;i++)
 		{
-			bk_printf("%02x ",data[i]);
+			BLE_LOGI("%02x ",data[i]);
 		}
-		bk_printf("\r\n");
+		BLE_LOGI("\r\n");
 		#endif
 
 		// Send the message
@@ -153,7 +156,7 @@ uint8_t appc_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t data
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
+		BLE_LOGI("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
 		#endif
 	}
 
@@ -162,9 +165,12 @@ uint8_t appc_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t data
 
 uint8_t appc_write_service_ntf_cfg_req(uint8_t conidx,uint16_t handle,uint16_t ntf_cfg,uint16_t seq_num)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]state = %x,",__func__,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,conidx)));
-	bk_printf("conidx:%d,handle = 0x%04x,ntf_cfg = 0x%x\r\n",conidx,handle,ntf_cfg);
+	BLE_LOGI("[%s]state = %x,",__func__,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,conidx)));
+	BLE_LOGI("conidx:%d,handle = 0x%04x,ntf_cfg = 0x%x\r\n",conidx,handle,ntf_cfg);
 #endif
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
@@ -178,7 +184,7 @@ uint8_t appc_write_service_ntf_cfg_req(uint8_t conidx,uint16_t handle,uint16_t n
 											KERNEL_BUILD_ID(TASK_BLE_APP,conidx),
 											sdp_write_ntf_cfg_req);
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("dest = 0x%04x\r\n",prf_get_task_from_id(KERNEL_BUILD_ID((TASK_BLE_ID_SDP+conhdl),0)));
+		BLE_LOGI("dest = 0x%04x\r\n",prf_get_task_from_id(KERNEL_BUILD_ID((TASK_BLE_ID_SDP+conhdl),0)));
 	#endif
 		// Fill in the parameter structure
 		req->conidx = conidx;
@@ -192,7 +198,7 @@ uint8_t appc_write_service_ntf_cfg_req(uint8_t conidx,uint16_t handle,uint16_t n
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_APPC) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,conidx)));
+		BLE_LOGI("kernel_state_get(TASK_APPC) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,conidx)));
 		#endif
 	}
 
@@ -201,14 +207,17 @@ uint8_t appc_write_service_ntf_cfg_req(uint8_t conidx,uint16_t handle,uint16_t n
 
 uint8_t appm_read_service_data_by_uuid_req(uint8_t conidx,uint8_t uuid_len,uint8_t* uuid)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
 #endif
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 	struct prf_sdp_db_env *sdp_db_env;
 
-	sdp_db_env = sdp_profiles_sdp_db_env_from_uuid(conhdl,uuid,uuid_len);
+	sdp_db_env = sdp_profiles_sdp_db_env_from_uuid(conhdl,uuid_len,(const uint8_t *)uuid);
 
 	if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED) && sdp_db_env)
 	{
@@ -229,7 +238,7 @@ uint8_t appm_read_service_data_by_uuid_req(uint8_t conidx,uint8_t uuid_len,uint8
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(TASK_BLE_APP));
+		BLE_LOGI("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(TASK_BLE_APP));
 		#endif
 	}
 
@@ -238,17 +247,20 @@ uint8_t appm_read_service_data_by_uuid_req(uint8_t conidx,uint8_t uuid_len,uint8
 
 uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
+
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
-	struct prf_sdp_db_env *sdp_db_env;
+	struct prf_sdp_db_env *sdp_db_env = NULL;
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]conidx:%d,conhdl:%d,handle:0x%x,status:0x%x\r\n",__func__,conidx,conhdl,handle,KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx)));
+	BLE_LOGI("[%s]conidx:%d,conhdl:%d,handle:0x%x,status:0x%x\r\n",__func__,conidx,conhdl,handle,KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx)));
 #endif
 	sdp_db_env = sdp_profiles_sdp_db_env(conhdl,handle);
-	bk_printf("[%s]sdp_db_env:%p;prf_idx:%d,state:%x\r\n",__func__,sdp_db_env,sdp_db_env->prf_idx,(KERNEL_BUILD_ID((TASK_BLE_ID_SDP+sdp_db_env->prf_idx),0)));
 
-	if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED)
+	if( (kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED)
 		&& (sdp_db_env != NULL))
 	{
 		struct sdp_read_info_req *req = KERNEL_MSG_ALLOC(SDP_READ_INFO_REQ,
@@ -259,7 +271,7 @@ uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 		req->handle = handle;
 		req->info = SDPC_CHAR_VAL;
 		req->type = SDPC_OPERATE_HANDLE;
-		bk_printf("[%s]send SDP_READ_INFO_REQ\r\n",__func__);
+
 		// Send the message
 		kernel_msg_send(req);
 	}
@@ -267,7 +279,7 @@ uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_BLE_APP) = %x,sdp_db_env:%p\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))),sdp_db_env);
+		BLE_LOGI("kernel_state_get(TASK_BLE_APP) = %x,sdp_db_env:%x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))),sdp_db_env);
 		#endif
 	}
 
@@ -276,12 +288,15 @@ uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 
 uint8_t appm_read_service_ntf_ind_cfg_by_handle_req(uint8_t conidx,uint16_t handle)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 	struct prf_sdp_db_env *sdp_db_env;
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
 #endif
 	sdp_db_env = sdp_profiles_sdp_db_env(conhdl,handle);
 	if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED) && sdp_db_env)
@@ -301,7 +316,7 @@ uint8_t appm_read_service_ntf_ind_cfg_by_handle_req(uint8_t conidx,uint16_t hand
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
+		BLE_LOGI("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
 		#endif
 	}
 
@@ -310,12 +325,15 @@ uint8_t appm_read_service_ntf_ind_cfg_by_handle_req(uint8_t conidx,uint16_t hand
 
 uint8_t appm_read_service_userDesc_by_handle_req(uint8_t conidx,uint16_t handle)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 	struct prf_sdp_db_env *sdp_db_env;
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
 #endif
 	sdp_db_env = sdp_profiles_sdp_db_env(conhdl,handle);
 	if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED) && sdp_db_env)
@@ -337,7 +355,7 @@ uint8_t appm_read_service_userDesc_by_handle_req(uint8_t conidx,uint16_t handle)
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
+		BLE_LOGI("kernel_state_get(TASK_BLE_APP) = %x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
 		#endif
 	}
 

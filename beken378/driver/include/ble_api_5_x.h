@@ -255,6 +255,9 @@ typedef enum {
 	ERR_NO_MEM,
 	ERR_INIT_CREATE,
 	ERR_INIT_STATE,
+
+	ERR_ATTC_WRITE,
+	ERR_ATTC_WRITE_UNREGISTER,
 } ble_err_t;
 
 typedef struct{

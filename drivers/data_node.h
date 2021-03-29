@@ -4,6 +4,14 @@
 #include <rtthread.h>
 #include "co_list.h"
 
+#define DAC_PLAY_NODE_ADDR (0x0C924000)
+#define DAC_PLAY_NODE_SIZE (2048)
+
+struct adc_dac_context {
+	struct co_list using_list;
+	struct co_list free_list;
+};
+
 typedef struct dma_buffer_node {
 	struct co_list_hdr header;
 	uint8_t *buffer;

@@ -1,6 +1,8 @@
 #ifndef _ERROR_H_
 #define _ERROR_H_
 
+#include "bk_err.h"
+
 #define kNoErr                      0       //! No error occurred.
 #define kGeneralErr                -1       //! General error.
 #define kInProgressErr              1       //! Operation in progress.

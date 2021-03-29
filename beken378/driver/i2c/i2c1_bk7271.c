@@ -12,7 +12,7 @@
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 
-static DD_OPERATIONS i2c1_op =
+static const DD_OPERATIONS i2c1_op =
 {
     i2c1_open,
     i2c1_close,
@@ -49,14 +49,15 @@ static void i2c1_set_freq_div(UINT32 div)
 
     reg_val = (reg_val & ~(I2C1_FREQ_DIV_MASK<< I2C1_FREQ_DIV_POSI)) 
         | ((div & I2C1_FREQ_DIV_MASK) << I2C1_FREQ_DIV_POSI);
-    
+
     REG_WRITE(REG_I2C1_CONFIG, reg_val);
 }
 
+__maybe_unused static void i2c1_set_slave_addr(UINT32 addr);
 static void i2c1_set_slave_addr(UINT32 addr)
 {
     UINT32 reg_val = REG_READ(REG_I2C1_CONFIG);
-    
+
     reg_val = (reg_val & ~(I2C1_SLV_ADDR_MASK<< I2C1_SLV_ADDR_POSI)) 
         | ((addr & I2C1_SLV_ADDR_MASK) << I2C1_SLV_ADDR_POSI);
     REG_WRITE(REG_I2C1_CONFIG, reg_val);
@@ -116,11 +117,12 @@ static void i2c1_set_smbus_en(UINT32 en)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+__maybe_unused static void i2c1_clk_source_set_26M(void);
 static void i2c1_clk_source_set_26M(void)
-{   
+{
 	UINT32 param;
 	param = PCLK_POSI_I2C1;
-	sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, &param);	
+	sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, &param);
 }
 
 static void i2c1_gpio_config(void)
@@ -249,30 +251,28 @@ static void i2c1_send_start(void)
     //write address into REG_I2C1_DATA
     i2c1_send_addr();
 
-	// set start bit and mode int	
+	// set start bit and mode int
 	cfg_data = REG_READ(REG_I2C1_STA);
 	cfg_data = cfg_data & 0xFFFBUL;
 	cfg_data |= (int_mode << 6);
 	cfg_data |= I2C1_SMBUS_STA;
-	
-	REG_WRITE(REG_I2C1_STA, cfg_data);	
+
+	REG_WRITE(REG_I2C1_STA, cfg_data);
 }
 
 static void i2c1_get_message(I2C1_MSG_ST *i2c1_config)
 {
-	UINT32 reg;
-
 	gi2c1 = i2c1_config;
-	
-    I2C1_PRT("gi2c1.WkMode = 0x%x\r\n",   gi2c1->WkMode);
-    I2C1_PRT("gi2c1.SalveID= 0x%x\r\n",   gi2c1->Slave_addr);
-    I2C1_PRT("gi2c1.SendAddr = 0x%x\r\n", gi2c1->SendAddr);
-    I2C1_PRT("gi2c1.ack_check = %d\r\n",  gi2c1->ack_check);
-    I2C1_PRT("gi2c1.AddrFlag = %d\r\n",   gi2c1->AddrFlag);
-    I2C1_PRT("gi2c1.CurrentNum = %d\r\n", gi2c1->CurrentNum);
-    I2C1_PRT("gi2c1.InnerAddr = %d\r\n",  gi2c1->InnerAddr);
-    I2C1_PRT("gi2c1.TransDone = %d\r\n",  gi2c1->TransDone);	
-    I2C1_PRT("gi2c1.AllDataNum = %d\r\n", gi2c1->AllDataNum);
+
+	I2C1_PRT("gi2c1.WkMode = 0x%x\r\n",   gi2c1->WkMode);
+	I2C1_PRT("gi2c1.SalveID= 0x%x\r\n",   gi2c1->Slave_addr);
+	I2C1_PRT("gi2c1.SendAddr = 0x%x\r\n", gi2c1->SendAddr);
+	I2C1_PRT("gi2c1.ack_check = %d\r\n",  gi2c1->ack_check);
+	I2C1_PRT("gi2c1.AddrFlag = %d\r\n",   gi2c1->AddrFlag);
+	I2C1_PRT("gi2c1.CurrentNum = %d\r\n", gi2c1->CurrentNum);
+	I2C1_PRT("gi2c1.InnerAddr = %d\r\n",  gi2c1->InnerAddr);
+	I2C1_PRT("gi2c1.TransDone = %d\r\n",  gi2c1->TransDone);
+	I2C1_PRT("gi2c1.AllDataNum = %d\r\n", gi2c1->AllDataNum);
 }
 
 static UINT8  i2c1_get_busy(void)
@@ -767,7 +767,7 @@ static void i2c1_isr(void)
 
 static void i2c1_software_init(void)
 {
-    ddev_register_dev(I2C1_DEV_NAME, &i2c1_op);
+    ddev_register_dev(I2C1_DEV_NAME, (DD_OPERATIONS*)&i2c1_op);
 }
 
 static void i2c1_hardware_init(void)

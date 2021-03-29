@@ -1,6 +1,8 @@
 #include <rtthread.h>
 #include "board.h"
 #include "sys_config.h"
+#include "typedef.h"
+#include "mem_pub.h"
 
 #define SHRAM_WORK_AROUND       0
 #if SHRAM_WORK_AROUND
@@ -251,7 +253,7 @@ void *shram_calloc(unsigned int n, unsigned int size)
 
 	ptr = shram_malloc(n * size);
 	if (ptr)
-		memset(ptr, 0, n * size);
+		os_memset(ptr, 0, n * size);
 
 	return ptr;
 }
@@ -296,7 +298,7 @@ void *sdram_calloc(unsigned int n, unsigned int size)
 
 	ptr = rt_malloc(n * size);
 	if (ptr)
-		memset(ptr, 0, n * size);
+		os_memset(ptr, 0, n * size);
 
 	return ptr;
 }

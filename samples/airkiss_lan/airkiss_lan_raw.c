@@ -63,7 +63,14 @@ static const airkiss_config_t ak_conf =
 #endif
 
 /**************************************************/
+#define AIRKISS_LAN_DEBUG 0
+#if AIRKISS_LAN_DEBUG
 #define DEBUG_PRINTF     rt_kprintf("[airkiss_lan] ");rt_kprintf
+#else
+#define DEBUG_PRINTF(...)
+#endif
+
+#define ERROR_PRINTF     rt_kprintf("[airkiss_lan] ");rt_kprintf
 
 #define malloc  rt_malloc
 #define realloc rt_realloc
@@ -84,6 +91,7 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
     char *lan_buf = RT_NULL;
     uint16_t lan_buf_len;
     struct pbuf *q = RT_NULL;
+	err_t lwip_ret = ERR_OK;
 
     DEBUG_PRINTF("recv %d byte from(%s , %d)\n", p->tot_len, ipaddr_ntoa(recv_addr), port);
 
@@ -119,7 +127,7 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
 
             if(!lan_buf)
             {
-                DEBUG_PRINTF("no memory for lan_buf!\n");
+                ERROR_PRINTF("no memory for lan_buf!\n");
                 goto _exit;
             }
 
@@ -127,7 +135,7 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
             0, 0, lan_buf, &lan_buf_len, &ak_conf);
             if (packret != AIRKISS_LAN_PAKE_READY)
             {
-                DEBUG_PRINTF("Pack lan packet error!\n");
+                ERROR_PRINTF("Pack lan packet error!\n");
                 goto _exit;
             }
 
@@ -136,18 +144,18 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
             if (q)
             {
                 pbuf_take(q, lan_buf, lan_buf_len);
-                packret = udp_sendto(pcb, q, recv_addr, port);
+                lwip_ret = udp_sendto(pcb, q, recv_addr, port);
                 DEBUG_PRINTF("pack %d byte to(%s , %d)\n", lan_buf_len, ipaddr_ntoa(recv_addr), port);
             }
             else
             {
-                DEBUG_PRINTF("no memory for send alloc!\n");
-                packret = ERR_MEM;
+                ERROR_PRINTF("no memory for send alloc!\n");
+                lwip_ret = ERR_MEM;
             }
 
-            if (packret != ERR_OK)
+            if (lwip_ret != ERR_OK)
             {
-                DEBUG_PRINTF("LAN UDP Send err! %d:%d\n", packret, lan_buf_len);
+                ERROR_PRINTF("LAN UDP Send err! %d:%d\n", lwip_ret, lan_buf_len);
             }
         }
         break;
@@ -155,7 +163,7 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
         default:
         if (ret != AIRKISS_LAN_CONTINUE)
         {
-            DEBUG_PRINTF("Pack %d is not ssdq req!\n", ret);
+            ERROR_PRINTF("Pack %d is not ssdq req!\n", ret);
         }
         break;
     }
@@ -176,14 +184,14 @@ int airkiss_lan_init(void)
 {
     if(airkiss_pcb)
     {
-        DEBUG_PRINTF("already init.\n");
+        ERROR_PRINTF("already init.\n");
         return -1;
     }
 
     airkiss_pcb = udp_new();
     if(!airkiss_pcb)
     {
-        DEBUG_PRINTF("create pcb faild.\n");
+        ERROR_PRINTF("create pcb faild.\n");
         return -1;
     }
 

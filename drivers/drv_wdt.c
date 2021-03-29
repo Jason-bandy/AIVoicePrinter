@@ -92,8 +92,8 @@ INIT_DEVICE_EXPORT(rt_hw_wdt_init);
 
 int rt_hw_wdt_exit(void)
 {
-    /* unregister device */
-    rt_device_unregister(&(wdt_dev.parent));
+	/* unregister device */
+	return rt_device_unregister(&(wdt_dev.parent));
 }
 
 #endif

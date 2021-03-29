@@ -36,6 +36,7 @@
 
 static const u8 null_rsc[8] = { 0, 0, 0, 0, 0, 0, 0, 0 };
 
+__maybe_unused static void wpa_supplicant_key_mgmt_set_pmk(struct wpa_sm *sm);
 
 /**
  * wpa_eapol_key_send - Send WPA/RSN EAPOL-Key message
@@ -266,6 +267,7 @@ static int wpa_supplicant_get_pmk(struct wpa_sm *sm,
 {
 	int abort_cached = 0;
 
+	__maybe_unused_var(abort_cached);
 	if (pmkid && !sm->cur_pmksa) {
 		/* When using drivers that generate RSN IE, wpa_supplicant may
 		 * not have enough time to get the association information
@@ -1039,10 +1041,10 @@ static int wpa_supplicant_pairwise_gtk(struct wpa_sm *sm,
 	gd.gtk_len = gtk_len;
 
 	//print_hex_dump("WPA: TK ", ptk->tk, ptk->tk_len);
-	bk_printf("WPA: GTK ");
+	WPA_LOGI("WPA: GTK ");
 	for (i = 0; i < gtk_len; i++)
-		bk_printf("%02x", gtk[i]);
-	bk_printf("\n");
+		os_printf("%02x", gtk[i]);
+	os_printf("\n");
 
 	key_rsc = key->key_rsc;
 	if (wpa_supplicant_rsc_relaxation(sm, key->key_rsc))

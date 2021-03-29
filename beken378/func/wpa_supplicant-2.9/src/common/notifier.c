@@ -2,6 +2,8 @@
 #include "notifier_pub.h"
 #include "mem_pub.h"
 #include "uart_pub.h"
+#include "common.h"
+#include "wpa_debug.h"
 
 #if CFG_WPA_CTRL_IFACE
 /*
@@ -19,7 +21,7 @@ int add_notifier(struct notifier **notif, notify_func func, void *arg)
 
     np = (struct notifier *)os_malloc(sizeof(struct notifier));
     if (np == 0) {
-		os_printf("notifier struct OOM\n");
+		WPA_LOGE("notifier struct OOM\n");
 		return -1;
 	}
     np->next = *notif;

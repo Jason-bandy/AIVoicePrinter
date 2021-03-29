@@ -34,11 +34,14 @@
 #include "BK3633_RegList.h"
 #include "param_config.h"
 #include "common_utils.h"
+#include "ate_app.h"
 
 beken_queue_t ble_msg_que = NULL;
 beken_thread_t ble_thread_handle = NULL;
 uint8_t ble_system_mode;
 uint8_t tx_pwr_idx;
+
+extern void intc_service_change_handler(UINT8 int_num, FUNCPTR isr);
 
 enum {
 	DUT_IDLE,
@@ -55,34 +58,34 @@ const struct rwip_eif_api uart_api =
     ble_uart_flow_off,
 };
 
-static SDD_OPERATIONS ble_op =
+static const SDD_OPERATIONS ble_op =
 {
     ble_ctrl
 };
 
 void assert_err(const char *condition, const char * file, int line)
 {
-	bk_printf("%s,condition %s,file %s,line = %d\r\n",__func__,condition,file,line);
+	BLE_LOGI("%s,condition %s,file %s,line = %d\r\n",__func__,condition,file,line);
 }
 
 void assert_param(int param0, int param1, const char * file, int line)
 {
-	bk_printf("%s,param0 = %d,param1 = %d,file = %s,line = %d\r\n",__func__,param0,param1,file,line);
+	BLE_LOGI("%s,param0 = %d,param1 = %d,file = %s,line = %d\r\n",__func__,param0,param1,file,line);
 }
 
 void assert_warn(int param0, int param1, const char * file, int line)
 {
-	bk_printf("%s,param0 = %d,param1 = %d,file = %s,line = %d\r\n",__func__,param0,param1,file,line);
+	BLE_LOGI("%s,param0 = %d,param1 = %d,file = %s,line = %d\r\n",__func__,param0,param1,file,line);
 }
 
 void dump_data(uint8_t* data, uint16_t length)
 {
-	bk_printf("%s,data = %d,length = %d,file = %s,line = %d\r\n",__func__,data,length);
+	BLE_LOGI("%s,data = %d,length = %d,file = %s,line = %d\r\n",__func__,data,length);
 }
 
 void platform_reset(uint32_t error)
 {    
-	bk_printf("reset error = %x\r\n", error);
+	BLE_LOGI("reset error = %x\r\n", error);
 
 	//watch dog reset
 	extern void bk_reboot(void);
@@ -109,8 +112,7 @@ void bdaddr_env_init(void)
 	for (int i = 0; i < BD_ADDR_LEN; i++) {
 		ble_mac[i] = sta_mac[BD_ADDR_LEN - 1 - i];
 	}
-	bk_printf("ble mac:%02x-%02x-%02x-%02x-%02x-%02x\r\n",
-		ble_mac[5], ble_mac[4], ble_mac[3], ble_mac[2], ble_mac[1], ble_mac[0]);
+	BLE_LOGI("ble mac: "BK_MAC_FORMAT"\r\n", BK_MAC_STR_INVERT(ble_mac));
 }
 
 void ble_sys_mode_init(uint8_t mode)
@@ -165,7 +167,7 @@ void ble_init(void)
 	intc_service_register( FIQ_BLE, PRI_FIQ_BLE, ble_ble_isr );
 	intc_service_register( FIQ_BTDM, PRI_FIQ_BTDM, ble_btdm_isr );
 
-	sddev_register_dev( BLE_DEV_NAME, &ble_op );
+	sddev_register_dev( BLE_DEV_NAME, (SDD_OPERATIONS*)&ble_op );
 
 	return;
 }
@@ -180,22 +182,34 @@ void ble_exit(void)
 
 void ble_send_msg(UINT32 data)
 {
-	OSStatus ret;
 	BLE_MSG_T msg;
 
-    if (ble_msg_que) {
-    	msg.data = data;    	
-    	ret = rtos_push_to_queue(&ble_msg_que, &msg, BEKEN_NO_WAIT);
-    }
+	if (ble_msg_que) {
+		msg.data = data;
+		rtos_push_to_queue(&ble_msg_que, &msg, BEKEN_NO_WAIT);
+	}
 }
 
 extern int bk7011_reduce_vdddig_for_rx(int reduce);
+extern void intc_service_change_handler(UINT8 int_num, FUNCPTR isr);
+#define		BLE_DUT_DIVISION			(8)
+
 void enter_dut_fcc_mode(void)
 {
-	bk_printf("enter dut mode\r\n");
+	BLE_LOGI("enter dut mode\r\n");
+	uint32_t reg;
+	static uint32_t default_mclk_mux = MCLK_SELECT_DPLL;
+	static uint32_t default_mclk_div = BLE_DUT_DIVISION;
 
 #ifdef FOR_TEST
+	bk7011_reduce_vdddig_for_rx(1);
 	ble_dut_status = DUT_RUNNING;
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_MUX_GET, &default_mclk_mux);
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIV_GET, &default_mclk_div);
+	reg = MCLK_SELECT_DPLL;
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_SELECT, &reg);
+	reg = BLE_DUT_DIVISION;
+	sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIVISION, &reg);
 	sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_SET, NULL);
 	extern void ble_cal_set_txpwr(uint8_t idx);
 	ble_cal_set_txpwr(tx_pwr_idx);
@@ -222,9 +236,12 @@ void enter_dut_fcc_mode(void)
 					uart_h4tl_data_switch();
 					break;
 				case BLE_DUT_EXIT:
-					bk_printf("exit ble dut\r\n");
+					BLE_LOGI("exit ble dut\r\n");
 					bk7011_reduce_vdddig_for_rx(0);
 					ble_dut_status = DUT_IDLE;
+					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_SELECT, &default_mclk_mux);
+					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIVISION, &default_mclk_div);
+
 					sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_CLR, NULL);
 					extern void ble_cal_recover_txpwr(void);
 					ble_cal_recover_txpwr();
@@ -235,9 +252,16 @@ void enter_dut_fcc_mode(void)
 #endif
 					break;
 				case BLE_DUT_START:
-					bk_printf("enter ble dut\r\n");
+					BLE_LOGI("enter ble dut\r\n");
 					bk7011_reduce_vdddig_for_rx(1);
 					ble_dut_status = DUT_RUNNING;
+					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_MUX_GET, &default_mclk_mux);
+					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIV_GET, &default_mclk_div);
+					reg = MCLK_SELECT_DPLL;
+					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_SELECT, &reg);
+					reg = BLE_DUT_DIVISION;
+					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIVISION, &reg);
+
 					sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_SET, NULL);
 					extern void ble_cal_set_txpwr(uint8_t idx);
 					ble_cal_set_txpwr(tx_pwr_idx);
@@ -256,7 +280,7 @@ void enter_dut_fcc_mode(void)
 
 void enter_normal_app_mode(void)
 {
-	bk_printf("enter normal mode\r\n");
+	BLE_LOGI("enter normal mode\r\n");
 
 	while (1) {
 		OSStatus err;
@@ -412,7 +436,7 @@ UINT32 ble_ctrl( UINT32 cmd, void *param )
 		} else if ((*(UINT8 *)param) == 0x01) {
 			reg = 0x3100;
 		} else {
-			bk_printf("unknow ble test mode\r\n");
+			BLE_LOGI("unknow ble test mode\r\n");
 		}
 		REG_WRITE(BLE_XVR_REG25, reg);
 		break;

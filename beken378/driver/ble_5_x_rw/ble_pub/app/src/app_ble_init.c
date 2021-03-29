@@ -26,7 +26,7 @@
 #include "app_ble_init.h"
 
 #define APP_BLE_INIT_CHECK_CONN_IDX(conn_idx)	if (conn_idx >= BLE_CONNECTION_MAX) {\
-													bk_printf("[%s]unknow conn_idx:%d\r\n",__FUNCTION__,conn_idx);\
+													BLE_LOGI("[%s]unknow conn_idx:%d\r\n",__FUNCTION__,conn_idx);\
 													return ERR_UNKNOW_IDX;\
 												}
 
@@ -47,11 +47,11 @@ void app_ble_initing_init(void)
 void appm_set_initing_actv_idx(unsigned char conidx,unsigned char actv_idx,unsigned char state)
 {
 	if(conidx >= BLE_CONNECTION_MAX){
-		bk_printf("[%s]conidx:%d error\r\n",__FUNCTION__,conidx);
+		BLE_LOGI("[%s]conidx:%d error\r\n",__FUNCTION__,conidx);
 		return;
 	}
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]conidx:%d actv_idx:%d,state:%d\r\n",__FUNCTION__,conidx,actv_idx,state);
+	BLE_LOGI("[%s]conidx:%d actv_idx:%d,state:%d\r\n",__FUNCTION__,conidx,actv_idx,state);
 	#endif
 	app_ble_initing_env.init_idx[conidx].actv_idx = actv_idx;
 	app_ble_initing_env.init_idx[conidx].state = state;
@@ -126,12 +126,13 @@ ble_err_t appm_create_initing(uint8_t con_idx,unsigned short con_interval,
 {
 	APP_BLE_INIT_CHECK_CONN_IDX(con_idx);
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]init_state:%d\r\n",__func__,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
+	BLE_LOGI("[%s]init_state:%d\r\n",__func__,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
 #endif
 
 	if (BLE_APP_MASTER_GET_IDX_STATE(con_idx) == APP_INIT_STATE_IDLE)
 	{
 		// And the next expected operation code for the command completed event
+		app_ble_env.connections[con_idx].conhdl = USED_CONN_HDL;
 		app_ble_env.connections[con_idx].con_interval = (con_interval) ? con_interval : APP_CONN_INTV;
 		app_ble_env.connections[con_idx].con_latency = (con_latency) ? con_latency : APP_CONN_LATENCY;
 		app_ble_env.connections[con_idx].sup_to = (sup_to) ? sup_to : APP_CONN_SUP_TO;
@@ -140,11 +141,11 @@ ble_err_t appm_create_initing(uint8_t con_idx,unsigned short con_interval,
 		app_ble_env.connections[con_idx].u.master.conn_dev_to = APP_CONN_DRV_TO;
 		app_ble_env.connections[con_idx].conn_op_mask = 1 << BLE_OP_CREATE_INIT_POS;
 		app_ble_env.connections[con_idx].conn_op_cb = NULL;
-		app_ble_env.connections[con_idx].conhdl = USED_CONN_HDL;
+		app_ble_env.connections[con_idx].con_interval += (con_idx * APP_CONN_IND_DELT_TIME);
 	#if APP_INIT_REUSE_ACTV_IDX
 		unsigned char unused_init_actv = appm_get_stop_init_actv_idx();
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("unused_init_actv:%x\r\n", unused_init_actv);
+		BLE_LOGI("unused_init_actv:%x\r\n", unused_init_actv);
 		#endif
 		if(unused_init_actv == UNKNOW_CONN_HDL){
 			app_ble_create_initing(con_idx);
@@ -164,7 +165,7 @@ ble_err_t appm_create_initing(uint8_t con_idx,unsigned short con_interval,
 	}
 	else
 	{
-		bk_printf("connections[%d] is not idle\r\n", con_idx);
+		BLE_LOGI("connections[%d] is not idle\r\n", con_idx);
 		return ERR_INIT_STATE;
 	}
 }
@@ -173,7 +174,7 @@ ble_err_t appm_start_connecting(uint8_t con_idx)
 {
 	APP_BLE_INIT_CHECK_CONN_IDX(con_idx);
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s],init_state:%d\r\n",__func__,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
+	BLE_LOGI("[%s],init_state:%d\r\n",__func__,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
 #endif
 
 	int ret = ERR_SUCCESS;
@@ -199,7 +200,7 @@ ble_err_t appm_start_connecting(uint8_t con_idx)
 		p_cmd->u_param.init_param.conn_param_1m.ce_len_min = 10;
 		p_cmd->u_param.init_param.conn_param_1m.ce_len_max = 20;
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("conn_intv:%d,conn_latency:%d,conn_super_to:%d\r\n",
+		BLE_LOGI("conn_intv:%d,conn_latency:%d,conn_super_to:%d\r\n",
 			app_ble_env.connections[con_idx].gap_actv_idx,app_ble_env.connections[con_idx].con_latency,app_ble_env.connections[con_idx].sup_to);
 #endif
 		p_cmd->u_param.init_param.conn_param_1m.conn_intv_min = app_ble_env.connections[con_idx].con_interval;
@@ -212,7 +213,7 @@ ble_err_t appm_start_connecting(uint8_t con_idx)
 		p_cmd->u_param.init_param.peer_addr.addr_type = addr_type;
 		//  {{0x0f, 0x43, 0x45, 0x67, 0x89, 0xAB}}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("con address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
+		BLE_LOGI("con address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
 			bdaddr->addr[0], bdaddr->addr[1], bdaddr->addr[2],
 			bdaddr->addr[3], bdaddr->addr[4], bdaddr->addr[5]);
 #endif
@@ -229,7 +230,7 @@ ble_err_t appm_start_connecting(uint8_t con_idx)
 		////BLE_APP_MASTER_SET_IDX_CMD_SET_STATE(BLE_OP_INIT_START_POS,con_idx,callback);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("conn_dev_to:%d\r\n",app_ble_env.connections[con_idx].u.master.conn_dev_to);
+		BLE_LOGI("conn_dev_to:%d\r\n",app_ble_env.connections[con_idx].u.master.conn_dev_to);
 #endif
 #if (APP_INIT_SET_STOP_CONN_TIMER && (!APP_INIT_STOP_CONN_TIMER_EVENT))
 		kernel_timer_set(APP_INIT_CON_DEV_TIMEROUT_TIMER,
@@ -261,7 +262,7 @@ ble_err_t appm_stop_connencting(uint8_t con_idx)
 
 	APP_BLE_INIT_CHECK_CONN_IDX(con_idx);
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]status:%d\r\n",__func__,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
+	BLE_LOGI("[%s]status:%d\r\n",__func__,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
 #endif
 
 	if (BLE_APP_MASTER_GET_IDX_STATE(con_idx) == APP_INIT_STATE_CONECTTING)

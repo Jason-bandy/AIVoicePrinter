@@ -3,18 +3,6 @@
 
 #include "include.h"
 
-#define FLASH_DEBUG
-
-#ifdef FLASH_DEBUG
-#define FLASH_PRT      os_printf
-#define FLASH_WARN     warning_prf
-#define FLASH_FATAL    fatal_prf
-#else
-#define FLASH_PRT      null_prf
-#define FLASH_WARN     null_prf
-#define FLASH_FATAL    null_prf
-#endif
-
 #define MODE_STD              0
 #define MODE_DUAL             1
 #define MODE_QUAD             2

@@ -102,6 +102,7 @@ path += [cwd + '/umac/src/apm']
 path += [cwd + '/umac/src/rc']
 path += [cwd + '/umac/src/mesh']
 path += [cwd + '/umac/src/mfp']
+path += [cwd + '/port/include']
 
 sys_config = os.path.join(cwd, '..', '..', 'config', 'sys_config.h')
 options = LocalOptions(sys_config)

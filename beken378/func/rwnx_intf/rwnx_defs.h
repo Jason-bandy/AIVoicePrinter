@@ -79,6 +79,12 @@ struct rwnx_hw {
 #endif
 };
 
+#define RWNX_TAG "rwnx"
+#define RWNX_LOGI(...) BK_LOGI(RWNX_TAG, ##__VA_ARGS__)
+#define RWNX_LOGW(...) BK_LOGW(RWNX_TAG, ##__VA_ARGS__)
+#define RWNX_LOGE(...) BK_LOGE(RWNX_TAG, ##__VA_ARGS__)
+#define RWNX_LOGD(...) BK_LOGD(RWNX_TAG, ##__VA_ARGS__)
+
 extern struct rwnx_hw g_rwnx_hw;
 #endif /* _RWNX_DEFS_H_ */
 

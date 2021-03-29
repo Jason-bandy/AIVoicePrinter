@@ -37,11 +37,16 @@ static uint32_t rf_get_time();
 
 #endif
 
+__maybe_unused static OSStatus rf_timer_initialize_us(uint8_t timer_id, uint32_t time_us, void *callback);
+__maybe_unused static OSStatus rf_timer_stop(uint8_t timer_id);
+__maybe_unused static void rf_switch_to_wifi(void);
+__maybe_unused static void rf_switch_to_ble(void);
+
 static OSStatus rf_timer_initialize_us(uint8_t timer_id, uint32_t time_us, void *callback)
 {
     UINT32 ret;
     timer_param_t param;
-    
+
     param.channel = timer_id;
     param.div = 1;              //timer0 timer1 timer2 26M // timer4 timer5 32K (n+1) division
     param.period = time_us;

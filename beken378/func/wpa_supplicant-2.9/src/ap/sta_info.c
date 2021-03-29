@@ -42,7 +42,6 @@ static void ap_sta_disassoc_cb_timeout(void *eloop_ctx, void *timeout_ctx);
 static void ap_sa_query_timer(void *eloop_ctx, void *timeout_ctx);
 #endif /* CONFIG_IEEE80211W_AP */
 static int ap_sta_remove(struct hostapd_data *hapd, struct sta_info *sta);
-static void ap_sta_delayed_1x_auth_fail_cb(void *eloop_ctx, void *timeout_ctx);
 
 int ap_for_each_sta(struct hostapd_data *hapd,
 		    int (*cb)(struct hostapd_data *hapd, struct sta_info *sta,
@@ -379,7 +378,7 @@ void ap_handle_timer(void *eloop_ctx, void *timeout_ctx)
 		   hapd->conf->iface, __func__, MAC2STR(sta->addr), sta->flags,
 		   sta->timeout_next);
 #endif
-	os_printf("ap_handle_timer\r\n");
+	WPA_LOGI("ap_handle_timer\r\n");
 	if (sta->timeout_next == STA_REMOVE) {
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_INFO, "deauthenticated due to "
@@ -399,9 +398,9 @@ void ap_handle_timer(void *eloop_ctx, void *timeout_ctx)
 		 */
 		int fuzz = 0; /*os_random() % 20;*/
 		inactive_sec = hostapd_drv_get_inact_sec(hapd, sta->addr);
-		//os_printf("inactive_sec:%d fuzz:%d\r\n", inactive_sec, fuzz);
+		//WPA_LOGI("inactive_sec:%d fuzz:%d\r\n", inactive_sec, fuzz);
 		if (inactive_sec == -1) {
-			os_printf("Check inactivity: Could not "
+			WPA_LOGI("Check inactivity: Could not "
 				"get station info from kernel driver for "
 				MACSTR, MAC2STR(sta->addr));
 			/*
@@ -411,7 +410,7 @@ void ap_handle_timer(void *eloop_ctx, void *timeout_ctx)
 			 */
 			next_time = hapd->conf->ap_max_inactivity + fuzz;
 		} else if (inactive_sec == -ERRNOENT) {
-			os_printf("Station " MACSTR " has lost its driver entry",
+			WPA_LOGI("Station " MACSTR " has lost its driver entry",
 				MAC2STR(sta->addr));
 
 			/* Avoid sending client probe on removed client */
@@ -427,7 +426,7 @@ void ap_handle_timer(void *eloop_ctx, void *timeout_ctx)
 				inactive_sec;
 		}else if(STA_DISASSOC == sta->timeout_next){
 			sta->timeout_next = STA_REMOVE;
-			os_printf("STA_REMOVE\r\n");
+			WPA_LOGI("STA_REMOVE\r\n");
 		} else {
 			wpa_msg(hapd->msg_ctx, MSG_DEBUG,
 				"Station " MACSTR " has been "
@@ -491,7 +490,7 @@ skip_poll:
 			reason = (sta->timeout_next == STA_DISASSOC) ?
 				WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY :
 				WLAN_REASON_PREV_AUTH_NOT_VALID;
-			os_printf("hostapd_drv_sta_disassoc\r\n");
+			WPA_LOGI("hostapd_drv_sta_disassoc\r\n");
 			hostapd_drv_sta_disassoc(hapd, sta->addr, reason);
 		}
 	}
@@ -543,7 +542,7 @@ skip_poll:
 			sta->acct_terminate_cause =
 				RADIUS_ACCT_TERMINATE_CAUSE_IDLE_TIMEOUT;
 #endif
-		os_printf("ap_free_sta\r\n");
+		WPA_LOGI("ap_free_sta\r\n");
 		mlme_deauthenticate_indication(
 			hapd, sta,
 			WLAN_REASON_PREV_AUTH_NOT_VALID);
@@ -647,7 +646,7 @@ struct sta_info * ap_sta_add(struct hostapd_data *hapd, const u8 *addr)
 
 	sta = os_zalloc(sizeof(struct sta_info));
 	if (sta == NULL) {
-		os_printf("ap_sta_add malloc failed\r\n");
+		WPA_LOGE("ap_sta_add malloc failed\r\n");
 		return NULL;
 	}
 #ifdef CONFIG_FULL_HOSTAPD

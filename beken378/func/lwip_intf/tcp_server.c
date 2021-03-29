@@ -35,7 +35,7 @@
 #include "mem_pub.h"
 #include "str_pub.h"
 
-#define tcp_server_log(M, ...) os_printf("TCP", M, ##__VA_ARGS__)
+#define tcp_server_log(M, ...) LWIP_LOGI("TCP", M, ##__VA_ARGS__)
 
 #define SERVER_PORT            20000 /*set up a tcp server,port at 20000*/
 
@@ -58,7 +58,7 @@ int unw_recv(const int fd, void *buf, u32 nbytes)
     FD_SET( fd, &errfds );
 
     ret = select( fd+1, &readfds, NULL, &errfds, NULL);
-    os_printf("select ret:%d, %d, %d\r\n", ret, FD_ISSET( fd, &readfds ), FD_ISSET( fd, &errfds ));
+    LWIP_LOGI("select ret:%d, %d, %d\r\n", ret, FD_ISSET( fd, &readfds ), FD_ISSET( fd, &errfds ));
 
     if(ret > 0 && FD_ISSET( fd, &readfds ))
         return recv(fd,buf,nbytes,0); 
@@ -88,7 +88,7 @@ void tcp_client_thread( beken_thread_arg_t arg )
 
             if ( len <= 0 )
             {
-                os_printf( "TCP Client is disconnected, fd: %d", fd );
+                LWIP_LOGI( "TCP Client is disconnected, fd: %d", fd );
                 goto exit;
             }
 
@@ -110,7 +110,7 @@ exit:
 volatile u8 test_flag = 0;
 void close_tcp_client(void)
 {
-    os_printf("close_tcp_client:%d, %p\r\n", my_fd, rtos_get_current_thread());
+    LWIP_LOGI("close_tcp_client:%d, %p\r\n", my_fd, rtos_get_current_thread());
     test_flag = 1;
     close( my_fd );
     my_fd = -1;
@@ -182,7 +182,7 @@ void make_tcp_server_command(char *pcWriteBuffer, int xWriteBufferLen, int argc,
 									(beken_thread_arg_t)0 );
     if(err != kNoErr)
     {
-       os_printf("create \"TCP_server\" thread failed!\r\n");
+       LWIP_LOGE("create \"TCP_server\" thread failed!\r\n");
     }
 }
 

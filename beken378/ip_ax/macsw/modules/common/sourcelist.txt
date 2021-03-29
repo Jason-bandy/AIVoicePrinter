@@ -1,0 +1,6 @@
+# Common files
+    src/co_dlist.c
+    src/co_list.c
+    src/co_math.c
+    src/co_pool.c
+    src/co_ring.c

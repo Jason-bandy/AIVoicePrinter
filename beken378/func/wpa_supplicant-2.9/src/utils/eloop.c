@@ -64,6 +64,9 @@ static int eloop_sock_table_add_sock(struct eloop_sock_table *table,
 			       sizeof(struct eloop_sock));
 	if (tmp == NULL) {
 		eloop_trace_sock_add_ref(table);
+		table->table = NULL;
+		table->count = 0;
+		WPA_LOGE("add sock: oom");
 		return -1;
 	}
 
@@ -201,14 +204,14 @@ int eloop_register_timeout(unsigned int secs,
 	timeout = os_zalloc(sizeof(*timeout));
 	if (timeout == NULL)
 	{
-		os_printf("------------eloop_register_malloc_failed\r\n");
+		WPA_LOGE("eloop_register_malloc_failed\r\n");
 		return -1;
 	}
 
 	if (os_get_reltime(&timeout->time) < 0)
 	{
 		os_free(timeout);
-		os_printf("------------os_get_reltimeErr\r\n");
+		WPA_LOGE("os_get_reltimeErr\r\n");
 		return -1;
 	}
 
@@ -219,7 +222,7 @@ int eloop_register_timeout(unsigned int secs,
 		 * Integer overflow - assume long enough timeout to be assumed
 		 * to be infinite, i.e., the timeout would never happen.
 		 */
-		os_printf("------------ELOOP: Too long timeout\r\n");
+		WPA_LOGE("ELOOP: Too long timeout\r\n");
 		os_free(timeout);
 		return 0;
 	}
@@ -448,7 +451,6 @@ static void eloop_process_pending_signals(void)
 		return;
 	}
 	eloop.signaled = 0;
-	sig_count = eloop.signal_count;
 
 	if (eloop.pending_terminate) {
 #ifndef CONFIG_NATIVE_WINDOWS
@@ -456,10 +458,11 @@ static void eloop_process_pending_signals(void)
 #endif /* CONFIG_NATIVE_WINDOWS */
 		eloop.pending_terminate = 0;
 	}
-	GLOBAL_INT_RESTORE();
+
+_process_signals:
+	sig_count = eloop.signal_count;
 
 	for (i = 0; i < sig_count; i++) {
-		GLOBAL_INT_DISABLE();
 		if (eloop.signals[i].signaled) {
 			eloop.signals[i].signaled = 0;
 
@@ -467,13 +470,19 @@ static void eloop_process_pending_signals(void)
 			sig = eloop.signals[i].sig;
 			user_data = eloop.signals[i].user_data;
 			ASSERT(handler);
-			GLOBAL_INT_RESTORE();
 
-			handler(sig, user_data);
-		} else {
 			GLOBAL_INT_RESTORE();
+			handler(sig, user_data);
+			GLOBAL_INT_DISABLE();
+
+			if ( (sig_count != eloop.signal_count) || (eloop.signaled)) {
+				WPA_LOGD("restart sig process, signal number from %d to %d, signaled=%d\n",
+					sig_count, eloop.signal_count, eloop.signaled);
+				goto _process_signals;
+			}
 		}
 	}
+	GLOBAL_INT_RESTORE();
 }
 
 
@@ -491,7 +500,10 @@ int eloop_register_signal(int sig, eloop_signal_handler handler,
 	tmp = os_realloc_array(eloop.signals, eloop.signal_count + 1,
 			       sizeof(struct eloop_signal));
 	if (tmp == NULL) {
+		eloop.signal_count = 0;
+		eloop.signals = NULL;
 		GLOBAL_INT_RESTORE();
+		WPA_LOGE("reg sig: oom");
 		return -1;
 	}
 

@@ -718,11 +718,11 @@ void dhcpd_start(const char *netif_name)
     }
 
     ip4_addr_t ip_start, ip_end;
-    ip_start.addr = ntohl(ntohl(netif->ip_addr.addr & netif->netmask.addr) 
-                | (DHCPD_CLIENT_IP_MIN) & ntohl(~netif->netmask.addr));
-    
-    ip_end.addr = ntohl(ntohl(netif->ip_addr.addr & netif->netmask.addr) 
-                | (DHCPD_CLIENT_IP_MAX) & ntohl(~netif->netmask.addr));
+    ip_start.addr = ntohl((ntohl(netif->ip_addr.addr & netif->netmask.addr))
+                | ((DHCPD_CLIENT_IP_MIN) & ntohl(~netif->netmask.addr)));
+
+    ip_end.addr = ntohl(ntohl(netif->ip_addr.addr & netif->netmask.addr)
+                | ((DHCPD_CLIENT_IP_MAX) & ntohl(~netif->netmask.addr)));
 
     DEBUG_PRINTF("ip_start: [%s]\r\n", inet_ntoa(ip_start));
     DEBUG_PRINTF("ip_end: [%s]\r\n", inet_ntoa(ip_end));

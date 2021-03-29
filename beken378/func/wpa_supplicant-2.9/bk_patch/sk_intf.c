@@ -34,9 +34,8 @@ void handle_dummy_read(int sock, void *eloop_ctx, void *sock_ctx)
 #endif
 
     buf = os_malloc(TMP_BUF_LEN);
-    if(!buf)
-	{
-        os_printf("dummy_read no mem\r\n");
+    if(!buf) {
+        WPA_LOGE("dummy_read no mem\r\n");
         goto dummy_exit;
     }
 

@@ -51,7 +51,7 @@ enum
     GMODE_HIGH_Z
 };
 
-#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#if (CFG_SOC_NAME != SOC_BK7231N)
 typedef enum
 {
     GPIO0 = 0,

@@ -105,7 +105,9 @@ OSStatus rtos_get_semaphore(beken_semaphore_t* semaphore, uint32_t timeout_ms )
     }
     else
     {
+#if RTOS_DEBUG
         struct rt_object *object = (struct rt_object *)(*semaphore);
+#endif
         RTOS_DBG("%s take semaphore failed %d \n", object->name, result);
         return kTimeoutErr;
     }
@@ -280,10 +282,7 @@ OSStatus rtos_push_to_queue(beken_queue_t* queue, void* message, uint32_t timeou
 
 OSStatus rtos_push_to_queue_front(beken_queue_t* queue, void* message, uint32_t timeout_ms)
 {
-    beken_queue_t mq = *queue;
-    
     rt_kprintf("\nrtos_push_to_queue_front not implement!!!\n");
-
     return kGeneralErr;
 }
 
@@ -342,7 +341,6 @@ OSStatus rtos_deinit_queue(beken_queue_t* queue)
 
 BOOL rtos_is_queue_empty(beken_queue_t* queue )
 {
-    rt_uint32_t level;
     beken_queue_t mq = *queue;
 
     rt_enter_critical();
@@ -360,7 +358,6 @@ BOOL rtos_is_queue_empty(beken_queue_t* queue )
 
 BOOL rtos_is_queue_full(beken_queue_t* queue)
 {
-    rt_uint32_t level;
     beken_queue_t mq = *queue;
 
     rt_enter_critical();
@@ -378,8 +375,9 @@ BOOL rtos_is_queue_full(beken_queue_t* queue)
 
 OSStatus rtos_delay_milliseconds( uint32_t num_ms)
 {
-    rt_thread_delay(rt_tick_from_millisecond(num_ms));
-} 
+	rt_thread_delay(rt_tick_from_millisecond(num_ms));
+	return kNoErr;
+}
 
 static void timer_oneshot_callback(void* parameter)
 {

@@ -68,7 +68,7 @@ static SCTRL_MCU_PS_INFO sctrl_mcu_ps_info =
     .first_sleep = 1,
 };
 
-static SDD_OPERATIONS sctrl_op =
+static const SDD_OPERATIONS sctrl_op =
 {
     sctrl_ctrl
 };
@@ -80,7 +80,7 @@ UINT32 sta_rf_sleeped = 0;
 
 static void sctrl_rf_init(void);
 extern void WFI( void );
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N)
 void sctrl_fix_dpll_div(void);
 #endif
 
@@ -259,6 +259,9 @@ void sctrl_dco_cali(UINT32 speed)
 
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
     reg_val &= ~(SPI_RST_BIT);
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+    reg_val &= ~(DCO_AMSEL_BIT);
+#endif
     sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val);
 
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
@@ -270,9 +273,6 @@ void sctrl_dco_cali(UINT32 speed)
     sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val);
 
     reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
-    reg_val &= ~(DCO_AMSEL_BIT);
-#endif
     reg_val &= ~(DCO_TRIG_BIT);
     sctrl_analog_set(SCTRL_ANALOG_CTRL1, reg_val);
 }
@@ -287,9 +287,11 @@ void sctrl_set_cpu_clk_dco(void)
 
     reg_val |= ((MCLK_FIELD_DCO&MCLK_MUX_MASK) << MCLK_MUX_POSI);
     reg_val |= HCLK_DIV2_EN_BIT;
-    delay(10);
+
     REG_WRITE(SCTRL_CONTROL, reg_val);
-	sctrl_mcu_ps_info.mcu_use_dco = 1;
+    delay(10);
+
+    sctrl_mcu_ps_info.mcu_use_dco = 1;
 }
 
 #if CFG_USE_STA_PS
@@ -350,6 +352,33 @@ void sctrl_ble_ps_init(void)
 }
 #endif
 
+static void sctrl_mac_ahb_slave_clock_enable(void)
+{
+	UINT32 reg;
+#if (CFG_SOC_NAME == SOC_BK7271)
+	reg = REG_READ(SCTRL_CONTROL);
+	REG_WRITE(SCTRL_CONTROL, reg | MAC_HCLK_EN_BIT);
+#else
+	reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
+	REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | MAC_HCLK_EN_BIT);
+#endif
+}
+
+static void sctrl_mac_ahb_slave_clock_disable(void)
+{
+	UINT32 reg;
+#if (CFG_SOC_NAME == SOC_BK7271)
+	reg = REG_READ(SCTRL_CONTROL);
+	reg &= ~MAC_HCLK_EN_BIT;
+	REG_WRITE(SCTRL_CONTROL, reg);
+#else
+	reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
+	reg &= ~MAC_HCLK_EN_BIT;
+	REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg);
+#endif
+}
+
+
 void sctrl_init(void)
 {
     UINT32 param;
@@ -364,7 +393,7 @@ void sctrl_init(void)
 	REG_WRITE(LBUS_CONF1_REG, param);
 #endif
 
-    sddev_register_dev(SCTRL_DEV_NAME, &sctrl_op);
+    sddev_register_dev(SCTRL_DEV_NAME, (SDD_OPERATIONS*)&sctrl_op);
 
     /*enable blk clk
       Attention: ENABLE 26m xtal block(BLK_BIT_26M_XTAL), for protect 32k circuit
@@ -510,7 +539,7 @@ void sctrl_init(void)
 
     sctrl_sub_reset();
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N)
     sctrl_fix_dpll_div();
 #endif
 
@@ -556,6 +585,7 @@ void sctrl_init(void)
 #endif // (CFG_SOC_NAME == SOC_BK7221U)
 #endif // CFG_USE_AUDIO
 
+    sctrl_mac_ahb_slave_clock_enable();
     sctrl_rf_init();
 }
 
@@ -603,6 +633,7 @@ void ps_delay(volatile UINT16 times)
     while(delay--) ;
 }
 
+__maybe_unused static void sctrl_unconditional_mac_sleep(void);
 static void sctrl_unconditional_mac_sleep(void)
 {
     UINT32 reg;
@@ -611,10 +642,8 @@ static void sctrl_unconditional_mac_sleep(void)
 
     if(sta_rf_sleeped == 0)
     {
-        /* MAC AHB slave clock disable */
-        reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-        reg &= ~MAC_HCLK_EN_BIT;
-        REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg);
+        sctrl_mac_ahb_slave_clock_disable();
+
         /* Mac Subsystem clock 480m disable*/
         reg = REG_READ(SCTRL_CONTROL);
         REG_WRITE(SCTRL_CONTROL, reg | MAC_CLK480M_PWD_BIT);
@@ -625,6 +654,8 @@ static void sctrl_unconditional_mac_sleep(void)
 
     GLOBAL_INT_RESTORE();
 }
+
+__maybe_unused static void sctrl_unconditional_mac_wakeup(void);
 static void sctrl_unconditional_mac_wakeup(void)
 {
     UINT32 reg;
@@ -632,10 +663,7 @@ static void sctrl_unconditional_mac_wakeup(void)
     GLOBAL_INT_DISABLE();
     if( sta_rf_sleeped == 1 )
     {
-
-        /* MAC AHB slave clock enable*/
-        reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-        REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | MAC_HCLK_EN_BIT);
+        sctrl_mac_ahb_slave_clock_enable();
 
         /* Mac Subsystem clock 480m enable*/
         reg = REG_READ(SCTRL_CONTROL);
@@ -967,10 +995,6 @@ static void sctrl_rf_wakeup(void)
 #if (CFG_SOC_NAME == SOC_BK7231N)
 			sctrl_fix_dpll_div();
 			phy_wakeup_rf_reinit();
-#elif (CFG_SOC_NAME == SOC_BK7236)
-			/* TODO: BK7236 phy karst */
-			sctrl_fix_dpll_div();
-			//phy_wakeup_rf_reinit();
 #endif
 
 			rf_sleeped = 0;
@@ -998,16 +1022,8 @@ void sctrl_sta_rf_sleep(void)
         reg = RF_HOLD_BY_STA_BIT;
         sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
 
-        /* MAC AHB slave clock disable */
-	#if (CFG_SOC_NAME == SOC_BK7271)
-		reg = REG_READ(SCTRL_CONTROL);
-		reg &= ~MAC_HCLK_EN_BIT;
-		REG_WRITE(SCTRL_CONTROL, reg);
-	#else
-        reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-        reg &= ~MAC_HCLK_EN_BIT;
-        REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg);
-	#endif
+	sctrl_mac_ahb_slave_clock_disable();
+
         /* Mac Subsystem clock 480m disable*/
         reg = REG_READ(SCTRL_CONTROL);
         REG_WRITE(SCTRL_CONTROL, reg | MAC_CLK480M_PWD_BIT);
@@ -1032,14 +1048,7 @@ void sctrl_sta_rf_wakeup(void)
             os_printf("err, hw not up\r\n");
         }
 
-        /* MAC AHB slave clock enable*/
-	#if (CFG_SOC_NAME == SOC_BK7271)
-		reg = REG_READ(SCTRL_CONTROL);
-		REG_WRITE(SCTRL_CONTROL, reg | MAC_HCLK_EN_BIT);
-	#else
-        reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-        REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | MAC_HCLK_EN_BIT);
-    #endif
+	sctrl_mac_ahb_slave_clock_enable();
         /* Mac Subsystem clock 480m enable*/
         reg = REG_READ(SCTRL_CONTROL);
         reg &= ~MAC_CLK480M_PWD_BIT;
@@ -1166,11 +1175,10 @@ void sctrl_mcu_init(void)
 
 void sctrl_mcu_exit(void)
 {
-    UINT32 reg;
-
 #if (USE_DCO_CLK_POWON )
     sctrl_set_cpu_clk_dco();
 #else
+    UINT32 reg;
     reg = REG_READ(SCTRL_CONTROL);
     reg &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
 
@@ -1348,7 +1356,7 @@ void sctrl_subsys_reset(UINT32 cmd)
     return;
 }
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N)
 void sctrl_fix_dpll_div(void)
 {
 	volatile INT32   i;
@@ -1383,7 +1391,9 @@ void sctrl_fix_dpll_div(void)
 
 	GLOBAL_INT_RESTORE();
 }
+#endif
 
+#if (CFG_SOC_NAME == SOC_BK7231N)
 void sctrl_mdm_reset(void)
 {
     volatile INT32 i;
@@ -1763,16 +1773,8 @@ void sctrl_enter_rtos_idle_sleep(PS_DEEP_CTRL_PARAM deep_param)
     /* MAC pwd*/
     REG_WRITE(SCTRL_PWR_MAC_MODEM, MAC_PWD << MAC_PWD_POSI);
 
-    /* MAC AHB slave clock disable */
-#if (CFG_SOC_NAME == SOC_BK7271)
-    reg = REG_READ(SCTRL_CONTROL);
-    reg &= ~MAC_HCLK_EN_BIT;
-    REG_WRITE(SCTRL_CONTROL, reg);
-#else
-    reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-    reg &= ~MAC_HCLK_EN_BIT;
-    REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg);
-#endif
+    sctrl_mac_ahb_slave_clock_disable();
+
     /* Mac Subsystem clock 480m disable*/
     reg = REG_READ(SCTRL_CONTROL);
     REG_WRITE(SCTRL_CONTROL, reg | MAC_CLK480M_PWD_BIT);
@@ -1912,14 +1914,7 @@ void sctrl_exit_rtos_idle_sleep(void)
     REG_WRITE(SCTRL_ROSC_CAL, 0x35);
     REG_WRITE(SCTRL_ROSC_CAL, 0x37);
 
-    /* MAC AHB slave clock enable*/
-#if (CFG_SOC_NAME == SOC_BK7271)
-    reg = REG_READ(SCTRL_CONTROL);
-    REG_WRITE(SCTRL_CONTROL, reg | MAC_HCLK_EN_BIT);
-#else
-    reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-    REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg | MAC_HCLK_EN_BIT);
-#endif
+    sctrl_mac_ahb_slave_clock_enable();
 
     /* Mac Subsystem clock 480m enable*/
     reg = REG_READ(SCTRL_CONTROL);
@@ -2070,16 +2065,7 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
     REG_WRITE(SCTRL_PWR_MAC_MODEM, MAC_PWD << MAC_PWD_POSI);   //sys_ctrl : 0x43;
 #endif
 
-    /* MAC AHB slave clock disable */
-#if (CFG_SOC_NAME == SOC_BK7271)
-    reg = REG_READ(SCTRL_CONTROL);
-    reg &= ~MAC_HCLK_EN_BIT;
-    REG_WRITE(SCTRL_CONTROL, reg);
-#else
-    reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
-    reg &= ~MAC_HCLK_EN_BIT;
-    REG_WRITE(SCTRL_MODEM_CORE_RESET_PHY_HCLK, reg);
-#endif
+    sctrl_mac_ahb_slave_clock_disable();
 
     /* Mac Subsystem clock 480m disable*/
     reg = REG_READ(SCTRL_CONTROL);
@@ -3032,6 +3018,16 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
         reg &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
         reg |= ((*(UINT32 *)param) & MCLK_DIV_MASK) << MCLK_DIV_POSI;
         REG_WRITE(SCTRL_CONTROL, reg);
+        break;
+
+    case CMD_SCTRL_MCLK_MUX_GET:
+        reg = ((REG_READ(SCTRL_CONTROL) >> MCLK_MUX_POSI) & MCLK_MUX_MASK);
+        *(UINT32 *)param = reg;
+        break;
+
+    case CMD_SCTRL_MCLK_DIV_GET:
+        reg = ((REG_READ(SCTRL_CONTROL) >> MCLK_DIV_POSI) & MCLK_DIV_MASK);
+        *(UINT32 *)param = reg;
         break;
 
     case CMD_SCTRL_RESET_SET:

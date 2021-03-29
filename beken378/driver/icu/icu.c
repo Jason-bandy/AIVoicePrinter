@@ -6,7 +6,7 @@
 
 #include "drv_model_pub.h"
 
-static SDD_OPERATIONS icu_op =
+static const SDD_OPERATIONS icu_op =
 {
     icu_ctrl
 };
@@ -16,7 +16,7 @@ void icu_init(void)
 {
     UINT32 param;
 
-    sddev_register_dev(ICU_DEV_NAME, &icu_op);
+    sddev_register_dev(ICU_DEV_NAME, (SDD_OPERATIONS*)&icu_op);
 
     /*pclk select 26m */
     #if (CFG_SOC_NAME == SOC_BK7231)

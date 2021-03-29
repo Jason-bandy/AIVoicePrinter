@@ -1818,4 +1818,4 @@ void sd_test_write1(int argc, char *argv[])
 MSH_CMD_EXPORT(sd_test_write, sd_test_write);
 MSH_CMD_EXPORT(sd_test_write1, sd_test_write1);
 MSH_CMD_EXPORT(sd_play_test, sd_play_test);
-#endif  
+#endif

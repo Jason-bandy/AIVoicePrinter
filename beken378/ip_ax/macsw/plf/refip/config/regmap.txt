@@ -1,0 +1,39 @@
+# This file contains value of Registers addresses used in reglist.txt files
+# This is the default addresses for all configuration, and they may be overridden
+# by other regmap.txt depending of the configuration.
+# Each address defined in regmap.txt overrides previous value
+#
+# Order of inclusion is
+# 1. this file
+# 2. regmap.txt in the selected phy (karst/trident/elma/mxd/sdmb2b)
+# 3. regmap.txt in the selected cpu (aps/arm/tl4xx/cortex/ceva-x/risc-v)
+# 4. regmap.txt in the selected platform (virtex6/virtex7/tlm)
+# 5. regmap.txt in the selected platform/plf_ver (v10/v20/v30)
+
+# reference platform
+  INTC_ADDR     0x60910000
+  IPC_EMB_ADDR  0x60800100
+  SYSCTRL_ADDR  0x60900000
+  HSU_ADDR      0x60930000
+  DMA_ADDR      0x60A00000
+  LA_ADDR       0x61000000
+
+# FPGA A
+  FPGAA_ADDR    0x60F00000
+
+# MAC
+  MAC_CORE_ADDR 0x60B00000
+  MAC_PL_ADDR   0x60B08000
+
+# MDM
+  MDM_STAT_ADDR    0x60C00000
+  MDM_CFG_ADDR     0x60C00800
+  MDMDSSS_CFG_ADDR 0x60C03000
+
+# RC/RIU
+  AGC_ADDR        0x60C00000
+  RC_ADDR         0x60C0C000
+  RIU_ADDR        0x60C0B000
+  FCU_ADDR        0x60C09000
+  RF_IF_ADDR      0x60C10000
+  MACBYPASS_ADDR  0x60C60000

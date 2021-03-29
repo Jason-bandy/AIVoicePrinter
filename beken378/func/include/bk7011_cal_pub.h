@@ -143,7 +143,7 @@ extern void bk7011_cal_bias_low_temprature(UINT8 low_temprature);
 extern void bk7011_cal_bias_high_temprature(UINT8 high_temprature);
 extern void bk7011_cal_dpll(void);
 extern void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate);
-extern UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_gain);
+extern UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_gain, UINT32 channel);
 extern int manual_cal_get_txpwr(UINT32 rate, UINT32 channel, UINT32 bandwidth, UINT32 *pwr_gain);
 extern void manual_cal_save_txpwr(UINT32 rate, UINT32 channel, UINT32 pwr_gain);
 #if (CFG_SOC_NAME != SOC_BK7231)

@@ -46,5 +46,6 @@ int wifi_save_cfg(const char *filename);
 int wifi_save_setting(void);
 
 extern struct rt_wlan_info info;
+extern int hexstr2bin(const char *hex, u8 *buf, size_t len);
 
 #endif

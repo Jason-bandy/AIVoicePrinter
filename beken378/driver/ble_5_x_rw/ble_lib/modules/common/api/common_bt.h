@@ -57,6 +57,7 @@
 #include "common_lmp.h"        // Bluetooth LMP definitions
 #include "common_hci.h"        // Bluetooth HCI definitions
 #include "common_error.h"      // Bluetooth error codes definitions
+#include "common_log.h"
 
 /// @} COMMON_BT
 #endif // COMMON_BT_H_

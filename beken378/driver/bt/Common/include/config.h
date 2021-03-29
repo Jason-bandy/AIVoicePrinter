@@ -237,7 +237,7 @@ typedef enum {JUNGO_HOST = 0, CEVA_HOST = 1, NONE_CONTROLLER = 2} HOST_MODE;
 #define BT_MODE_DM_1V1 (1<<4)
 #define BT_MODE_DM_TWS (1<<5)
 
-#define BT_MODE		BT_MODE_1V1
+#define BT_MODE		BT_MODE_DM_1V1
 
 #if (CHIP_PACKAGE_TSSOP_28 == 1)
 #if (BT_MODE != BT_MODE_1V1)

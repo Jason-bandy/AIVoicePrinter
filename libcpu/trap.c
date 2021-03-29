@@ -121,11 +121,7 @@ void rt_hw_print_exception_info(const char* exception_str, struct rt_hw_register
  */
 void rt_hw_trap_udef(struct rt_hw_register *regs)
 {
-#if (CFG_SOC_NAME == SOC_BK7231N)
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)(CRASH_UNDEFINED_VALUE & 0xffff);
-#else
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)CRASH_UNDEFINED_VALUE;
-#endif
+    bk_misc_update_set_type(CRASH_UNDEFINED_VALUE);
 
     rt_hw_print_exception_info("undefined instruction", regs);
     rt_hw_cpu_shutdown();
@@ -156,11 +152,7 @@ void rt_hw_trap_swi(struct rt_hw_register *regs)
  */
 void rt_hw_trap_pabt(struct rt_hw_register *regs)
 {
-#if (CFG_SOC_NAME == SOC_BK7231N)
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)(CRASH_PREFETCH_ABORT_VALUE & 0xffff);
-#else
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)CRASH_PREFETCH_ABORT_VALUE;
-#endif
+    bk_misc_update_set_type(CRASH_PREFETCH_ABORT_VALUE);
 
     rt_hw_print_exception_info("prefetch abort", regs);
     rt_hw_cpu_shutdown();
@@ -176,11 +168,7 @@ void rt_hw_trap_pabt(struct rt_hw_register *regs)
  */
 void rt_hw_trap_dabt(struct rt_hw_register *regs)
 {
-#if (CFG_SOC_NAME == SOC_BK7231N)
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)(CRASH_DATA_ABORT_VALUE & 0xffff);
-#else
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)CRASH_DATA_ABORT_VALUE;
-#endif
+    bk_misc_update_set_type(CRASH_DATA_ABORT_VALUE);
 
     rt_hw_print_exception_info("data abort", regs);
     rt_hw_cpu_shutdown();
@@ -195,11 +183,7 @@ void rt_hw_trap_dabt(struct rt_hw_register *regs)
  */
 void rt_hw_trap_resv(struct rt_hw_register *regs)
 {
-#if (CFG_SOC_NAME == SOC_BK7231N)
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)(CRASH_UNUSED_VALUE & 0xffff);
-#else
-    *((volatile uint32_t *)START_TYPE_ADDR) = (uint32_t)CRASH_UNUSED_VALUE;
-#endif
+    bk_misc_update_set_type(CRASH_UNUSED_VALUE);
 
     rt_hw_print_exception_info("not used", regs);
     rt_hw_cpu_shutdown();

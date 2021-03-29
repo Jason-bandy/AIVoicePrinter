@@ -25,13 +25,15 @@
 #include "signal.h"
 #if CFG_WPA_CTRL_IFACE
 #include "wpa_ctrl.h"
+#include "wpa_err.h"
 #endif
+#include "main_none.h"
 
 beken_queue_t wpah_queue = NULL;
 static struct hapd_global s_hapd_global;
 struct hapd_interfaces g_hapd_interfaces;
 
-char *bss_iface = "wlan0";
+char *const bss_iface = "wlan0";
 
 extern int ap_channel_switch(struct hostapd_iface *ap_iface, int new_freq);
 
@@ -47,6 +49,16 @@ int hostap_interfaces_is_valid(void)
 	return ((g_hapd_interfaces.iface) && (0 < g_hapd_interfaces.count));
 }
 #endif
+
+struct hostapd_iface **hostapd_ctrl_get_hostapd_iface(void)
+{
+	return g_hapd_interfaces.iface;
+}
+
+int hostapd_ctrl_get_hostapd_iface_count(void)
+{
+	return g_hapd_interfaces.count;
+}
 
 struct hostapd_config *hostapd_config_read(const char *fname)
 {
@@ -68,13 +80,21 @@ struct hostapd_config *hostapd_config_read(const char *fname)
 	conf->driver = wpa_drivers[0];
 	conf->last_bss = conf->bss[0];
 
-	#if CFG_AP_SUPPORT_HT_IE
+#if CFG_AP_SUPPORT_HT_IE
 	conf->ieee80211n = 1;
 	conf->ht_capab = HT_CAP_INFO_SMPS_DISABLED | HT_CAP_INFO_SHORT_GI20MHZ
 						| HT_CAP_INFO_TX_STBC
 						| HT_CAP_INFO_RX_STBC_1
 						| HT_CAP_INFO_MAX_AMSDU_SIZE;
-	#endif
+#endif
+
+#if CFG_AP_SUPPORT_VHT
+	conf->ieee80211ac = 1;
+#endif
+
+#if CFG_AP_SUPPORT_HE
+	conf->ieee80211ax = 1;
+#endif
 
 	bss->ssid.ssid_len = g_ap_param_ptr->ssid.length;
 	os_memcpy(bss->ssid.ssid, g_ap_param_ptr->ssid.array, bss->ssid.ssid_len);
@@ -102,7 +122,7 @@ struct hostapd_config *hostapd_config_read(const char *fname)
 					bss->ssid.wep.key[0][i] = wkey;
 				}
 			} else {
-				os_printf("WEP_KEY_len_exception\r\n");
+				WPA_LOGE("WEP_KEY_len_exception\r\n");
 			}
 		}
 	} else if (g_ap_param_ptr->cipher_suite == BK_SECURITY_TYPE_WPA_TKIP) {
@@ -141,7 +161,7 @@ struct hostapd_config *hostapd_config_read(const char *fname)
 	} else if (g_ap_param_ptr->cipher_suite == BK_SECURITY_TYPE_WPA3_WPA2_MIXED) {
 		bss->wpa_key_mgmt |= WPA_KEY_MGMT_SAE;
 	}
-	//os_printf("%s: wpa_key_mgmt 0x%x, cipher_suite %d\n", __func__, bss->wpa_key_mgmt, g_ap_param_ptr->cipher_suite);
+	//WPA_LOGI("%s: wpa_key_mgmt 0x%x, cipher_suite %d\n", __func__, bss->wpa_key_mgmt, g_ap_param_ptr->cipher_suite);
 
 	for (i = 0; i < conf->num_bss; i++)
 		hostapd_set_security_params(conf->bss[i], 1);
@@ -254,6 +274,7 @@ static int hostapd_config_read_wep(struct hostapd_wep_keys *wep, int keyidx, cha
 	return 0;
 }
 
+__maybe_unused static int hostapd_parse_chanlist(struct hostapd_config *conf, char *val);
 static int hostapd_parse_chanlist(struct hostapd_config *conf, char *val)
 {
 	char *pos;
@@ -623,8 +644,8 @@ static int hostapd_driver_init(struct hostapd_iface *iface)
 	/* Initialize the driver interface */
 	if (is_zero_ether_addr(b)) {
 		b = NULL;
-        os_printf("hostapd_driver_init conf->bssid is null\r\n");
-        return -1;
+		WPA_LOGE("hostapd_driver_init conf->bssid is null\r\n");
+		return -1;
 	}
 
 	os_memset(&params, 0, sizeof(params));
@@ -663,7 +684,7 @@ static int hostapd_driver_init(struct hostapd_iface *iface)
 			params.bridge[i] = bss->conf->bridge;
 		}
 #endif
-		os_printf("[csa]csa_in_progress[%d:%d]-clear\r\n", i, bss->csa_in_progress);
+		WPA_LOGI("[csa]csa_in_progress[%d:%d]-clear\r\n", i, bss->csa_in_progress);
 		bss->csa_in_progress = 0; /* test wangzhilei*/
 	}
 
@@ -813,6 +834,7 @@ static int hostapd_global_run(struct hapd_interfaces *ifaces, int daemonize,
 	return 0;
 }
 
+__maybe_unused static const char * hostapd_msg_ifname_cb(void *ctx);
 static const char * hostapd_msg_ifname_cb(void *ctx)
 {
 	struct hostapd_data *hapd = ctx;
@@ -1065,6 +1087,7 @@ out:
 }
 
 
+__maybe_unused static void hostapd_thread_main( void *arg );
 static void hostapd_thread_main( void *arg )
 {
 	int daemonize = 0;
@@ -1087,16 +1110,15 @@ int hostapd_channel_switch(int new_freq)
 #if CFG_WPA_CTRL_IFACE
 int wpa_hostapd_queue_command(wpah_msg_t *msg)
 {
-	int ret = -1;
+	int ret = WPA_FAIL;
 
 	if (!wpah_queue)
-		goto poll_exit;
+		return WPA_ERR_WPAH_QUEUE_INIT;
 
 	ret = rtos_push_to_queue(&wpah_queue, msg, BEKEN_NO_WAIT);
 	if (kNoErr != ret)
-		os_printf("wpa_hostapd_queue_command:%d\r\n", ret);
+		WPA_LOGE("wpa_hostapd_queue_command:%d\r\n", ret);
 
-poll_exit:
 	return ret;
 }
 #endif
@@ -1115,7 +1137,7 @@ uint32_t wpa_hostapd_queue_poll(uint32_t param)
 	msg.argu = (u32)param;
 	ret = rtos_push_to_queue(&wpah_queue, &msg, BEKEN_NO_WAIT);
 	if (kNoErr != ret)
-		os_printf("wpa_hostapd_queue_poll_failed:%d\r\n", ret);
+		WPA_LOGE("wpa_hostapd_queue_poll_failed:%d\r\n", ret);
 
 poll_exit:
 	return ret;

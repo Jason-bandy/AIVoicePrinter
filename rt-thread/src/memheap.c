@@ -608,7 +608,7 @@ void rt_memheap_free(void *ptr)
 	if ((header_ptr->magic & RT_MEMHEAP_MASK) != RT_MEMHEAP_MAGIC)
     {
         rt_dump_heap_mem(header_ptr, (unsigned char *)header_ptr->next - (unsigned char *)header_ptr);
-        rt_dump_heap_mem((unsigned char *)header_ptr - 4096, 4096);
+        rt_dump_heap_mem((struct rt_memheap_item *)((unsigned char *)header_ptr - 4096), 4096);
     }
     RT_ASSERT((header_ptr->magic & RT_MEMHEAP_MASK) == RT_MEMHEAP_MAGIC);
     RT_ASSERT(header_ptr->magic & RT_MEMHEAP_USED);

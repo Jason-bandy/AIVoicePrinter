@@ -148,7 +148,6 @@ extern void wifi_mac_state_set_prev(void);
 extern void wifi_general_mac_state_set_idle(void);
 extern void wifi_general_mac_state_set_active(void);
 #endif
-
 extern void rwnxl_register_connector(RW_CONNECTOR_T *intf);
 
 /// @}

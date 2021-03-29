@@ -37,7 +37,7 @@
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
-#define CFG_ROLE_LAUNCH                            1
+#define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         0
 #define CFG_RWNX_QOS_MSDU                          1
@@ -167,11 +167,10 @@
 #define CFG_USE_TEMPERATURE_DETECT                 0
 
 #define CFG_USE_APP_DEMO_VIDEO_TRANSFER            0
-
 /*section 12-----for SPIDMA interface*/
 #define CFG_USE_HSLAVE_SPI                         0
 #define CFG_USE_SPIDMA                             0
-#define CFG_USE_CAMERA_INTF                        1
+#define CFG_USE_CAMERA_INTF                        0
 
 /*section 13-----for GENERRAL DMA */
 #define CFG_GENERAL_DMA                            1
@@ -180,8 +179,6 @@
 #define CFG_USE_FTPD_UPGRADE                       0
 
 /*section 15-----support customer macro*/
-#define CFG_SUPPORT_TIANZHIHENG_DRONE              0
-#define CFG_USE_APP_DEMO_VIDEO_TRANSFER            0
 
 /*section 16-----support mcu & deep sleep*/
 #define CFG_USE_MCU_PS                             0
@@ -272,10 +269,10 @@
 #endif // CFG_SUPPORT_ALIOS
 
 #define CFG_USE_DSP                                1
-#define CFG_DSP_SRC_ADD                            0x100000
+#define CFG_DSP_SRC_ADD                            0x130000
 
-#define CFG_USE_BT                                 0
-#define CFG_BT_SRC_ADD                             0x1B0000
+#define CFG_USE_BT                                 1
+#define CFG_BT_SRC_ADD                             0x1E0000
 
 #define CFG_SUPPORT_BLE                            0
 #define CFG_RF_USER_BLE                            1
@@ -326,13 +323,22 @@
 #endif
 
 
-// peripheral interface open
+/*section 29 -----  peripheral interface open  */
 #define CFG_USE_I2C1                                1
 #define CFG_USE_I2C2                                0
 
-/*section 29 ----- peripheral interface test case */
+/*section 30 ----- peripheral interface test case */
+#define CFG_PERIPHERAL_TEST							1
 #define CFG_SUPPORT_SPI_TEST                        1
 
+/*section 31 ----- power table for country code */
+#define CFG_POWER_TABLE                             0
+
+/* watchdog, freertos only */
+#define CFG_INT_WDG_ENABLED                        1
+#define CFG_INT_WDG_PERIOD_MS                      10000
+#define CFG_TASK_WDG_ENABLED                       1
+#define CFG_TASK_WDG_PERIOD_MS                     60000
 
 #endif // _SYS_CONFIG_7271_H_
 // eof

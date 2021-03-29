@@ -13,6 +13,7 @@
 #include "fake_clock_pub.h"
 #include "bk_timer_pub.h"
 #include "drv_model_pub.h"
+#include "power_save.h"
 
 static MCU_PS_INFO mcu_ps_info = {
 	.mcu_ps_on = 0,
@@ -205,7 +206,7 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 	mcu_ps_cal_increase_tick ( & miss_ticks );
 	GLOBAL_INT_RESTORE();
 	if(miss_ticks <0){
-		os_printf("miss_ticks error\r\n");
+		PS_LOGI("miss_ticks error\r\n");
 	}
 	return miss_ticks;
 }
@@ -213,7 +214,7 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 #if (CFG_SUPPORT_ALIOS)
 int aos_mcu_ps_timer_start ( UINT32 tm_us )
 {
-	UINT32 sleep_ms, param;
+	UINT32 sleep_ms;
 
 	if ( mcu_ps_info.mcu_ps_on == 1
 	     && ( peri_busy_count_get() == 0 )
@@ -326,13 +327,13 @@ int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 
 void mcu_ps_dump ( void )
 {
-	os_printf ( "mcu:%x\r\n", mcu_ps_info.mcu_ps_on );
+	PS_LOGI("mcu:%x\r\n", mcu_ps_info.mcu_ps_on );
 }
 
 #if (CHIP_U_MCU_WKUP_USE_TIMER)
 void timer3_isr ( UINT8 param )
 {
-	//os_printf("t3\r\n");
+	//PS_LOGI("t3\r\n");
 }
 
 void mcu_init_timer3 ( void )
@@ -348,7 +349,6 @@ void mcu_init_timer3 ( void )
 
 void mcu_ps_init ( void )
 {
-	UINT32 reg;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -360,7 +360,7 @@ void mcu_ps_init ( void )
 		sctrl_mcu_init();
 		mcu_ps_info.mcu_ps_on = 1;
 		mcu_ps_info.peri_busy_count = 0;
-		os_printf ( "%s %d\r\n", __FUNCTION__, mcu_ps_info.mcu_prevent );
+		PS_LOGI("%s %d\r\n", __FUNCTION__, mcu_ps_info.mcu_prevent );
 	}
 
 	mcu_ps_machw_init();
@@ -376,7 +376,7 @@ void mcu_ps_exit ( void )
 		mcu_ps_info.mcu_ps_on = 0;
 		sctrl_mcu_exit();
 		mcu_ps_info.peri_busy_count = 0;
-		os_printf ( "%s %d\r\n", __FUNCTION__, mcu_ps_info.mcu_prevent );
+		PS_LOGI("%s %d\r\n", __FUNCTION__, mcu_ps_info.mcu_prevent );
 	}
 
 	mcu_ps_machw_reset();
@@ -390,10 +390,8 @@ static UINT64 last_tsf = 0;
 extern UINT32 use_cal_net;
 void mcu_ps_bcn_callback ( uint8_t *data, int len, wifi_link_info_t *info )
 {
-	int i;
 	struct bcn_frame *bcn = ( struct bcn_frame * ) data;
 	UINT64 tsf_start_peer = bcn->tsf;
-	UINT32 bcn_int = ( bcn->bcnint << 10 );
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -430,7 +428,7 @@ void mcu_ps_cal_increase_tick ( UINT32 *lost_p )
 #if 0
 
 	if ( ( increase_tick < ( -5000 ) ) || ( increase_tick > 5000 ) ) {
-		os_printf ( "--itick--:%x\r\n", increase_tick );
+		PS_LOGI("--itick--:%x\r\n", increase_tick );
 		increase_tick = 0;
 	}
 
@@ -467,7 +465,7 @@ uint32 mcu_ps_need_pstick ( void )
 		mcu_ps_cal_increase_tick ( &lost );
 
 		if ( !lost ) {
-			//os_printf("p_t\r\n");
+			//PS_LOGI("p_t\r\n");
 		}
 
 		ret = lost;
@@ -489,7 +487,7 @@ UINT32 mcu_ps_tsf_cal ( UINT64 tsf )
 	UINT32 fclk, tmp2, tmp4;
 #endif
 	UINT64 machw, tmp1, tmp3;
-	INT32 past_tick, loss;
+	INT32 loss;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -515,17 +513,17 @@ UINT32 mcu_ps_tsf_cal ( UINT64 tsf )
 
 	if ( loss > 0 ) {
 		if ( loss > 5000 ) {
-			os_printf ( "tsf cal_:%x \r\n", loss );
+			PS_LOGI("tsf cal_:%x \r\n", loss );
 #if (CFG_SUPPORT_ALIOS)
-			os_printf ( "%x %x\r\n", ( UINT32 ) ( fclk >> 32 ), ( UINT32 ) ( fclk ) );
-			os_printf ( "%x %x\r\n", ( UINT32 ) ( tmp2 >> 32 ), ( UINT32 ) ( tmp2 ) );
-			os_printf ( "%x %x\r\n", ( UINT32 ) ( tmp4 >> 32 ), ( UINT32 ) ( tmp4 ) );
+			PS_LOGI("%x %x\r\n", ( UINT32 ) ( fclk >> 32 ), ( UINT32 ) ( fclk ) );
+			PS_LOGI("%x %x\r\n", ( UINT32 ) ( tmp2 >> 32 ), ( UINT32 ) ( tmp2 ) );
+			PS_LOGI("%x %x\r\n", ( UINT32 ) ( tmp4 >> 32 ), ( UINT32 ) ( tmp4 ) );
 #else
-			os_printf ( "%x %x %x\r\n", fclk, tmp2, tmp4 );
+			PS_LOGI("%x %x %x\r\n", fclk, tmp2, tmp4 );
 #endif
-			os_printf ( "tsf:%x %x\r\n", ( UINT32 ) ( machw >> 32 ), ( UINT32 ) machw );
-			os_printf ( "tmp3:%x %x\r\n", ( UINT32 ) ( tmp3 >> 32 ), ( UINT32 ) tmp3 );
-			os_printf ( "tmp1:%x %x\r\n", ( UINT32 ) ( tmp1 >> 32 ), ( UINT32 ) tmp1 );
+			PS_LOGI("tsf:%x %x\r\n", ( UINT32 ) ( machw >> 32 ), ( UINT32 ) machw );
+			PS_LOGI("tmp3:%x %x\r\n", ( UINT32 ) ( tmp3 >> 32 ), ( UINT32 ) tmp3 );
+			PS_LOGI("tmp1:%x %x\r\n", ( UINT32 ) ( tmp1 >> 32 ), ( UINT32 ) tmp1 );
 
 			if ( loss > 50000 ) {
 				goto TFS_RESET;
@@ -552,7 +550,7 @@ TFS_RESET:
 	mcu_ps_tsf_save.first_tsf = tsf;
 	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
 	mcu_ps_tsf_save.first_tick = fclk;
-	os_printf ( "mcu_ps_tsf_cal init\r\n" );
+	PS_LOGI("mcu_ps_tsf_cal init\r\n" );
 	GLOBAL_INT_RESTORE();
 	return 0 ;
 }
@@ -574,7 +572,6 @@ UINT32 mcu_ps_machw_init ( void )
 #else
 	UINT32 fclk;
 #endif
-	UINT32 machw;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
@@ -615,18 +612,18 @@ UINT32 mcu_ps_machw_cal ( void )
 
 	if ( ( lost < ( 0xFFFFFFFF >> 1 ) ) && ( lost > 0 ) ) {
 		if ( lost > 5000 ) {
-			os_printf ( "hw cal_:%x %x %x\r\n", lost, machw, mcu_ps_machw_save.machw_tm );
+			PS_LOGI("hw cal_:%x %x %x\r\n", lost, machw, mcu_ps_machw_save.machw_tm );
 
 			if ( lost > 50000 ) {
 				goto HWCAL_RESET;
 			}
 		}
 
-		//os_printf("mc:%d\r\n",lost);
+		//PS_LOGI("mc:%d\r\n",lost);
 		mcu_ps_cal_increase_tick ( &lost );
 		fclk_update_tick ( BK_MS_TO_TICKS ( lost ) );
 		mcu_ps_machw_init();
-		//os_printf("rmc:%d\r\n",lost);
+		//PS_LOGI("rmc:%d\r\n",lost);
 	}
 	else {
 	}

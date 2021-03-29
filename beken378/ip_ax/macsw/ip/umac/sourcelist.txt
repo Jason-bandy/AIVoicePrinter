@@ -1,0 +1,32 @@
+# ME files
+    src/me/me_mgmtframe.c
+    src/me/me_task.c
+    src/me/me.c
+    src/me/me_utils.c
+    src/me/me_mic.c
+# SM files
+    src/sm/sm_task.c
+    src/sm/sm.c
+# APM files
+    src/apm/apm_task.c
+    src/apm/apm.c
+# SCANU files
+    src/scanu/scanu_task.c
+    src/scanu/scanu.c
+    src/scanu/scanu_shared.c
+# RXU files
+    src/rxu/rxu_cntrl.c
+# TXU files
+    src/txu/txu_cntrl.c
+# LLC files
+    src/llc/llc.c
+# BAM files
+    src/bam/bam_task.c
+    src/bam/bam.c
+# MFP files
+    src/mfp/mfp.c
+    src/mfp/mfp_bip.c
+# RC files
+    src/rc/rc.c
+# HSU
+    src/hsu/hsu.c

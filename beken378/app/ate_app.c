@@ -51,28 +51,34 @@ void ate_app_init(void)
 
 uint32_t get_ate_mode_state(void)
 {
+	#if (CFG_SOC_NAME != SOC_BK7236)
+	// for debug purpuse on bk7236
     //ATE_PRT("ateflag:%d\r\n", ate_mode_state);
     if(ate_mode_state != (char)0)
         return 1;
     return 0;
+    #else
+    return 1;
+    #endif
 }
 
 #include "mem_pub.h"
 #include "str_pub.h"
+
+#ifdef SINGLE_WAVE_TEST
 static void do_single_wave_test(void)
 {
     uint32_t cmd_len = os_strlen(CMD_SINGLE_WAVE) + 1;
     uint8 *cmd_buf = os_malloc(cmd_len);
     if (cmd_buf) {
         extern void bk_test_cmd_handle_input(char *inbuf, int len);
-    
+
         os_memcpy(cmd_buf, CMD_SINGLE_WAVE, cmd_len);
         bk_test_cmd_handle_input((char *)cmd_buf, cmd_len);
-        
         os_free(cmd_buf);
     }
 }
-
+#endif
 
 #if (CFG_OS_FREERTOS)
 void ate_start(void)

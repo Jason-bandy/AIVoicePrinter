@@ -27,6 +27,7 @@
 #include "saradc_pub.h"
 #include "sys_ctrl.h"
 #include "param_config.h"
+#include "bk_pwr_tbl_pub.h"
 
 #define CAL_RESULT_TO_FLASH		0
 #define CAL_RESULT_FLASH_ADDR		0x000F1000UL
@@ -55,25 +56,25 @@
 #define TX_PHASE_LOOPBACK_IMB_CAL            1
 
 #define CAL_DEBUG          1
-#include "uart_pub.h"
+#include "cal_log.h"
 #if CAL_DEBUG
-#define CAL_PRT      null_prf
-#define CAL_WARN     null_prf// warning_prf
-#define CAL_FATAL    null_prf
-#define CAL_TIM_PRT null_prf
-#define CAL_FLASH_PRT os_printf
+#define CAL_PRT      CAL_LOGD
+#define CAL_WARN     CAL_LOGD
+#define CAL_FATAL    CAL_LOGD
+#define CAL_TIM_PRT CAL_LOGD
+#define CAL_FLASH_PRT CAL_LOGI
 #else
-#define CAL_PRT      null_prf
-#define CAL_WARN     null_prf
-#define CAL_FATAL    null_prf
-#define CAL_TIM_PRT null_prf
-#define CAL_FLASH_PRT null_prf
+#define CAL_PRT      CAL_LOGD
+#define CAL_WARN     CAL_LOGD
+#define CAL_FATAL    CAL_LOGD
+#define CAL_TIM_PRT CAL_LOGD
+#define CAL_FLASH_PRT CAL_LOGD
 #endif
 
 extern void bk7011_cal_pll(void);
-static void bk7011_cal_dcormod_save_base(INT32 mod);
-static void bk7011_cal_dcormod_do_fitting(void);
-static UINT8 bk7011_cal_dcormod_get(void);
+__maybe_unused static void bk7011_cal_dcormod_save_base(INT32 mod);
+__maybe_unused static void bk7011_cal_dcormod_do_fitting(void);
+__maybe_unused static UINT8 bk7011_cal_dcormod_get(void);
 void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 extern uint32_t get_ate_mode_state(void);
 extern UINT32 ble_in_dut_mode(void);
@@ -475,97 +476,96 @@ PWRI(  0xB75 ,      0xA,       7,        3,         2,      0x20,     0x0,     0
 PWRI(  0xB8F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 79   22.25  dBm
 };
 
-#define PWR_GAIN_BASE_BLE               (0xE0A91000)
+#define PWR_GAIN_BASE_BLE               (0xE12B1000)
 #define TCP_PAMAP_TAB_BLE_LEN			(80)
 const static PWR_REGS cfg_tab_ble[TCP_PAMAP_TAB_BLE_LEN] =
 {
     // pregain REGB<31:28> REGC<10:8> REGC<6:4> REGC<2:0> REGA<13:8> REGA<7:4> REGA<1:0>
-PWRI(  0x85E ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 0    2.5  dBm
-PWRI(  0x860 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 1    2.75  dBm
-PWRI(  0x863 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 2    3  dBm
-PWRI(  0x866 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 3    3.25  dBm
-PWRI(  0x869 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 4    3.5  dBm
-PWRI(  0x86C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 5    3.75  dBm
-PWRI(  0x86F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 6    4  dBm
-PWRI(  0x873 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 7    4.25  dBm
-PWRI(  0x876 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 8    4.5  dBm
-PWRI(  0x879 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 9    4.75  dBm
-PWRI(  0x87D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 10   5  dBm
-PWRI(  0x881 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 11   5.25  dBm
-PWRI(  0x884 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 12   5.5  dBm
-PWRI(  0x888 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 13   5.75  dBm
-PWRI(  0x88C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 14   6  dBm
-PWRI(  0x890 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 15   6.25  dBm
-PWRI(  0x895 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 16   6.5  dBm
-PWRI(  0x899 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 17   6.75  dBm
-PWRI(  0x89D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 18   7  dBm
-PWRI(  0x8A2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 19   7.25  dBm
-PWRI(  0x8A7 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 20   7.5  dBm
-PWRI(  0x8AC ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 21   7.75  dBm
-PWRI(  0x8B1 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 22   8  dBm
-PWRI(  0x8B6 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 23   8.25  dBm
-PWRI(  0x8BB ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 24   8.5  dBm
-PWRI(  0x8C0 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 25   8.75  dBm
-PWRI(  0x8C6 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 26   9  dBm
-PWRI(  0x8CC ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 27   9.25  dBm
-PWRI(  0x8D2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 28   9.5  dBm
-PWRI(  0x8D8 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 29   9.75  dBm
-PWRI(  0x8DE ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 30   10  dBm
-PWRI(  0x8E5 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 31   10.25  dBm
-PWRI(  0x8EB ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 32   10.5  dBm
-PWRI(  0x8F2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 33   10.75  dBm
-PWRI(  0x8F9 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 34   11  dBm
-
-PWRI(  0x901 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 35   11.25  dBm
-PWRI(  0x908 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 36   11.5  dBm
-PWRI(  0x910 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 37   11.75  dBm
-PWRI(  0x918 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 38   12  dBm
-PWRI(  0x920 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 39   12.25  dBm
-PWRI(  0x928 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 40   12.5  dBm
-PWRI(  0x931 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 41   12.75  dBm
-PWRI(  0x93A ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 42   13  dBm
-PWRI(  0x943 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 43   13.25  dBm
-PWRI(  0x94D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 44   13.5  dBm
-PWRI(  0x956 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 45   13.75  dBm
-PWRI(  0x960 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 46   14  dBm
-PWRI(  0x96B ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 47   14.25  dBm
-PWRI(  0x975 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 48   14.5  dBm
-PWRI(  0x980 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 49   14.75  dBm
-PWRI(  0x98B ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 50   15  dBm
-PWRI(  0x997 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 51   15.25  dBm
-PWRI(  0x9A3 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 52   15.5  dBm
-PWRI(  0x9AF ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 53   15.75  dBm
-PWRI(  0x9BB ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 54   16  dBm
-PWRI(  0x9C8 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 55   16.25  dBm
-PWRI(  0x9D6 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 56   16.5  dBm
-PWRI(  0x9E0 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 57   16.75  dBm
-PWRI(  0x9F2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 58   17  dBm
-PWRI(  0xA00 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 59   17.25  dBm
-PWRI(  0xA0F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 60   17.5  dBm
-PWRI(  0xA1E ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 61   17.75  dBm
-PWRI(  0xA2E ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 62   18  dBm
-PWRI(  0xA3F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 63   18.25  dBm
-PWRI(  0xA4F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 64   18.5  dBm
-PWRI(  0xA61 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 65   18.75  dBm
-PWRI(  0xA72 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 66   19  dBm
-PWRI(  0xA85 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 67   19.25  dBm
-PWRI(  0xA98 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 68   19.5  dBm
-PWRI(  0xAAB ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 69   19.75  dBm
-PWRI(  0xABF ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 70   20  dBm
-PWRI(  0xAD3 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 71   20.25  dBm
-PWRI(  0xAE9 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 72   20.5  dBm
-PWRI(  0xAFE ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 73   20.75  dBm
-PWRI(  0xB15 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 74   21  dBm
-PWRI(  0xB2C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 75   21.25  dBm
-PWRI(  0xB43 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 76   21.5  dBm
-PWRI(  0xB5C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 77   21.75  dBm
-PWRI(  0xB75 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 78   22  dBm
-PWRI(  0xB8F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 79   22.25  dBm
+PWRI(  0x80B ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 0   -7.5  dBm
+PWRI(  0x81F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 1   21  dBm
+PWRI(  0x820 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 2   21.25  dBm
+PWRI(  0x821 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 3   21.5  dBm
+PWRI(  0x822 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 4   21.75  dBm
+PWRI(  0x823 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 5   22  dBm
+PWRI(  0x824 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 6   2.5  dBm
+PWRI(  0x825 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 7   2.75  dBm
+PWRI(  0x826 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 8   3  dBm
+PWRI(  0x828 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 9   3.25  dBm
+PWRI(  0x829 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 10   3.5  dBm
+PWRI(  0x82A ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 11   3.75  dBm
+PWRI(  0x82B ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 12   4  dBm
+PWRI(  0x82C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 13   4.25  dBm
+PWRI(  0x82E ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 14   4.5  dBm
+PWRI(  0x82F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 15   4.75  dBm
+PWRI(  0x830 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 16   5  dBm
+PWRI(  0x832 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 17   5.25  dBm
+PWRI(  0x833 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 18   5.5  dBm
+PWRI(  0x835 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 19   5.75  dBm
+PWRI(  0x836 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 20   6  dBm
+PWRI(  0x838 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 21   6.25  dBm
+PWRI(  0x839 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 22   6.5  dBm
+PWRI(  0x83B ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 23   6.75  dBm
+PWRI(  0x83D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 24   7  dBm
+PWRI(  0x83F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 25   7.25  dBm
+PWRI(  0x840 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 26   7.5  dBm
+PWRI(  0x842 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 27   7.75  dBm
+PWRI(  0x844 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 28   8  dBm
+PWRI(  0x846 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 29   8.25  dBm
+PWRI(  0x848 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 30   8.5  dBm
+PWRI(  0x84A ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 31   8.75  dBm
+PWRI(  0x84D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 32   9  dBm
+PWRI(  0x84F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 33   9.25  dBm
+PWRI(  0x851 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 34   9.5  dBm
+PWRI(  0x854 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 35   9.75  dBm
+PWRI(  0x856 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 36   10  dBm
+PWRI(  0x858 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 37   10.25  dBm
+PWRI(  0x85B ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 38   10.5  dBm
+PWRI(  0x85E ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 39   10.75  dBm
+PWRI(  0x860 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 40   11  dBm
+PWRI(  0x863 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 41   11.25  dBm
+PWRI(  0x866 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 42   11.5  dBm
+PWRI(  0x869 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 43   11.75  dBm
+PWRI(  0x86C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 44   12  dBm
+PWRI(  0x86F ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 45   12.25  dBm
+PWRI(  0x873 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 46   12.5  dBm
+PWRI(  0x876 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 47   12.75  dBm
+PWRI(  0x879 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 48   13  dBm
+PWRI(  0x87D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 49   13.25  dBm
+PWRI(  0x881 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 50   13.5  dBm
+PWRI(  0x884 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 51   13.75  dBm
+PWRI(  0x888 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 52   14  dBm
+PWRI(  0x88C ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 53   14.25  dBm
+PWRI(  0x890 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 54   14.5  dBm
+PWRI(  0x895 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 55   14.75  dBm
+PWRI(  0x899 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 56   15  dBm
+PWRI(  0x89D ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 57   15.25  dBm
+PWRI(  0x8A2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 58   15.5  dBm
+PWRI(  0x8A7 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 59   15.75  dBm
+PWRI(  0x8AC ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 60   16  dBm
+PWRI(  0x8B1 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 61   16.25  dBm
+PWRI(  0x8B6 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 62   16.5  dBm
+PWRI(  0x8BB ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 63   16.75  dBm
+PWRI(  0x8C0 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 64   17  dBm
+PWRI(  0x8C6 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 65   17.25  dBm
+PWRI(  0x8CC ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 66   17.5  dBm
+PWRI(  0x8D2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 67   17.75  dBm
+PWRI(  0x8D8 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 68   18  dBm
+PWRI(  0x8DE ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 69   18.25  dBm
+PWRI(  0x8E5 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 70   18.5  dBm
+PWRI(  0x8EB ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 71   18.75  dBm
+PWRI(  0x8F2 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 72   19  dBm
+PWRI(  0x8F9 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 73   19.25  dBm
+PWRI(  0x901 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 74   19.5  dBm
+PWRI(  0x908 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 75   19.75  dBm
+PWRI(  0x910 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 76   20  dBm
+PWRI(  0x918 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 77   20.25  dBm
+PWRI(  0x920 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 78   20.5  dBm
+PWRI(  0x928 ,      0xA,       7,        3,         2,      0x20,     0x0,     0x2   ),   // 79   20.75  dBm
 };
 
 #define TCP_PAMAP_TAB_LEN               (TCP_PAMAP_TAB_B_LEN+TCP_PAMAP_TAB_G_LEN)
 
-struct BK7011RCBEKEN_TypeDef BK7231N_RC_REG =
+const struct BK7011RCBEKEN_TypeDef BK7231N_RC_REG =
 {
     (volatile BK7011_RC_BEKEN_REG0x0_TypeDef *) (RC_BEKEN_BASE + 0 * 4),
     (volatile BK7011_RC_BEKEN_REG0x1_TypeDef *) (RC_BEKEN_BASE + 1 * 4),
@@ -602,7 +602,7 @@ struct BK7011RCBEKEN_TypeDef BK7231N_RC_REG =
     (volatile BK7011_RC_BEKEN_REG0x6A_TypeDef *)(RC_BEKEN_BASE + 106 * 4),
 };
 
-struct BK7231N_TRX_REG_TypeDef BK7231N_TRX_REG =
+const struct BK7231N_TRX_REG_TypeDef BK7231N_TRX_REG =
 {
     (volatile BK7011_TRxV2A_REG0x0_TypeDef *) (TRX_BEKEN_BASE + 0 * 4),
     (volatile BK7011_TRxV2A_REG0x1_TypeDef *) (TRX_BEKEN_BASE + 1 * 4),
@@ -751,13 +751,13 @@ void calibration_print_results(BK7011_CALI_RESULT *cali_result, int calibrate_ti
     BK7011_CALI_RESULT max;
     BK7011_CALI_RESULT min;
 
-    os_printf("gtx_dcorMod_temp: 0x%x\r\n", gtx_dcorMod_temp);
-    os_printf("gtx_dcorPA_temp: 0x%x\r\n", gtx_dcorPA_temp);
-    os_printf("gtx_pre_gain_temp: 0x%x\r\n", gtx_pre_gain_temp);
+    CAL_LOGI("gtx_dcorMod_temp: 0x%x\r\n", gtx_dcorMod_temp);
+    CAL_LOGI("gtx_dcorPA_temp: 0x%x\r\n", gtx_dcorPA_temp);
+    CAL_LOGI("gtx_pre_gain_temp: 0x%x\r\n", gtx_pre_gain_temp);
 
-    os_printf("gtx_dcorMod_temp_loopback: 0x%x\r\n", gtx_dcorMod_temp_loopback);
-    os_printf("gtx_dcorPA_temp_loopback: 0x%x\r\n", gtx_dcorPA_temp_loopback);
-    os_printf("gtx_pre_gain_temp_loopback: 0x%x\r\n", gtx_pre_gain_temp_loopback);
+    CAL_LOGI("gtx_dcorMod_temp_loopback: 0x%x\r\n", gtx_dcorMod_temp_loopback);
+    CAL_LOGI("gtx_dcorPA_temp_loopback: 0x%x\r\n", gtx_dcorPA_temp_loopback);
+    CAL_LOGI("gtx_pre_gain_temp_loopback: 0x%x\r\n", gtx_pre_gain_temp_loopback);
 
     tx_filter_corner_max = -1100 * BK_TX_DAC_COEF;
     tx_filter_corner_min = 1100 * BK_TX_DAC_COEF;
@@ -1017,7 +1017,7 @@ void calibration_print_results(BK7011_CALI_RESULT *cali_result, int calibrate_ti
     for (j = 0; j < 8; j++)
     {
         int iTemp;
-        os_printf("\r\n");
+        CAL_LOGI("\r\n");
 
         max.g_rx_dc_gain_tab[j] = -1100 * BK_TX_DAC_COEF;
         min.g_rx_dc_gain_tab[j] = 1100 * BK_TX_DAC_COEF;
@@ -1033,7 +1033,7 @@ void calibration_print_results(BK7011_CALI_RESULT *cali_result, int calibrate_ti
                 min.g_rx_dc_gain_tab[j] = iTemp & 0x00FF;
             }
         }
-        os_printf("g_rx_dc_gain_tab[%d].i_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6, min.g_rx_dc_gain_tab[j], max.g_rx_dc_gain_tab[j], max.g_rx_dc_gain_tab[j] - min.g_rx_dc_gain_tab[j]);
+        CAL_LOGI("g_rx_dc_gain_tab[%d].i_%ddb: min = %d, max = %d, max-min = %d\r\n", j, j * 6, min.g_rx_dc_gain_tab[j], max.g_rx_dc_gain_tab[j], max.g_rx_dc_gain_tab[j] - min.g_rx_dc_gain_tab[j]);
 
         max.g_rx_dc_gain_tab[j] = -1100 * BK_TX_DAC_COEF;
         min.g_rx_dc_gain_tab[j] = 1100 * BK_TX_DAC_COEF;
@@ -1088,6 +1088,8 @@ void calibration_auto_test(unsigned long ul_calibrate_times)
     uint32_t start, end;
     int index;
 
+	__maybe_unused_var(start);
+	__maybe_unused_var(end);
     if (ul_calibrate_times == 0)
     {
         ul_calibrate_times = 100;
@@ -1178,6 +1180,7 @@ static UINT32 rwnx_cal_translate_tx_rate(UINT32 rate)
     return param;
 }
 
+__maybe_unused static UINT32 rwnx_cal_translate_tx_rate_for_n(UINT32 rate, UINT32 bandwidth);
 static UINT32 rwnx_cal_translate_tx_rate_for_n(UINT32 rate, UINT32 bandwidth)
 {
     UINT32 param;
@@ -1234,9 +1237,9 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
         return;
     }
 
-    if (1)//(test_mode == 0)
+    if (test_mode == 0)
     {
-        ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain);
+        ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain, 0);
     }
     else
     {
@@ -1294,7 +1297,7 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
             CAL_WR_TRXREGS(0x4);
         }
 		#if 0
-        os_printf("add extral movement in test\r\n");
+        CAL_LOGI("add extral movement in test\r\n");
 
          #if CFG_USE_TEMPERATURE_DETECT
          temp_detect_uninit();
@@ -1322,17 +1325,15 @@ void ble_cal_set_txpwr(uint8_t idx)
 
 	TERMINATION_MAC_TXRX();
 
-	if (pwr_idx > TCP_PAMAP_TAB_BLE_LEN) {
-		pwr_idx = TCP_PAMAP_TAB_BLE_LEN;
+	if (pwr_idx >= TCP_PAMAP_TAB_BLE_LEN) {
+		pwr_idx = TCP_PAMAP_TAB_BLE_LEN - 1;
 	} else if (pwr_idx < 0) {
 		pwr_idx = 0;
 	}
 
-#if CFG_SOC_NAME != SOC_BK7236
 	// TODO: phy karst
 	if (check_large_singal_status())
 		phy_enable_rx_switch();
-#endif
 
 	if(rwnx_sys_is_enable_hw_tpc())
 		rwnx_no_use_tpc_set_pwr();
@@ -1354,11 +1355,9 @@ void ble_cal_recover_txpwr(void)
 
 	RECOVER_MAC_TXRX();
 
-#if CFG_SOC_NAME != SOC_BK7236
 	// TODO: phy karst
 	if (check_large_singal_status())
 		phy_disable_rx_switch();
-#endif
 
 	if (rwnx_sys_is_enable_hw_tpc()) {
 		rwnx_use_tpc_set_pwr();
@@ -1377,7 +1376,7 @@ void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_b
     g_temp_pwr_current_tpc.shift_ble = shift_ble;
 
 #ifdef ATE_PRINT_DEBUG
-    os_printf("td set tpc pwr: shift_b:%d, shift_g:%d, shift_ble:%d\r\n",
+    CAL_LOGI("td set tpc pwr: shift_b:%d, shift_g:%d, shift_ble:%d\r\n",
         shift_b, shift_g, shift_ble);
 #endif
 }
@@ -1397,16 +1396,16 @@ UINT32 rwnx_tpc_pwr_idx_translate(UINT32 pwr_gain, UINT32 rate, UINT32 print_log
         idx_max = TCP_PAMAP_TAB_G_LEN;
         shift = g_temp_pwr_current_tpc.shift_g;
     } else {
-        os_printf("no support :%d\r\n", rate);
+        CAL_LOGI("no support :%d\r\n", rate);
         return idx;
     }
 
     idx = pwr_gain + shift;
 
     if(idx >= idx_max) {
-	    idx = idx_max - 1;
-	} else if (idx < 0)
-	    idx = 0;
+        idx = idx_max - 1;
+    } else if (idx < 0)
+        idx = 0;
 
 #if CFG_USE_TEMPERATURE_DETECT
     g_temp_pwr_current_tpc.idx = idx;
@@ -1414,7 +1413,7 @@ UINT32 rwnx_tpc_pwr_idx_translate(UINT32 pwr_gain, UINT32 rate, UINT32 print_log
 
     if (print_log)
     {
-        os_printf("translate idx1:%d, td_shift:%d, b/g:%d --- idx2:%d\r\n", pwr_gain,
+        CAL_LOGI("translate idx1:%d, td_shift:%d, b/g:%d --- idx2:%d\r\n", pwr_gain,
             shift, rate, idx);
     }
 
@@ -1432,6 +1431,8 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
     struct phy_channel_info info;
     UINT32 channel, bandwidth;   // PHY_CHNL_BW_20,  PHY_CHNL_BW_40:
 
+	__maybe_unused_var(pwr_gain_base);
+	__maybe_unused_var(pcfg);
     phy_get_channel(&info, 0);
     bandwidth = (info.info1 >> 8) & 0xff;
     if(rate <= 128)
@@ -1445,11 +1446,11 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
     if(manual_cal_get_txpwr(rwnx_cal_translate_tx_rate(rate),
         channel, bandwidth, &pwr_gain) == 0)
     {
-        os_printf("unable get txpwr %d, %d, %d\r\n", rate, channel, bandwidth);
+        CAL_LOGI("unable get txpwr %d, %d, %d\r\n", rate, channel, bandwidth);
         return 0;
     }
 
-    ret_bak = ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain);
+    ret_bak = ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain, channel);
 
     if(ret == 1) {
         ret = rwnx_tpc_pwr_idx_translate(pwr_gain, EVM_DEFUALT_B_RATE, 0);
@@ -1461,7 +1462,7 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
         pcfg = cfg_tab_g + ret;
         ret += TCP_PAMAP_TAB_B_LEN;
     } else {
-        os_printf("unable get txpwr shift %d, %d, %d\r\n", rate, channel, bandwidth);
+        CAL_LOGI("unable get txpwr shift %d, %d, %d\r\n", rate, channel, bandwidth);
         return 0;
     }
 
@@ -1471,7 +1472,7 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
         if(ret_bak == 2) {
             shift = g_temp_pwr_current.shift_g;
         }
-        
+	__maybe_unused_var(shift);
         CAL_FATAL("tpc info- r:%d, c:%d, b:%d -- idx1:%d+(%d), idx2: %d\r\n",
             rate, channel, bandwidth, pwr_gain, shift, ret);
 
@@ -1548,11 +1549,16 @@ void rwnx_cal_initial_calibration(void)
     rwnx_cal_set_txpwr(40, EVM_DEFUALT_RATE);
 
     rwnx_tpc_pa_map_init();
+
+#if CFG_POWER_TABLE
+    pwr_tbl_set_cal_pwr_base(BK_PWR_BASE_11B, BK_PWR_BASE_11G,
+        BK_PWR_BASE_HT20, BK_PWR_BASE_HT40);
+#endif
 }
 
 void rwnx_cal_set_reg_adda_ldo(UINT32 val)
 {
-//    os_printf("set_reg_adda_ldo:%d \r\n", val);
+//    CAL_LOGI("set_reg_adda_ldo:%d \r\n", val);
 
     val = val & 0x3;
 
@@ -1597,7 +1603,7 @@ void rwnx_cal_dis_rx_filter_offset(void)
 
 void rwnx_cal_set_reg_rx_ldo(void)
 {
-//    os_printf("set_reg_adda_ldo:%d \r\n", val);
+//    CAL_LOGI("set_reg_adda_ldo:%d \r\n", val);
 
     BK7231N_TRX_RAM.REG0x9.bits.vsrxlnaldo10 = 0x3;
     CAL_WR_TRXREGS(0x9);
@@ -1690,7 +1696,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
         shift = g_temp_pwr_current.shift_g;
 
 #ifdef ATE_PRINT_DEBUG
-    os_printf("-----pwr_gain:%d, rate=%d, g_idx:%d, shift_b:%d, shift_g:%d\n",
+    CAL_LOGI("-----pwr_gain:%d, rate=%d, g_idx:%d, shift_b:%d, shift_g:%d\n",
     pwr_gain,
     grate,
     g_temp_pwr_current.idx,
@@ -1721,20 +1727,20 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
         pcfg = cfg_tab_g + pwr_gain;
         pwr_gain_base = PWR_GAIN_BASE_G;
     } else {
-        os_printf("set_txpwr unknow rate:%d \r\n", grate);
+        CAL_LOGI("set_txpwr unknow rate:%d \r\n", grate);
         return;
     }
 
     if(get_ate_mode_state()) {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("idx:%02d,r:%03d- pg:0x%02x, %01x, %01x\r\n", pwr_gain, grate,
+        CAL_LOGI("idx:%02d,r:%03d- pg:0x%02x, %01x, %01x\r\n", pwr_gain, grate,
             pcfg->pregain, pcfg->regc_4_6, pcfg->regc_8_10);
-        os_printf("Xtal C: %d\r\n", manual_cal_get_xtal());
+        CAL_LOGI("Xtal C: %d\r\n", manual_cal_get_xtal());
 #else
-        os_printf("idx:%02d\r\n", pwr_gain);
+        CAL_LOGI("idx:%02d\r\n", pwr_gain);
 #endif
         #if DIFFERENCE_PIECES_CFG
-        os_printf("Mod :0x%x\r\n", bk7011_cal_dcormod_get());
+        CAL_LOGI("Mod :0x%x\r\n", bk7011_cal_dcormod_get());
         #endif
     }
 
@@ -1812,9 +1818,10 @@ void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_b
     if( should_do)
     {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("td set pwr: shift_b:%d, shift_g:%d, rate:%d\r\n",
+        CAL_LOGI("td set pwr: shift_b:%d, shift_g:%d, shift_ble:%d rate:%d\r\n",
             g_temp_pwr_current.shift,
             g_temp_pwr_current.shift_g,
+            g_temp_pwr_current.shift_ble,
             g_temp_pwr_current.mode);
 #endif
 
@@ -2281,7 +2288,7 @@ cali_saradc_desc_t *bk7011_cal_saradc_open()
     cali_saradc_desc->handle = ddev_open(SARADC_DEV_NAME, &param, (UINT32)&cali_saradc_desc->desc);
     if (DD_HANDLE_UNVALID == cali_saradc_desc->handle)
     {
-        bk_printf("ddev_open(%s) failed\n", SARADC_DEV_NAME);
+        CAL_LOGI("ddev_open(%s) failed\n", SARADC_DEV_NAME);
         bk7011_cal_saradc_close(cali_saradc_desc);
         cali_saradc_desc = NULL;
     }
@@ -2350,7 +2357,7 @@ void bk7011_update_tx_power_when_cal_dpll(int start_or_stop)
         return;
     }
 
-    //bk_printf("[in] TRX_Oxc_pactrl=0x%x,RCB_PWTBL_0x34=0x%x\n", BK7231N_TRX_REG.REG0xC->value, REG_READ(RCB_POWER_TABLE_ADDR + (0x34 * 4)));
+    //CAL_LOGI("[in] TRX_Oxc_pactrl=0x%x,RCB_PWTBL_0x34=0x%x\n", BK7231N_TRX_REG.REG0xC->value, REG_READ(RCB_POWER_TABLE_ADDR + (0x34 * 4)));
     if (start_or_stop)
     {
         /* start */
@@ -2369,7 +2376,7 @@ void bk7011_update_tx_power_when_cal_dpll(int start_or_stop)
         REG_WRITE((RCB_POWER_TABLE_ADDR + (0x34 * 4)), RCB_PWTBL_0x34);
     }
     CAL_WR_TRXREGS(0xC);
-    //bk_printf("[out] TRX_Oxc_pactrl=0x%x,RCB_PWTBL_0x34=0x%x\n", BK7231N_TRX_REG.REG0xC->value, REG_READ(RCB_POWER_TABLE_ADDR + (0x34 * 4)));
+    //CAL_LOGI("[out] TRX_Oxc_pactrl=0x%x,RCB_PWTBL_0x34=0x%x\n", BK7231N_TRX_REG.REG0xC->value, REG_READ(RCB_POWER_TABLE_ADDR + (0x34 * 4)));
 }
 
 #define BAND_CAL_GPIO_TIMES            10
@@ -2435,8 +2442,6 @@ static UINT8 bandgap_calm_in_efuse = 0xFF;
 static temperature_type last_temperature_type = TEMPERATURE_TYPE_UNKNOWN; /* uninitialized when power up */
 void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
 {
-    UINT32 param;
-
     if (new_temperature_type == last_temperature_type)
     {
         return;
@@ -2447,26 +2452,20 @@ void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
         return;
     }
 
-    bk_printf("temperature_type=%d\n", new_temperature_type);
+    CAL_LOGI("temperature_type=%d\n", new_temperature_type);
     if (TEMPERATURE_TYPE_LOW == new_temperature_type)
     {
-        param = 5;
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x19;
     }
     else if (TEMPERATURE_TYPE_HIGH == new_temperature_type)
     {
-        param = 5;
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x2C;
     }
     else
     {
-        param = 4;
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x19;
     }
     CAL_WR_TRXREGS(0x4);
-    /* keep vdddig all the time */
-    //sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, &param);
-
     last_temperature_type = new_temperature_type;
 }
 
@@ -2486,36 +2485,37 @@ void manual_cal_load_bandgap_calm(void)
         bandgap_calm_in_efuse = 0xFF;
         return;
     }
-    bk_printf("bandgap_calm_in_efuse=0x%x\r\n", bandgap_calm_in_efuse);
+    CAL_LOGI("bandgap_calm_in_efuse=0x%x\r\n", bandgap_calm_in_efuse);
     analog2 = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG2, &analog2);
     old_bandgap_calm = (analog2 >> BANDGAP_CAL_MANUAL_POSI) & BANDGAP_CAL_MANUAL_MASK;
-    if (old_bandgap_calm != (uint32_t)bandgap_calm_in_efuse)
+    old_vddig = (int32_t)sctrl_ctrl(CMD_SCTRL_GET_VDD_VALUE, NULL);
+    new_bandgap_calm = (uint32_t)(bandgap_calm_in_efuse & 0x3F);
+    new_vddig = (int32_t)((bandgap_calm_in_efuse >> 6) & 0x3);
+    if (3 != new_vddig)
+    {
+        new_vddig += 4;
+    }
+    if ((old_bandgap_calm != new_bandgap_calm) || (old_vddig != new_vddig))
     {
         /* keep bandgap_calm in [0x10, 0x30) */
-        old_vddig = (int32_t)sctrl_ctrl(CMD_SCTRL_GET_VDD_VALUE, NULL);
-        new_bandgap_calm = (uint32_t)bandgap_calm_in_efuse;
-        if (new_bandgap_calm >= 0x30)
+        if ((new_bandgap_calm >= 0x30) && (new_vddig < VDDIG_MAX))
         {
-            new_vddig = old_vddig + 1;
+            new_vddig = new_vddig + 1;
             new_bandgap_calm = new_bandgap_calm - 0x20;
         }
-        else if (new_bandgap_calm < 0x10)
+        else if ((new_bandgap_calm < 0x10) && (new_vddig > VDDIG_MIN))
         {
-            new_vddig = old_vddig - 1;
+            new_vddig = new_vddig - 1;
             new_bandgap_calm = new_bandgap_calm + 0x20;
-        }
-        else
-        {
-            new_vddig = old_vddig;
         }
 
         if ((new_vddig < VDDIG_MIN) || (new_vddig > VDDIG_MAX))
         {
             new_vddig = old_vddig;
-            new_bandgap_calm = (uint32_t)bandgap_calm_in_efuse;
+            new_bandgap_calm = (uint32_t)old_bandgap_calm;
         }
 
-        bk_printf("[load]bandgap_calm=0x%x->0x%x,vddig=%d->%d\r\n", bandgap_calm_in_efuse, new_bandgap_calm, old_vddig, new_vddig);
+        CAL_LOGI("[load]bandgap_calm=0x%x->0x%x,vddig=%d->%d\r\n", old_bandgap_calm, new_bandgap_calm, old_vddig, new_vddig);
 
         analog2 &= ~(BANDGAP_CAL_MANUAL_MASK << BANDGAP_CAL_MANUAL_POSI);
         analog2 |= (new_bandgap_calm << BANDGAP_CAL_MANUAL_POSI);
@@ -2591,7 +2591,7 @@ void bk7011_set_rfcali_mode(int mode)
 
     save_info_item(RF_CFG_MODE_ITEM, (UINT8 *)&gcali_context.cali_mode, NULL, NULL);
 
-    os_printf("set rfcali_mode:%d\r\n", gcali_context.cali_mode);
+    CAL_LOGI("set rfcali_mode:%d\r\n", gcali_context.cali_mode);
 }
 
 void bk7011_get_rfcali_mode(void)
@@ -2603,12 +2603,12 @@ void bk7011_get_rfcali_mode(void)
         if((cali_mode == CALI_MODE_AUTO) || (cali_mode == CALI_MODE_MANUAL))
         {
             gcali_context.cali_mode = cali_mode;
-            os_printf("load flash rfcali mode:%d \r\n", cali_mode);
+            CAL_LOGI("load flash rfcali mode:%d \r\n", cali_mode);
             in_valid = 0;
         }
         else
         {
-            os_printf("rfcali_mode other:%d\r\n", cali_mode);
+            CAL_LOGI("rfcali_mode other:%d\r\n", cali_mode);
             in_valid = 1;
         }
     }
@@ -2622,7 +2622,7 @@ void bk7011_get_rfcali_mode(void)
             {
                 in_valid = 0;
                 gcali_context.cali_mode = cali_mode;
-                os_printf("user define rfcali mode:%d \r\n", cali_mode);
+                CAL_LOGI("user define rfcali mode:%d \r\n", cali_mode);
             }
         }
     }
@@ -2637,7 +2637,7 @@ void bk7011_get_rfcali_mode(void)
         }
     }
 
-    os_printf("get rfcali_mode:%d\r\n", gcali_context.cali_mode);
+    CAL_LOGI("get rfcali_mode:%d\r\n", gcali_context.cali_mode);
 }
 
 int bk7011_is_rfcali_mode_auto(void)
@@ -2657,14 +2657,14 @@ void bk7011_set_rf_config_tssithred_b(int tssi_thred_b)
 
     save_info_item(RF_CFG_TSSI_B_ITEM, (UINT8 *)&gcali_context.gtx_tssi_thred_b, NULL, NULL);
 
-    os_printf("set b_tssi_thred:0x%x\r\n", gcali_context.gtx_tssi_thred_b);
+    CAL_LOGI("set b_tssi_thred:0x%x\r\n", gcali_context.gtx_tssi_thred_b);
 }
 
 void bk7011_set_rf_config_tssithred_g(int tssi_thred_g)
 {
     if((tssi_thred_g < 0) || (tssi_thred_g > 0xff))
     {
-        os_printf("g tssi range:0-255, %d\r\n", tssi_thred_g);
+        CAL_LOGI("g tssi range:0-255, %d\r\n", tssi_thred_g);
         return;
     }
 
@@ -2672,7 +2672,7 @@ void bk7011_set_rf_config_tssithred_g(int tssi_thred_g)
 
     save_info_item(RF_CFG_TSSI_ITEM, (UINT8 *)&gcali_context.gtx_tssi_thred_g, NULL, NULL);
 
-    os_printf("set g_tssi_thred:%d\r\n", gcali_context.gtx_tssi_thred_g);
+    CAL_LOGI("set g_tssi_thred:%d\r\n", gcali_context.gtx_tssi_thred_g);
 }
 
 void bk7011_get_txpwr_config_reg(void)
@@ -2684,7 +2684,7 @@ void bk7011_get_txpwr_config_reg(void)
     if(get_info_item(RF_CFG_TSSI_ITEM, (UINT8 *)&tssi_thred, NULL, NULL))
     {
         gcali_context.gtx_tssi_thred_g = tssi_thred;
-        os_printf("load flash tssi_th:g-%d \r\n", gcali_context.gtx_tssi_thred_g);
+        CAL_LOGI("load flash tssi_th:g-%d \r\n", gcali_context.gtx_tssi_thred_g);
     }
     // otherwise check if user set default value
     else
@@ -2695,7 +2695,7 @@ void bk7011_get_txpwr_config_reg(void)
         if(is_used)
         {
             gcali_context.gtx_tssi_thred_g = tssi_thred;
-            os_printf("user define tssi_th:g-%d \r\n", gcali_context.gtx_tssi_thred_g);
+            CAL_LOGI("user define tssi_th:g-%d \r\n", gcali_context.gtx_tssi_thred_g);
         }
     }
 
@@ -2703,7 +2703,7 @@ void bk7011_get_txpwr_config_reg(void)
     if(get_info_item(RF_CFG_TSSI_B_ITEM, (UINT8 *)&tssi_thred, NULL, NULL))
     {
         gcali_context.gtx_tssi_thred_b = tssi_thred;
-        os_printf("load flash tssi_th:b-%d \r\n", gcali_context.gtx_tssi_thred_b);
+        CAL_LOGI("load flash tssi_th:b-%d \r\n", gcali_context.gtx_tssi_thred_b);
     }
     else
 #endif
@@ -2713,11 +2713,11 @@ void bk7011_get_txpwr_config_reg(void)
         if(is_used)
         {
             gcali_context.gtx_tssi_thred_b = tssi_thred;
-            os_printf("user define tssi_th:b-%d \r\n", gcali_context.gtx_tssi_thred_b);
+            CAL_LOGI("user define tssi_th:b-%d \r\n", gcali_context.gtx_tssi_thred_b);
         }
     }
 
-    os_printf("tssi_th:b-%d, g-%d\r\n", gcali_context.gtx_tssi_thred_b, gcali_context.gtx_tssi_thred_g);
+    CAL_LOGI("tssi_th:b-%d, g-%d\r\n", gcali_context.gtx_tssi_thred_b, gcali_context.gtx_tssi_thred_g);
 }
 
 void bk7011_tx_cal_en(void)
@@ -2744,7 +2744,7 @@ static INT32 bk7011_get_tx_output_power(INT32 tx_power_cal_mode, INT32 gav_tssi_
     {
 	#if DIFFERENCE_PIECES_CFG
 		tssioutpower = tssioutpower - gcali_context.gtx_tssi_thred_g - gav_tssi_temp;
-		//bk_printf("tssioutpower:%d\n",tssioutpower);
+		//CAL_LOGI("tssioutpower:%d\n",tssioutpower);
 	#else
         tssioutpower = tssioutpower - TSSI_POUT_TH_G - gav_tssi_temp;
 
@@ -2788,8 +2788,10 @@ INT32 bk7011_cal_tx_output_power(INT32 tx_power_cal_mode)
     INT32 tssilow = 0;
     INT32 tssihigh = 0;
     INT32 index = 0;
-    INT16 high, low, tx_fre_gain;
+    INT16 high, low;
+#if DIFFERENCE_PIECES_CFG
     INT32 cnt = 0;
+#endif
     INT32 gav_tssi_temp = 0;
 
     bk7011_cal_saradc_runorstop(cali_saradc_desc, 1);
@@ -2905,7 +2907,7 @@ INT32 bk7011_cal_tx_output_power(INT32 tx_power_cal_mode)
     if (tx_power_cal_mode == TX_WANTED_POWER_CAL)
     {
         gcali_result.gav_tssi = gav_tssi_temp;
-		///bk_printf("gav_tssi:%d\n",gav_tssi);
+		///CAL_LOGI("gav_tssi:%d\n",gav_tssi);
     }
 
     if (tx_power_cal_mode == TX_WANTED_POWER_CAL)
@@ -3178,7 +3180,7 @@ static void bk7011_do_atuo_tx_cal_print(const char *fmt, ...)
         }
         string[length] = '\0';
         va_end(ap);
-        bk_printf("%s", string);
+        CAL_LOGI("%s", string);
     }
 }
 
@@ -3450,7 +3452,6 @@ INT32 bk7011_cal_tx_dc_new(INT32 tx_dc_cal_mode)
     INT16 high, low;
     INT32 gold_index = 0;
     INT32 i_index, q_index;
-    INT32 srchcnt = 0;
     INT16 search_thrd = 64 * BK_TX_DAC_COEF;//128;//DC search range search_thrd=512 gtx_dc_n=3,    search_thrd=256 gtx_dc_n=2,    search_thrd=128 gtx_dc_n=1
     /*step 4*/
 
@@ -3571,7 +3572,6 @@ if (1) //fix default Q, calibrate I
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = high;
     detect_dc_high = bk7011_get_tx_dc();
     //Step 1 3~6 search;
-    srchcnt = 0;
 
     CAL_TIM_PRT("%d:(low=0x%x) detect_dc_low=%d,(high=0x%x) detect_dc_high=%d\n", __LINE__, low, detect_dc_low, high, detect_dc_high);
 
@@ -3629,7 +3629,6 @@ if (2) //fix calibrated I, calibrated Q
     }
 
     //20170330
-    srchcnt = 0;
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = i_index; //default
 
     BK7231N_RC_REG.REG0x4F->bits.TXQDCCOMP = low;
@@ -3704,7 +3703,6 @@ if (3) //fix calibrated Q, calibrated I again
 
     BK7231N_TRX_RAM.REG0x0.bits.tssiDC_gc = 3;//wyg
     CAL_WR_TRXREGS(0x0);
-    srchcnt = 0;
     BK7231N_RC_REG.REG0x4F->bits.TXQDCCOMP = q_index; // optimum
 
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = low;
@@ -3774,7 +3772,6 @@ if (4) //fix calibrated I, calibrated Q again
     }
 
     //20170330
-    srchcnt = 0;
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = i_index; //default
 
     BK7231N_RC_REG.REG0x4F->bits.TXQDCCOMP = low;
@@ -3884,7 +3881,6 @@ if (4) //fix calibrated I, calibrated Q again
 #define TSSI_RD_TIMES		1//8
 static INT32 bk7011_get_tx_i_gain(void)
 {
-    int i;
     INT32 detector_i_gain_p, detector_i_gain_n, detector_i_gain;
 
     BK7231N_RC_REG.REG0x4C->bits.ICONSTANT = UNSIGNEDOFFSET10 + (gcali_result.const_iqcal_p+0x100);
@@ -4559,8 +4555,6 @@ INT32 bk7011_cal_tx_filter_corner()
     float tx_avg_ratio_high = 0.0;
     INT16 high, low;
     INT32 index = 0, gold_index = 0;
-    INT32 index1 = 0;
-    INT32 index2 = 0;
 ///    INT32 index3 = 0;
     BK7231N_TRX_RAM.REG0x6.bits.capcal_sel = 0;
     CAL_WR_TRXREGS(0x6);
@@ -4643,7 +4637,6 @@ INT32 bk7011_cal_tx_filter_corner()
     while((high - low) > 3);
     index = ((tx_avg_ratio_low < tx_avg_ratio_high) ? low : high);
 	gcali_result.gtx_ifilter_corner = index ;
-	index1=index;
     gold_index = index << 8;
 //    gtx_ifilter_corner = index;
 
@@ -4768,7 +4761,6 @@ INT32 bk7011_cal_tx_filter_corner()
     while((high - low) > 3);
     index = ((tx_avg_ratio_low < tx_avg_ratio_high) ? low : high);
 	  gcali_result.gtx_qfilter_corner = index ;
-	index2=index;
     gold_index += index;
 //    gtx_qfilter_corner = index;
     float_1 = 1100;
@@ -5912,7 +5904,7 @@ void calibration_main(void)
 
     bk7011_cal_saradc_close(cali_saradc_desc);
 
-    bk_printf("calibration_main over\n");
+    CAL_LOGI("calibration_main over\n");
 
 
     BK7231N_TRX_RAM.REG0x0.bits.tssi_atten = 0x2;
@@ -6001,7 +5993,7 @@ void bk7011_la_sample_print(UINT32 isrx)
     #define LA_SAMPLE_BUF_LEN           (96 *1024)
     buf = os_malloc(LA_SAMPLE_BUF_LEN);
     if(!buf) {
-        os_printf("la_sample_print no buffer\r\n");
+        CAL_LOGI("la_sample_print no buffer\r\n");
         return;
     }
     len = LA_SAMPLE_BUF_LEN / 4;
@@ -6040,7 +6032,7 @@ void bk7011_la_sample_print(UINT32 isrx)
 	do
     {
          reg_val = REG_READ((LA_ADDR + 0x0*4));
-         os_printf("abc:%x\r\n",reg_val&0x8);
+         CAL_LOGI("abc:%x\r\n",reg_val&0x8);
     } while((reg_val & 0x8) != 0x8);
 
 	delay100us(100);
@@ -6051,7 +6043,7 @@ void bk7011_la_sample_print(UINT32 isrx)
 
 	for(i = 0; i < len; i ++)
 	{
-		os_printf("%08x\r\n", *((uint32_t *)(buf+i*4)));
+		CAL_LOGI("%08x\r\n", *((uint32_t *)(buf+i*4)));
 	}
 
     os_free(buf);
@@ -6081,9 +6073,9 @@ void bk7011_default_rxsens_setting(void)
 UINT8 gtx_dcorMod_tab[14] = {0};
 void bk7011_cal_dcormod_show(void)
 {
-    os_printf("\r\n dcormod tab:\r\n");
+    CAL_LOGI("\r\n dcormod tab:\r\n");
     for(int i=0; i<14; i++) {
-        os_printf("ch:%2d: mod:%02x\r\n", i+1, gtx_dcorMod_tab[i]);
+        CAL_LOGI("ch:%2d: mod:%02x\r\n", i+1, gtx_dcorMod_tab[i]);
     }
 }
 
@@ -6107,7 +6099,7 @@ static void bk7011_cal_dcormod_save_base(INT32 mod)
         }
         else
         {
-            os_printf("save base failed:ch:%d, mod:%x\r\n", channel, mod);
+            CAL_LOGI("save base failed:ch:%d, mod:%x\r\n", channel, mod);
         }
     }
 }
@@ -6161,13 +6153,13 @@ static int rfcali_cfg_tssi_b(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_cfg_tssi 0-255(for b)\r\n");
+        CAL_LOGI("rfcali_cfg_tssi 0-255(for b)\r\n");
         return 0;
     }
 
     tssi_thred_b = os_strtoul(argv[1], NULL, 10);
 
-    os_printf("cmd set tssi b_thred:%d\r\n", tssi_thred_b);
+    CAL_LOGI("cmd set tssi b_thred:%d\r\n", tssi_thred_b);
 
     bk7011_set_rf_config_tssithred_b(tssi_thred_b);
     return 0;
@@ -6179,13 +6171,13 @@ static int rfcali_cfg_tssi_g(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_cfg_tssi 0-255(for b)\r\n");
+        CAL_LOGI("rfcali_cfg_tssi 0-255(for b)\r\n");
         return 0;
     }
 
     tssi_thred_g = os_strtoul(argv[1], NULL, 10);
 
-    os_printf("cmd set tssi g_thred:%d\r\n", tssi_thred_g);
+    CAL_LOGI("cmd set tssi g_thred:%d\r\n", tssi_thred_g);
 
     bk7011_set_rf_config_tssithred_g(tssi_thred_g);
     return 0;
@@ -6197,7 +6189,7 @@ static int rfcali_cfg_rate_dist(int argc, char **argv)
 
     if(argc != 5)
     {
-        os_printf("rfcali_cfg_rate_dist b g n40 ble (0-31)\r\n");
+        CAL_LOGI("rfcali_cfg_rate_dist b g n40 ble (0-31)\r\n");
         return 0;
     }
 
@@ -6208,13 +6200,13 @@ static int rfcali_cfg_rate_dist(int argc, char **argv)
 
     if((dist_b > 31) || (dist_g > 31) || (dist_n40 > 31) || (dist_ble > 31))
     {
-        os_printf("rate_dist range:-31 - 31\r\n");
+        CAL_LOGI("rate_dist range:-31 - 31\r\n");
         return 0;
     }
 
     if((dist_b < -31) || (dist_g < -31) || (dist_n40 < -31) || (dist_ble < -31))
     {
-        os_printf("rate_dist range:-31 - 31\r\n");
+        CAL_LOGI("rate_dist range:-31 - 31\r\n");
         return 0;
     }
 
@@ -6229,7 +6221,7 @@ static int rfcali_cfg_mode(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_mode 0/1\r\n");
+        CAL_LOGI("rfcali_mode 0/1\r\n");
         return 0;
     }
 
@@ -6237,7 +6229,7 @@ static int rfcali_cfg_mode(int argc, char **argv)
 
     if((rfcali_mode != CALI_MODE_AUTO) && (rfcali_mode != CALI_MODE_MANUAL))
     {
-        os_printf("rfcali_mode 0/1, %d\r\n", rfcali_mode);
+        CAL_LOGI("rfcali_mode 0/1, %d\r\n", rfcali_mode);
         return 0;
     }
 
@@ -6307,7 +6299,7 @@ void calibration_auto_test(void)
 #include "sys_ctrl.h"
 void bk_dump_regs()
 {
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
     BK7231N_RC_REG.REG0x0->value,
     BK7231N_RC_REG.REG0x1->value,
     BK7231N_RC_REG.REG0x5->value,
@@ -6316,7 +6308,7 @@ void bk_dump_regs()
     BK7231N_RC_REG.REG0xE->value,
     BK7231N_RC_REG.REG0x11->value,
     BK7231N_RC_REG.REG0x19->value);
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
     BK7231N_RC_REG.REG0x1C->value,
     BK7231N_RC_REG.REG0x1E->value,
     BK7231N_RC_REG.REG0x3C->value,
@@ -6325,7 +6317,7 @@ void bk_dump_regs()
     BK7231N_RC_REG.REG0x40->value,
     BK7231N_RC_REG.REG0x41->value,
     BK7231N_RC_REG.REG0x42->value);
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
     BK7231N_RC_REG.REG0x4C->value,
     BK7231N_RC_REG.REG0x4D->value,
     BK7231N_RC_REG.REG0x4F->value,
@@ -6334,14 +6326,14 @@ void bk_dump_regs()
     BK7231N_RC_REG.REG0x52->value,
     BK7231N_RC_REG.REG0x54->value,
     BK7231N_RC_REG.REG0x55->value);
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
     BK7231N_RC_REG.REG0x5C->value,
     BK7231N_RC_REG.REG0x4E->value,
     BK7231N_RC_REG.REG0x5A->value,
     BK7231N_RC_REG.REG0x5B->value,
     BK7231N_RC_REG.REG0x6A->value, 0, 0, 0);
 
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
         BK7231N_TRX_REG.REG0x0->value,
         BK7231N_TRX_REG.REG0x1->value,
         BK7231N_TRX_REG.REG0x2->value,
@@ -6350,7 +6342,7 @@ void bk_dump_regs()
         BK7231N_TRX_REG.REG0x5->value,
         BK7231N_TRX_REG.REG0x6->value,
         BK7231N_TRX_REG.REG0x7->value);
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
         BK7231N_TRX_REG.REG0x8->value,
         BK7231N_TRX_REG.REG0x9->value,
         BK7231N_TRX_REG.REG0xA->value,
@@ -6359,7 +6351,7 @@ void bk_dump_regs()
         BK7231N_TRX_REG.REG0xD->value,
         BK7231N_TRX_REG.REG0xE->value,
         BK7231N_TRX_REG.REG0xF->value);
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
         BK7231N_TRX_REG.REG0x10->value,
         BK7231N_TRX_REG.REG0x11->value,
         BK7231N_TRX_REG.REG0x12->value,
@@ -6368,13 +6360,13 @@ void bk_dump_regs()
         BK7231N_TRX_REG.REG0x15->value,
         BK7231N_TRX_REG.REG0x16->value,
         BK7231N_TRX_REG.REG0x17->value);
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
         BK7231N_TRX_REG.REG0x18->value,
         BK7231N_TRX_REG.REG0x19->value,
         BK7231N_TRX_REG.REG0x1A->value,
         BK7231N_TRX_REG.REG0x1B->value, 0, 0, 0, 0);
 
-    bk_printf("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
+    CAL_LOGI("0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x 0x%08x\n",
         sctrl_analog_get(SCTRL_ANALOG_CTRL0),
         sctrl_analog_get(SCTRL_ANALOG_CTRL1),
         sctrl_analog_get(SCTRL_ANALOG_CTRL2),

@@ -62,25 +62,27 @@ enum
 /// Structure containing the parameters of the @ref SCANU_START_REQ message
 struct scanu_start_req
 {
-    /// List of channel to be scanned
-    struct scan_chan_tag chan[SCAN_CHANNEL_MAX];
-    /// List of SSIDs to be scanned
-    struct mac_ssid ssid[SCAN_SSID_MAX];
-    /// BSSID to be scanned (or WILDCARD BSSID if no BSSID is searched in particular)
-    struct mac_addr bssid;
-    /// Address (in host memory) of the additional IEs that need to be added to the ProbeReq
-    /// (following the SSID element)
-    uint32_t add_ies;
-    /// Length of the additional IEs
-    uint16_t add_ie_len;
-    /// Index of the VIF that is scanning
-    uint8_t vif_idx;
-    /// Number of channels to scan
-    uint8_t chan_cnt;
-    /// Number of SSIDs to scan for
-    uint8_t ssid_cnt;
-    /// no CCK - For P2P frames not being sent at CCK rate in 2GHz band.
-    bool no_cck;
+	/// List of channel to be scanned
+	struct scan_chan_tag chan[SCAN_CHANNEL_MAX];
+	/// List of SSIDs to be scanned
+	struct mac_ssid ssid[SCAN_SSID_MAX];
+	/// BSSID to be scanned (or WILDCARD BSSID if no BSSID is searched in particular)
+	struct mac_addr bssid;
+	/// Address (in host memory) of the additional IEs that need to be added to the ProbeReq
+	/// (following the SSID element)
+	uint32_t add_ies;
+	/// Length of the additional IEs
+	uint16_t add_ie_len;
+	/// Index of the VIF that is scanning
+	uint8_t vif_idx;
+	/// Number of channels to scan
+	uint8_t chan_cnt;
+	/// Number of SSIDs to scan for
+	uint8_t ssid_cnt;
+	/// no CCK - For P2P frames not being sent at CCK rate in 2GHz band.
+	bool no_cck;
+
+	uint32_t duration[SCAN_CHANNEL_MAX];  ///uS
 };
 
 /// Structure containing the parameters of the @ref SCANU_START_CFM message

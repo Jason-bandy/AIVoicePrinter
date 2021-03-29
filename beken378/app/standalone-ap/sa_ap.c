@@ -13,6 +13,8 @@
 #include "hostapd_cfg.h"
 #include "rw_ieee80211.h"
 
+#define TAG "saap"
+
 #if CFG_USE_LWIP_NETSTACK
 #include "lwip_intf.h"
 #endif
@@ -26,7 +28,7 @@ extern void mm_bcn_init(void);
 void sa_ap_init(void)
 {
 	if (rwm_mgmt_is_vif_first_used() == NULL) {
-		SAAP_PRT("[saap]MM_RESET_REQ\r\n");
+		BK_LOGI(TAG, "MM_RESET_REQ\r\n");
 		rw_msg_send_reset();
 
 #if CFG_IEEE80211AX
@@ -36,18 +38,18 @@ void sa_ap_init(void)
 		rwnx_handle_dynparams();
 #endif
 
-		SAAP_PRT("[saap]ME_CONFIG_REQ\r\n");
+		BK_LOGI(TAG, "ME_CONFIG_REQ\r\n");
 		rw_msg_send_me_config_req();
 
-		SAAP_PRT("[saap]ME_CHAN_CONFIG_REQ\r\n");
+		BK_LOGI(TAG, "ME_CHAN_CONFIG_REQ\r\n");
 		rw_msg_send_me_chan_config_req();
 
-		SAAP_PRT("[saap]MM_START_REQ\r\n");
+		BK_LOGI(TAG, "MM_START_REQ\r\n");
 		rw_msg_send_start();
 	}
 #if !CFG_WPA_CTRL_IFACE
 	else {
-		SAAP_PRT("[saap]mm_bcn_init\r\n");
+		BK_LOGI(TAG, "mm_bcn_init\r\n");
 		mm_bcn_init();
 	}
 #endif

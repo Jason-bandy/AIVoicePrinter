@@ -25,9 +25,14 @@
 
 #include "arm_arch.h"
 #include "rtos_pub.h"
+#include "bk7011_cal_pub.h"
 
 #if CFG_TX_EVM_TEST
 extern uint32_t evm_req_tx(struct mac_addr const *mac_addr);
+extern void bk7011_set_single_carrier(UINT32 type_a, UINT32 rate, UINT32 band);
+extern void bk7011_start_tx_pattern(UINT32 tx_pattern);
+extern void bk7011_stop_tx_pattern(void);
+
 #define TX_2_4_G_CHANNEL_NUM            (14)
 #define EVM_MAC_PKT_CNT_UNLIMITED       (0xFFFFFFFF)
 
@@ -224,6 +229,7 @@ UINT32 evm_bypass_mac_set_tx_data_length(UINT32 modul_format, UINT32 len, UINT32
 
     if(modul_format < 0x02)
     {
+        // NON-HT, NON-HT-DUP-OFDM,   b or g mode
         if(len > TX_LEGACY_DATA_LEN_MASK)
         len = TX_LEGACY_DATA_LEN_MASK;
 
@@ -232,16 +238,27 @@ UINT32 evm_bypass_mac_set_tx_data_length(UINT32 modul_format, UINT32 len, UINT32
     }
     else if(modul_format < 0x04)
     {
+        // HT-MM, HT-GF
         if(len > TX_HT_VHT_DATA_LEN_MASK)
             len = TX_HT_VHT_DATA_LEN_MASK;
 
         param = len;
         ret = sddev_control(MPB_DEV_NAME, MCMD_TX_HT_VHT_SET_LEN, &param);
     }
+    else if(modul_format == 0x04)
+    {
+        // VHT
+        if(len > TX_HT_VHT_DATA_LEN_MASK)
+            len = TX_HT_VHT_DATA_LEN_MASK;
+
+        param = len;
+        ret = sddev_control(MPB_DEV_NAME, MCMD_ONLY_VHT_SET_LEN, &param);
+    }
     else
     {
+        // HE
         if(len > TX_HE_DATA_LEN_MASK)
-        len = TX_HE_DATA_LEN_MASK;
+            len = TX_HE_DATA_LEN_MASK;
 
         param = len;
         ret = sddev_control(MPB_DEV_NAME, MCMD_TX_HE_SET_LEN, &param);
@@ -315,8 +332,8 @@ void evm_bypass_mac(void)
 
 void evm_stop_bypass_mac(void)
 {
-    UINT32 reg;
 #if (CFG_SOC_NAME != SOC_BK7236)
+    UINT32 reg;
     reg = REG_READ((REG_RC_BASE_ADDR+0x00*4));  // RC_BEKEN_0x0 [31] : 0
     reg &= ~(1u<<31);
     REG_WRITE((REG_RC_BASE_ADDR+0x00*4),reg);
@@ -358,8 +375,8 @@ void evm_bypass_ble_test_start(UINT32 channel)
     UINT32 param;
     param = PWD_BLE_CLK_BIT;
 
-    UINT32 reg;
     #if (CFG_SOC_NAME != SOC_BK7236)
+    UINT32 reg;
     reg = REG_READ((REG_RC_BASE_ADDR+0x00*4));  // RC_BEKEN_0x0 [31] : 0
     reg &= ~(1u<<31);
     REG_WRITE((REG_RC_BASE_ADDR+0x00*4),reg);
@@ -394,9 +411,9 @@ void evm_bypass_ble_test_start(UINT32 channel)
 void evm_bypass_ble_test_stop(void)
 {
 #if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1))
-    UINT32 reg;
 
 #if (CFG_SOC_NAME != SOC_BK7236)
+    UINT32 reg;
     reg = REG_READ((REG_RC_BASE_ADDR+0x00*4));  // RC_BEKEN_0x0 [31] : 0
     reg &= ~(1u<<31);
     REG_WRITE((REG_RC_BASE_ADDR+0x00*4),reg);

@@ -384,6 +384,7 @@ int wpa_write_rsn_ie(struct wpa_auth_config *conf, u8 *buf, size_t len,
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static u8 * wpa_write_osen(struct wpa_auth_config *conf, u8 *eid)
 {
 	u8 *len;
@@ -435,6 +436,7 @@ static u8 * wpa_write_osen(struct wpa_auth_config *conf, u8 *eid)
 
 	return eid;
 }
+#endif
 
 
 int wpa_auth_gen_wpa_ie(struct wpa_authenticator *wpa_auth)
@@ -518,13 +520,13 @@ u8 * wpa_add_kde(u8 *pos, u32 kde, const u8 *data, size_t data_len,
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 struct wpa_auth_okc_iter_data {
 	struct rsn_pmksa_cache_entry *pmksa;
 	const u8 *aa;
 	const u8 *spa;
 	const u8 *pmkid;
 };
-
 
 static int wpa_auth_okc_iter(struct wpa_authenticator *a, void *ctx)
 {
@@ -535,6 +537,7 @@ static int wpa_auth_okc_iter(struct wpa_authenticator *a, void *ctx)
 		return 1;
 	return 0;
 }
+#endif
 
 
 int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
@@ -926,6 +929,7 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 	}
 #endif
 	if (sm->pmksa && pmkid) {
+#ifndef CONFIG_NO_STDOUT_DEBUG
 		struct vlan_description *vlan;
 
 		vlan = sm->pmksa->vlan_desc;
@@ -934,6 +938,7 @@ int wpa_validate_wpa_ie(struct wpa_authenticator *wpa_auth,
 				 sm->pmksa->eap_type_authsrv,
 				 vlan ? vlan->untagged : 0,
 				 (vlan && vlan->tagged[0]) ? "+" : "");
+#endif
 		os_memcpy(wpa_auth->dot11RSNAPMKIDUsed, pmkid, PMKID_LEN);
 	}
 

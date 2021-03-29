@@ -26,7 +26,7 @@ STATIC SDIO_S sdio =
     0,
 };
 
-STATIC DD_OPERATIONS sdio_op =
+STATIC const DD_OPERATIONS sdio_op =
 {
     sdio_open,
     sdio_close,
@@ -526,7 +526,7 @@ void sdio_init(void)
     sdma_register_handler(sdio_tx_cb, sdio_rx_cb, sdio_cmd_handler);
     sdma_init();
 
-    ddev_register_dev(SDIO_DEV_NAME, &sdio_op);
+    ddev_register_dev(SDIO_DEV_NAME, (DD_OPERATIONS*)&sdio_op);
 
     SDIO_PRT("sdio_init\r\n");
 }

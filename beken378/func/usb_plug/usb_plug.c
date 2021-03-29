@@ -735,8 +735,6 @@ void usb_charger_calibration(void)
 #endif
 void usb_plug_func_handler(void *usr_data, UINT32 event)
 {
-    UINT32 charge_type = 1;
-
     switch(event)
     {
     case USB_PLUG_IN_EVENT:
@@ -773,7 +771,9 @@ void usb_plug_func_open(void)
     DD_HANDLE usb_plug_hdl;
     UINT32 status;
     USB_PLUG_INOUT_ST user_plug;
-    UINT8 cali_result[4];
+#if CFG_USE_USB_CHARGE
+    UINT8 cali_result[4] = {0};
+#endif
 
     user_plug.handler = usb_plug_func_handler;
     user_plug.usr_data = 0;

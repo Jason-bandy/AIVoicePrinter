@@ -166,26 +166,26 @@ void audio_init(void)
 	param = AUDIO_DAC_VOL_DIFF_MODE;
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, &param);
 	if (ret) {
-		os_printf("set volume fail.\r\n");
-		return;
-	}
-
-	param = 8000;
-	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &param);
-	if (ret) {
-		os_printf("set audio PLL fail.\r\n");
+		AUDIO_LOGE("set volume fail.\r\n");
 		return;
 	}
 
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_DAC_ANALOG, NULL);
 	if (ret) {
-		os_printf("open dac analog fail.\r\n");
+		AUDIO_LOGE("open dac analog fail.\r\n");
 		return;
 	}
 
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_ADC_MIC_ANALOG, NULL);
 	if (ret) {
-		os_printf("open adc mic analog fail.\r\n");
+		AUDIO_LOGE("open adc mic analog fail.\r\n");
+		return;
+	}
+
+	param = 16000;
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &param);
+	if (ret) {
+		AUDIO_LOGE("set audio PLL fail.\r\n");
 		return;
 	}
 }
@@ -196,13 +196,13 @@ void audio_exit(void)
 
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_CLOSE_DAC_ANALOG, NULL);
 	if (ret) {
-		os_printf("close dac analog fail.\r\n");
+		AUDIO_LOGE("close dac analog fail.\r\n");
 		return;
 	}
 
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_CLOSE_ADC_MIC_ANALOG, NULL);
 	if (ret) {
-		os_printf("open adc mic analog fail.\r\n");
+		AUDIO_LOGE("open adc mic analog fail.\r\n");
 		return;
 	}
 }

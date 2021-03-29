@@ -9,7 +9,7 @@
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 
-static SDD_OPERATIONS gdma_op =
+static const SDD_OPERATIONS gdma_op =
 {
     gdma_ctrl
 };
@@ -383,7 +383,6 @@ static void gdma_disable_interrupt(void)
 #if (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7271)
 static void gdma_set_src_pause_addr(UINT32 channel, UINT32 addr)
 {
-    UINT32 param = addr;
     UINT32 reg_addr = GENER_DMA0_REG40_SRC_PAUSE_ADDR + (channel * 4);
 
     //os_printf("set src pause:%d, %x\r\n", channel, addr);
@@ -400,7 +399,6 @@ static UINT32 gdma_get_src_pause_addr(UINT32 channel)
 
 static void gdma_set_dest_pause_addr(UINT32 channel, UINT32 addr)
 {
-    UINT32 param = addr;
     UINT32 reg_addr = GENER_DMA0_REG48_DST_PAUSE_ADDR + (channel * 4);
 
     REG_WRITE(reg_addr, addr);
@@ -705,7 +703,7 @@ void gdma_init(void)
     GDMACFG_TPYES_ST cfg;
 
     intc_service_register(IRQ_GENERDMA, PRI_IRQ_GENERDMA, gdma_isr);
-    sddev_register_dev(GDMA_DEV_NAME, &gdma_op);
+    sddev_register_dev(GDMA_DEV_NAME, (SDD_OPERATIONS*)&gdma_op);
 
     #if (CFG_SOC_NAME != SOC_BK7231)
     for(int i=0; i<GDMA_CHANNEL_MAX; i++) {
@@ -938,21 +936,21 @@ UINT32 gdma_ctrl(UINT32 cmd, void *param)
         break;
     case CMD_GDMA_GET_SRC_PAUSE_ADDR:
         ret = gdma_get_src_pause_addr(dma_cfg->channel);
-        break;     
+        break;
     case CMD_GDMA_SET_DST_PAUSE_ADDR:
         gdma_set_dest_pause_addr(dma_cfg->channel, dma_cfg->param);
-        break;    
+        break;
     case CMD_GDMA_GET_DST_PAUSE_ADDR:
-        ret = gdma_get_src_pause_addr(dma_cfg->channel);
+        ret = gdma_get_dest_pause_addr(dma_cfg->channel);
         break;
     case CMD_GDMA_GET_SRC_READ_ADDR:
         ret = gdma_get_src_read_addr(dma_cfg->channel);
         break;
     case CMD_GDMA_GET_DST_WRITE_ADDR:
         ret = gdma_get_dest_write_addr(dma_cfg->channel);
-        break;         
+        break;
     #endif // (CFG_SOC_NAME == SOC_BK7221U)
-	
+
     default:
         break;
     }

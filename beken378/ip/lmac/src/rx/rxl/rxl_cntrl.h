@@ -47,7 +47,7 @@
 //#define RXL_CNTRL_DEBUG
 
 #ifdef RXL_CNTRL_DEBUG
-#define RXL_CNTRL_PRT       os_printf
+#define RXL_CNTRL_PRT       IP_LOGI
 #define RXL_CNTRL_WPRT      warning_prf
 #else
 #define RXL_CNTRL_PRT       os_null_printf

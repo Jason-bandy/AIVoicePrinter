@@ -30,11 +30,11 @@ static int sdp_default_msg_handler(kernel_msg_id_t const msgid,
                             kernel_task_id_t const dest_id,
                             kernel_task_id_t const src_id)
 {
+#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 	uint8_t conidx = KERNEL_IDX_GET(src_id);
 
-#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]SDP msgid:0x%x,dest_id:0x%x,src_id:0x%x\r\n",__func__,msgid,dest_id,src_id);
-	bk_printf("conidx:%x\r\n",conidx);
+	BLE_LOGI("[%s]SDP msgid:0x%x,dest_id:0x%x,src_id:0x%x\r\n",__func__,msgid,dest_id,src_id);
+	BLE_LOGI("conidx:%x\r\n",conidx);
 #endif
 	return (KERNEL_MSG_CONSUMED);
 }
@@ -91,17 +91,19 @@ static int sdp_read_info_req_handler(kernel_msg_id_t const msgid,
 	uint8_t conhdl = app_ble_env.connections[con_idx].conhdl;
 
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]con_idx:%d,conidx:%d\r\n",__func__,con_idx,conhdl);
+	BLE_LOGI("[%s]con_idx:%d,conidx:%d\r\n",__func__,con_idx,conhdl);
 	#endif
 	if(SDPC_OPERATE_HANDLE == param->type)
 	{
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("prf_read_char_send \r\n");
+		BLE_LOGI("prf_read_char_send \r\n");
 		#endif
 		sdp_env =(struct sdp_env_tag *) prf_env_get_from_handle(conhdl,handle);
 		if(sdp_env != NULL)
 		{
 			prf_read_char_send(&(sdp_env->prf_env), conhdl,handle, handle, handle);
+		}else{
+			BLE_LOGI("[%s]sdp_env == NULL\r\n",__FUNCTION__);
 		}
 	}
 	else if(SDPC_OPERATE_UUID == param->type)
@@ -116,7 +118,7 @@ static int sdp_read_info_req_handler(kernel_msg_id_t const msgid,
 			uint16_t desc_uuid;
 
 			#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-			bk_printf("desc_nb = 0x%x,char_idx = 0x%x,value_handle = 0x%x\r\n",desc_nb,char_idx,handle);
+			BLE_LOGI("desc_nb = 0x%x,char_idx = 0x%x,value_handle = 0x%x\r\n",desc_nb,char_idx,handle);
 			#endif
 			if(SDPC_CHAR_NTF_CFG == param->info)
 			{
@@ -147,25 +149,25 @@ static int sdp_read_info_req_handler(kernel_msg_id_t const msgid,
 			}
 
 			#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-			bk_printf("prop = 0x%x,char_idx = 0x%x\r\n",val_prop,char_idx);
-			bk_printf("handle = 0x%x\r\n",handle);
+			BLE_LOGI("prop = 0x%x,char_idx = 0x%x\r\n",val_prop,char_idx);
+			BLE_LOGI("handle = 0x%x\r\n",handle);
 			#endif
 			if((val_prop & ATT_CHAR_PROP_RD) == ATT_CHAR_PROP_RD ) // ATT_CHAR_PROP_RD
 			{
 				#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-				bk_printf("prf_read_char_send \r\n");
+				BLE_LOGI("prf_read_char_send \r\n");
 				#endif
 				prf_read_char_send(&(sdp_env->prf_env), conhdl,
 				handle, handle, handle);
 			}
 			else
 			{
-				bk_printf("val_prop not read prop!!!! \r\n");
+				BLE_LOGI("val_prop not read prop!!!! \r\n");
 			}
 		}
 		else
 		{
-			bk_printf("param unvalid uuid =  0x%02x\r\n",param->uuid);
+			BLE_LOGI("param unvalid uuid =  0x%02x\r\n",param->uuid);
 		}
 	}
 
@@ -195,7 +197,7 @@ static int sdp_write_ntf_cfg_req_handler(kernel_msg_id_t const msgid,
 
 	// put value in air format
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]param->handle = %x\r\n",__func__,param->handle);
+	BLE_LOGI("[%s]param->handle = %x\r\n",__func__,param->handle);
 	#endif
 	struct sdp_env_tag *sdp_env =(struct sdp_env_tag *) prf_env_get_from_handle(conidx,param->handle + 1);
 	if(sdp_env != NULL)
@@ -205,7 +207,7 @@ static int sdp_write_ntf_cfg_req_handler(kernel_msg_id_t const msgid,
 		uint16_t uuid = sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[char_idx].uuid[0] | 
 							(sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[char_idx].uuid[1] << 8);
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("ntf handle = 0x%x\r\n",param->handle + 1);
+		BLE_LOGI("ntf handle = 0x%x\r\n",param->handle + 1);
 		#endif
 		if(uuid == ATT_DESC_CLIENT_CHAR_CFG)
 		{
@@ -213,12 +215,12 @@ static int sdp_write_ntf_cfg_req_handler(kernel_msg_id_t const msgid,
 		}
 		else
 		{
-			bk_printf("ntf_ind not cfg char :  0x%04x\r\n",uuid);
+			BLE_LOGI("ntf_ind not cfg char :  0x%04x\r\n",uuid);
 		}
 	}
 	else
 	{
-		bk_printf("param unvalid handle =  0x%02x\r\n",param->handle);
+		BLE_LOGI("param unvalid handle =  0x%02x\r\n",param->handle);
 	}
 
 	return (msg_status);
@@ -256,7 +258,7 @@ static int sdp_write_value_info_req_handler(kernel_msg_id_t const msgid,
 		uint8_t *buf = (uint8_t *)(&param->data[0]);
 		uint8_t operation = GATTC_WRITE_NO_RESPONSE;
 
-		//	UART_PRINTF("handle = 0x%x\r\n",handle);
+		//	BLE_LOGI("handle = 0x%x\r\n",handle);
 		if((val_prop & ATT_CHAR_PROP_WR_NO_RESP) == ATT_CHAR_PROP_WR_NO_RESP)
 		{
 			operation = GATTC_WRITE_NO_RESPONSE;
@@ -268,18 +270,23 @@ static int sdp_write_value_info_req_handler(kernel_msg_id_t const msgid,
 		}
 		else
 		{
-			bk_printf("param operation or val_prop error =  0x%02x,0x%02x\r\n",operation,val_prop);
+			uint8_t con_idx = BLE_APP_INITING_GET_INDEX(KERNEL_IDX_GET(src_id));
+			BLE_LOGI("param operation or val_prop error(conidx:%d) =  0x%02x,0x%02x\r\n",con_idx,operation,val_prop);
+			app_ble_next_operation(con_idx,ERR_ATTC_WRITE);
 			return (msg_status);
 		}
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("operation = %x\r\n",operation);
+		BLE_LOGI("operation = %x\r\n",operation);
 		#endif
 		prf_gatt_write(&(sdp_env->prf_env),conidx,handle, buf,length,operation);///,0);
 	}
 	else
 	{
-		bk_printf("param unvalid handle =  0x%02x\r\n",param->handle);
+		uint8_t con_idx = BLE_APP_INITING_GET_INDEX(KERNEL_IDX_GET(src_id));
+		BLE_LOGI("param unvalid handle(conidx:%d) =  0x%02x\r\n",con_idx,param->handle);
+		app_ble_next_operation(con_idx,ERR_ATTC_WRITE_UNREGISTER);
 	}
+
 	return (msg_status);
 }
 
@@ -299,13 +306,12 @@ static int sdp_task_gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
 								 kernel_task_id_t const dest_id,
 								 kernel_task_id_t const src_id)
 {
-	uint8_t state = kernel_state_get(dest_id);
 	uint8_t conhdl = KERNEL_IDX_GET(src_id);
 	uint8_t conidx = app_ble_find_conn_idx_handle(conhdl);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]SDP dest_id = %x,conidx:%d,conhdl:%d\r\n",__func__,dest_id,conidx,conhdl);
-	bk_printf("sdp operation = 0x%x,status = 0x%x,seq_num = 0x%x\r\n",param->operation,param->status,param->seq_num);
+	BLE_LOGI("[%s]SDP dest_id = %x,conidx:%d,conhdl:%d\r\n",__func__,dest_id,conidx,conhdl);
+	BLE_LOGI("sdp operation = 0x%x,status = 0x%x,seq_num = 0x%x\r\n",param->operation,param->status,param->seq_num);
 #endif
 	struct gattc_cmp_evt *cmp_evt  = KERNEL_MSG_ALLOC(GATTC_CMP_EVT,
 											KERNEL_BUILD_ID(TASK_BLE_APP, BLE_APP_INITING_INDEX(conidx)),
@@ -335,21 +341,20 @@ static int sdp_task_gattc_read_ind_handler(kernel_msg_id_t const msgid,
 										kernel_task_id_t const dest_id,
 										kernel_task_id_t const src_id)
 {
-	uint8_t state = kernel_state_get(dest_id);
 	uint8_t conhdl = KERNEL_IDX_GET(src_id);
 	uint8_t conidx = app_ble_find_conn_idx_handle(conhdl);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_ALL)
-	bk_printf("appm %s \r\n",__func__);
-	bk_printf("handle = 0x%x\r\n",param->handle);
-	bk_printf("length = 0x%x\r\n",param->length);
-	bk_printf("offset = 0x%x\r\n",param->offset);
-	bk_printf("value = 0x");
+	BLE_LOGI("appm %s \r\n",__func__);
+	BLE_LOGI("handle = 0x%x\r\n",param->handle);
+	BLE_LOGI("length = 0x%x\r\n",param->length);
+	BLE_LOGI("offset = 0x%x\r\n",param->offset);
+	BLE_LOGI("value = 0x");
 	for(int i =0 ; i < param->length; i++)
 	{
-		bk_printf("%x ",param->value[i]);
+		BLE_LOGI("%x ",param->value[i]);
 	}
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 #endif
 
 	app_sdp_charac_callback_handler(CHARAC_READ,conidx,param->handle,param->length,(uint8*)param->value);
@@ -372,18 +377,17 @@ static int sdp_gattc_event_ind_handler(kernel_msg_id_t const msgid,
 								   kernel_task_id_t const dest_id,
 								   kernel_task_id_t const src_id)
 {
-	uint8_t state = kernel_state_get(dest_id);
 	uint8_t conhdl = KERNEL_IDX_GET(src_id);
 	uint8_t conidx = app_ble_find_conn_idx_handle(conhdl);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_ALL)
-	bk_printf("[%s]sdp gattc_event_ind :%d:%d,conidx:%d\r\n",__func__, dest_id, src_id,conidx);
-	bk_printf("NOTIF RECIVE length:%d,value = 0x",param->length);
+	BLE_LOGI("[%s]sdp gattc_event_ind :%d:%d,conidx:%d\r\n",__func__, dest_id, src_id,conidx);
+	BLE_LOGI("NOTIF RECIVE length:%d,value = 0x",param->length);
 	for(int i = 0; i< param->length; i++)
 	{
-		bk_printf("%02x ",param->value[i]);
+		BLE_LOGI("%02x ",param->value[i]);
 	}
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 #endif
 	struct gattc_event_ind *ind;
 
@@ -420,17 +424,16 @@ static int sdp_gattc_event_req_ind_handler(kernel_msg_id_t const msgid,
 									kernel_task_id_t const dest_id,
 									kernel_task_id_t const src_id)
 {
-	uint8_t state = kernel_state_get(dest_id);
 	uint8_t conhdl = KERNEL_IDX_GET(src_id);
 	uint8_t conidx = app_ble_find_conn_idx_handle(conhdl);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_ALL)
-	bk_printf("[%s]sdp conidx:%d,conhdl:%d indicate RECIVE value = 0x",__func__,conidx,conhdl);
+	BLE_LOGI("[%s]sdp conidx:%d,conhdl:%d indicate RECIVE value = 0x",__func__,conidx,conhdl);
 	for(int i = 0; i< param->length; i++)
 	{
-		bk_printf("%02x ",param->value[i]);
+		BLE_LOGI("%02x ",param->value[i]);
 	}
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 #endif
 
 	struct gattc_event_ind *ind;
@@ -493,7 +496,7 @@ void sdp_task_init(struct kernel_task_desc *task_desc,void* sdp_env)
 	// Get the address of the environment
 	///struct sdp_env_tag *srv_env = PRF_ENV_GET(SDP, sdp);
 	struct sdp_env_tag *srv_env =  (struct sdp_env_tag *)sdp_env;
-	bk_printf("[sdp_task_init]conidx:%d,srv_env:%p,task_id:%d\r\n",srv_env->conidx,srv_env,(TASK_BLE_ID_SDP + srv_env->conidx));
+	BLE_LOGI("[sdp_task_init]conidx:%d,srv_env:%p,task_id:%d\r\n",srv_env->conidx,srv_env,(TASK_BLE_ID_SDP + srv_env->conidx));
 
 	task_desc->msg_handler_tab = sdp_msg_handler_tab;
 	task_desc->msg_cnt         = ARRAY_LEN(sdp_msg_handler_tab);

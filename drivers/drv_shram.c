@@ -1,6 +1,7 @@
 #include <rtthread.h>
 #include <board.h>
 #include "drv_shram.h"
+#include "mem_pub.h"
 
 /*shared memory management*/
 static struct rt_memheap shared_heap;
@@ -27,7 +28,7 @@ void *shared_calloc(unsigned int n, unsigned int size)
 
 	ptr = shared_malloc(n * size);
 	if (ptr)
-		memset(ptr, 0, n * size);
+		os_memset(ptr, 0, n * size);
 
 	return ptr;
 }

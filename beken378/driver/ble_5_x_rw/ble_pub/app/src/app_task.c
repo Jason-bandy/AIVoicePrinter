@@ -55,6 +55,10 @@
 #endif
 #define __func__   __FUNCTION__
 
+#if (BLE_CENTRAL) && (CFG_INIT_ENABLE)
+extern int app_init_con_dev_timerout_clear(unsigned char conidx);
+#endif
+
 /*
  * LOCAL FUNCTION DEFINITIONS
  ****************************************************************************************
@@ -113,22 +117,24 @@ static int gapm_activity_created_ind_handler(kernel_msg_id_t const msgid,
                                              kernel_task_id_t const src_id)
 {
 	uint8_t conidx = KERNEL_IDX_GET(dest_id);
-	bk_printf("[%s]conidx:%d\r\n",__func__,conidx);
-
 	uint8_t actv_idx = (app_ble_env.app_status >> BLE_APP_IDX_POS);
-#if BLE_CENTRAL && 0
-	if(BLE_APP_INITING_CHECK_INDEX(conidx)){
+
+#if BLE_CENTRAL && CFG_INIT_ENABLE
+	if(BLE_APP_INITING_CHECK_INDEX(conidx) && (p_param->actv_type == GAPM_ACTV_TYPE_INIT)){
 		if (p_param->actv_type == GAPM_ACTV_TYPE_INIT){
-			bk_printf("[%s]conidx:%d,actv_idx:%d\r\n",__func__,conidx, p_param->actv_idx);
+			BLE_LOGI("[%s]conidx:%d,idx:%d,p_param->actv_idx:%d\r\n",__func__,conidx,BLE_APP_INITING_GET_INDEX(conidx), p_param->actv_idx);
 			// Store the scaning activity index
+			#if APP_INIT_REUSE_ACTV_IDX
+			appm_set_initing_actv_idx(BLE_APP_INITING_GET_INDEX(conidx),p_param->actv_idx,BLE_INIT_IDX_USED);
+			#endif
 			app_ble_env.connections[BLE_APP_INITING_GET_INDEX(conidx)].gap_actv_idx = p_param->actv_idx;
-			BLE_APP_MASTER_SET_IDX_STATE(BLE_APP_INITING_GET_INDEX(conidx),APP_INIT_STATE_CREATED);
+			BLE_APP_MASTER_SET_IDX_STATE(actv_idx,APP_INIT_STATE_CREATED);
 		}
 	}else
 #endif
 	{
 		if (actv_idx >= BLE_ACTIVITY_MAX) {
-			bk_printf("unknow actv idx:%d\r\n", actv_idx);
+			BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 		} else {
 			app_ble_env.actvs[actv_idx].gap_advt_idx = p_param->actv_idx;
 
@@ -137,19 +143,11 @@ static int gapm_activity_created_ind_handler(kernel_msg_id_t const msgid,
 			} else if (p_param->actv_type == GAPM_ACTV_TYPE_SCAN) {
 				BLE_APP_SET_ACTVS_IDX_STATE(actv_idx, ACTV_SCAN_CREATED);
 			} else if (p_param->actv_type == GAPM_ACTV_TYPE_INIT) {
-		#if BLE_CENTRAL && CFG_INIT_ENABLE
-			// Store the scaning activity index
-			#if APP_INIT_REUSE_ACTV_IDX
-			appm_set_initing_actv_idx(actv_idx,p_param->actv_idx,BLE_INIT_IDX_USED);
-			#endif
-			app_ble_env.connections[actv_idx].gap_actv_idx = p_param->actv_idx;
-			BLE_APP_MASTER_SET_IDX_STATE(actv_idx,APP_INIT_STATE_CREATED);
-		#endif
-			bk_printf("[%s]init_actv_idx:%d\r\n",__func__,p_param->actv_idx);
+				BLE_LOGI("[%s]actv_idx:%d,conidx:%d error\r\n",__func__,actv_idx,conidx);
 			} else if (p_param->actv_type == GAPM_ACTV_TYPE_PER_SYNC) {
 				BLE_APP_SET_ACTVS_IDX_STATE(actv_idx, ACTV_PER_SYNC_CREATED);
 			} else {
-				bk_printf("unknow actv type:%d\r\n", p_param->actv_type);
+				BLE_LOGI("unknow actv type:%d\r\n", p_param->actv_type);
 			}
 		}
 	}
@@ -174,12 +172,12 @@ static int gapm_activity_stopped_ind_handler(kernel_msg_id_t const msgid,
                                              kernel_task_id_t const src_id)
 {
 	uint8_t conidx = KERNEL_IDX_GET(dest_id);
-	bk_printf("[%s]conidx:%d\r\n",__func__,conidx);
+	BLE_LOGI("[%s]conidx:%d\r\n",__func__,conidx);
 
 	uint8_t actv_idx = app_ble_find_actv_idx_handle(p_param->actv_idx);
 
 	if (actv_idx >= BLE_ACTIVITY_MAX) {
-		bk_printf("unknow actv idx:%d\r\n", actv_idx);
+		BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 	} else {
 		if (p_param->actv_type == GAPM_ACTV_TYPE_ADV) {
 			BLE_APP_SET_ACTVS_IDX_STATE(actv_idx, ACTV_ADV_CREATED);
@@ -197,7 +195,7 @@ static int gapm_activity_stopped_ind_handler(kernel_msg_id_t const msgid,
 		} else if (p_param->actv_type == GAPM_ACTV_TYPE_PER_SYNC) {
 			BLE_APP_SET_ACTVS_IDX_STATE(actv_idx, ACTV_PER_SYNC_CREATED);
 		} else {
-			bk_printf("unknow actv type:%d\r\n", p_param->actv_type);
+			BLE_LOGI("unknow actv type:%d\r\n", p_param->actv_type);
 		}
 	}
 
@@ -228,8 +226,8 @@ static int gapm_profile_added_ind_handler(kernel_msg_id_t const msgid,
 	uint8_t status = (param->status == GAP_ERR_NO_ERROR) ? ERR_SUCCESS : ERR_CMD_RUN;
 	create_db_t ind;
 
-	bk_printf("[%s] prf_task_id:0x%x,prf_task_nb:%d,start_hdl:%d,state:0x%x\r\n",__func__,param->prf_task_id, param->prf_task_nb,param->start_hdl,state);
-	bk_printf("conidx:0x%x,role:0x%x,dest_id:0x%x,src_id:0x%x,param->status:0x%x\r\n",conidx,param->role,dest_id,src_id,param->status);
+	BLE_LOGI("[%s] prf_task_id:0x%x,prf_task_nb:%d,start_hdl:%d,state:0x%x\r\n",__func__,param->prf_task_id, param->prf_task_nb,param->start_hdl,state);
+	BLE_LOGI("conidx:0x%x,role:0x%x,dest_id:0x%x,src_id:0x%x,param->status:0x%x\r\n",conidx,param->role,dest_id,src_id,param->status);
 
 #if (BLE_SDP_CLIENT)
 	if((id >= TASK_BLE_ID_SDP) && (id <= TASK_BLE_ID_SDP + BLE_NB_PROFILES) )
@@ -267,7 +265,7 @@ static int gapm_profile_added_ind_handler(kernel_msg_id_t const msgid,
 			///kernel_state_set(dest_id, APPM_CONNECTED);
 			uint8_t find;
 			find = sdp_enable_all_server_ntf_ind(BLE_APP_INITING_GET_INDEX(BLE_APP_INITING_GET_INDEX(conidx)),1);
-			bk_printf("[%s]find = %d\r\n",__FUNCTION__,find);
+			BLE_LOGI("[%s]find = %d\r\n",__FUNCTION__,find);
 		}
 		break;
 #endif
@@ -312,7 +310,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 	uint8_t actv_idx = app_ble_env.app_status >> BLE_APP_IDX_POS;
 	uint8_t status = (param->status == GAP_ERR_NO_ERROR) ? ERR_SUCCESS : ERR_CMD_RUN;
 
-	bk_printf("[%s] conidx:%d,operation:0x%x,status:0x%x\r\n",__func__,conidx,param->operation,param->status);
+	BLE_LOGI("[%s] conidx:%d,operation:0x%x,status:0x%x\r\n",__func__,conidx,param->operation,param->status);
 	switch (param->operation) {
 	// Reset completed
 	case (GAPM_RESET)://0
@@ -371,7 +369,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 				}
 			}
 #endif //(NVDS_SUPPORT)
-			bk_printf("cmd->addr.addr[5] :%x\r\n",cmd->addr.addr[5]);
+			BLE_LOGI("cmd->addr.addr[5] :%x\r\n",cmd->addr.addr[5]);
 
 #if (NVDS_SUPPORT)
 			if ((app_sec_get_bond_status()==true) &&
@@ -390,7 +388,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 		break;
 
 	case (GAPM_GEN_RAND_NB) ://0x1a
-		bk_printf("gapm_cmp_evt:GAPM_GEN_RAND_NB\r\n");
+		BLE_LOGI("gapm_cmp_evt:GAPM_GEN_RAND_NB\r\n");
 		if (app_ble_env.rand_cnt == 1) {
 			// Generate a second random number
 			app_ble_env.rand_cnt++;
@@ -429,7 +427,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 
 		// Go to the create db state
 		kernel_state_set(TASK_BLE_APP, APPM_READY);
-		bk_printf("gapm_cmp_evt:BLE_STACK_OK\r\n");
+		BLE_LOGI("gapm_cmp_evt:BLE_STACK_OK\r\n");
 		app_ble_env.app_status = APP_BLE_READY;
 
 		if (ble_event_notice) {
@@ -440,7 +438,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 	// Device Configuration updated
 	case (GAPM_SET_DEV_CONFIG):
 		BLE_ASSERT_INFO(param->status == GAP_ERR_NO_ERROR, param->operation, param->status);
-		bk_printf("gapm_cmp_evt:GAPM_SET_DEV_CONFIG\r\n");
+		BLE_LOGI("gapm_cmp_evt:GAPM_SET_DEV_CONFIG\r\n");
 
 #if (BLE_APP_SEC)
 		if (app_sec_get_bond_status()==true) {
@@ -455,7 +453,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 				cmd->operation = GAPM_SET_IRK;
 				memcpy(&cmd->irk.key[0], &app_ble_env.loc_irk[0], KEY_LEN);
 				kernel_msg_send(cmd);
-				bk_printf("gapm_cmp_evt:wait GAPM_SET_IRK\r\n");
+				BLE_LOGI("gapm_cmp_evt:wait GAPM_SET_IRK\r\n");
 			} else
 #endif //(NVDS_SUPPORT)
 			{
@@ -470,7 +468,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 			cmd->operation   = GAPM_GEN_RAND_NB;
 			app_ble_env.rand_cnt = 1;
 			kernel_msg_send(cmd);
-			bk_printf("gapm_cmp_evt:wait GAPM_GEN_RAND_NB\r\n");
+			BLE_LOGI("gapm_cmp_evt:wait GAPM_GEN_RAND_NB\r\n");
 		}
 		break;
 
@@ -491,14 +489,14 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 					app_ble_next_operation(actv_idx, status);
 				}
 			}else{
-				bk_printf("gapm_cmp_evt:INIT index %d error\r\n",conidx);
+				BLE_LOGI("gapm_cmp_evt:INIT index %d error\r\n",conidx);
 			}
 			break;
 #endif
 #if (BLE_OBSERVER || BLE_CENTRAL)
 	case (GAPM_CREATE_SCAN_ACTIVITY)://0xA1
 		if (actv_idx >= BLE_ACTIVITY_MAX) {
-			bk_printf("unknow actv idx:%d\r\n", actv_idx);
+			BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 		} else {
 			app_ble_env.op_mask &= ~(1 << BLE_OP_CREATE_SCAN_POS);
 			app_ble_next_operation(actv_idx, status);
@@ -507,7 +505,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 #endif
 	case (GAPM_CREATE_ADV_ACTIVITY)://0xA0
 		if (actv_idx >= BLE_ACTIVITY_MAX) {
-			bk_printf("unknow actv idx:%d\r\n", actv_idx);
+			BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 		} else {
 			app_ble_env.op_mask &= ~(1 << BLE_OP_CREATE_ADV_POS);
 			app_ble_next_operation(actv_idx, status);
@@ -515,7 +513,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 		break;
 	case (GAPM_SET_ADV_DATA)://0xA9
 		if (actv_idx >= BLE_ACTIVITY_MAX) {
-			bk_printf("unknow actv idx:%d\r\n", actv_idx);
+			BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 		} else {
 			app_ble_env.op_mask &= ~(1 << BLE_OP_SET_ADV_DATA_POS);
 			app_ble_next_operation(actv_idx, status);
@@ -523,7 +521,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 		break;
 	case (GAPM_SET_SCAN_RSP_DATA)://0xAA
 		if (actv_idx >= BLE_ACTIVITY_MAX) {
-			bk_printf("unknow actv idx:%d\r\n", actv_idx);
+			BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 		} else {
 			app_ble_env.op_mask &= ~(1 << BLE_OP_SET_RSP_DATA_POS);
 			app_ble_next_operation(actv_idx, status);
@@ -536,11 +534,11 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 				BLE_APP_MASTER_CLEAR_IDX_OP_MASK_BITS(BLE_APP_INITING_GET_INDEX(conidx),BLE_OP_INIT_START_POS);
 			}
 			if((param->status == GAP_ERR_NO_ERROR)){
-				bk_printf("[%s]actv_idx:%d,init_state:APP_INIT_STATE_CONECTTING\r\n",__func__,BLE_APP_INITING_GET_INDEX(conidx));
+				BLE_LOGI("[%s]actv_idx:%d,init_state:APP_INIT_STATE_CONECTTING\r\n",__func__,BLE_APP_INITING_GET_INDEX(conidx));
 				BLE_APP_MASTER_SET_IDX_STATE(BLE_APP_INITING_GET_INDEX(conidx),APP_INIT_STATE_CONECTTING);
 			}else{
 				BLE_APP_MASTER_SET_IDX_STATE(BLE_APP_INITING_GET_INDEX(conidx),APP_INIT_STATE_CREATED);
-				bk_printf("[%s]actv_idx:%d,init_state:APP_INIT_STATE_CREATED\r\n",__func__,BLE_APP_INITING_GET_INDEX(conidx));
+				BLE_LOGI("[%s]actv_idx:%d,init_state:APP_INIT_STATE_CREATED\r\n",__func__,BLE_APP_INITING_GET_INDEX(conidx));
 			}
 
 			if (app_ble_env.cmd == BLE_INIT_START_CONN) {
@@ -551,7 +549,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 		#endif
 		{
 			if (actv_idx >= BLE_ACTIVITY_MAX) {
-				bk_printf("unknow actv idx:%d\r\n", actv_idx);
+				BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 			} else {
 				if (status == ERR_SUCCESS) {
 					if (app_ble_env.op_mask & (1 << BLE_OP_START_SCAN_POS)) {
@@ -573,7 +571,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 				|| (app_ble_env.connections[BLE_APP_INITING_GET_INDEX(conidx)].conn_op_mask & (1 << BLE_OP_INIT_STOP_POS))){
 				BLE_APP_MASTER_SET_IDX_STATE(BLE_APP_INITING_GET_INDEX(conidx),APP_INIT_STATE_CREATED);
 				BLE_APP_MASTER_CLEAR_IDX_OP_MASK_BITS(BLE_APP_INITING_GET_INDEX(conidx),BLE_OP_INIT_STOP_POS);
-				bk_printf("[%s]BLE_INIT_STOP_CONN actv_idx:%d,init_state:APP_INIT_STATE_CREATED\r\n",__func__,actv_idx);
+				BLE_LOGI("[%s]BLE_INIT_STOP_CONN actv_idx:%d,init_state:APP_INIT_STATE_CREATED\r\n",__func__,actv_idx);
 			}
 
 			if (app_ble_env.cmd == BLE_INIT_STOP_CONN) {
@@ -584,7 +582,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 		#endif
 		{
 			if (actv_idx >= BLE_ACTIVITY_MAX) {
-				bk_printf("unknow actv idx:%d\r\n", actv_idx);
+				BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 			} else {
 				app_ble_env.op_mask &= ~((1 << BLE_OP_STOP_SCAN_POS) | (1 << BLE_OP_STOP_ADV_POS));
 				app_ble_next_operation(actv_idx, status);
@@ -593,7 +591,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 		break;
 	case (GAPM_DELETE_ACTIVITY)://0xA7
 		if (actv_idx >= BLE_ACTIVITY_MAX) {
-			bk_printf("unknow actv idx:%d\r\n", actv_idx);
+			BLE_LOGI("unknow actv idx:%d\r\n", actv_idx);
 		} else {
 			app_ble_env.actvs[actv_idx].actv_status = ACTV_IDLE;
 			app_ble_env.op_mask &= ~((1 << BLE_OP_DEL_SCAN_POS) | (1 << BLE_OP_DEL_ADV_POS));
@@ -613,7 +611,7 @@ static int gapc_get_dev_info_req_ind_handler(kernel_msg_id_t const msgid,
         kernel_task_id_t const dest_id,
         kernel_task_id_t const src_id)
 {
-    bk_printf("%s,req:0x%x\r\n",__func__,param->req);
+    BLE_LOGI("%s,req:0x%x\r\n",__func__,param->req);
     switch(param->req)
     {
         case GAPC_DEV_NAME:
@@ -624,7 +622,7 @@ static int gapc_get_dev_info_req_ind_handler(kernel_msg_id_t const msgid,
             cfm->req = param->req;
             cfm->info.name.length = ble_appm_get_dev_name(cfm->info.name.value, APP_DEVICE_NAME_MAX_LEN);
 
-            bk_printf("length:%d,name:%s\r\n",cfm->info.name.length,cfm->info.name.value);
+            BLE_LOGI("length:%d,name:%s\r\n",cfm->info.name.length,cfm->info.name.value);
             // Send message
             kernel_msg_send(cfm);
         } break;
@@ -727,13 +725,13 @@ static int gapc_connection_req_ind_handler(kernel_msg_id_t const msgid,
 	uint8_t conidx = KERNEL_IDX_GET(src_id);
 	uint8_t conn_idx;
 	conn_ind_t conn_info;
-	bk_printf("[%s]conidx:%d,dest_id:0x%x\r\n",__func__,conidx,dest_id);
+	BLE_LOGI("[%s]conidx:%d,dest_id:0x%x\r\n",__func__,conidx,dest_id);
 
 	// Check if the received Connection Handle was valid
 	if (conidx != GAP_INVALID_CONIDX) {
 		if(param->role != APP_BLE_MASTER_ROLE){
 			conn_idx = app_ble_get_idle_conn_idx_handle();
-			bk_printf("[%s]ble_slave conn_idx:%d\r\n", __FUNCTION__,conn_idx);
+			BLE_LOGI("[%s]ble_slave conn_idx:%d\r\n", __FUNCTION__,conn_idx);
 		}else{
 			conn_idx = KERNEL_IDX_GET(dest_id);
 			if(BLE_APP_INITING_CHECK_INDEX(conn_idx)){
@@ -741,10 +739,10 @@ static int gapc_connection_req_ind_handler(kernel_msg_id_t const msgid,
 			}else{
 				conn_idx = BLE_CONNECTION_MAX;
 			}
-			bk_printf("[%s]ble_master conn_idx:%d\r\n", __FUNCTION__,conn_idx);
+			BLE_LOGI("[%s]ble_master conn_idx:%d\r\n", __FUNCTION__,conn_idx);
 		}
 		if (BLE_CONNECTION_MAX == conn_idx) {
-			bk_printf("%s:Can't get conn idx\r\n", __FUNCTION__);
+			BLE_LOGI("%s:Can't get conn idx\r\n", __FUNCTION__);
 		} else {
 			// Retrieve the connection info from the parameters
 			app_ble_env.connections[conn_idx].conhdl = conidx;
@@ -777,7 +775,10 @@ static int gapc_connection_req_ind_handler(kernel_msg_id_t const msgid,
 		memcpy(conn_info.peer_addr, param->peer_addr.addr, GAP_BD_ADDR_LEN);
 		if(param->role == APP_BLE_MASTER_ROLE)   ///BLE_MASTER
 		{
-			bk_printf("KERNEL_IDX:%d,conn_idx:%d\r\n",app_ble_env.connections[conn_idx].conhdl,conn_idx);
+			BLE_LOGI("KERNEL_IDX:%d,conn_idx:%d\r\n",app_ble_env.connections[conn_idx].conhdl,conn_idx);
+			#if (BLE_CENTRAL) && (CFG_INIT_ENABLE)
+			app_init_con_dev_timerout_clear(conn_idx);
+			#endif
 			#if BLE_SDP_CLIENT
 			sdp_discover_all_service(conn_idx);
 			#endif
@@ -813,7 +814,7 @@ static int gapc_param_update_req_ind_handler(kernel_msg_id_t const msgid,
 {
 	uint8_t conidx = KERNEL_IDX_GET(src_id);
 
-	bk_printf("%s\r\n",__func__);
+	BLE_LOGI("%s\r\n",__func__);
 	// Send connection confirmation
 	struct gapc_param_update_cfm *cfm = KERNEL_MSG_ALLOC(GAPC_PARAM_UPDATE_CFM,
 								KERNEL_BUILD_ID(TASK_BLE_GAPC, conidx), TASK_BLE_APP,
@@ -848,7 +849,7 @@ static int gapc_param_updated_ind_handler (kernel_msg_id_t const msgid,
 	uint8_t conn_idx = app_ble_find_conn_idx_handle(conidx);
 
 	if (BLE_CONNECTION_MAX == conn_idx) {
-		bk_printf("%s:Unknow conntions\r\n", __FUNCTION__);
+		BLE_LOGI("%s:Unknow conntions\r\n", __FUNCTION__);
 	} else {
 		app_ble_env.connections[conn_idx].con_interval = param->con_interval;
 		app_ble_env.connections[conn_idx].con_latency = param->con_latency;
@@ -873,12 +874,12 @@ static int gapc_le_pkt_size_ind_handler (kernel_msg_id_t const msgid,
 							kernel_task_id_t const dest_id, kernel_task_id_t const src_id)
 {
 	uint8_t conidx = KERNEL_IDX_GET(src_id);
-	bk_printf("%s msgid:0x%x,dest_id:0x%x,src_id:0x%x\r\n",__func__,msgid,dest_id,src_id);
-	bk_printf("conidx:%x,",conidx);
-	bk_printf("1max_rx_octets = %d\r\n",param->max_rx_octets);
-	bk_printf("1max_rx_time = %d\r\n",param->max_rx_time);
-	bk_printf("1max_tx_octets = %d\r\n",param->max_tx_octets);
-	bk_printf("1max_tx_time = %d\r\n",param->max_tx_time);
+	BLE_LOGI("%s msgid:0x%x,dest_id:0x%x,src_id:0x%x\r\n",__func__,msgid,dest_id,src_id);
+	BLE_LOGI("conidx:%x,",conidx);
+	BLE_LOGI("1max_rx_octets = %d\r\n",param->max_rx_octets);
+	BLE_LOGI("1max_rx_time = %d\r\n",param->max_rx_time);
+	BLE_LOGI("1max_tx_octets = %d\r\n",param->max_tx_octets);
+	BLE_LOGI("1max_tx_time = %d\r\n",param->max_tx_time);
 
 	return KERNEL_MSG_CONSUMED;
 }
@@ -904,21 +905,24 @@ static int gapc_cmp_evt_handler(kernel_msg_id_t const msgid,
 	uint8_t conn_idx = (app_ble_env.app_status >> BLE_APP_IDX_POS);
 	uint8_t status = (param->status == GAP_ERR_NO_ERROR) ? ERR_SUCCESS : ERR_CMD_RUN;
 
-	bk_printf("%s conidx:%d,operation:0x%x,status:%x\r\n", __func__, conidx, param->operation, param->status);
+	BLE_LOGI("%s conidx:%d,operation:0x%x,status:%x\r\n", __func__, conidx, param->operation, param->status);
 
 	switch (param->operation) {
 	case (GAPC_UPDATE_PARAMS):
 		if (conn_idx >= BLE_CONNECTION_MAX) {
-			bk_printf("unknow conn idx:%d\r\n", conn_idx);
+			BLE_LOGI("unknow conn idx:%d\r\n", conn_idx);
 		} else {
-			app_ble_env.connections[conn_idx].conn_op_mask &= ~(1 << BLE_OP_UPDATE_CONN_POS);
-			app_ble_next_operation(conn_idx, status);
+			if((app_ble_env.app_status &  APP_BLE_CMD_RUNNING )
+				&& (app_ble_env.connections[conn_idx].conn_op_mask & (1 << BLE_OP_UPDATE_CONN_POS))){
+				app_ble_env.connections[conn_idx].conn_op_mask &= ~(1 << BLE_OP_UPDATE_CONN_POS);
+				app_ble_next_operation(conn_idx, status);
+			}
 		}
 		break;
 
 	case (GAPC_DISCONNECT):
 		if (conn_idx >= BLE_CONNECTION_MAX) {
-			bk_printf("unknow conn idx:%d\r\n", conn_idx);
+			BLE_LOGI("unknow conn idx:%d\r\n", conn_idx);
 		} else {
 			app_ble_env.connections[conn_idx].conn_op_mask &= ~(1 << BLE_OP_UPDATE_CONN_POS);
 			app_ble_next_operation(conn_idx, status);
@@ -950,14 +954,14 @@ static int gapc_disconnect_ind_handler(kernel_msg_id_t const msgid,
                                       kernel_task_id_t const src_id)
 {
 
-	uint8_t conidx = KERNEL_IDX_GET(dest_id);
+	uint8_t conidx = KERNEL_IDX_GET(src_id);
 	discon_ind_t dis_info;
 	uint8_t conn_idx = app_ble_find_conn_idx_handle(conidx);
 
-	bk_printf("[%s]conidx:%d,conhdl:%d,reason:0x%x\r\n",__func__, conidx, param->conhdl, param->reason);
+	BLE_LOGI("[%s]conidx:%d,conhdl:%d,reason:0x%x\r\n",__func__, conidx, param->conhdl, param->reason);
 
 	if (BLE_CONNECTION_MAX == conn_idx) {
-		bk_printf("%s:Unknow conntions\r\n", __FUNCTION__);
+		BLE_LOGI("%s:Unknow conntions\r\n", __FUNCTION__);
 	} else {
 		app_ble_env.connections[conn_idx].conhdl = UNKNOW_CONN_HDL;
 	}
@@ -1034,7 +1038,7 @@ static int appm_msg_handler(kernel_msg_id_t const msgid,
     }
     if(!found_flag)
     {
-        bk_printf("%s,src_task_id:0x%x,dest_id:0x%x,src_id:0x%x,msgid:0x%x\r\n",__func__,src_task_id,dest_id,src_id,msgid);  
+        BLE_LOGI("%s,src_task_id:0x%x,dest_id:0x%x,src_id:0x%x,msgid:0x%x\r\n",__func__,src_task_id,dest_id,src_id,msgid);  
     }
  
     return (msg_pol);
@@ -1066,7 +1070,8 @@ static int gapm_gen_rand_nb_ind_handler(kernel_msg_id_t const msgid, struct gapm
 
     return KERNEL_MSG_CONSUMED;
 }
-										
+
+#if (SECURE_CONNECTIONS)
 static int gapm_gen_dh_key_ind_handler(kernel_msg_id_t const msgid,
 											struct gapm_gen_dh_key_ind const *param,
 											kernel_task_id_t const dest_id,
@@ -1086,6 +1091,7 @@ static int gapm_get_key_ind_handler(kernel_msg_id_t const msgid,
 
 	return (msg_status);
 }
+#endif
 
 #if (BLE_CENTRAL) && (CFG_INIT_ENABLE)
 static int app_init_con_dev_timerout_handler(kernel_msg_id_t const msgid,
@@ -1096,15 +1102,84 @@ static int app_init_con_dev_timerout_handler(kernel_msg_id_t const msgid,
 	uint8_t conidx = KERNEL_IDX_GET(dest_id);
 
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]conidx:%d\r\n",__func__,conidx);
+	BLE_LOGI("[%s]conidx:%d\r\n",__func__,conidx);
 	#endif
 
-	if(BLE_APP_MASTER_GET_IDX_STATE(BLE_APP_INITING_GET_INDEX(conidx)) == APP_INIT_STATE_CONECTTING)
+	if((BLE_APP_INITING_CHECK_INDEX(conidx)) && BLE_APP_MASTER_GET_IDX_STATE(BLE_APP_INITING_GET_INDEX(conidx)) == APP_INIT_STATE_CONECTTING)
 	{
 		appm_stop_connencting(BLE_APP_INITING_GET_INDEX(conidx));
 	}
 
 	return (KERNEL_MSG_CONSUMED);
+}
+
+int app_init_con_dev_timerout_clear(unsigned char conidx)
+{
+	unsigned int task_id = KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx));
+
+	if(BLE_CONNECTION_MAX <= conidx){
+		return -1;
+	}
+
+	if(kernel_timer_active(APP_INIT_CON_DEV_TIMEROUT_TIMER, task_id)){
+		kernel_timer_clear(APP_INIT_CON_DEV_TIMEROUT_TIMER, task_id);
+	}
+#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
+	BLE_LOGI("[%s]conidx:%d\r\n",__func__,conidx);
+#endif
+
+	return 0;
+}
+
+uint16_t app_init_con_intv_policy(unsigned char conidx)
+{
+	return APP_CONN_KEEP_INTV  + conidx * APP_CONN_IND_DELT_TIME;
+}
+
+////APP_INIT_CON_SDP_END_TIMER
+static int app_init_con_sdp_end_timer_handler(kernel_msg_id_t const msgid,
+										  void const *ind,
+										  kernel_task_id_t const dest_id,
+										  kernel_task_id_t const src_id)
+{
+	int conidx = BLE_APP_INITING_GET_INDEX(KERNEL_IDX_GET(dest_id));
+
+#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
+	BLE_LOGI("[%s]conidx:%d\r\n",__func__,conidx);
+#endif
+
+	if(BLE_CONNECTION_MAX > conidx && conidx >= 0){
+		struct gapc_conn_param conn_param;
+		uint16_t intv_min = app_init_con_intv_policy(conidx);
+		conn_param.intv_min = intv_min;
+		conn_param.intv_max = intv_min + conidx;
+		conn_param.latency = APP_CONN_LATENCY;
+		conn_param.time_out = APP_CONN_SUP_TO;
+		int ret = app_ble_update_param(conidx, &conn_param);
+		if(ret != 0){
+			BLE_LOGI("conidx:%d update param failed\r\n",conidx);
+		}
+	}
+
+	return (KERNEL_MSG_CONSUMED);
+}
+
+int app_init_con_sdp_end_timer_start(unsigned char conidx,unsigned int timeout_ms)
+{
+	unsigned int task_id = KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx));
+
+	if(BLE_CONNECTION_MAX <= conidx){
+		return -1;
+	}
+	if(timeout_ms < 10){
+		timeout_ms = 10;
+	}
+	if(kernel_timer_active(APP_INIT_CON_SDP_END_TIMER, task_id)){
+		kernel_timer_clear(APP_INIT_CON_SDP_END_TIMER, task_id);
+	}
+	kernel_timer_set(APP_INIT_CON_SDP_END_TIMER, task_id, timeout_ms);
+
+	return 0;
 }
 
 static int app_init_init_event_handler(kernel_msg_id_t const msgid,
@@ -1116,7 +1191,7 @@ static int app_init_init_event_handler(kernel_msg_id_t const msgid,
 	uint8_t actv_idx = app_ble_env.app_status >> BLE_APP_IDX_POS;
 
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]conidx:%d\r\n",__func__,conidx);
+	BLE_LOGI("[%s]conidx:%d\r\n",__func__,conidx);
 	#endif
 
 	if(BLE_APP_INITING_CHECK_INDEX(conidx)){
@@ -1129,7 +1204,7 @@ static int app_init_init_event_handler(kernel_msg_id_t const msgid,
 			app_ble_next_operation(actv_idx, ERR_SUCCESS);
 		}
 	}else{
-		bk_printf("[%s]INIT index %d error\r\n",__FUNCTION__,conidx);
+		BLE_LOGI("[%s]INIT index %d error\r\n",__FUNCTION__,conidx);
 	}
 
 	return (KERNEL_MSG_CONSUMED);
@@ -1144,7 +1219,7 @@ static int app_init_start_timeout_event_handler(kernel_msg_id_t const msgid,
 	struct app_task_start_timeout_event_ind *req = (struct app_task_start_timeout_event_ind*) ind;
 
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s %d]req->task_id:%x,timout_ms:%d\r\n",__FUNCTION__,__LINE__,req->task_id,req->timout_ms);
+	BLE_LOGI("[%s %d]req->task_id:%x,timout_ms:%d\r\n",__FUNCTION__,__LINE__,req->task_id,req->timout_ms);
 	#endif
 	kernel_timer_set(APP_INIT_CON_DEV_TIMEROUT_TIMER,req->task_id,req->timout_ms);
 
@@ -1185,17 +1260,17 @@ static int gattc_sdp_svc_ind_handler(kernel_msg_id_t const msgid,
 	uint8_t conidx = KERNEL_IDX_GET(dest_id);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-    bk_printf("[%s]appc msgid:0x%x,dest_id:0x%x,src_id:0x%x,conidx:%x\r\n",
+    BLE_LOGI("[%s]appc msgid:0x%x,dest_id:0x%x,src_id:0x%x,conidx:%x\r\n",
 								__func__,msgid,dest_id,src_id,conidx);
 
-    bk_printf("ind uuid len:%d,uuid:",ind->uuid_len);
+    BLE_LOGI("ind uuid len:%d,uuid:",ind->uuid_len);
     for(int i = 0;i < ind->uuid_len;i++)
     {
-        bk_printf("%02x ",ind->uuid[ind->uuid_len - i - 1]);
+        BLE_LOGI("%02x ",ind->uuid[ind->uuid_len - i - 1]);
     }
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 #endif
-
+	app_init_con_sdp_end_timer_start(BLE_APP_INITING_GET_INDEX(conidx),APP_SDP_KEEP_TIME);
 	app_sdp_add_element_srv(BLE_APP_INITING_GET_INDEX(conidx),ind);
 
     return (KERNEL_MSG_CONSUMED);
@@ -1206,17 +1281,16 @@ static int app_gattc_event_ind_handler(kernel_msg_id_t const msgid,
                                    kernel_task_id_t const dest_id,
                                    kernel_task_id_t const src_id)
 {
-    uint8_t state = kernel_state_get(dest_id);
     uint8_t conidx = KERNEL_IDX_GET(dest_id);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-  //  bk_printf("app gattc_event_ind conidx:%d\r\n",conidx);
-	bk_printf("[%s]NOTIF RECIVE handle:%x, length:%d,value = 0x",__func__,param->handle,param->length);
+  //  BLE_LOGI("app gattc_event_ind conidx:%d\r\n",conidx);
+	BLE_LOGI("[%s]NOTIF RECIVE handle:%x, length:%d,value = 0x",__func__,param->handle,param->length);
 	for(int i = 0; i< param->length; i++)
 	{
-		bk_printf("%02x ",param->value[i]);
+		BLE_LOGI("%02x ",param->value[i]);
 	}
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 #endif
 	app_sdp_charac_callback_handler(CHARAC_NOTIFY,BLE_APP_INITING_GET_INDEX(conidx),param->handle,param->length,(uint8*)param->value);
 
@@ -1228,18 +1302,17 @@ static int app_gattc_event_req_ind_handler(kernel_msg_id_t const msgid,
                                        kernel_task_id_t const dest_id,
                                        kernel_task_id_t const src_id)
 {
-	uint8_t state = kernel_state_get(dest_id);
 	uint8_t conidx = KERNEL_IDX_GET(dest_id);
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("[%s]dest_id = 0x%x,conidx = 0x%x\r\n",__func__,dest_id,conidx);
-	bk_printf("[%s]type = 0x%x,length = 0x%x,handle = 0x%02x\r\n",__func__,param->type,param->length,param->handle);
-	bk_printf("src_id:%x,indicate RECIVE value =  0x",src_id);
+	BLE_LOGI("[%s]dest_id = 0x%x,conidx = 0x%x\r\n",__func__,dest_id,conidx);
+	BLE_LOGI("[%s]type = 0x%x,length = 0x%x,handle = 0x%02x\r\n",__func__,param->type,param->length,param->handle);
+	BLE_LOGI("src_id:%x,indicate RECIVE value =  0x",src_id);
 	for(int i = 0; i< param->length; i++)
 	{
-		bk_printf("%02x ",param->value[i]);
+		BLE_LOGI("%02x ",param->value[i]);
 	}
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 #endif
 	app_sdp_charac_callback_handler(CHARAC_INDICATE,BLE_APP_INITING_GET_INDEX(conidx),param->handle,param->length,(uint8*)param->value);
 
@@ -1281,13 +1354,13 @@ static int gapm_scan_request_ind_handler(kernel_msg_id_t const msgid,
                                  kernel_task_id_t const dest_id,
                                  kernel_task_id_t const src_id)
 {
-	bk_printf("%s\r\n",__func__);
-	bk_printf("actv_idx:%d,addr_type:%d\r\n",p_ind->actv_idx,p_ind->trans_addr.addr_type);
-	bk_printf("addr ");
+	BLE_LOGI("%s\r\n",__func__);
+	BLE_LOGI("actv_idx:%d,addr_type:%d\r\n",p_ind->actv_idx,p_ind->trans_addr.addr_type);
+	BLE_LOGI("addr ");
 	for(int i = 0;i < 6;i++) {
-		bk_printf(":%02x ",p_ind->trans_addr.addr.addr[i]);
+		BLE_LOGI(":%02x ",p_ind->trans_addr.addr.addr[i]);
 	}
-	bk_printf("\r\n");
+	BLE_LOGI("\r\n");
 	return (KERNEL_MSG_CONSUMED);
 }
 
@@ -1296,16 +1369,21 @@ static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
                                  kernel_task_id_t const dest_id,
                                  kernel_task_id_t const src_id)
 {
-	uint8_t state = kernel_state_get(dest_id);
+#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 	uint8_t conidx = KERNEL_IDX_GET(src_id);
+#endif
+#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT)) || BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN) || CFG_INIT_ENABLE
 	uint8_t con_idx = KERNEL_IDX_GET(dest_id);
+#endif
 	uint8_t conn_idx = (app_ble_env.app_status >> BLE_APP_IDX_POS);
 	uint8_t status = (param->status == GAP_ERR_NO_ERROR) ? ERR_SUCCESS : ERR_CMD_RUN;
+	#if CFG_INIT_ENABLE
 	uint8_t actv_idx = app_ble_env.app_status >> BLE_APP_IDX_POS;
+	#endif
 
 	#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-	bk_printf("app %s dest_id = %x,conidx:%d,con_idx:%d\r\n",__func__,dest_id,conidx,con_idx);
-	bk_printf("operation = 0x%x,status = 0x%x,seq_num = 0x%x\r\n",param->operation,param->status,param->seq_num);
+	BLE_LOGI("app %s dest_id = %x,conidx:%d,con_idx:%d\r\n",__func__,dest_id,conidx,con_idx);
+	BLE_LOGI("operation = 0x%x,status = 0x%x,seq_num = 0x%x\r\n",param->operation,param->status,param->seq_num);
 	#endif
 
 	if((param->operation == GATTC_SDP_DISC_SVC_ALL))
@@ -1313,7 +1391,7 @@ static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
 		#if CFG_INIT_ENABLE
 		kernel_state_set(KERNEL_BUILD_ID(TASK_BLE_APP,con_idx),APPC_SERVICE_CONNECTED);
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("\r\nAPPC_SERVICE_CONNECTED\r\n");
+		BLE_LOGI("\r\nAPPC_SERVICE_CONNECTED\r\n");
 		#endif
 		#endif
 	 //   sdp_enable_all_server_ntf_ind(conidx,1);
@@ -1322,7 +1400,7 @@ static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
 	if(param->operation == GATTC_READ)
 	{
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("\r\nREAD CMP EVT\r\n");
+		BLE_LOGI("\r\nREAD CMP EVT\r\n");
 		#endif
 		#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
 		app_sdp_charac_callback_handler(CHARAC_READ_DONE,BLE_APP_INITING_GET_INDEX(con_idx),0,0,NULL);
@@ -1335,7 +1413,7 @@ static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
 	else if(param->operation == GATTC_WRITE)
 	{
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-		bk_printf("\r\nWrite CMP EVT\r\n");
+		BLE_LOGI("\r\nWrite CMP EVT\r\n");
 		#endif
 		#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
 		app_sdp_charac_callback_handler(CHARAC_WRITE_DONE,BLE_APP_INITING_GET_INDEX(con_idx),0,0,NULL);
@@ -1348,7 +1426,7 @@ static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
 	#endif
 	if ((param->operation == GATTC_MTU_EXCH)) {
 		if (conn_idx >= BLE_CONNECTION_MAX) {
-			bk_printf("unknow conn idx:%d\r\n", conn_idx);
+			BLE_LOGI("unknow conn idx:%d\r\n", conn_idx);
 		} else {
 			app_ble_env.connections[conn_idx].conn_op_mask &= ~(1 << BLE_OP_MTU_CHANGE_POS);
 			app_ble_next_operation(conn_idx, status);
@@ -1414,6 +1492,7 @@ KERNEL_MSG_HANDLER_TAB(appm)
 	#if APP_INIT_STOP_CONN_TIMER_EVENT
 	{APP_INIT_START_TIMEOUT_EVENT,      (kernel_msg_func_t)app_init_start_timeout_event_handler},
 	#endif ///#if APP_INIT_STOP_CONN_TIMER_EVENT
+	{APP_INIT_CON_SDP_END_TIMER,  (kernel_msg_func_t)app_init_con_sdp_end_timer_handler},
 	#endif
 };
 

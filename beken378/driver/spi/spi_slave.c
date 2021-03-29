@@ -46,6 +46,7 @@ struct bk_spi_slave_dev
     beken_mutex_t mutex;
 };
 
+__maybe_unused static UINT32 bk_spi_slave_get_rx_fifo(void);
 static struct bk_spi_slave_dev *spi_slave_dev;
 
 static UINT32 bk_spi_slave_get_rx_fifo(void)

@@ -194,6 +194,13 @@
 /*section 25 ----- use tick time calibrate*/
 #define CFG_USE_TICK_CAL                           1
 
+/*section 27 ----- use PROBEREQ callbacks for SOFTAP roles */
+#define CFG_USE_SOFTAP_PROBEREQ_CB                 0
+#define CFG_CTRL_WIFI_SCAN_CH_TIME                 0
+#define CFG_CTRL_BEACON_VENDOR_API                 0
+#define CFG_CTRL_BEACON_UPDATE_API                 0
+
+
 #define CFG_SUPPORT_BLE                            1
 #define CFG_SUPPORT_BLE_MESH                       0
 #define CFG_USE_PTA                                0
@@ -252,5 +259,26 @@
 #define CFG_LWIP_MEM_POLICY                       LWIP_REDUCE_THE_PLAN
 #endif
 
+
+/*section 29 -----  peripheral interface open  */
+#define CFG_USE_I2C1                                0
+#define CFG_USE_I2C2                                1
+
+#define CFG_USE_SPI_MASTER                         1
+#define CFG_USE_SPI_SLAVE                          1
+#define CFG_USE_SPI_DMA                            1
+
+/*section 30 ----- peripheral interface test case */
+#define CFG_PERIPHERAL_TEST							1
+#define CFG_SUPPORT_SPI_TEST                        1
+
+/*section 31 ----- power table for country code */
+#define CFG_POWER_TABLE                             0
+
+/* watchdog, freertos only */
+#define CFG_INT_WDG_ENABLED                        1
+#define CFG_INT_WDG_PERIOD_MS                      10000
+#define CFG_TASK_WDG_ENABLED                       1
+#define CFG_TASK_WDG_PERIOD_MS                     60000
 
 #endif // _SYS_CONFIG_H_

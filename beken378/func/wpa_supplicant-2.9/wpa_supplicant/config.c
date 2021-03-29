@@ -2557,7 +2557,6 @@ void wpa_config_free_cred(struct wpa_cred *cred)
 void wpa_config_free(struct wpa_config *config)
 {
 	struct wpa_ssid *ssid, *prev = NULL;
-	struct wpa_cred *cred, *cprev;
 	int i;
 
 	ssid = config->ssid;

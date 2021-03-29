@@ -237,9 +237,9 @@
     #if (BLE_EMB_PRESENT)
     /// Needed "security" heap size for reception of max supported MTU through prepare write procedure
     /// If retention memory is used, this additionnal heap can be part of the size allocated for the retention memory
-    #define BLEHL_HEAP_DATA_THP_SIZE               (3 * GAP_MAX_LE_MTU)
+    #define BLEHL_HEAP_DATA_THP_SIZE               (2 * GAP_MAX_LE_MTU)
     #else // !(BLE_EMB_PRESENT)
-    #define BLEHL_HEAP_DATA_THP_SIZE               (4 * GAP_MAX_LE_MTU)
+    #define BLEHL_HEAP_DATA_THP_SIZE               (3 * GAP_MAX_LE_MTU)
     #endif // (BLE_EMB_PRESENT)
 
     /// message size per connection

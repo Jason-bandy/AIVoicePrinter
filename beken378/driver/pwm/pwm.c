@@ -11,7 +11,7 @@
 #include "gpio_pub.h"
 #include "uart_pub.h"
 
-static SDD_OPERATIONS pwm_op =
+static const SDD_OPERATIONS pwm_op =
 {
     pwm_ctrl
 };
@@ -67,76 +67,73 @@ static void pwm_gpio_configuration(UINT8 chan, UINT8 enable)
 
 static void pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
 {
-    UINT32 ret;
-    UINT32 prm;
+	UINT32 ret;
+	UINT32 param;
 
-    /* set clock power down of icu module*/
-    switch(pwm_param->channel)
-    {
-    case PWM0:
-        prm = PWD_PWM0_CLK_BIT;
-        break;
+	/* set clock power down of icu module*/
+	switch (pwm_param->channel)
+	{
+	case PWM0:
+		param = PWD_PWM0_CLK_BIT;
+		break;
 
-    case PWM1:
-        prm = PWD_PWM1_CLK_BIT;
-        break;
+	case PWM1:
+		param = PWD_PWM1_CLK_BIT;
+		break;
 
-    case PWM2:
-        prm = PWD_PWM2_CLK_BIT;
-        break;
+	case PWM2:
+		param = PWD_PWM2_CLK_BIT;
+		break;
 
-    case PWM3:
-        prm = PWD_PWM3_CLK_BIT;
-        break;
+	case PWM3:
+		param = PWD_PWM3_CLK_BIT;
+		break;
 
 #if (CFG_SOC_NAME != SOC_BK7271)
-    case PWM4:
-        prm = PWD_PWM4_CLK_BIT;
-        break;
+	case PWM4:
+		param = PWD_PWM4_CLK_BIT;
+		break;
 
-    case PWM5:
-        prm = PWD_PWM5_CLK_BIT;
-        break;
+	case PWM5:
+		param = PWD_PWM5_CLK_BIT;
+		break;
 #endif
 
-    default:
+	default:
 		PWM_WARN("pwm_iconfig_fail\r\n");
-        goto exit_icu;
-    }
-
-	if(enable)
-	{
-    ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&prm);
-    ASSERT(ICU_SUCCESS == ret);
-
-    if(PWM_CLK_32K == pwm_param->cfg.bits.clk)
-    {
-        prm = pwm_param->channel;
-        ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_LPOCLK, (void *)&prm);
-    }
-    else
-    {
-        prm = pwm_param->channel;
-        ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&prm);
-    }
-    ASSERT(ICU_SUCCESS == ret);
+		goto exit_icu;
 	}
-	else
+
+	if (enable)
 	{
-    	ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&prm);
+		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&param);
+		ASSERT(ICU_SUCCESS == ret);
+
+		if (PWM_CLK_32K == pwm_param->cfg.bits.clk) {
+			param = pwm_param->channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_LPOCLK, (void *)&param);
+		} else {
+			param = pwm_param->channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&param);
+		}
+		ASSERT(ICU_SUCCESS == ret);
+	} else
+	{
+		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&param);
 		ASSERT(ICU_SUCCESS == ret);
 	}
 
-    if(PWM_INT_EN == pwm_param->cfg.bits.int_en)
-    {
-        prm = IRQ_PWM_BIT;
-        ret = sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, (void *)&prm);
-    }
+	if (PWM_INT_EN == pwm_param->cfg.bits.int_en)
+	{
+		param = IRQ_PWM_BIT;
+		ret = sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, (void *)&param);
+	}
 
 exit_icu:
 
-    return;
+	return;
 }
+
 
 static void init_pwm_param(pwm_param_t *pwm_param, UINT8 enable)
 {
@@ -217,7 +214,7 @@ void pwm_init(void)
 
     intc_service_register(IRQ_PWM, PRI_IRQ_PWM, pwm_isr);
 
-    sddev_register_dev(PWM_DEV_NAME, &pwm_op);
+    sddev_register_dev(PWM_DEV_NAME, (SDD_OPERATIONS*)&pwm_op);
 }
 
 void pwm_exit(void)

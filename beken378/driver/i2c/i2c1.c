@@ -21,7 +21,7 @@ typedef struct i2c1_msg {
 	UINT8 AddrWidth;
 } I2C1_MSG_ST, *I2C1_MSG_PTR;
 
-static DD_OPERATIONS i2c1_op =
+static const DD_OPERATIONS i2c1_op =
 {
     i2c1_open,
     i2c1_close,
@@ -332,7 +332,7 @@ static void i2c1_isr(void)
 
 static void i2c1_software_init(void)
 {
-    ddev_register_dev(I2C1_DEV_NAME, &i2c1_op);
+    ddev_register_dev(I2C1_DEV_NAME, (DD_OPERATIONS*)&i2c1_op);
 }
 
 static void i2c1_hardware_init(void)
@@ -388,6 +388,7 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     UINT32 reg;
     I2C_OP_PTR i2c_op;
+    GLOBAL_INT_DECLARATION();
 
     i2c_op = (I2C_OP_PTR)op_flag;
 
@@ -405,6 +406,7 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
         return 0;
     }
 
+    GLOBAL_INT_DISABLE();
     // write cycle, write the subaddr to device
     gi2c1.TxMode = 0;
     gi2c1.RegAddr = i2c_op->op_addr;
@@ -426,10 +428,13 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
     reg = REG_READ(REG_I2C1_CONFIG);
     reg |= I2C1_STA;// Set STA
     REG_WRITE(REG_I2C1_CONFIG, reg);
+    GLOBAL_INT_RESTORE();
 
     while(gi2c1.TransDone == 0);
 
+    GLOBAL_INT_DISABLE();
     gi2c1.TransDone = 0;
+    GLOBAL_INT_RESTORE();
 
     return gi2c1.ErrorNO;
 }
@@ -438,6 +443,7 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     UINT32 reg;
     I2C_OP_PTR i2c_op;
+    GLOBAL_INT_DECLARATION();
 
     i2c_op = (I2C_OP_PTR)op_flag;
 
@@ -455,6 +461,7 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
         return 0;
     }
 
+    GLOBAL_INT_DISABLE();
     gi2c1.TxMode = 1;
     gi2c1.RegAddr = i2c_op->op_addr;
     gi2c1.RemainNum = count;
@@ -475,10 +482,13 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
     reg = REG_READ(REG_I2C1_CONFIG);
     reg |= I2C1_STA;// Set STA
     REG_WRITE(REG_I2C1_CONFIG, reg);
+    GLOBAL_INT_RESTORE();
 
     while(gi2c1.TransDone == 0);
 
+    GLOBAL_INT_DISABLE();
     gi2c1.TransDone = 0;
+    GLOBAL_INT_RESTORE();
 
     return gi2c1.ErrorNO;
 }

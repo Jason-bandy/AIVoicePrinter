@@ -6,13 +6,13 @@
 #include "uart_pub.h"
 
 #if CFG_MAC_PHY_BAPASS
-static SDD_OPERATIONS mpb_op = {
+static const SDD_OPERATIONS mpb_op = {
             mpb_ctrl
 };
 
 void mpb_init(void)
 {
-	sddev_register_dev(MPB_DEV_NAME, &mpb_op);
+	sddev_register_dev(MPB_DEV_NAME, (SDD_OPERATIONS*)&mpb_op);
 }
 
 void mpb_exit(void)
@@ -137,13 +137,13 @@ static void mpb_stop_trx(void)
     UINT32 reg;
     reg = macbyp_ctrl_get();
     reg &= ~(MACBYP_BYPASS_BIT);
-	macbyp_ctrl_set(reg); 
+    macbyp_ctrl_set(reg);
 }
 
 void mpb_set_txdelay(UINT32 delay_us)
 {
+#if 0
     UINT32 delay_us_value;
-#if 0   
     // only has 120M clock
     delay_us_value = (UINT32)(delay_us * 120);
 
@@ -176,7 +176,7 @@ void mpb_set_txdelay_precision(float delay_us)
 UINT32 mpb_ctrl(UINT32 cmd, void *param)
 {
 	UINT32 len, reg;
-	
+
 	switch(cmd)
 	{
 		case MCMD_TX_LEGACY_SET_LEN:
@@ -203,9 +203,9 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
             }
 			break;
 
-		case MCMD_TX_HT_VHT_SET_LEN:
-			len = (*(UINT32*)param) & TX_HT_VHT_DATA_LEN_MASK;
-
+        case MCMD_TX_HT_VHT_SET_LEN:
+            // b0010: HT-MM, b0011: HT-GF,
+            len = (*(UINT32*)param) & TX_HT_VHT_DATA_LEN_MASK;
             if(len)
             {
                 reg = macbyp_txv_get(11);
@@ -225,7 +225,36 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
                 reg |= (1<<7);
                 macbyp_txv_set(3, reg);
             }
-			break;
+            break;
+
+        case MCMD_ONLY_VHT_SET_LEN:
+            // b0100: VHT
+            len = (*(UINT32*)param) & TX_HT_VHT_DATA_LEN_MASK;
+            if(len)
+            {
+                reg = macbyp_txv_get(14);
+                reg &= ~(0xff);
+                reg |= len & 0xff;
+                macbyp_txv_set(15, reg);
+
+                reg = macbyp_txv_get(15);
+                reg &= ~(0xff);
+                reg |= (len >> 8) & 0xff;
+                macbyp_txv_set(15, reg);
+
+                reg = macbyp_txv_get(16);
+                reg &= ~(0xf);
+                reg |= (len >> 16) & 0xf;
+                macbyp_txv_set(17, reg);
+            }
+            else
+            {
+                // continuous transmit mode, with infinite frame length
+                reg = macbyp_txv_get(3);
+                reg |= (1<<7);
+                macbyp_txv_set(3, reg);
+            }
+            break;
         case MCMD_TX_HE_SET_LEN:
 			len = (*(UINT32*)param) & TX_HE_DATA_LEN_MASK;
 
@@ -253,15 +282,15 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
                 reg |= (1<<7);
                 macbyp_txv_set(3, reg);
             }
-			break;
-			
-		case MCMD_TX_MODE_BYPASS_MAC:
-			//mpb_tx_mode();
-			break;
-			
-		case MCMD_RX_MODE_BYPASS_MAC:
-			//mpb_rx_mode();
-			break;
+            break;
+
+        case MCMD_TX_MODE_BYPASS_MAC:
+            //mpb_tx_mode();
+            break;
+
+        case MCMD_RX_MODE_BYPASS_MAC:
+            //mpb_rx_mode();
+            break;
 
         case MCMD_STOP_BYPASS_MAC:
             mpb_stop_trx();
@@ -277,6 +306,12 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
             reg &= ~(0x7 << 4);
             reg |= ((len & 0x7) << 4);
             macbyp_txv_set(0, reg);
+            if((g_mod_format == 5) && (len == 1))
+            {
+                reg = macbyp_txv_get(14);
+                reg |= (1 << 7);
+                macbyp_txv_set(14, reg);
+            }
             break; 
 
         case MCMD_SET_GI:  //0x0: 800ns;  0x1: 400ns
@@ -290,7 +325,7 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
                 //reg |= ((len & 0x1) << 7);
                 //macbyp_txv_set(0, reg);
             }
-            else
+            else if(g_mod_format < 5)
             {
                 //Guard Interval Type
                 // 0: LONG_GI (800 ns), 1: SHORT_GI (400 ns)
@@ -298,6 +333,20 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
                 reg &= ~(0x1 << 2);
                 reg |= ((len & 0x1) << 2);
                 macbyp_txv_set(8, reg);
+            }
+            else
+            {
+                // HE pkts, Guard Interval Type: 2'b00: 0.8 us, 2'b01: 1.6 us, 2'b10: 3.2 us
+                reg = macbyp_txv_get(8);
+                reg &= ~(0x3 << 2);
+                reg |= ((len & 0x3) << 2);
+                macbyp_txv_set(8, reg);
+
+                // 2'b01: 2x HE-LTF for 6.4 us
+                reg = macbyp_txv_get(9);
+                reg &= ~(0x3 << 3);
+                reg |= ((1 & 0x3) << 3);
+                macbyp_txv_set(9, reg);
             }
             break;
 /*
@@ -307,7 +356,7 @@ b0110: HE-MU,   b0111: HE-EXT-SU,        b1000: HE-TB
 */
         // for modulate format: 0x0: Non-HT; 0x1:Non-HT-DUP; 0x2: HT-MM;  0x3: HT-GF    
         // for rate:  0-11: b to g,  mcs 0-7:  MCS0 =128, MCS1=129 to CS7=135.
- 		case MCMD_BYPASS_TX_SET_RATE_MFORMAT: {
+        case MCMD_BYPASS_TX_SET_RATE_MFORMAT: {
             if(param)
             {
                 MBPS_TXS_MFR_ST st =(*(MBPS_TXS_MFR_PTR)param);
@@ -340,35 +389,46 @@ b0110: HE-MU,   b0111: HE-EXT-SU,        b1000: HE-TB
                     reg |= ((st.rate & 0xf) << 4);
                     macbyp_txv_set(5, reg);
                 }
-                else if(g_mod_format < 5)
+                else
                 {
                     // HT, VHT or HE PPDU, always indicates 6 Mbps-0xb
                     reg = macbyp_txv_get(5);
                     reg &= ~(0xf << 4);
                     reg |= ((0xb & 0xf) << 4);
                     macbyp_txv_set(5, reg);
-
-                    // Modulation Coding Scheme
-                    reg = macbyp_txv_get(10);
-                    reg &= ~(0x7f << 0);
-                    reg |= ((st.rate & 0x7f) << 0);
-                    macbyp_txv_set(10, reg);
-                }
-                else 
-                {
-                    reg = macbyp_txv_get(5);
-                    reg &= ~(0xf << 4);
-                    reg |= ((0xb & 0xf) << 4);
-                    macbyp_txv_set(5, reg);
-
-                    // Modulation Coding Scheme
-                    reg = macbyp_txv_get(14);
-                    reg &= ~(0xf << 0);
-                    reg |= ((st.rate & 0xf) << 0);
-                    macbyp_txv_set(14, reg);
+                    if(g_mod_format < 4)
+                    {
+                        // Modulation Coding Scheme
+                        reg = macbyp_txv_get(10);
+                        reg &= ~(0x7f << 0);
+                        reg |= ((st.rate & 0x7f) << 0);
+                        macbyp_txv_set(10, reg);
+                    }
+                    else if(g_mod_format == 4)
+                    {
+                        ////VHT pkts, default only one user
+                        reg = macbyp_txv_get(11);
+                        reg &= ~(0x7 << 0);
+                        reg |= ((1 & 0x7) << 0);
+                        macbyp_txv_set(11, reg);
+                        
+                        // Modulation Coding Scheme
+                        reg = macbyp_txv_get(13);
+                        reg &= ~(0xf << 0);
+                        reg |= ((st.rate & 0xf) << 0);
+                        macbyp_txv_set(13, reg);
+                    }
+                    else
+                    {
+                        // Modulation Coding Scheme
+                        reg = macbyp_txv_get(14);
+                        reg &= ~(0xf << 0);
+                        reg |= ((st.rate & 0xf) << 0);
+                        macbyp_txv_set(14, reg);
+                    }
                 }
             }
-            break; 
+            break;
             }
 
         case MCMD_SET_TXDELAY:
@@ -384,13 +444,13 @@ b0110: HE-MU,   b0111: HE-EXT-SU,        b1000: HE-TB
             break;
 
         case MCMD_BYPASS_MAC_SET_TX_PKT_NUM:
-			mpb_set_tx_packet_num(param);
+            mpb_set_tx_packet_num(param);
             break;
-		default:
-			break;
-	}
-	
-	return 0;
+        default:
+            break;
+    }
+
+    return 0;
 }
 #else
 UINT32 reg_134 = 0x00;
@@ -404,7 +464,7 @@ UINT32 reg_133 = 0x00;
 UINT32 g_band = 0;
 
 #include "mac_phy_bypass.h"
-struct MPB_TypeDef mpb_regs =
+const struct MPB_TypeDef mpb_regs =
 {
     (volatile MPB_REG0x0_TypeDef  *)(MPB_ADDR_BASE + 0 * 4),
     (volatile MPB_REG0x1_TypeDef  *)(MPB_ADDR_BASE + 1 * 4),
@@ -459,12 +519,12 @@ void mpb_tx_mode(void)
 
 void mpb_stop_trx(void)
 {
-	mpb_regs.r0->value &= (~0x01);
+    mpb_regs.r0->value &= (~0x01);
 }
 
 void mpb_start_trx(void)
 {
-	mpb_regs.r0->value |= 0x01;
+    mpb_regs.r0->value |= 0x01;
 }
 
 void mpb_set_txdelay(UINT32 delay_us)
@@ -505,35 +565,35 @@ void mpb_set_txdelay_precision(float delay_us)
 
 UINT32 mpb_ctrl(UINT32 cmd, void *param)
 {
-	UINT32 len;
-	
-	switch(cmd)
-	{
-		case MCMD_TX_LEGACY_SET_LEN:
-			len = (*(UINT32*)param);
+    UINT32 len;
+
+    switch(cmd)
+    {
+        case MCMD_TX_LEGACY_SET_LEN:
+            len = (*(UINT32*)param);
             reg_134 &= ~(0xff);
             reg_135 &= ~(0xf);
-			reg_134 |= len & 0xff;
-			reg_135 |= (len >> 8) & 0xf;
-			break;
+            reg_134 |= len & 0xff;
+            reg_135 |= (len >> 8) & 0xf;
+            break;
 
-		case MCMD_TX_HT_VHT_SET_LEN:
-			len = (*(UINT32*)param);
+        case MCMD_TX_HT_VHT_SET_LEN:
+            len = (*(UINT32*)param);
             reg_138 &= ~(0xff);
             reg_139 &= ~(0xff);
             reg_140 &= ~(0xf);
-			reg_138 |= len & 0xff;
-			reg_139 |= (len >> 8) & 0xff;
-			reg_140 |= (len >> 16) & 0xf;
-			break;
+            reg_138 |= len & 0xff;
+            reg_139 |= (len >> 8) & 0xff;
+            reg_140 |= (len >> 16) & 0xf;
+            break;
 
-		case MCMD_TX_MODE_BYPASS_MAC:
-			mpb_tx_mode();
-			break;
+        case MCMD_TX_MODE_BYPASS_MAC:
+            mpb_tx_mode();
+            break;
 
-		case MCMD_RX_MODE_BYPASS_MAC:
-			//mpb_rx_mode();
-			break;
+        case MCMD_RX_MODE_BYPASS_MAC:
+            //mpb_rx_mode();
+            break;
 
         case MCMD_STOP_BYPASS_MAC:
             mpb_stop_trx();
@@ -556,7 +616,8 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
 
         // for modulate format: 0x0: Non-HT; 0x1:Non-HT-DUP; 0x2: HT-MM;  0x3: HT-GF    
         // for rate:  0-11: b to g,  mcs 0-7:  MCS0 =128, MCS1=129 to CS7=135.
- 		case MCMD_BYPASS_TX_SET_RATE_MFORMAT: {
+        case MCMD_BYPASS_TX_SET_RATE_MFORMAT: 
+            {
             MBPS_TXS_MFR_ST st =(*(MBPS_TXS_MFR_PTR)param);
 
             st.rate =  mpb_select_tx_rate(st.rate);
@@ -569,22 +630,22 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
                 reg_135 |= 0xb0;
             }
             else {
-			    reg_135 |= (st.rate & PPDU_RATE_MASK) << PPDU_RATE_POSI;
+                reg_135 |= (st.rate & PPDU_RATE_MASK) << PPDU_RATE_POSI;
             }
 
             reg_133 = st.mod_format;
-			break; 
- 		    }
-        
+            break; 
+            }
+
         case MCMD_SET_TXDELAY:
             mpb_set_txdelay(*(UINT32*)param);
             break;
-			
-		default:
-			break;
-	}
-	
-	return 0;
+
+        default:
+            break;
+    }
+
+    return 0;
 }
 
 #endif // CFG_IEEE80211AX

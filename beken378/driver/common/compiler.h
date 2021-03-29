@@ -55,14 +55,21 @@
 #define __SECTION(x)              __attribute__((section(x)))
 #endif
 
-#define likely(x)   		__builtin_expect(!!(x), 1)
-#define unlikely(x) 		__builtin_expect(!!(x), 0)
+#ifndef likely
+#define likely(x)		__builtin_expect(!!(x), 1)
+#endif
+#ifndef unlikely
+#define unlikely(x)		__builtin_expect(!!(x), 0)
+#endif
 
 #define __deprecated        __attribute__((deprecated))
 #define __weak              __attribute__((weak))
+#define __must_check		__attribute__((warn_unused_result))
 
 #define __SHAREDRAM
 #define __MIB
+
+#define __MAYBE_UNUSED __attribute__((unused))
 
 #ifndef BUILD_BUG_ON
 #define BUILD_BUG_ON(condition) ((void)sizeof(char[1 - 2*!!(condition)]))

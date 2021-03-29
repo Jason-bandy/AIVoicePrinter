@@ -29,7 +29,7 @@
 //#define RXU_DEBUG
 
 #ifdef RXU_DEBUG
-#define RXU_PRT                 os_printf
+#define RXU_PRT                 IP_LOGI
 #define RXU_WPRT                warning_prf
 #else
 #define RXU_PRT                  os_null_printf
@@ -479,6 +479,8 @@ uint8_t rxu_cntrl_get_pm(void);
  ****************************************************************************************
  */
 void rxu_cntrl_evt(int dummy);
+
+uint32_t rx_mgmt_filter(uint16_t framectrl, void *payload, uint16_t length);
 
 
 /// @}

@@ -1,0 +1,17 @@
+# reference platform drivers
+    rwnx_platform.c
+    crm/$PLFVER/crm.c
+    phy/phy_${PHY}.c
+    intc/$ARCH/intc.c
+    extint/extint.c
+    sysctrl/sysctrl.c
+    ipc${IPC_TYPE}/ipc_emb.c
+    ipc${IPC_TYPE}/ipc_shared.c
+    dma/dma.c
+    la/la.c
+    la/la_shared.c
+    la/la_mem_mac.c
+    time/nx_time.c
+    button/button.c
+    led/led.c
+

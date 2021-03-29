@@ -5,6 +5,8 @@
 #include "include.h"
 #include "interrupt.h"
 #include "typedef.h"
+#include "usb.h"
+#include "usb_msd.h"
 
 #if CFG_USB
 #include "usb_pub.h"

@@ -135,6 +135,7 @@ static u8 * hostapd_eid_erp_info(struct hostapd_data *hapd, u8 *eid)
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static u8 * hostapd_eid_pwr_constraint(struct hostapd_data *hapd, u8 *eid)
 {
 	u8 *pos = eid;
@@ -203,6 +204,7 @@ static u8 * hostapd_eid_pwr_constraint(struct hostapd_data *hapd, u8 *eid)
 
 	return pos;
 }
+#endif
 
 
 static u8 * hostapd_eid_country_add(u8 *pos, u8 *end, int chan_spacing,
@@ -938,6 +940,7 @@ void handle_probe_req(struct hostapd_data *hapd,
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static u8 * hostapd_probe_resp_offloads(struct hostapd_data *hapd,
 					size_t *resp_len)
 {
@@ -974,6 +977,7 @@ static u8 * hostapd_probe_resp_offloads(struct hostapd_data *hapd,
 	/* Generate a Probe Response template for the non-P2P case */
 	return hostapd_gen_probe_resp(hapd, NULL, 0, resp_len);
 }
+#endif
 
 #endif /* NEED_AP_MLME */
 
@@ -987,6 +991,147 @@ void sta_track_del(struct hostapd_sta_info *info)
 	os_free(info);
 }
 
+#if defined(CFG_CTRL_BEACON_VENDOR_API) && CFG_CTRL_BEACON_VENDOR_API
+static struct wpabuf *g_vendor_elements = NULL;
+int set_beacon_ie_vendor_elements_addition(unsigned char *add,unsigned char add_len)
+{
+	struct wpabuf *vendor_elements;
+	unsigned char *buf = NULL;
+	unsigned short buf_len;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	if( g_vendor_elements ) {
+		vendor_elements = g_vendor_elements;
+		g_vendor_elements = NULL;
+		GLOBAL_INT_RESTORE();
+		wpabuf_free(vendor_elements);
+	}else{
+		GLOBAL_INT_RESTORE();
+	}
+#define IE_TAG_SIZE           1
+#define IE_TAG_LENGTH_SIZE    1
+#define IE_TAG_OPS            0
+#define IE_TAG_LENGTH_OPS     1
+#define IE_VENDOR_OUI_OPS     2
+
+	buf_len = (IE_TAG_SIZE + IE_TAG_LENGTH_SIZE) + add_len;
+	vendor_elements = os_malloc(sizeof(struct wpabuf));
+	buf = os_malloc(buf_len);
+	if((vendor_elements == NULL) || (buf == NULL)){
+		os_free(vendor_elements);
+		os_free(buf);
+		WPA_LOGE("set_beacon_ie_vendor_elements error\r\n");
+		return -1;
+	}
+
+	buf[IE_TAG_OPS] = WLAN_EID_VENDOR_SPECIFIC;
+	buf[IE_TAG_LENGTH_OPS] = add_len;
+	memcpy(&buf[IE_VENDOR_OUI_OPS],add,add_len);
+
+	vendor_elements->size = buf_len;
+	vendor_elements->used = buf_len;
+	vendor_elements->flags = WPABUF_FLAG_EXT_DATA;
+	vendor_elements->buf = buf;
+
+	GLOBAL_INT_DISABLE();
+	g_vendor_elements = vendor_elements;
+	GLOBAL_INT_RESTORE();
+	WPA_LOGI("g_vendor_elements:%x,vendor_elements:%d\r\n",g_vendor_elements,vendor_elements);
+	return 0;
+}
+
+int set_beacon_ie_vendor_elements(unsigned char oui[3],unsigned char oui_type)
+{
+	struct wpabuf *vendor_elements;
+	unsigned char *buf = NULL;
+	unsigned short buf_len;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	if( g_vendor_elements ) {
+		vendor_elements = g_vendor_elements;
+		g_vendor_elements = NULL;
+		GLOBAL_INT_RESTORE();
+		wpabuf_free(vendor_elements);
+	}else{
+		GLOBAL_INT_RESTORE();
+	}
+#define IE_TAG_SIZE           1
+#define IE_TAG_LENGTH_SIZE    1
+#define IE_TAG_OPS            0
+#define IE_TAG_LENGTH_OPS     1
+#define IE_VENDOR_OUI_OPS     2
+#define IE_VENDOR_OUI_SIZE    3
+#define IE_VENDOR_OUI_TYPE_SIZE 1
+#define IE_VENDOR_OUI_TYPE_OPS  5
+
+	buf_len = IE_TAG_SIZE + (IE_TAG_LENGTH_SIZE + IE_VENDOR_OUI_SIZE + IE_VENDOR_OUI_TYPE_SIZE);
+	vendor_elements = os_malloc(sizeof(struct wpabuf));
+	buf = os_malloc(buf_len);
+	if((vendor_elements == NULL) || (buf == NULL)){
+		os_free(vendor_elements);
+		os_free(buf);
+		WPA_LOGE("set_beacon_ie_vendor_elements error\r\n");
+		return -1;
+	}
+
+	buf[IE_TAG_OPS] = WLAN_EID_VENDOR_SPECIFIC;
+	buf[IE_TAG_LENGTH_OPS] = IE_VENDOR_OUI_SIZE + IE_VENDOR_OUI_TYPE_SIZE;
+	memcpy(&buf[IE_VENDOR_OUI_OPS],oui,IE_VENDOR_OUI_SIZE);
+	buf[IE_VENDOR_OUI_TYPE_OPS] = oui_type;
+	vendor_elements->size = buf_len;
+	vendor_elements->used = buf_len;
+	vendor_elements->flags = WPABUF_FLAG_EXT_DATA;
+	vendor_elements->buf = buf;
+
+	GLOBAL_INT_DISABLE();
+	g_vendor_elements = vendor_elements;
+	GLOBAL_INT_RESTORE();
+	WPA_LOGI("g_vendor_elements:%x,vendor_elements:%d\r\n",g_vendor_elements,vendor_elements);
+	return 0;
+}
+
+void set_beacon_ie_vendor_elements_clear(void)
+{
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	struct wpabuf *vendor_elements = g_vendor_elements;
+	g_vendor_elements = NULL;
+	GLOBAL_INT_RESTORE();
+	if(vendor_elements){
+		wpabuf_free(vendor_elements);
+	}
+}
+
+void set_beacon_ie_vendor_elements_handler(struct hostapd_bss_config *conf)
+{
+	struct wpabuf *vendor_elements;
+	GLOBAL_INT_DECLARATION();
+
+	GLOBAL_INT_DISABLE();
+	vendor_elements = g_vendor_elements;
+	g_vendor_elements = NULL;
+	GLOBAL_INT_RESTORE();
+
+	WPA_LOGI("set_beacon_ie_vendor_elements_handler:%x\r\n",vendor_elements);
+	if(vendor_elements != NULL){
+		if(conf == NULL){
+			wpabuf_free(vendor_elements);
+			vendor_elements = NULL;
+		}else{
+			if(conf->vendor_elements){
+				wpabuf_free(conf->vendor_elements);
+				conf->vendor_elements = vendor_elements;
+			}else{
+				conf->vendor_elements = vendor_elements;
+			}
+			WPA_LOGI("conf->vendor_elements:%x\r\n",conf->vendor_elements);
+		}
+	}
+}
+#endif
 
 int ieee802_11_build_ap_params(struct hostapd_data *hapd,
 			       struct wpa_driver_ap_params *params)
@@ -1004,6 +1149,10 @@ int ieee802_11_build_ap_params(struct hostapd_data *hapd,
 #define BEACON_TAIL_BUF_SIZE 512
 	head = os_zalloc(BEACON_HEAD_BUF_SIZE);
 	tail_len = BEACON_TAIL_BUF_SIZE;
+
+#if defined(CFG_CTRL_BEACON_VENDOR_API) && CFG_CTRL_BEACON_VENDOR_API
+	set_beacon_ie_vendor_elements_handler(hapd->conf);
+#endif
 
 	if (hapd->conf->vendor_elements)
 		tail_len += wpabuf_len(hapd->conf->vendor_elements);
@@ -1376,5 +1525,26 @@ int ieee802_11_update_beacons(struct hostapd_iface *iface)
 
 	return ret;
 }
+
+#if defined(CFG_CTRL_BEACON_UPDATE_API) && CFG_CTRL_BEACON_UPDATE_API
+extern int hostapd_ctrl_get_hostapd_iface_count(void);
+extern struct hostapd_iface **hostapd_ctrl_get_hostapd_iface(void);
+
+int ieee802_11_update_beacons_params(void)
+{
+	struct hostapd_iface **iface = hostapd_ctrl_get_hostapd_iface();
+	int count = hostapd_ctrl_get_hostapd_iface_count();
+	int i;
+	int ret = 0;
+
+	for(i = 0;i < count; i++) {
+		if( ieee802_11_update_beacons(iface[i]) != 0 ) {
+			ret = -1;
+		}
+	}
+
+	return ret;
+}
+#endif
 
 #endif /* CONFIG_NATIVE_WINDOWS */

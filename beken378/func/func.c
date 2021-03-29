@@ -8,6 +8,9 @@
 #include "saradc_pub.h"
 #include "sys_ctrl_pub.h"
 #include "drv_model_pub.h"
+#include "ate_app.h"
+#include "BkDriverWdg.h"
+#include "sys_config.h"
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
@@ -48,13 +51,18 @@
 #include "bt_pub.h"
 #endif
 #include "irda_pub.h"
+#include "bk_log.h"
+
+#define TAG "func"
 
 extern void rwnx_cal_initial_calibration(void);
 
 UINT32 func_init_extended(void)
 {
 	char temp_mac[6];
+#if (CFG_SOC_NAME != SOC_BK7236)
 	UINT32 reg;
+#endif
 
 	cfg_param_init();
 	// load mac, init mac first
@@ -64,33 +72,31 @@ UINT32 func_init_extended(void)
 	manual_cal_load_bandgap_calm();
 #endif
 
-	FUNC_PRT("[FUNC]rwnxl_init\r\n");
+	BK_LOGI(TAG, "rwnxl init\r\n");
 	rwnxl_init();
 
 #if CFG_UART_DEBUG
 	#ifndef KEIL_SIMULATOR
-	FUNC_PRT("[FUNC]uart_debug_init\r\n");
+	BK_LOGI(TAG, "uart debug init\r\n");
 	uart_debug_init();
 	#endif
 #endif
 
 #if (!CFG_SUPPORT_RTT)
-	FUNC_PRT("[FUNC]intc_init\r\n");
+	BK_LOGI(TAG, "intc init\r\n");
 	intc_init();
 #endif
 
 #if (CFG_SOC_NAME == SOC_BK7271)
-	FUNC_PRT("[FUNC]enable_trng\r\n");
+	BK_LOGI(TAG, "trng enable\r\n");
 	reg = 1;
 	sddev_control(IRDA_DEV_NAME, TRNG_CMD_ENABLE, &reg);
 #endif
 
 #if CFG_SUPPORT_CALIBRATION
 	UINT32 is_tab_inflash = 0;
-	FUNC_PRT("[FUNC]calibration_main\r\n");
-    calibration_main();
-	#if (CFG_SOC_NAME != SOC_BK7236)
-	//for debug purpuse on bk7236, comment temporarily 
+	BK_LOGI(TAG, "calibration init\r\n");
+	calibration_main();
 	#if CFG_SUPPORT_MANUAL_CALI
 	is_tab_inflash = manual_cal_load_txpwr_tab_flash();
 	manual_cal_load_default_txpwr_tab(is_tab_inflash);
@@ -118,28 +124,27 @@ UINT32 func_init_extended(void)
 	}
 	#endif // CFG_SUPPORT_MANUAL_CALI
 #endif
-#endif
 
 #if CFG_SDIO
-	FUNC_PRT("[FUNC]sdio_intf_init\r\n");
+	BK_LOGI(TAG, "sdio intf init\r\n");
 	sdio_intf_init();
 #endif
 
 #if CFG_SDIO_TRANS
-	FUNC_PRT("[FUNC]sdio_intf_trans_init\r\n");
+	BK_LOGI(TAG, "sdio trans init\r\n");
 	sdio_trans_init();
 #endif
 
 
 #if CFG_USB
-	FUNC_PRT("[FUNC]fusb_init\r\n");
+	BK_LOGI(TAG, "fusb init\r\n");
 	if (!get_ate_mode_state()) {
 		fusb_init();
 	}
 #endif
 
 #if CFG_USE_STA_PS
-	FUNC_PRT("[FUNC]ps_init\r\n");
+	BK_LOGI(TAG, "ps init\r\n");
 #endif
 
 #if CFG_ROLE_LAUNCH
@@ -157,21 +162,35 @@ UINT32 func_init_extended(void)
 	#endif
 #endif
 
+#if (CFG_OS_FREERTOS)
+#if CFG_INT_WDG_ENABLED
+	BK_LOGI(TAG, "int watchdog enabled, period=%u\r\n", CFG_INT_WDG_PERIOD_MS);
+	bk_wdg_initialize(CFG_INT_WDG_PERIOD_MS);
+#else
 #if (CFG_SOC_NAME == SOC_BK7271)
-	FUNC_PRT("[FUNC]disable watchdog of bk7271\r\n");
-	bk_wdg_initialize(10000);
+	BK_LOGI(TAG, "watchdog disabled\r\n");
+	bk_wdg_initialize(CFG_INT_WDG_PERIOD_MS);
 	bk_wdg_reload();
 	bk_wdg_finalize();
+#endif
+#endif //CFG_INT_WDG_ENABLED
+
+#if CFG_TASK_WDG_ENABLED
+	BK_LOGI(TAG, "task watchdog enabled, period=%u\r\n", CFG_TASK_WDG_PERIOD_MS);
+#endif
+#endif //CFG_OS_FREERTOS
+
+#if (CFG_SOC_NAME == SOC_BK7271)
 #if (CFG_USE_BT)
-	FUNC_PRT("[FUNC]active BT of bk7271\r\n");
+	BK_LOGI(TAG, "BT active\r\n");
 	if (!get_ate_mode_state()) {
 		bt_activate(NULL);
 	}
 #endif
 #endif
 
-	FUNC_PRT("[FUNC]func_init_extended OVER!!!\r\n\r\n");
-	os_printf("start_type:%d\r\n",bk_misc_get_start_type());
+	BK_LOGI(TAG, "func init completed!\r\n\r\n");
+	bk_misc_printf_start_type();
 
 	#if (CFG_SOC_NAME != SOC_BK7236)
 	// for debug purpuse on bk7236, comment temporarily 
@@ -190,7 +209,7 @@ UINT32 func_init_basic(void)
     intc_init();
     hal_flash_init();
 #endif
-    os_printf("SDK Rev: %s\r\n", BEKEN_SDK_REV);
+    BK_LOGI(TAG, "\r\nSDK Rev: %s\r\n", BEKEN_SDK_REV);
 
     return 0;
 }

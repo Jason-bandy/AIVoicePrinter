@@ -215,7 +215,9 @@ enum
 #define FIQ_DPLL_UNLOCK_BIT                       (1 << 0)
 #else
 /*CMD_ICU_INT_DISABLE CMD_ICU_INT_ENABLE*/
+#if (CFG_SOC_NAME != SOC_BK7236)
 #define FIQ_JPEG_DECODER_BIT                 (1 << 29)
+#endif
 #define FIQ_DPLL_UNLOCK_BIT                  (1 << 28)
 #define FIQ_SPI_DMA_BIT                      (1 << 27)
 #define FIQ_MAC_WAKEUP_BIT                   (1 << 26)
@@ -240,7 +242,11 @@ enum
 #define IRQ_USB_BIT                          (1 << 13)
 #define IRQ_SDIO_BIT                         (1 << 12)
 #define IRQ_SARADC_BIT                       (1 << 11)
+#if (CFG_SOC_NAME != SOC_BK7236)
 #define IRQ_AUDIO_BIT                        (1 << 10)
+#else
+#define IRQ_JPEG_DECODER_BIT                 (1 << 10)
+#endif
 #define IRQ_PWM_BIT                          (1 << 9)
 #define IRQ_TL410_WATCHDOG_BIT               (1 << 8)
 #define IRQ_GPIO_BIT                         (1 << 7)

@@ -7,10 +7,21 @@ typedef void (*FUNCPTR)(void);
 typedef void (*FUNC_1PARAM_PTR)(void *ctxt);
 typedef void (*FUNC_2PARAM_PTR)(void *arg, uint8_t vif_idx);
 
+#ifndef MAX
 #define MAX(x, y)                  (((x) > (y)) ? (x) : (y))
+#endif
+
+#ifndef MIN
 #define MIN(x, y)                  (((x) < (y)) ? (x) : (y))
+#endif
+
+#ifndef max
 #define max(x, y)                  (((x) > (y)) ? (x) : (y))
+#endif
+
+#ifndef min
 #define min(x, y)                  (((x) < (y)) ? (x) : (y))
+#endif
 
 #define min3(x, y, z) ({			\
 	typeof(x) _min1 = (x);			\
@@ -102,9 +113,12 @@ extern void bk_printf(const char *fmt, ...);
  * @member:	the name of the member within the struct.
  *
  */
-#define container_of(ptr, type, member) ({			\
-	const typeof( ((type *)0)->member ) *__mptr = (ptr);	\
-	(type *)( (char *)__mptr - offsetof(type,member) );})
+#ifdef container_of
+#undef container_of
+#endif
+#define container_of(ptr, type, member) \
+    ((type *)((char *)(ptr) - (unsigned long)(&((type *)0)->member)))
+
 
 #if (0 == CFG_RELEASE_FIRMWARE)
 #define ASSERT_EQ(a, b)                             \

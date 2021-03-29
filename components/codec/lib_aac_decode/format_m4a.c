@@ -16,7 +16,6 @@
 #include "lib_aac_decode/aac_decoder_api.h"
 
 #define debug_printf(...)
-//#define debug_printf    rt_kprintf("[m4a] ");rt_kprintf
 
 #define RAW_DATA_BUFSZ      2048
 
@@ -102,7 +101,6 @@ static uint32_t http_data_fetch_aac(void *buffer, uint32_t size, uint32_t count,
 struct audio_codec *format_m4a_create(struct audio_stream *stream)
 {
     struct format_m4a *m4a;
-    struct audio_codec *ac = NULL;
 
     m4a = (struct format_m4a *) player_malloc(sizeof(struct format_m4a));
     if (!m4a) return NULL;
@@ -120,12 +118,12 @@ struct audio_codec *format_m4a_create(struct audio_stream *stream)
 
 static int format_m4a_run(struct audio_codec *codec)
 {
+	extern long list_memheap(void);
     int result = 0;
     int err, event;
     struct format_m4a *m4a;
-    int bytes_read;
 
-    m4a = (struct format_m4a *)codec; 
+    m4a = (struct format_m4a *)codec;
     if (!m4a) return -1;
 
     if (!stream)
@@ -147,14 +145,11 @@ static int format_m4a_run(struct audio_codec *codec)
 
     if (m4a->phase == M4A_PHASE_INIT)
     {
-        unsigned char *buffer;
-        int buffer_size;
-
         debug_printf("%s%d: M4A_PHASE_INIT\n", __FUNCTION__, __LINE__);
 
-        list_memheap(); //TODO: 
+        list_memheap();
         m4a->decoder = (void *)rt_malloc(aac_decoder_get_ram_size());
-        debug_printf("m4a->decoder malloc size = %d.\n", aac_decoder_get_ram_size()); 
+        debug_printf("m4a->decoder malloc size = %d.\n", aac_decoder_get_ram_size());
         if (m4a->decoder)
         {
             err = aac_decoder_initialize(m4a->decoder, NULL, http_data_fetch_aac, NULL, NULL);
@@ -193,11 +188,8 @@ static int format_m4a_run(struct audio_codec *codec)
     }
     else if (m4a->phase == M4A_PHASE_PARSE_DONE)
     {
-        int sample_size, read_size;
         uint16_t *buffer;
         int buffer_size;
-        uint8_t  *ptr;
-        int event;
         int32_t ec;
 
         //debug_printf("%s%d: M4A_PHASE_PARSE_DONE\n", __FUNCTION__, __LINE__);

@@ -102,6 +102,7 @@ struct sdp_enable_rsp
 /////////extern function
 extern uint16_t sdp_add_profiles_num_get(uint8_t conidx);
 extern struct prf_sdp_db_env * sdp_profiles_sdp_db_env(unsigned char conhdl,unsigned short handle);
+extern struct prf_sdp_db_env * sdp_profiles_sdp_db_env_from_uuid(unsigned char conhdl,uint8_t uuid_len,const uint8_t *uuid);
 #endif  ////BLE_CENTRAL
 #endif  ///_SDP_COMM_PUB_H_
 

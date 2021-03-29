@@ -10,16 +10,16 @@
 
 #if 0
 #define dhcp_e(...)				\
-	bk_printf("dhcp: %s\r\n", ##__VA_ARGS__)
+	LWIP_LOGI("dhcp: %s\r\n", ##__VA_ARGS__)
 #define dhcp_w(...)				\
-	bk_printf("dhcp: %s\r\n", ##__VA_ARGS__)
+	LWIP_LOGI("dhcp: %s\r\n", ##__VA_ARGS__)
 
 #define dhcp_d(...)				\
-	bk_printf("dhcp: %s\r\n", ##__VA_ARGS__)
+	LWIP_LOGI("dhcp: %s\r\n", ##__VA_ARGS__)
 #else
-#define dhcp_d(...)  //bk_printf
-#define dhcp_e(...)  //bk_printf
-#define dhcp_w(...)  //bk_printf
+#define dhcp_d(...)  //LWIP_LOGI
+#define dhcp_e(...)  //LWIP_LOGI
+#define dhcp_w(...)  //LWIP_LOGI
 #endif
 
 #define SERVER_BUFFER_SIZE		1024

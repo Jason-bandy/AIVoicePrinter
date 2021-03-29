@@ -289,11 +289,9 @@ static void temp_detect_timer_handler(void *data)
 
 static void temp_detect_timer_poll(void)
 {
-    OSStatus err;
-
     if((temp_detect_enable() != SARADC_SUCCESS))
     {
-        err = rtos_reload_timer(&g_temp_detect_config.detect_timer);
+        rtos_reload_timer(&g_temp_detect_config.detect_timer);
         TMP_DETECT_PRT("temp_detect_enable failed, restart detect timer, \r\n");
     }
 }
@@ -301,15 +299,13 @@ static void temp_detect_timer_poll(void)
 static void temp_detect_polling_handler(void)
 {
     OSStatus err;
-    UINT16 cur_val, thre;
+    UINT16 cur_val;
 
     #if (CFG_SOC_NAME != SOC_BK7231)
     cur_val = tmp_detect_desc.pData[0];
     #else
     cur_val = tmp_detect_desc.pData[ADC_TEMP_BUFFER_SIZE-1];
     #endif // (CFG_SOC_NAME != SOC_BK7231)
-
-    thre = g_temp_detect_config.detect_thre;
 
     g_temp_detect_config.detect_intval_change++;
 
@@ -322,6 +318,7 @@ static void temp_detect_polling_handler(void)
                     g_temp_detect_config.detect_thre);
 
 #if CFG_USE_STA_PS
+    UINT16 thre = g_temp_detect_config.detect_thre;
     ps_set_temp_prevent();
     UINT32 reg = RF_HOLD_BY_TEMP_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);

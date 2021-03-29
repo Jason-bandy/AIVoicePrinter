@@ -49,6 +49,7 @@
 #ifdef _WIN32
 #include <stdio.h> /* for putchar */
 #endif
+#include "rtt_ate_app.h"
 
 /* finsh thread */
 #ifndef RT_USING_HEAP
@@ -543,12 +544,22 @@ void finsh_thread_entry(void *parameter)
                 && ((char)0xfc == inbuf[2])
                 && (*bp == 3))
             {
-                int left = (int)ch, len = 4 + (int)ch;
+                uint8_t left = (uint8_t)ch, len = 4 + (uint8_t)ch;
                 inbuf[*bp] = ch;
                 (*bp)++;
-                
+
+                if(ch >= (FINSH_CMD_SIZE-3))
+                {
+                    bk_printf("Error: input buffer overflow\r\n");
+                    *bp = 0;
+                    return;
+                }
+
                 while(left--) {
                     ch = finsh_getchar();
+                    if (0 == ch)
+                        break;
+
                     inbuf[*bp] = ch;
                     (*bp)++;
                 }
@@ -559,7 +570,6 @@ void finsh_thread_entry(void *parameter)
                 *bp = 0;
                 continue;
             }
-            
         }
         #endif  // CFG_SUPPORT_BKREG
         /*

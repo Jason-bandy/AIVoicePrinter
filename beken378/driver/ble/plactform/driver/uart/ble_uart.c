@@ -419,7 +419,7 @@ void ble_uart_write(uint8_t *bufptr, uint32_t size, uint8_t (*callback) (void*, 
 	}
 }
 
-static void uart_send_byte(unsigned char data)
+static void _uart_send_byte(unsigned char data)
 {
 	while (!uart_tx_fifo_empty_getf());
     
@@ -429,7 +429,7 @@ static void uart_send_byte(unsigned char data)
 void uart_send(unsigned char *buff, int len)
 {
     while (len--)
-        uart_send_byte(*buff++);
+        _uart_send_byte(*buff++);
 }
 
 

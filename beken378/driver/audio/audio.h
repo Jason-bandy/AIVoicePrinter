@@ -1,6 +1,8 @@
 #ifndef _BK_AUDIO_H_
 #define _BK_AUDIO_H_
 
+#include "bk_log.h"
+
 #define AUDIO_BASE                                   (0x00802B00)
 
 #define AUDIO_CONFIG                                 (AUDIO_BASE + 0x0 * 4)
@@ -299,12 +301,11 @@ extern void audio_dac_volume_use_single_port(void);
 extern void audio_dac_volume_diff_port(void);
 
 #include "uart_pub.h"
-#define AUD_DEBUG                    (1)
-#if AUD_DEBUG
-#define AUD_PRT                      os_printf
-#else
-#define AUD_PRT                      null_prf
-#define AUD_WPRT                     null_prf
-#endif
+
+#define AUDIO_TAG "audio"
+#define AUDIO_LOGI(...) BK_LOGI(AUDIO_TAG, ##__VA_ARGS__)
+#define AUDIO_LOGW(...) BK_LOGW(AUDIO_TAG, ##__VA_ARGS__)
+#define AUDIO_LOGE(...) BK_LOGE(AUDIO_TAG, ##__VA_ARGS__)
+#define AUDIO_LOGD(...) BK_LOGD(AUDIO_TAG, ##__VA_ARGS__)
 
 #endif // _BK_AUDIO_H_

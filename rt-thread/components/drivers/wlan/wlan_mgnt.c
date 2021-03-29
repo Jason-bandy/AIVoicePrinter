@@ -33,6 +33,7 @@
 
 #include "wlan_dev.h"
 #include "wlan_cmd.h"
+#include "include.h"
 
 #define WLAN_MGNT_DEBUG   1
 
@@ -79,6 +80,7 @@ static void wlan_mgnt_sta_connect_failed_event(struct rt_wlan_device *device, rt
     WLAN_MGNT_DBG("wlan sta connect failed event callback \n");
 }
 
+__maybe_unused static void wlan_mgnt_ap_start_event(struct rt_wlan_device *device, rt_wlan_event_t event, void *user_data);
 static void wlan_mgnt_ap_start_event(struct rt_wlan_device *device, rt_wlan_event_t event, void *user_data)
 {
     WLAN_MGNT_DBG("wlan ap start event callback \n");

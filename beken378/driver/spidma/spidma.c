@@ -23,7 +23,7 @@
 
 
 SPIDMA_DESC_PTR p_spidma_desc;
-static DD_OPERATIONS spidma_op =
+static const DD_OPERATIONS spidma_op =
 {
     spidma_open,
     spidma_close,
@@ -350,7 +350,7 @@ static void spidma_exit_txdma(void)
 static void spidma_software_init(void)
 {
     p_spidma_desc = NULL;
-    ddev_register_dev(SPIDMA_DEV_NAME, &spidma_op);
+    ddev_register_dev(SPIDMA_DEV_NAME, (DD_OPERATIONS*)&spidma_op);
 }
 
 static void spidma_hardware_init(void)

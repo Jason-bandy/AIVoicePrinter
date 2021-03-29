@@ -76,7 +76,8 @@ uint32_t cfg_param_init(void)
 	return 0;
 }
 
-#if (CFG_SUPPORT_RTT)
+#define PARAM_CONFIG_RAMDOM_MAC 0
+#if PARAM_CONFIG_RAMDOM_MAC
 uint32_t prandom_get(void);
 static void random_mac_address(u8 *mac)
 {
@@ -114,7 +115,7 @@ void cfg_load_mac(u8 *mac)
 	else
 #endif
     {
-#if (0)
+#if PARAM_CONFIG_RAMDOM_MAC
 	random_mac_address(mac);
 #else
         os_memcpy(mac, DEFAULT_MAC_ADDR, 6);
@@ -178,6 +179,7 @@ int wifi_set_mac_address(char *mac)
 
     if (0 != os_memcmp(system_mac, mac, sizeof(system_mac)))
     {
+        os_memcpy(system_mac, mac, sizeof(system_mac));
 #if (WIFI_MAC_POS == MAC_EFUSE)
         //wifi_set_mac_address_to_efuse((UINT8 *)system_mac);
 #elif (WIFI_MAC_POS == MAC_RF_OTP_FLASH)
@@ -185,7 +187,6 @@ int wifi_set_mac_address(char *mac)
 #elif (WIFI_MAC_POS == MAC_ITEM)
         save_info_item(WIFI_MAC_ITEM, (UINT8 *)system_mac, NULL, NULL);
 #endif
-        os_memcpy(system_mac, mac, sizeof(system_mac));
         bk_wlan_stop(BK_SOFT_AP);
 #if CFG_ROLE_LAUNCH
         param.req_type = LAUNCH_REQ_DELIF_STA;

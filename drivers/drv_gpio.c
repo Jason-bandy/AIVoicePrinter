@@ -172,6 +172,7 @@ int rt_hw_gpio_exit(void)
 {
     /* unregister device */
     rt_device_unregister(gpio_dev.parent);
+    return RT_EOK;
 }
 
 INIT_DEVICE_EXPORT(rt_hw_gpio_init);

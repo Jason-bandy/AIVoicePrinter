@@ -692,7 +692,7 @@ OSStatus rtos_oneshot_reload_timer_ex(beken2_timer_t *timer,
 		}
 	}
 
-	ret = rtos_change_period(timer, time_ms);
+	ret = rtos_change_period((beken_timer_t*)timer, time_ms);
 	if (ret != kNoErr) {
 		return ret;
 	}

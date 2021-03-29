@@ -22,7 +22,7 @@ typedef struct i2c0_msg {
 	UINT8 AddrWidth;
 } I2C0_MSG_ST, *I2C0_MSG_PTR;
 
-static DD_OPERATIONS i2c0_op = {
+static const DD_OPERATIONS i2c0_op = {
 	i2c0_open,
 	i2c0_close,
 	i2c0_read,
@@ -302,7 +302,7 @@ static void i2c0_isr(void)
 
 static void i2c0_software_init(void)
 {
-	ddev_register_dev(I2C0_DEV_NAME, &i2c0_op);
+	ddev_register_dev(I2C0_DEV_NAME, (DD_OPERATIONS*)&i2c0_op);
 }
 
 static void i2c0_hardware_init(void)

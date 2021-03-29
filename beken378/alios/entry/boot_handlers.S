@@ -31,15 +31,11 @@
 	.globl do_reserved
 
     #include "sys_config.h"
+    #include "arm_mcu_pub.h"
 /* ========================================================================
  *                                Macros
  * ======================================================================== */
-#define _FIQ_STACK_SIZE_ 	              0x7F0
-#define _IRQ_STACK_SIZE_ 	              0xFF0
-#define _SVC_STACK_SIZE_ 	              0x3F0
-#define _SYS_STACK_SIZE_ 	              0x3F0
-#define _UND_STACK_SIZE_ 	              0x010
-#define _ABT_STACK_SIZE_ 	              0x010
+
 
 #define BOOT_MODE_MASK     	              0x1F
 #define BOOT_MODE_USR       	          0x10
@@ -100,32 +96,32 @@
 	.align 3
 	.global und_stack_start
 und_stack_start:
-	.space _UND_STACK_SIZE_
+	.space UND_STACK_SIZE
 
 	.align 3
 	.global abt_stack_start
 abt_stack_start:
-	.space _ABT_STACK_SIZE_
+	.space ABT_STACK_SIZE
 
 	.align 3
 	.global fiq_stack_start
 fiq_stack_start:
-	.space _FIQ_STACK_SIZE_
+	.space FIQ_STACK_SIZE
 
 	.align 3
 	.global irq_stack_start
 irq_stack_start:
-	.space _IRQ_STACK_SIZE_
+	.space IRQ_STACK_SIZE
 
 	.align 3
 	.global sys_stack_start
 sys_stack_start:
-	.space _SYS_STACK_SIZE_
+	.space SYS_STACK_SIZE
 
 	.align 3
 	.global svc_stack_start
 svc_stack_start:
-	.space _SVC_STACK_SIZE_
+	.space SVC_STACK_SIZE
 
 
 /* ========================================================================
@@ -216,31 +212,31 @@ boot_stack_base_UNUSED:
 	.word und_stack_start
 
 boot_stack_len_UNUSED:
-	.word _UND_STACK_SIZE_
+	.word UND_STACK_SIZE
 
 boot_stack_base_IRQ:
 	.word irq_stack_start
 
 boot_stack_len_IRQ:
-	.word _IRQ_STACK_SIZE_
+	.word IRQ_STACK_SIZE
 
 boot_stack_base_SVC:
 	.word svc_stack_start
 
 boot_stack_len_SVC:
-	 .word _SVC_STACK_SIZE_
+	 .word SVC_STACK_SIZE
 
 boot_stack_base_FIQ:
 	 .word fiq_stack_start
 
 boot_stack_len_FIQ:
-	.word _FIQ_STACK_SIZE_
+	.word FIQ_STACK_SIZE
 
 boot_stack_base_SYS:
 	 .word sys_stack_start
 
 boot_stack_len_SYS:
-	 .word _SYS_STACK_SIZE_
+	 .word SYS_STACK_SIZE
 
 /*FUNCTION:     _sysboot_copy_data_to_ram*/
 /*DESCRIPTION:  copy main stack code from FLASH/ROM to SRAM*/

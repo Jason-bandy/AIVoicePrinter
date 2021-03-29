@@ -180,11 +180,6 @@ void bk_secrity_isr(void)
 
 void bk_secrity_init(void)
 {
-    UINT32 param;
-
-    //param = FIQ_SECURITY_BIT;
-    //sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, &param);
-    
     intc_service_register(FIQ_SECURITY, PRI_FIQ_SECURITY, bk_secrity_isr);
 }
 

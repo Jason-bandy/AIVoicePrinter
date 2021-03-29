@@ -40,6 +40,10 @@
 #include "rwapp_config.h"
 #include "sys_ctrl_pub.h"
 #include "arch.h"
+#include "drv_model_pub.h"
+#include "drv_model.h"
+#include "param_config.h"
+#include "sys_ctrl.h"
 
 /**
  ****************************************************************************************
@@ -63,13 +67,6 @@
  * STRUCTURE DEFINITIONS
  ****************************************************************************************
  */
-
-/// Description of unloaded RAM area content
-struct unloaded_area_tag
-{
-    // status error
-    uint32_t error;
-};
 
 
 /*
@@ -261,19 +258,12 @@ void rw_main(void)
      * Platform initialization
      ***************************************************************************
      */
-    if(wifi_read_efuse(0x10) != 0)
-    {
-        bk_printf("BLE not support\r\n");
-        return ;
-    }
 
 	em_map_check();
 
 	//*((volatile unsigned long *)(0x0802800 + 0x19 * 4)) = 0x40;
 	//*((volatile unsigned long *)(0x0802800 + 0x1C * 4)) = 0x40;
-	
-#if CFG_USE_BLE_PS	
-	uint8_t sleep_type = 0;
+#if CFG_USE_BLE_PS
     sctrl_ble_ps_init();
     ble_ps_enable_set();
 #endif

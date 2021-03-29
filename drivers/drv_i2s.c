@@ -261,6 +261,7 @@ int i2s_dma_tx_init(struct rt_i2s_bus_device *i2s)
     en_cfg.channel = I2S_TX_DMA_CHANNEL;
     en_cfg.param = I2S_TX_BUFFER_SIZE; // dma translen
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
+    return 0;
 }
 
 #if defined(I2S_RX_CALLBACK)
@@ -345,8 +346,9 @@ int i2s_dma_rx_init(struct rt_i2s_bus_device *i2s)
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
 
 #if !defined(I2S_RX_CALLBACK)
-    rb_init_dma_write(&i2s->rb_dma_wr, i2s->rx_fifo, I2S_RX_BUFFER_SIZE, I2S_RX_DMA_CHANNEL);
+    rb_init_dma_write(&i2s->rb_dma_wr, (UINT8*)i2s->rx_fifo, I2S_RX_BUFFER_SIZE, I2S_RX_DMA_CHANNEL);
 #endif
+	return 0;
 }
 
 static rt_err_t rt_i2s_init(rt_device_t dev)
@@ -430,7 +432,6 @@ static rt_size_t rt_i2s_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_siz
 {
     struct rt_i2s_bus_device *i2s = (struct rt_i2s_bus_device *)dev;
     int fill_size;
-    UINT8 *read, *write;
 
     if (!(i2s->open_flag & RT_DEVICE_OFLAG_RDONLY))
     {

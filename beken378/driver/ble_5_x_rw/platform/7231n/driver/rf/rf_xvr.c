@@ -53,7 +53,7 @@
  ****************************************************************************************
  **/
  #define RPL_GAIN_TBL_SIZE           0x0F
-//#define bk_printf uart2_printf
+//#define BLE_LOGI uart2_printf
 
 // EM RF SPI address
 #define RF_EM_SPI_ADRESS        (EM_BASE_ADDR + EM_RF_SW_SPI_OFFSET)
@@ -106,15 +106,6 @@
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************************
  **/
-//// IP ????
-// PLL Lock Table
-static uint8_t RFPLL_LOCK_TABLE[RPL_RFPLL_TBL_SIZE];
-
-// PLL VCOFC table
-static uint8_t RFPLL_VCOFC_TABLE[RPL_RFPLL_TBL_SIZE];
-
-// PLL ICP table
-static uint8_t RFPLL_ICP_TABLE[RPL_RFPLL_TBL_SIZE];
 
 // Power table
 static const int8_t RF_RPL_TX_PW_CONV_TBL[RPL_PWR_TBL_SIZE] = {
@@ -126,18 +117,6 @@ static const int8_t RF_RPL_TX_PW_CONV_TBL[RPL_PWR_TBL_SIZE] = {
         [5] = -8,
         [6] = -5,
         [7] = -2};
-// Gain table
-static const uint8_t RF_RPL_RX_GAIN_TBL[RPL_GAIN_TBL_SIZE] = {
-        [0] = 43,
-        [1] = 37,
-        [2] = 31,
-        [3] = 25,
-        [4] = 19,
-        [5] = 13,
-        [6] = 7,
-        [7] = 1};
-////IP ????
-
 
 extern uint8_t system_mode;
 
@@ -304,7 +283,7 @@ void xvr_reg_init(void)
 #if 0
 	*((volatile unsigned long *)(0x01050200)) = 0x200;
 	unsigned long temp = *((volatile unsigned long *)(0x01050200));
-	bk_printf("temp:%08x\r\n", temp);
+	BLE_LOGI("temp:%08x\r\n", temp);
 #endif
 
 #if 1
@@ -346,7 +325,7 @@ void xvr_reg_init(void)
 	REG_WRITE(BLE_XVR_REG2A, 0x12084044);
 	REG_WRITE(BLE_XVR_REG2B, 0x00000408);
 	REG_WRITE(BLE_XVR_REG2C, 0x00000000);
-	REG_WRITE(BLE_XVR_REG2D, 0x082AC448);
+	REG_WRITE(BLE_XVR_REG2D, 0x082AC444);
 	//REG_WRITE(BLE_XVR_REG2E, 0x00000000);
 	//REG_WRITE(BLE_XVR_REG2F, 0x00000000);
 	REG_WRITE(BLE_XVR_REG30, 0xA0419980);//<11:10>=2 by qunshan20201228 for rx
@@ -473,7 +452,7 @@ void rf_init(struct rwip_rf_api *api)
 	}
 #endif //CFG_BT
 
-	bk_printf("xvr_reg_init\r\n");
+	BLE_LOGI("xvr_reg_init\r\n");
 	rf_em_init();
 	xvr_reg_init();
 
@@ -491,11 +470,11 @@ void rf_init(struct rwip_rf_api *api)
                             
         
 	ip_radiocntl1_set(0x00000020);
-	//uart_printf("ip RADIOCNTL1 addr:0x%08x,val:0x%08x\r\n",ip_RADIOCNTL1_ADDR,ip_radiocntl1_get());
+	//BLE_LOGI("ip RADIOCNTL1 addr:0x%08x,val:0x%08x\r\n",ip_RADIOCNTL1_ADDR,ip_radiocntl1_get());
 	ip_timgencntl_set(0x01df0120);		////Beken,
-	//uart_printf("ip_TIMGENCNTL addr:0x%08x,val:0x%08x\r\n",ip_TIMGENCNTL_ADDR,ip_timgencntl_get());
+	//BLE_LOGI("ip_TIMGENCNTL addr:0x%08x,val:0x%08x\r\n",ip_TIMGENCNTL_ADDR,ip_timgencntl_get());
 #if defined(CFG_BLE)
-	//uart_printf("RW BLE reg init\r\n");
+	//BLE_LOGI("RW BLE reg init\r\n");
 	/* BLE RADIOCNTL2 */
 	ble_radiocntl2_pack(/*uint8_t  lrsynccompmode*/ 0x0,
 						/*uint8_t  rxcitermbypass*/ 0x0,
@@ -505,7 +484,7 @@ void rf_init(struct rwip_rf_api *api)
 						/*uint8_t  syncerr*/		0,
 						/*uint16_t freqtableptr*/	(EM_FT_OFFSET >> 2));
 	ble_radiocntl2_set(0x00C000C0);
-	//uart_printf("BLE_RADIOCNTL2 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOCNTL2_ADDR,ble_radiocntl2_get());
+	//BLE_LOGI("BLE_RADIOCNTL2 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOCNTL2_ADDR,ble_radiocntl2_get());
 
 	/* BLE RADIOPWRUPDN0 */
 	ble_radiopwrupdn0_pack(/*uint8_t syncposition0*/ 0,
@@ -513,7 +492,7 @@ void rf_init(struct rwip_rf_api *api)
 						   /*uint8_t txpwrdn0*/ 	 0x07,
 						   /*uint8_t txpwrup0*/ 	 0x55);
 	ble_radiopwrupdn0_set(0x00650065);
-	//uart_printf("BLE_RADIOPWRUPDN0 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN0_ADDR,ble_radiopwrupdn0_get());
+	//BLE_LOGI("BLE_RADIOPWRUPDN0 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN0_ADDR,ble_radiopwrupdn0_get());
 
 	/* BLE RADIOPWRUPDN1 */
 	ble_radiopwrupdn1_pack(/*uint8_t syncposition1*/ 0,
@@ -521,7 +500,7 @@ void rf_init(struct rwip_rf_api *api)
 						   /*uint8_t txpwrdn0*/ 	 0x00,
 						   /*uint8_t txpwrup1*/ 	 0x65);
 	ble_radiopwrupdn1_set(0x00700065);
-	// uart_printf("BLE_RADIOPWRUPDN1 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN1_ADDR,ble_radiopwrupdn1_get());
+	// BLE_LOGI("BLE_RADIOPWRUPDN1 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN1_ADDR,ble_radiopwrupdn1_get());
 
 	/* BLE RADIOPWRUPDN2 */      
 	ble_radiopwrupdn2_pack(/*uint8_t syncposition2*/ 0,
@@ -529,45 +508,45 @@ void rf_init(struct rwip_rf_api *api)
 						   /*uint8_t txpwrdn2*/ 	 0x07,
 						   /*uint8_t txpwrup2*/ 	 0x55);
 	ble_radiopwrupdn2_set(0x00650065);
-	//uart_printf("BLE_RADIOPWRUPDN2 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN2_ADDR,ble_radiopwrupdn2_get());
+	//BLE_LOGI("BLE_RADIOPWRUPDN2 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN2_ADDR,ble_radiopwrupdn2_get());
 
 
 	/* BLE RADIOPWRUPDN3 */
 	ble_radiopwrupdn3_pack(/*uint8_t txpwrdn3*/ 	 0x07,
 						   /*uint8_t txpwrup3*/ 	 0x55);
 	ble_radiopwrupdn3_set(0x00000065);
-	//uart_printf("BLE_RADIOPWRUPDN3 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN3_ADDR,ble_radiopwrupdn3_get());
+	//BLE_LOGI("BLE_RADIOPWRUPDN3 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOPWRUPDN3_ADDR,ble_radiopwrupdn3_get());
 
 	/* BLE RADIOTXRXTIM0 */
 	ble_radiotxrxtim0_pack(/*uint8_t rfrxtmda0*/   0,
 						   /*uint8_t rxpathdly0*/  0x6,
 						   /*uint8_t txpathdly0*/  0x6);
 	ble_radiotxrxtim0_set(0x00000606);  //0x00001007
-	//uart_printf("BLE_RADIOTXRXTIM0 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM0_ADDR,ble_radiotxrxtim0_get());
+	//BLE_LOGI("BLE_RADIOTXRXTIM0 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM0_ADDR,ble_radiotxrxtim0_get());
 
 	/* BLE RADIOTXRXTIM1 */
 	ble_radiotxrxtim1_pack(/*uint8_t rfrxtmda1*/ 0x00,
 						   /*uint8_t rxpathdly1*/	   0x04,
 						   /*uint8_t txpathdly1*/	   0x04);
-	ble_radiotxrxtim1_set(0x00000404);
-	//uart_printf("BLE_RADIOTXRXTIM1 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM1_ADDR,ble_radiotxrxtim1_get());
+	ble_radiotxrxtim1_set(0x00000C04);
+	//BLE_LOGI("BLE_RADIOTXRXTIM1 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM1_ADDR,ble_radiotxrxtim1_get());
 
 
 	/* BLE RADIOTXRXTIM2 */
-	// uart_printf("# 09\r\n");
+	// BLE_LOGI("# 09\r\n");
 	ble_radiotxrxtim2_pack(/*uint8_t rxflushpathdly2*/ 0x10,
 						   /*uint8_t rfrxtmda2*/	   0x00,
 						   /*uint8_t rxpathdly2*/	   0x49,
 						   /*uint8_t txpathdly2*/	   0x03);
 	ble_radiotxrxtim2_set(0x00002020);
-	//uart_printf("BLE_RADIOTXRXTIM2 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM2_ADDR,ble_radiotxrxtim2_get());
+	//BLE_LOGI("BLE_RADIOTXRXTIM2 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM2_ADDR,ble_radiotxrxtim2_get());
 
 	/* BLE RADIOTXRXTIM3 */
 	ble_radiotxrxtim3_pack(/*uint8_t rxflushpathdly3*/ 0x10,
 						   /*uint8_t rfrxtmda3*/	   0x00,
 						   /*uint8_t txpathdly3*/	   0x03);
 	ble_radiotxrxtim3_set(0x00000020);                       
-	//uart_printf("BLE_RADIOTXRXTIM3 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM3_ADDR,ble_radiotxrxtim3_get());
+	//BLE_LOGI("BLE_RADIOTXRXTIM3 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM3_ADDR,ble_radiotxrxtim3_get());
 
 #if (BLE_CON_CTE_REQ | BLE_CONLESS_CTE_RX)
 	// Init the DF CNTL
@@ -599,7 +578,7 @@ void rf_init(struct rwip_rf_api *api)
 #endif
 	/* BT RADIOCNTL 2 */
 #if 1		////BEKEN
-	//uart_printf("# 14\r\n");
+	//BLE_LOGI("# 14\r\n");
 	bt_radiocntl2_set(0x04070100);
 #else
 	bt_radiocntl2_freqtable_ptr_setf((EM_FT_OFFSET >> 2));
@@ -609,7 +588,7 @@ void rf_init(struct rwip_rf_api *api)
 #define PRL_TX_PATH_DLY 4
 #define PRL_RX_PATH_DLY (RPL_RADIO_SKEW - PRL_TX_PATH_DLY)
 #if 1		////BEKEN
-	//uart_printf("# 15\r\n");
+	//BLE_LOGI("# 15\r\n");
 	bt_radiotxrxtim_set(0x00000403);
 #else
 	bt_radiotxrxtim_rxpathdly_setf(PRL_RX_PATH_DLY);
@@ -618,7 +597,7 @@ void rf_init(struct rwip_rf_api *api)
 #endif
 	/* BT RADIOCNTL 3*/
 #if 1		////BEKEN
-	//uart_printf("# 16\r\n");
+	//BLE_LOGI("# 16\r\n");
 	bt_radiocntl3_set(0x39003900);
 #else
 	bt_radiocntl3_pack( /*uint8_t rxrate2cfg*/	  3,

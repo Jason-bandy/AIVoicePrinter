@@ -1,0 +1,4 @@
+# architecture specific source files
+    include src/arch/$ARCH/sourcelist.txt
+# reference platform drivers
+    include src/driver/sourcelist.txt

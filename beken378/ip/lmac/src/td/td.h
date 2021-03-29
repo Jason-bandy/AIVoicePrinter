@@ -237,6 +237,8 @@ __INLINE bool td_sta_has_tx_traffic(uint8_t sta_idx)
  */
 void td_timer_end(void *env);
 
+uint32_t td_cal_stay_count(uint8_t index);
+
 /**
  ****************************************************************************************
 */

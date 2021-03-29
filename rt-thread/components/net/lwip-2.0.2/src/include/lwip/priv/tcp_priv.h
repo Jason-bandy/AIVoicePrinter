@@ -498,6 +498,9 @@ void tcp_timer_needed(void);
 
 void tcp_netif_ip_addr_changed(const ip_addr_t* old_addr, const ip_addr_t* new_addr);
 
+err_t tcp_rexmit_rto_prepare(struct tcp_pcb *pcb);
+void tcp_rexmit_rto_commit(struct tcp_pcb *pcb);
+
 #ifdef __cplusplus
 }
 #endif

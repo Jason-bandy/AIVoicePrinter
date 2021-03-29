@@ -23,6 +23,7 @@
 #include "common.h"
 
 #include "hostapd_cfg.h"
+#include "hostapd_intf_pub.h"
 
 #include "sk_intf.h"
 #include "rw_pub.h"
@@ -328,13 +329,11 @@ static int rt_wlan_malloc_scan_result(struct rt_wlan_scan_result **scan_result, 
 {
     struct rt_wlan_scan_result *_scan_result;
     int i;
-    int result = RT_EOK;
 
     _scan_result = rt_malloc(sizeof(struct rt_wlan_scan_result));
     if (_scan_result == RT_NULL)
     {
         rt_kprintf("rt_wlan_scan_result malloc failed!\r\n");
-        result = -RT_ERROR;
         goto _exit;
     }
     rt_memset(_scan_result, 0, sizeof(struct rt_wlan_scan_result));
@@ -344,7 +343,6 @@ static int rt_wlan_malloc_scan_result(struct rt_wlan_scan_result **scan_result, 
     if (_scan_result->ap_table == RT_NULL)
     {
         rt_kprintf("rt_scan_rst table malloc failed!\r\n");
-        result = -RT_ERROR;
         goto _exit;
     }
     rt_memset(_scan_result->ap_table, 0, sizeof(struct rt_wlan_info) * num);
@@ -449,7 +447,7 @@ static void wlan_scan_display_one_ap(const char* ssid, int bk_security, int8_t r
 		"AUTO",
 	};
 	static const char *unknow_security_str = "unknow";
-	char *security_str;
+	const char *security_str;
 
 	if ((bk_security > BK_SECURITY_TYPE_AUTO) || (bk_security < 0)) {
 		security_str = unknow_security_str;
@@ -727,13 +725,11 @@ static int _wifi_disconnect(rt_device_t dev)
 
 static int _wifi_cfg_monitor(rt_device_t dev, void *opition)
 {
-    struct rt_wlan_device *wlan = RT_NULL;
     rt_wlan_monitor_opition_t *opt = RT_NULL;
     int result = RT_EOK;
 
     RT_ASSERT(opition != RT_NULL);
 
-    wlan = RT_WLAN_DEVICE(dev);
     opt = (rt_wlan_monitor_opition_t *)opition;
     if (*opt == WIFI_MONITOR_START)
     {
@@ -752,12 +748,6 @@ static int _wifi_cfg_monitor(rt_device_t dev, void *opition)
 
 static int _wifi_connect(rt_device_t dev, void *passwd)
 {
-    struct rt_wlan_device *wlan = RT_NULL;
-    struct beken_wifi_info *wifi_info = RT_NULL;
-
-    wlan = RT_WLAN_DEVICE(dev);
-    wifi_info = (struct beken_wifi_info *)wlan->user_data;
-
     _wifi_easyjoin(dev, passwd);
     return 0;
 }
@@ -800,70 +790,72 @@ extern int bk_wlan_dtim_rf_ps_timer_start(void);
 extern int bk_wlan_dtim_rf_ps_timer_pause(void);
 static int _wifi_power_manager(int level)
 {
- switch (level)
- {
-    case 0:
-    {
-        #if CFG_USE_MCU_PS
-        /* disable cpu sleep */
-        bk_wlan_mcu_ps_mode_disable();
-        #endif
-        #if CFG_USE_STA_PS
-        /* disable rf sleep */
-        bk_wlan_dtim_rf_ps_mode_disable();
-        /* pause rf timer */
-        bk_wlan_dtim_rf_ps_timer_pause();
-        #endif
-        break;
-    }
-
-    case 1:
-    {
-        #if CFG_USE_MCU_PS
-        /* enable cpu sleep */
-        bk_wlan_mcu_ps_mode_enable();
-        #endif
-        #if CFG_USE_STA_PS
-        /* disable rf sleep */
-        bk_wlan_dtim_rf_ps_mode_disable();
-        /* pause rf timer */
-        bk_wlan_dtim_rf_ps_timer_pause();
-        #endif
-        break;
-    }
-    case 2:
-    {
-         #if CFG_USE_MCU_PS
-        /* disable cpu sleep */
-        bk_wlan_mcu_ps_mode_disable();
-		 #endif
-		#if CFG_USE_STA_PS
-        /* enable rf sleep */
-        bk_wlan_dtim_rf_ps_mode_enable();
-        /* start rf timer */
-        bk_wlan_dtim_rf_ps_timer_start();
+	switch (level) {
+	case 0:
+	{
+		#if CFG_USE_MCU_PS
+		/* disable cpu sleep */
+		bk_wlan_mcu_ps_mode_disable();
 		#endif
-        break;
-    }
+		#if CFG_USE_STA_PS
+		/* disable rf sleep */
+		bk_wlan_dtim_rf_ps_mode_disable();
+		/* pause rf timer */
+		bk_wlan_dtim_rf_ps_timer_pause();
+		#endif
+		break;
+	}
 
-    case 3:
-    {
-        #if CFG_USE_MCU_PS
-    	/* enable cpu sleep */
-        bk_wlan_mcu_ps_mode_enable();
-        #endif
-        #if CFG_USE_STA_PS
-        /* enable rf sleep */
-        bk_wlan_dtim_rf_ps_mode_enable();
-        /* start rf timer */
-        bk_wlan_dtim_rf_ps_timer_start();
-        #endif
-        break;
-    }
+	case 1:
+	{
+		#if CFG_USE_MCU_PS
+		/* enable cpu sleep */
+		bk_wlan_mcu_ps_mode_enable();
+		#endif
+		#if CFG_USE_STA_PS
+		/* disable rf sleep */
+		bk_wlan_dtim_rf_ps_mode_disable();
+		/* pause rf timer */
+		bk_wlan_dtim_rf_ps_timer_pause();
+		#endif
+		break;
+	}
 
-    default:
-        break;
- }
+	case 2:
+	{
+		#if CFG_USE_MCU_PS
+		/* disable cpu sleep */
+		bk_wlan_mcu_ps_mode_disable();
+		#endif
+		#if CFG_USE_STA_PS
+		/* enable rf sleep */
+		bk_wlan_dtim_rf_ps_mode_enable();
+		/* start rf timer */
+		bk_wlan_dtim_rf_ps_timer_start();
+		#endif
+		break;
+	}
+
+	case 3:
+	{
+		#if CFG_USE_MCU_PS
+		/* enable cpu sleep */
+		bk_wlan_mcu_ps_mode_enable();
+		#endif
+		#if CFG_USE_STA_PS
+		/* enable rf sleep */
+		bk_wlan_dtim_rf_ps_mode_enable();
+		/* start rf timer */
+		bk_wlan_dtim_rf_ps_timer_start();
+		#endif
+		break;
+	}
+
+	default:
+		return -RT_EINVAL;
+	}
+
+	return RT_EOK;
 }
 #endif
 
@@ -967,7 +959,7 @@ static void beken_wlan_control_scan(struct rt_wlan_device *wlan_dev,
 
 	if (wifi_info->ssid && (rt_strlen(wifi_info->ssid) > 0)) {
 		UINT8 *ssid_array[1];
-		ssid_array[0] = wifi_info->ssid;
+		ssid_array[0] = (UINT8*)wifi_info->ssid;
 		bk_wlan_start_assign_scan(ssid_array, 1);
         } else {
 		bk_wlan_start_scan();
@@ -1156,14 +1148,13 @@ static void app_demo_softap_rw_connected_event_func(void)
 int beken_wlan_hw_init(void)
 {
     struct rt_wlan_device *wlan = RT_NULL;
-    struct eth_device *eth = RT_NULL;
     struct beken_wifi_info *wifi_info = RT_NULL;
     rt_err_t result = RT_EOK;
 
 #ifdef RT_USING_WLAN_STA
     wlan = &_g_sta_device;
     wifi_info = &_g_sta_info;
-    wifi_get_mac_address(wifi_info->mac, CONFIG_ROLE_STA);
+    wifi_get_mac_address((char*)wifi_info->mac, CONFIG_ROLE_STA);
     result = rt_wlan_register(wlan, WIFI_DEVICE_STA_NAME, wifi_info);
     if (result != RT_EOK)
     {
@@ -1176,7 +1167,7 @@ int beken_wlan_hw_init(void)
 #ifdef RT_USING_WLAN_AP
     wlan = &_g_ap_device;
     wifi_info = &_g_ap_info;
-    wifi_get_mac_address(wifi_info->mac, CONFIG_ROLE_AP);
+    wifi_get_mac_address((char*)wifi_info->mac, CONFIG_ROLE_AP);
     result = rt_wlan_register(wlan, WIFI_DEVICE_AP_NAME, wifi_info);
     if (result != RT_EOK)
     {

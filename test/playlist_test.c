@@ -76,13 +76,12 @@ static void play_switch(void)
 
 static void play_list_entry(void *param)
 {
-    rt_err_t result;
     int event;
 
     play_switch();
     while(1)
     {
-        result = rt_mq_recv(play_list_mq, &event, sizeof(int), RT_WAITING_FOREVER);
+        rt_mq_recv(play_list_mq, &event, sizeof(int), RT_WAITING_FOREVER);
         switch (event)
         {
         case PLAYER_AUDIO_CLOSED:

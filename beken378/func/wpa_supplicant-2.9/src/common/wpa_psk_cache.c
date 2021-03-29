@@ -35,7 +35,7 @@ static void wpa_psk_cache_expire(struct wpa_psk_cache *cache)
 		dl_list_del(&item->node);	// delete first entry
 		os_free(item->passphrase);
 		os_free(item->ssid);
-		os_printf("vanish one\n");
+		WPA_LOGI("vanish one\n");
 	}
 }
 
@@ -83,7 +83,7 @@ int __wpa_get_psk_from_cache(u8 *ssid, size_t ssid_len, char *passphrase, u8 *ps
 	struct wpa_psk_cache_item *item;
 	struct wpa_psk_cache *cache = psk_cache;
 
-	//os_printf("ssid: %s, passphase: %s\r\n", wpa_ssid_txt(ssid, ssid_len), passphrase);
+	//WPA_LOGI("ssid: %s, passphase: %s\r\n", wpa_ssid_txt(ssid, ssid_len), passphrase);
 
 	rtos_get_semaphore(&cache->sema, BEKEN_WAIT_FOREVER);
 
@@ -217,9 +217,9 @@ void wpa_psk_cal_thread(void *arg)
 
 		// caculate psk on pending list
 		dl_list_for_each_safe(item, n, &cache->pending, struct wpa_psk_cache_item, node) {
-			os_printf("PSKC: start\n");
+			WPA_LOGI("PSKC: start\n");
 			pbkdf2_sha1(item->passphrase, (u8 *)item->ssid, item->ssid_len, 4096, item->psk, sizeof(item->psk));
-			os_printf("PSKC: end\n");
+			WPA_LOGI("PSKC: end\n");
 
 			// requeue to complete list.
 			rtos_get_semaphore(&cache->sema, BEKEN_WAIT_FOREVER);
@@ -241,7 +241,7 @@ int __wpa_get_psk_from_cache(u8 *ssid, size_t ssid_len, char *passphrase, u8 *ps
 {
 	struct wpa_psk_cache *cache = psk_cache;
 
-	//bk_printf("ssid: %s, passphase: %s\r\n", wpa_ssid_txt(ssid, ssid_len), passphrase);
+	//WPA_LOGI("ssid: %s, passphase: %s\r\n", wpa_ssid_txt(ssid, ssid_len), passphrase);
 
 	rtos_get_semaphore(&cache->sema, BEKEN_WAIT_FOREVER);
 
@@ -357,9 +357,9 @@ void wpa_psk_cal_thread(void *arg)
 			break;
 		}
 
-		os_printf("PSKC: ssid %s, passphrase %s\n", wpa_ssid_txt((uint8_t*)ssid, ssid_len), passphrase);
+		WPA_LOGI("PSKC: ssid %s, passphrase %s\n", wpa_ssid_txt((uint8_t*)ssid, ssid_len), passphrase);
 		pbkdf2_sha1(passphrase, (u8 *)ssid, ssid_len, 4096, psk, sizeof(psk));
-		os_printf("PSKC: end\n");
+		WPA_LOGI("PSKC: end\n");
 
 		/* determine ssid & passphrase have been changed */
 		rtos_get_semaphore(&cache->sema, BEKEN_WAIT_FOREVER);

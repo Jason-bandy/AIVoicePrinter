@@ -1,0 +1,26 @@
+# compiler
+    src/compiler/$BUILDTOOL
+# registers
+    build/reg/$PLATFORM/$ARCH
+    build/reg/$PLATFORM/$ARCH/$PHY
+# architecture specific includes
+    src/arch
+    src/arch/$ARCH
+    src/arch/$ARCH/boot/
+    src/arch/$ARCH/boot/$BUILDTOOL
+    src/arch/$ARCH/ll/$BUILDTOOL
+# reference platform includes
+    src/driver
+    src/driver/reg
+    src/driver/crm
+    src/driver/phy
+    src/driver/intc/$ARCH
+    src/driver/extint
+    src/driver/sysctrl
+    src/driver/ipc${IPC_TYPE}
+    src/driver/dma
+    src/driver/la
+    src/driver/time
+    src/driver/button
+    src/driver/led
+

@@ -1,5 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
+#include "co_list.h"
 #include "audio.h"
 #include "audio_pub.h"
 #include "mailbox_pub.h"
@@ -133,13 +134,6 @@ void audio_init(void)
 		return;
 	}
 
-	param = 8000;
-	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &param);
-	if (ret) {
-		rt_kprintf("set audio PLL fail.\r\n");
-		return;
-	}
-
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_DAC_ANALOG, NULL);
 	if (ret) {
 		rt_kprintf("open dac analog fail.\r\n");
@@ -149,6 +143,13 @@ void audio_init(void)
 	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_OPEN_ADC_MIC_ANALOG, NULL);
 	if (ret) {
 		rt_kprintf("open adc mic analog fail.\r\n");
+		return;
+	}
+
+	param = 16000;
+	ret = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_AUDIO_PLL, &param);
+	if (ret) {
+		rt_kprintf("set audio PLL fail.\r\n");
 		return;
 	}
 #else

@@ -28,6 +28,8 @@
 #endif
 #include "net.h"
 #include "common/wpa_psk_cache.h"
+#include "rw_msg_rx.h"
+#include "wlan_ui_pub.h"
 
 /* if SQRTMOD_USE_MOD_EXP is not enabled, enlarge stack size to 15K */
 #define WPAS_STACK_SZ	4096
@@ -108,17 +110,17 @@ void wlan_internal_notify_func(void *ctx, int event, int extra)
 	struct wpa_supplicant *wpa_s = ctx;
 	switch (event) {
 	case WLAN_EVENT_CONNECTED:
-		os_printf("WLAN_EVENT_CONNECTED\n");
+		WPA_LOGI("WLAN_EVENT_CONNECTED\n");
 		sta_ip_start();
 		wlan_store_fci(wpa_s);
 		break;
 	case WLAN_EVENT_DISCONNECTED:
-		os_printf("WLAN_EVENT_DISCONNECTED\n");
+		WPA_LOGI("WLAN_EVENT_DISCONNECTED\n");
 		sta_ip_down();
 		wpa_s->conf->ssid->mem_only_psk = 1; // set mem_only_psk, let wpas_network_disabled return false
 		break;
 	case WLAN_EVENT_SCAN_RESULTS:
-		//os_printf("WLAN_EVENT_SCAN_RESULTS\n");
+		//WPA_LOGI("WLAN_EVENT_SCAN_RESULTS\n");
 		break;
 	}
 }
@@ -135,7 +137,7 @@ void wlan_sta_disable_eloop_signal_handler(int sig, void *signal_ctx)
 {
 	int flag = 0;
 	GLOBAL_INT_DECLARATION();
-	bk_printf("%s\r\n",__FUNCTION__);
+	WPA_LOGI("%s\r\n",__FUNCTION__);
 	GLOBAL_INT_DISABLE();
 	if(wlan_sta_ap_disable_flag&WLAN_STA_DISABLE_FLAG)
 	{
@@ -177,7 +179,7 @@ int wlan_sta_disable(void)
 	int flag = 0;
 	GLOBAL_INT_DECLARATION();
 
-	bk_printf("%s\r\n",__FUNCTION__);
+	WPA_LOGI("%s\r\n",__FUNCTION__);
 	if(wpa_global_ptr && wpas_ifaces)
 	{
 		GLOBAL_INT_DISABLE();
@@ -198,7 +200,7 @@ int wlan_sta_disable(void)
 	{
 		rtos_delay_milliseconds(10);
 		delay_total += 10;
-		bk_printf("[%s]delay:%d\r\n",__FUNCTION__,delay_total);
+		WPA_LOGI("[%s]delay:%d\r\n",__FUNCTION__,delay_total);
 	}
 	return 0;
 }
@@ -210,7 +212,7 @@ int wlan_ap_disable(void)
 	int flag = 0;
 	GLOBAL_INT_DECLARATION();
 
-	bk_printf("%s\r\n",__FUNCTION__);
+	WPA_LOGI("%s\r\n",__FUNCTION__);
 
 	if(hostap_interfaces_is_valid())
 	{
@@ -233,7 +235,7 @@ int wlan_ap_disable(void)
 	{
 		rtos_delay_milliseconds(20);
 		delay_total += 20;
-		bk_printf("[%s]delay:%d\r\n",__FUNCTION__,delay_total);
+		WPA_LOGI("[%s]delay:%d\r\n",__FUNCTION__,delay_total);
 	}
 	return 0;
 }
@@ -296,7 +298,7 @@ int supplicant_main_entry(char *oob_ssid)
 	iface->ifname = bss_iface;
 	exitcode = 0;
 
-	bk_printf("sizeof(wpa_supplicant)=%d\n", sizeof(*wpa_s));
+	WPA_LOGI("sizeof(wpa_supplicant)=%d\n", sizeof(*wpa_s));
 	wpa_global_ptr = wpa_supplicant_init(&params);
 	if (wpa_global_ptr == NULL) {
 		wpa_printf(MSG_ERROR, "Failed to initialize wpa_supplicant");
@@ -341,7 +343,7 @@ int supplicant_main_entry(char *oob_ssid)
 			wpa_s->num_ssids_from_scan_req = 1;
 			wpa_s->ssids_from_scan_req = wpas_connect_ssid;
 			wpa_s->scan_req = MANUAL_SCAN_REQ;
-			os_printf("MANUAL_SCAN_REQ with " MACSTR "\n", MAC2STR(wpas_connect_ssid->bssid));
+			WPA_LOGI("MANUAL_SCAN_REQ with " MACSTR "\n", MAC2STR(wpas_connect_ssid->bssid));
 		} else
 #endif
 #endif
@@ -365,7 +367,7 @@ int supplicant_main_entry(char *oob_ssid)
 			wpa_s->num_ssids_from_scan_req = 1;
 			wpa_s->ssids_from_scan_req = wpas_connect_ssid;
 			wpa_s->scan_req = MANUAL_SCAN_REQ;
-			os_printf("MANUAL_SCAN_REQ\r\n");
+			WPA_LOGI("MANUAL_SCAN_REQ\r\n");
 		}
 	}
 

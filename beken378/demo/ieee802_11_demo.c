@@ -32,6 +32,8 @@
 #include "role_launch.h"
 #endif
 
+#define TAG "demo"
+
 static void scan_cb(void *ctxt, uint8_t param)
 {
 #if !CFG_WPA_CTRL_IFACE
@@ -55,7 +57,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 		apList.ApList = (void *)os_zalloc(sizeof(*apList.ApList) * apList.ApNum);
 		if(apList.ApList == NULL){
 			GLOBAL_INT_RESTORE();
-			bk_printf("Got ap count: %d,but malloc failed\r\n", apList.ApNum);
+			BK_LOGI(TAG, "Got ap count: %d,but malloc failed\r\n", apList.ApNum);
 			return;
 		}
 		for (i = 0; i < scan_rst->scanu_num; i++) {
@@ -68,18 +70,18 @@ static void scan_cb(void *ctxt, uint8_t param)
 	if (apList.ApList == NULL)
 		apList.ApNum = 0;
 
-	bk_printf("Got ap count: %d\r\n", apList.ApNum);
+	BK_LOGI(TAG, "Got ap count: %d\r\n", apList.ApNum);
 	for (i = 0; i < apList.ApNum; i++) {
 		if (os_strlen(apList.ApList[i].ssid) >= SSID_MAX_LEN) {
 			char temp_ssid[33];
 			os_memset(temp_ssid, 0, 33);
 			os_memcpy(temp_ssid, apList.ApList[i].ssid, 32);
-			bk_printf("    %s, RSSI=%d\r\n", temp_ssid, apList.ApList[i].ApPower);
+			BK_LOGI(TAG, "    %s, RSSI=%d\r\n", temp_ssid, apList.ApList[i].ApPower);
 		} else {
-			bk_printf("    %s, RSSI=%d\r\n", apList.ApList[i].ssid, apList.ApList[i].ApPower);
+			BK_LOGI(TAG, "    %s, RSSI=%d\r\n", apList.ApList[i].ssid, apList.ApList[i].ApPower);
 		}
 	}
-	bk_printf("Get ap end.......\r\n\r\n");
+	BK_LOGI(TAG, "Get ap end.......\r\n\r\n");
 
 	if (apList.ApList != NULL) {
 		os_free(apList.ApList);
@@ -111,9 +113,9 @@ static void scan_cb(void *ctxt, uint8_t param)
 		int ap_num = apList.ApNum;
 		int i;
 
-		bk_printf("Got ap count: %d\r\n", apList.ApNum);
+		BK_LOGI(TAG, "Got ap count: %d\r\n", apList.ApNum);
 		for (i = 0; i < ap_num; i++)
-			bk_printf("    \"%s\", " MACSTR "\b, %d, %s, %d\n",
+			BK_LOGI(TAG, "    \"%s\", " MACSTR "\b, %d, %s, %d\n",
 					apList.ApList[i].ssid, MAC2STR(apList.ApList[i].bssid),
 					apList.ApList[i].ApPower, crypto_str[apList.ApList[i].security],
 					apList.ApList[i].channel);
@@ -137,7 +139,7 @@ void demo_scan_adv_app_init(uint8_t *oob_ssid)
     ssid_array = &oob_ssid;
 	mhdr_scanu_reg_cb(scan_cb, 0);
 
-	bk_printf("scan for ssid:%s\r\n", oob_ssid);
+	BK_LOGI(TAG, "scan for ssid:%s\r\n", oob_ssid);
 	bk_wlan_start_assign_scan(ssid_array, 1);
 }
 
@@ -151,7 +153,7 @@ void demo_softap_app_init(char *ap_ssid, char *ap_key)
     len = os_strlen(ap_ssid);
     if(SSID_MAX_LEN < len)
     {
-        bk_printf("ssid name more than 32 Bytes\r\n");
+        BK_LOGI(TAG, "ssid name more than 32 Bytes\r\n");
         return;
     }
 
@@ -166,7 +168,7 @@ void demo_softap_app_init(char *ap_ssid, char *ap_key)
     os_strcpy((char *)wNetConfig.gateway_ip_addr, WLAN_DEFAULT_GW);
     os_strcpy((char *)wNetConfig.dns_server_ip_addr, WLAN_DEFAULT_GW);
 
-    bk_printf("ssid:%s  key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
+    BK_LOGI(TAG, "ssid:%s  key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
 	bk_wlan_start(&wNetConfig);
 }
 
@@ -179,7 +181,7 @@ void demo_sta_app_init(char *oob_ssid,char *connect_key)
     len = os_strlen(oob_ssid);
     if(SSID_MAX_LEN < len)
     {
-        bk_printf("ssid name more than 32 Bytes\r\n");
+        BK_LOGI(TAG, "ssid name more than 32 Bytes\r\n");
         return;
     }
 
@@ -190,7 +192,7 @@ void demo_sta_app_init(char *oob_ssid,char *connect_key)
 	wNetConfig.dhcp_mode = DHCP_CLIENT;
 	wNetConfig.wifi_retry_interval = 100;
 
-	bk_printf("ssid:%s key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
+	BK_LOGI(TAG, "ssid:%s key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
 	bk_wlan_start(&wNetConfig);
 }
 
@@ -245,7 +247,7 @@ void demo_wlan_app_init(VIF_ADDCFG_PTR cfg)
         	network_cfg.dhcp_mode = DHCP_CLIENT;
         	network_cfg.wifi_retry_interval = 100;
 
-        	bk_printf("ssid:%s key:%s\r\n", network_cfg.wifi_ssid, network_cfg.wifi_key);
+        	BK_LOGI(TAG, "ssid:%s key:%s\r\n", network_cfg.wifi_ssid, network_cfg.wifi_key);
         }
     } else if(cfg->wlan_role == BK_SOFT_AP) {
 
@@ -261,7 +263,7 @@ void demo_wlan_app_init(VIF_ADDCFG_PTR cfg)
         os_strcpy((char *)network_cfg.gateway_ip_addr, WLAN_DEFAULT_GW);
         os_strcpy((char *)network_cfg.dns_server_ip_addr, WLAN_DEFAULT_GW);
 
-        bk_printf("ssid:%s  key:%s\r\n", network_cfg.wifi_ssid, network_cfg.wifi_key);
+        BK_LOGI(TAG, "ssid:%s  key:%s\r\n", network_cfg.wifi_ssid, network_cfg.wifi_key);
     }
 
     bk_wlan_start(&network_cfg);
@@ -274,9 +276,9 @@ void demo_state_app_init(void)
     network_InitTypeDef_ap_st ap_info;
     char ssid[33] = {0};
     #if CFG_IEEE80211N
-        bk_printf("sta: %d, softap: %d, b/g/n\r\n",sta_ip_is_start(),uap_ip_is_start());
+        BK_LOGI(TAG, "sta: %d, softap: %d, b/g/n\r\n",sta_ip_is_start(),uap_ip_is_start());
     #else
-        bk_printf("sta: %d, softap: %d, b/g\r\n",sta_ip_is_start(),uap_ip_is_start());
+        BK_LOGI(TAG, "sta: %d, softap: %d, b/g\r\n",sta_ip_is_start(),uap_ip_is_start());
     #endif
 
     if( sta_ip_is_start() )
@@ -285,36 +287,36 @@ void demo_state_app_init(void)
     	bk_wlan_get_link_status(&linkStatus);
         os_memcpy(ssid, linkStatus.ssid, 32);
 
-    	bk_printf("sta:rssi=%d,ssid=%s,bssid=" MACSTR ",channel=%d,cipher_type:",
+    	BK_LOGI(TAG, "sta:rssi=%d,ssid=%s,bssid=" MACSTR ",channel=%d,cipher_type:",
     		linkStatus.wifi_strength, ssid, MAC2STR(linkStatus.bssid), linkStatus.channel);
         switch(bk_sta_cipher_type())
         {
            case BK_SECURITY_TYPE_NONE:
-                bk_printf("OPEN\r\n");
+                BK_LOGI(TAG, "OPEN\r\n");
                 break;
             case BK_SECURITY_TYPE_WEP :
-                bk_printf("WEP\r\n");
+                BK_LOGI(TAG, "WEP\r\n");
                 break;
             case BK_SECURITY_TYPE_WPA_TKIP:
-                bk_printf("TKIP\r\n");
+                BK_LOGI(TAG, "TKIP\r\n");
                 break;
             case BK_SECURITY_TYPE_WPA2_AES:
-                bk_printf("CCMP\r\n");
+                BK_LOGI(TAG, "CCMP\r\n");
                 break;
             case BK_SECURITY_TYPE_WPA2_MIXED:
-                bk_printf("WPA/WPA2 MIXED\r\n");
+                BK_LOGI(TAG, "WPA/WPA2 MIXED\r\n");
                 break;
             case BK_SECURITY_TYPE_AUTO:
-                bk_printf("AUTO\r\n");
+                BK_LOGI(TAG, "AUTO\r\n");
                 break;
 			case BK_SECURITY_TYPE_WPA3_SAE:
-				bk_printf("WPA3\n");
+				BK_LOGI(TAG, "WPA3\n");
 				break;
 			case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
-				bk_printf("WPA2/WPA3 MIXED\n");
+				BK_LOGI(TAG, "WPA2/WPA3 MIXED\n");
 				break;
             default:
-                bk_printf("Error\r\n");
+                BK_LOGI(TAG, "Error\r\n");
                 break;
         }
     }
@@ -324,39 +326,39 @@ void demo_state_app_init(void)
     	os_memset(&ap_info, 0x0, sizeof(network_InitTypeDef_ap_st));
     	bk_wlan_ap_para_info_get(&ap_info);
         os_memcpy(ssid, ap_info.wifi_ssid, 32);
-        bk_printf("softap:ssid=%s,channel=%d,dhcp=%d,cipher_type:",
+        BK_LOGI(TAG, "softap:ssid=%s,channel=%d,dhcp=%d,cipher_type:",
     		ssid, ap_info.channel,ap_info.dhcp_mode);
         switch(ap_info.security)
         {
            case BK_SECURITY_TYPE_NONE:
-                bk_printf("OPEN\r\n");
+                BK_LOGI(TAG, "OPEN\r\n");
                 break;
             case BK_SECURITY_TYPE_WEP :
-                bk_printf("WEP\r\n");
+                BK_LOGI(TAG, "WEP\r\n");
                 break;
             case BK_SECURITY_TYPE_WPA_TKIP:
-                bk_printf("TKIP\r\n");
+                BK_LOGI(TAG, "TKIP\r\n");
                 break;
             case BK_SECURITY_TYPE_WPA2_AES:
-                bk_printf("CCMP\r\n");
+                BK_LOGI(TAG, "CCMP\r\n");
                 break;
             case BK_SECURITY_TYPE_WPA2_MIXED:
-                bk_printf("WPA/WPA2 MIXED\r\n");
+                BK_LOGI(TAG, "WPA/WPA2 MIXED\r\n");
                 break;
             case BK_SECURITY_TYPE_AUTO:
-                bk_printf("AUTO\r\n");
+                BK_LOGI(TAG, "AUTO\r\n");
                 break;
 			case BK_SECURITY_TYPE_WPA3_SAE:
-				bk_printf("WPA3\n");
+				BK_LOGI(TAG, "WPA3\n");
 				break;
 			case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
-				bk_printf("WPA2/WPA3 MIXED\n");
+				BK_LOGI(TAG, "WPA2/WPA3 MIXED\n");
 				break;
             default:
-                bk_printf("Error\r\n");
+                BK_LOGI(TAG, "Error\r\n");
                 break;
         }
-        bk_printf("ip=%s,gate=%s,mask=%s,dns=%s\r\n",
+        BK_LOGI(TAG, "ip=%s,gate=%s,mask=%s,dns=%s\r\n",
 		    ap_info.local_ip_addr, ap_info.gateway_ip_addr, ap_info.net_mask, ap_info.dns_server_ip_addr);
     }
 }
@@ -368,14 +370,14 @@ void demo_ip_app_init(void)
 	os_memset(&ipStatus, 0x0, sizeof(IPStatusTypedef));
 	bk_wlan_get_ip_status(&ipStatus, BK_STATION);
 
-	bk_printf("dhcp=%d ip=%s gate=%s mask=%s mac=" MACSTR "\r\n",
+	BK_LOGI(TAG, "dhcp=%d ip=%s gate=%s mask=%s mac=" MACSTR "\r\n",
 				ipStatus.dhcp, ipStatus.ip, ipStatus.gate,
 				ipStatus.mask, MAC2STR((unsigned char*)ipStatus.mac));
 }
 
 void bk_demo_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
 {
-	os_printf("len:%d\r\n", len);
+	BK_LOGI(TAG, "len:%d\r\n", len);
 
 	//Only for reference
 	/*
@@ -397,7 +399,7 @@ int wifi_demo(int argc, char **argv)
 
     if (strcmp(argv[1], "sta") == 0)
     {
-		os_printf("sta_Command\r\n");
+		BK_LOGI(TAG, "sta_Command\r\n");
 		if (argc == 3)
 		{
 			oob_ssid = argv[2];
@@ -410,7 +412,7 @@ int wifi_demo(int argc, char **argv)
 		}
 		else
 		{
-			os_printf("parameter invalid\r\n");
+			BK_LOGI(TAG, "parameter invalid\r\n");
 			return -1;
 		}
 
@@ -424,7 +426,7 @@ int wifi_demo(int argc, char **argv)
 
 	if(strcmp(argv[1], "adv") == 0)
 	{
-	    os_printf("sta_adv_Command\r\n");
+	    BK_LOGI(TAG, "sta_adv_Command\r\n");
 	    if (argc == 3)
 	    {
 	        oob_ssid = argv[2];
@@ -437,7 +439,7 @@ int wifi_demo(int argc, char **argv)
 	    }
 	    else
 	    {
-	        os_printf("parameter invalid\r\n");
+	        BK_LOGI(TAG, "parameter invalid\r\n");
 	        return -1;
 	    }
 
@@ -451,7 +453,7 @@ int wifi_demo(int argc, char **argv)
 	if(strcmp(argv[1], "softap") == 0)
 	{
 
-		os_printf("SOFTAP_COMMAND\r\n\r\n");
+		BK_LOGI(TAG, "SOFTAP_COMMAND\r\n\r\n");
 		if (argc == 3)
 		{
 			oob_ssid = argv[2];
@@ -464,7 +466,7 @@ int wifi_demo(int argc, char **argv)
 		}
 		else
 		{
-	        os_printf("parameter invalid\r\n");
+	        BK_LOGI(TAG, "parameter invalid\r\n");
 	        return -1;
 		}
 
@@ -479,7 +481,7 @@ int wifi_demo(int argc, char **argv)
 	{
 		if(argc != 3)
 		{
-			os_printf("parameter invalid\r\n");
+			BK_LOGI(TAG, "parameter invalid\r\n");
 		}
 
 		if(strcmp(argv[2], "net") == 0)
@@ -492,7 +494,7 @@ int wifi_demo(int argc, char **argv)
 		}
 		else
 		{
-			os_printf("parameter invalid\r\n");
+			BK_LOGI(TAG, "parameter invalid\r\n");
 		}
 	}
 
@@ -506,7 +508,7 @@ int wifi_demo(int argc, char **argv)
 			demo_scan_adv_app_init((uint8_t *)argv[2]);
 		}else
 		{
-			os_printf("parameter invalid\r\n");
+			BK_LOGI(TAG, "parameter invalid\r\n");
 		}
 	}
 
@@ -514,7 +516,7 @@ int wifi_demo(int argc, char **argv)
 	{
 		if(argc != 3)
 		{
-			os_printf("parameter invalid\r\n");
+			BK_LOGI(TAG, "parameter invalid\r\n");
 		}
 
 		if(strcmp(argv[2], "start") == 0)
@@ -528,7 +530,7 @@ int wifi_demo(int argc, char **argv)
 		}
 		else
 		{
-			os_printf("parameter invalid\r\n");
+			BK_LOGI(TAG, "parameter invalid\r\n");
 		}
 	}
 

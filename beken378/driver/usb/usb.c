@@ -22,6 +22,9 @@
 #include "icu.h"
 #endif
 
+extern void MGC_AfsUdsIsr(void);
+extern uint32_t MUSB_NoneRunBackground(void);
+
 #define USB_BACKGROUND_STACK_SIZE     (2 * 1024)
 beken_thread_t ubg_thread_handle = NULL;
 beken_semaphore_t ubg_semaphore = NULL;
@@ -39,13 +42,18 @@ uint8_t usb_status= 0;
 
 #define GUWENFU_SETTING
 
-static DD_OPERATIONS usb_op =
+static const DD_OPERATIONS usb_op =
 {
-    usb_open,
-    usb_close,
-    usb_read,
-    usb_write,
-    usb_ctrl
+	usb_open,
+	usb_close,
+#if (CFG_SOC_NAME == SOC_BK7271)
+	NULL, //usb_read, FIXME
+	NULL, //usb_write, FIXME
+#else
+	usb_read,
+	usb_write,
+#endif
+	usb_ctrl
 };
 
 
@@ -58,7 +66,7 @@ void usb_init(void)
 #if (SOC_BK7271 != CFG_SOC_NAME)
     intc_service_register(IRQ_USB, PRI_IRQ_USB, usb_isr);
 #endif
-    ddev_register_dev(USB_DEV_NAME, &usb_op);
+    ddev_register_dev(USB_DEV_NAME, (DD_OPERATIONS*)&usb_op);
 }
 
 void usb_exit(void)
@@ -162,7 +170,7 @@ sw_open_exit:
 UINT32 usb_open (UINT32 op_flag)
 {
     UINT8 reg;
-    UINT32 param, ret;
+    UINT32 param;
     UINT32 usb_mode = op_flag;
 
     USB_PRT("usb_open\r\n");
@@ -247,6 +255,7 @@ UINT32 usb_open (UINT32 op_flag)
 #endif
 
 #if CFG_USB
+	int ret = 0;
     if (usb_sw_init() == 0)
     {
         os_printf("usb_sw_init OK\r\n");
@@ -340,11 +349,10 @@ UINT32 usb_open (UINT32 op_flag)
 
 UINT32 usb_close (void)
 {
-    UINT32 param;
-
     USB_PRT("usb_close\r\n");
 
 #if (SOC_BK7271 != CFG_SOC_NAME)
+    UINT32 param;
     param = IRQ_USB_BIT;
     sddev_control(ICU_DEV_NAME, CMD_ICU_INT_DISABLE, &param);
 
@@ -365,7 +373,7 @@ UINT32 usb_read(UINT32 pos, const void *buffer, UINT32 size)
 	USB_PRT("usb read\r\n");
 	UINT32 start_blk_addr = pos;
 	UINT32 read_blk_num = size;
-	UINT8 *read_data_buf = buffer;
+	UINT8 *read_data_buf = (UINT8*)buffer;
 
 	if (0 != MUSB_HfiRead_sync(start_blk_addr, read_blk_num, read_data_buf)) {
 		size = 0;
@@ -379,7 +387,7 @@ UINT32 usb_write(UINT32 pos, const void *buffer, UINT32 size)
 	USB_PRT("usb write\r\n");
 	UINT32 start_blk_addr = pos;
 	UINT32 write_blk_num = size;
-	UINT8 *write_data_buf = buffer;
+	UINT8 *write_data_buf = (UINT8*)buffer;
 
 	if (0 != MUSB_HfiWrite_sync(start_blk_addr, write_blk_num, write_data_buf)) {
 		size = 0;
@@ -519,7 +527,7 @@ void usb_isr(void)
     MGC_AfsUdsIsr();
 }
 
-UINT32 usb_check_int_handler(void)
+void usb_check_int_handler(void)
 {
 	if (usb_status > 100)
 		usb_status = 0;
@@ -536,7 +544,7 @@ UINT32 usb_plug_inout_open(UINT32 op_flag);
 UINT32 usb_plug_inout_close(void);
 
 USB_PLUG_INOUT_ST usb_plug;
-static DD_OPERATIONS usb_plug_op =
+static const DD_OPERATIONS usb_plug_op =
 {
     usb_plug_inout_open,
     usb_plug_inout_close,
@@ -624,7 +632,7 @@ void usb_plug_inout_init(void)
     usb_plug.handler = NULL;
     usb_plug.usr_data = NULL;
     intc_service_register(FIQ_USB_PLUG_INOUT, PRI_FIQ_USB_PLUG_INOUT, usb_plug_inout_isr);
-    ddev_register_dev(USB_PLUG_DEV_NAME, &usb_plug_op);
+    ddev_register_dev(USB_PLUG_DEV_NAME, (DD_OPERATIONS*)&usb_plug_op);
 }
 
 void usb_plug_inout_exit(void)

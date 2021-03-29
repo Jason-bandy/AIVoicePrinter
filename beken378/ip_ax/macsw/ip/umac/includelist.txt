@@ -1,0 +1,12 @@
+# umac sw
+    src/scanu
+    src/rxu
+    src/me
+    src/sm
+    src/apm
+    src/txu
+    src/llc
+    src/bam
+    src/mfp
+    src/rc
+    src/hsu

@@ -1,0 +1,24 @@
+# This file contains value of Registers addresses used in reglist.txt files
+#
+# overrides default and phy regmap
+
+# reference platform
+  IPC_EMB_ADDR  0x10800000
+  SYSCTRL_ADDR  0x10900000
+  HSU_ADDR      0x10930000
+  DMA_ADDR      0x10A00000
+  INTC_ADDR     0x10A10000
+  LA_ADDR       0x18000000
+
+# MAC
+  MAC_CORE_ADDR 0x10B00000
+  MAC_PL_ADDR   0x10B08000
+
+# MDM
+  MDM_STAT_ADDR 0x10C00000
+  MDM_CFG_ADDR  0x10C00000
+
+# RC/RIU
+  AGC_ADDR      0x10C00000
+  RF_IF_ADDR    0x10C10000
+  RC_ADDR       0x10C50000

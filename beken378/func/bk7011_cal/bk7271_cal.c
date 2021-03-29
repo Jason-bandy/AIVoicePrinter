@@ -14,6 +14,7 @@
 #include "cmd_evm.h"
 #include "temp_detect_pub.h"
 #include "power_save_pub.h"
+#include "bk_pwr_tbl_pub.h"
 
 #if CFG_SUPPORT_CALIBRATION
 #define TX_WANTED_POWER_CAL            0
@@ -28,24 +29,24 @@
 #define TX_PHASE_LOOPBACK_IMB_CAL      1
 
 #define CAL_DEBUG                      1
-#include "uart_pub.h"
+#include "cal_log.h"
 #if CAL_DEBUG
-#define CAL_PRT              null_prf
-#define CAL_WARN             null_prf
-#define CAL_FATAL            fatal_prf
-#define CAL_TIM_PRT          os_printf
-#define CAL_FLASH_PRT        os_printf
+#define CAL_PRT              CAL_LOGD
+#define CAL_WARN             CAL_LOGD
+#define CAL_FATAL            CAL_LOGE
+#define CAL_TIM_PRT          CAL_LOGI
+#define CAL_FLASH_PRT        CAL_LOGI
 #else
-#define CAL_PRT              null_prf
-#define CAL_WARN             null_prf
-#define CAL_FATAL            null_prf
-#define CAL_TIM_PRT          null_prf
-#define CAL_FLASH_PRT        null_prf
+#define CAL_PRT              CAL_LOGD
+#define CAL_WARN             CAL_LOGD
+#define CAL_FATAL            CAL_LOGD
+#define CAL_TIM_PRT          CAL_LOGD
+#define CAL_FLASH_PRT        CAL_LOGD
 #endif
 
 extern void bk7011_cal_pll(void);
 void rwnx_cal_set_txpwr_ble(UINT32 pwr_gain);
-void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g);
+void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble);
 extern UINT32 ble_in_dut_mode(void);
 extern uint8 is_rf_switch_to_ble(void);
@@ -558,7 +559,7 @@ struct BK7011TRxV2A_TypeDef BK7011TRXONLY =
     (volatile BK7011_TRxV2A_REG0x1C_TypeDef *)(TRX_BEKEN_BASE + 28 * 4),
 };
 
-struct temp_cal_pwr_st g_temp_pwr_current = {16, EVM_DEFUALT_RATE, 0, 0};
+struct temp_cal_pwr_st g_temp_pwr_current = {16, EVM_DEFUALT_RATE, 0, 0, 0};
 
 void delay05us(INT32 num)
 {
@@ -627,33 +628,33 @@ void rwnx_cal_load_default_result(void)
 
 void rwnx_cal_read_current_cal_result(void)
 {
-    CAL_FATAL("*********** finally result **********\r\n");
-    CAL_FATAL("gtx_dcorMod            : 0x%x\r\n", gtx_dcorMod);
-    CAL_FATAL("gtx_dcorPA             : 0x%x\r\n", gtx_dcorPA);
-    CAL_FATAL("gtx_pre_gain           : 0x%x\r\n", gtx_pre_gain);
-    CAL_FATAL("gtx_i_dc_comp          : 0x%x\r\n", gtx_i_dc_comp);
-    CAL_FATAL("gtx_q_dc_comp          : 0x%x\r\n", gtx_q_dc_comp);
-    CAL_FATAL("gtx_i_gain_comp        : 0x%x\r\n", gtx_i_gain_comp);
-    CAL_FATAL("gtx_q_gain_comp        : 0x%x\r\n", gtx_q_gain_comp);
-    CAL_FATAL("gtx_ifilter_corner over: 0x%x\r\n", gtx_ifilter_corner);
-    CAL_FATAL("gtx_qfilter_corner over: 0x%x\r\n", gtx_qfilter_corner);
-    CAL_FATAL("gtx_phase_comp         : 0x%x\r\n", gtx_phase_comp);
-    CAL_FATAL("gtx_phase_ty2          : 0x%x\r\n", gtx_phase_ty2);
+    CAL_LOGI("*********** finally result **********\r\n");
+    CAL_LOGI("gtx_dcorMod            : 0x%x\r\n", gtx_dcorMod);
+    CAL_LOGI("gtx_dcorPA             : 0x%x\r\n", gtx_dcorPA);
+    CAL_LOGI("gtx_pre_gain           : 0x%x\r\n", gtx_pre_gain);
+    CAL_LOGI("gtx_i_dc_comp          : 0x%x\r\n", gtx_i_dc_comp);
+    CAL_LOGI("gtx_q_dc_comp          : 0x%x\r\n", gtx_q_dc_comp);
+    CAL_LOGI("gtx_i_gain_comp        : 0x%x\r\n", gtx_i_gain_comp);
+    CAL_LOGI("gtx_q_gain_comp        : 0x%x\r\n", gtx_q_gain_comp);
+    CAL_LOGI("gtx_ifilter_corner over: 0x%x\r\n", gtx_ifilter_corner);
+    CAL_LOGI("gtx_qfilter_corner over: 0x%x\r\n", gtx_qfilter_corner);
+    CAL_LOGI("gtx_phase_comp         : 0x%x\r\n", gtx_phase_comp);
+    CAL_LOGI("gtx_phase_ty2          : 0x%x\r\n", gtx_phase_ty2);
     
-    CAL_FATAL("gbias_after_cal        : 0x%x\r\n", gbias_after_cal);
-    CAL_FATAL("gav_tssi               : 0x%x\r\n", gav_tssi);
+    CAL_LOGI("gbias_after_cal        : 0x%x\r\n", gbias_after_cal);
+    CAL_LOGI("gav_tssi               : 0x%x\r\n", gav_tssi);
 
-    CAL_FATAL("g_rx_dc_gain_tab 0 over: 0x%x\r\n", g_rx_dc_gain_tab[0]);
-    CAL_FATAL("g_rx_dc_gain_tab 1 over: 0x%x\r\n", g_rx_dc_gain_tab[1]);
-    CAL_FATAL("g_rx_dc_gain_tab 2 over: 0x%x\r\n", g_rx_dc_gain_tab[2]);
-    CAL_FATAL("g_rx_dc_gain_tab 3 over: 0x%x\r\n", g_rx_dc_gain_tab[3]);
-    CAL_FATAL("g_rx_dc_gain_tab 4 over: 0x%x\r\n", g_rx_dc_gain_tab[4]);
-    CAL_FATAL("g_rx_dc_gain_tab 5 over: 0x%x\r\n", g_rx_dc_gain_tab[5]);
-    CAL_FATAL("g_rx_dc_gain_tab 6 over: 0x%x\r\n", g_rx_dc_gain_tab[6]);
-    CAL_FATAL("g_rx_dc_gain_tab 7 over: 0x%x\r\n", g_rx_dc_gain_tab[7]);
-    CAL_FATAL("grx_amp_err_wr         : 0x%03x\r\n", grx_amp_err_wr);
-    CAL_FATAL("grx_phase_err_wr       : 0x%03x\r\n", grx_phase_err_wr);
-    CAL_FATAL("**************************************\r\n");
+    CAL_LOGI("g_rx_dc_gain_tab 0 over: 0x%x\r\n", g_rx_dc_gain_tab[0]);
+    CAL_LOGI("g_rx_dc_gain_tab 1 over: 0x%x\r\n", g_rx_dc_gain_tab[1]);
+    CAL_LOGI("g_rx_dc_gain_tab 2 over: 0x%x\r\n", g_rx_dc_gain_tab[2]);
+    CAL_LOGI("g_rx_dc_gain_tab 3 over: 0x%x\r\n", g_rx_dc_gain_tab[3]);
+    CAL_LOGI("g_rx_dc_gain_tab 4 over: 0x%x\r\n", g_rx_dc_gain_tab[4]);
+    CAL_LOGI("g_rx_dc_gain_tab 5 over: 0x%x\r\n", g_rx_dc_gain_tab[5]);
+    CAL_LOGI("g_rx_dc_gain_tab 6 over: 0x%x\r\n", g_rx_dc_gain_tab[6]);
+    CAL_LOGI("g_rx_dc_gain_tab 7 over: 0x%x\r\n", g_rx_dc_gain_tab[7]);
+    CAL_LOGI("grx_amp_err_wr         : 0x%03x\r\n", grx_amp_err_wr);
+    CAL_LOGI("grx_phase_err_wr       : 0x%03x\r\n", grx_phase_err_wr);
+    CAL_LOGI("**************************************\r\n");
 }
 
 void rwnx_cal_set_lpfcap_iq(UINT32 lpfcap_i, UINT32 lpfcap_q)
@@ -750,10 +751,10 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
     }
 
     //manual_cal_get_dbm_by_rate(rate, bandwidth);
-    
+
     if(test_mode == 0)
     {
-        ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain);
+        ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain, 0);
     }
     else
     {
@@ -802,9 +803,9 @@ void rwnx_cal_set_txpwr_by_channel(UINT32 channel)
     if(get_ate_mode_state())
     {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("set pwr:%d - c:%d\r\n", pwr_gain, channel);
+        CAL_LOGI("set pwr:%d - c:%d\r\n", pwr_gain, channel);
 #else
-        os_printf("c:%d\r\n", channel);
+        CAL_LOGI("c:%d\r\n", channel);
 #endif
     }
 
@@ -816,14 +817,14 @@ void rwnx_cal_set_txpwr_by_channel(UINT32 channel)
 extern void tpc_init(void);
 extern void tpc_deinit(void);
 struct temp_cal_pwr_st g_temp_pwr_current_tpc = {0, EVM_DEFUALT_RATE, 0, 0};
-void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g)
+void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble)
 {
     g_temp_pwr_current_tpc.shift_g = shift_g;
     g_temp_pwr_current_tpc.shift = shift_b;
 
     if(ble_in_dut_mode() == 0)
     {
-        os_printf("td set tpc pwr: shift_b:%d, shift_g:%d\r\n", 
+        CAL_LOGI("td set tpc pwr: shift_b:%d, shift_g:%d\r\n", 
             shift_b, shift_g);
     }
 }  
@@ -833,7 +834,7 @@ UINT32 rwnx_tpc_pwr_idx_translate(UINT32 pwr_gain, UINT32 rate, UINT32 print_log
     const UINT8 *idx_tab;
     INT16 idx = TCP_PAMAP_TAB_LEN - 1;
     INT16 shift;
-    
+
     if(rate == EVM_DEFUALT_B_RATE) {
     // for b
         idx_tab = b_map;
@@ -843,36 +844,34 @@ UINT32 rwnx_tpc_pwr_idx_translate(UINT32 pwr_gain, UINT32 rate, UINT32 print_log
         idx_tab = gn_map;
         shift = g_temp_pwr_current_tpc.shift_g;
     } else {
-        os_printf("no support :%d\r\n", rate);
+        CAL_LOGI("no support :%d\r\n", rate);
         return idx;
     }
 
 #if CFG_USE_TEMPERATURE_DETECT
     idx = pwr_gain + shift;
 
-    if(idx > 32) {
-	    idx = 32; 
-	}else if (idx < 0)
-	    idx = 0;
-    
+    if(idx > 31) {
+        idx = 31;
+    }else if (idx < 0)
+        idx = 0;
+
     g_temp_pwr_current_tpc.idx = idx;
 #endif
 
     idx = idx_tab[idx];
 
-    if(idx > 16) {
-	   idx = 16; 
-	}
-    
+    if(idx > 15) {
+        idx = 15;
+    }
+
     if (print_log)
     {
-        os_printf("translate idx1:%d, td_shift:%d, b/g:%d --- idx2:%d\r\n", pwr_gain, 
+        CAL_LOGI("translate idx1:%d, td_shift:%d, b/g:%d --- idx2:%d\r\n", pwr_gain,
             shift, rate, idx);
-        
     }
 
     return idx;
-    
 }
 
 UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
@@ -896,14 +895,14 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
     if(manual_cal_get_txpwr(rwnx_cal_translate_tx_rate(rate), 
         channel, bandwidth, &pwr_gain) == 0) 
     {
-        os_printf("unable get txpwr %d, %d, %d\r\n", rate, channel, bandwidth);
+        CAL_LOGI("unable get txpwr %d, %d, %d\r\n", rate, channel, bandwidth);
         return 0;
     }
 
-    ret_bak = ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain);
-    
+    ret_bak = ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain, channel);
+
     if(!ret ){
-        os_printf("unable get txpwr shift %d, %d, %d\r\n", rate, channel, bandwidth);
+        CAL_LOGI("unable get txpwr shift %d, %d, %d\r\n", rate, channel, bandwidth);
         return 0;
     } else if(ret == 1) {
         ret = rwnx_tpc_pwr_idx_translate(pwr_gain, EVM_DEFUALT_B_RATE, 0);
@@ -917,17 +916,16 @@ UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log)
         if(ret_bak == 2) {
             shift = g_temp_pwr_current.shift_g;
         }
-        
-        os_printf("tpc info- r:%d, c:%d, b:%d -- idx1:%d+(%d), idx2: %d\r\n", 
+
+        CAL_LOGI("tpc info- r:%d, c:%d, b:%d -- idx1:%d+(%d), idx2: %d\r\n",
             rate, channel, bandwidth, pwr_gain, shift, ret);
 
         const PWR_REGS_TPC *ptr = &cfg_tab_tpc[ret];
-        os_printf("b[31-28]:0x%02x, c[3-0]:0x%02x, c[7-4]:0x%02x, c[11-8]:0x%02x\r\n", 
+        CAL_LOGI("b[31-28]:0x%02x, c[3-0]:0x%02x, c[7-4]:0x%02x, c[11-8]:0x%02x\r\n",
             ptr->regb_28_31, ptr->regc_0_3, ptr->regc_4_7, ptr->regc_8_11);
     }
-    
+
     return ret;
-    
 }
 
 void rwnx_use_tpc_set_pwr(void)
@@ -1004,7 +1002,7 @@ void rwnx_tpc_pa_map_init(void)
     
     rwnx_use_tpc_set_pwr();
     
-    os_printf("rwnx_tpc_pa_map_init\r\n");
+    CAL_LOGI("rwnx_tpc_pa_map_init\r\n");
 }
 
 void rwnx_cal_initial_calibration(void)
@@ -1012,6 +1010,11 @@ void rwnx_cal_initial_calibration(void)
     rwnx_cal_set_txpwr(12, EVM_DEFUALT_RATE);
 
     rwnx_tpc_pa_map_init();
+
+#if CFG_POWER_TABLE
+    pwr_tbl_set_cal_pwr_base(BK_PWR_BASE_11B, BK_PWR_BASE_11G,
+        BK_PWR_BASE_HT20, BK_PWR_BASE_HT40);
+#endif
 }
 
 void rwnx_cal_set_reg_adda_ldo(UINT32 val)
@@ -1091,7 +1094,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     const PWR_REGS *pcfg;
 
     if(pwr_gain > 32) {
-        os_printf("set_txpwr unknow pwr idx:%d \r\n", pwr_gain); 
+        CAL_LOGI("set_txpwr unknow pwr idx:%d \r\n", pwr_gain); 
         return;
     }
 
@@ -1108,7 +1111,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     {
         if(bk7011_is_rfcali_mode_auto() == 0)
         {
-            bk_printf("-----pwr_gain:%d, g_idx:%d, shift_b:%d, shift_g:%d\n",
+            CAL_LOGI("-----pwr_gain:%d, g_idx:%d, shift_b:%d, shift_g:%d\n",
             pwr_gain,
             g_temp_pwr_current.idx,
             g_temp_pwr_current.shift,
@@ -1125,7 +1128,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     if(ble_in_dut_mode() ==0 )
     {
         if(bk7011_is_rfcali_mode_auto() == 0)
-            bk_printf("-----[pwr_gain]%d\n",pwr_gain);
+            CAL_LOGI("-----[pwr_gain]%d\n",pwr_gain);
     }
 #endif // CFG_USE_TEMPERATURE_DETECT
 
@@ -1139,7 +1142,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
     // for BLE
         pcfg = cfg_tab_ble + pwr_gain;
     } else {
-        os_printf("set_txpwr unknow rate:%d \r\n", grate);  
+        CAL_LOGI("set_txpwr unknow rate:%d \r\n", grate);  
         return;
     }
 
@@ -1147,12 +1150,12 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
         if(bk7011_is_rfcali_mode_auto() == 0)
         {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("idx:%02d,r:%03d- pg:0x%02x, %01x, %01x, %01x, %01x, %02x, %02x, %01x,\r\n", pwr_gain, grate,
+        CAL_LOGI("idx:%02d,r:%03d- pg:0x%02x, %01x, %01x, %01x, %01x, %02x, %02x, %01x,\r\n", pwr_gain, grate,
             pcfg->pregain, pcfg->regb_28_31, pcfg->regc_8_10,pcfg->regc_4_6, pcfg->regc_0_2, 
             pcfg->rega_8_13, pcfg->rega_4_7, pcfg->rega_0_1);
-        os_printf("Xtal C: %d\r\n", manual_cal_get_xtal());
+        CAL_LOGI("Xtal C: %d\r\n", manual_cal_get_xtal());
 #else
-        os_printf("idx:%02d\r\n", pwr_gain);
+        CAL_LOGI("idx:%02d\r\n", pwr_gain);
 #endif
         }
     }
@@ -1182,7 +1185,7 @@ void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate)
 } 
 
 #if CFG_USE_TEMPERATURE_DETECT
-void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g)
+void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble)
 {
     UINT32 should_do = 0;
     
@@ -1202,7 +1205,7 @@ void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g)
     {
         if(ble_in_dut_mode() ==0 )
         {
-            os_printf("td set pwr: shift_b:%d, shift_g:%d, rate:%d\r\n", 
+            CAL_LOGI("td set pwr: shift_b:%d, shift_g:%d, rate:%d\r\n", 
                 g_temp_pwr_current.shift,
                 g_temp_pwr_current.shift_g, 
                 g_temp_pwr_current.mode);
@@ -1242,7 +1245,7 @@ void rwnx_cal_set_txpwr_ble(UINT32 pwr_gain)
     const PWR_REGS *pcfg;
 
     if(pwr_gain > 32) {
-        os_printf("set_txpwr unknow pwr idx:%d \r\n", pwr_gain); 
+        CAL_LOGI("set_txpwr unknow pwr idx:%d \r\n", pwr_gain); 
         return;
     }
 
@@ -1257,7 +1260,7 @@ void rwnx_cal_set_txpwr_ble(UINT32 pwr_gain)
 
     if(ble_in_dut_mode())
     {
-        //os_printf("ble setpwr idx:%d, g_td_shift:%d, idx_new:%d\r\n", 
+        //CAL_LOGI("ble setpwr idx:%d, g_td_shift:%d, idx_new:%d\r\n", 
         //    pwr_gain, g_ble_pwr_shift, pwr_idx);
     }
     
@@ -1277,12 +1280,12 @@ void rwnx_cal_set_txpwr_ble(UINT32 pwr_gain)
 
     if(get_ate_mode_state()) {
 #ifdef ATE_PRINT_DEBUG
-        os_printf("idx:%02d,ble- pg:0x%02x, %01x, %01x, %01x, %01x, %02x, %02x, %01x,\r\n", pwr_gain,
+        CAL_LOGI("idx:%02d,ble- pg:0x%02x, %01x, %01x, %01x, %01x, %02x, %02x, %01x,\r\n", pwr_gain,
             pcfg->pregain, pcfg->regb_28_31, pcfg->regc_8_10,pcfg->regc_4_6, pcfg->regc_0_2, 
             pcfg->rega_0_1, pcfg->rega_4_7);
-        os_printf("Xtal C: %d\r\n", manual_cal_get_xtal());
+        CAL_LOGI("Xtal C: %d\r\n", manual_cal_get_xtal());
 #else	
-		os_printf("idx:%02d\r\n", pwr_gain);
+		CAL_LOGI("idx:%02d\r\n", pwr_gain);
 #endif
     }
 
@@ -1323,7 +1326,7 @@ void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble)
     {
         //if(ble_in_dut_mode() ==0 )
         {
-            os_printf("td set ble pwr: shift:%d, cur_idx:%d\r\n", 
+            CAL_LOGI("td set ble pwr: shift:%d, cur_idx:%d\r\n", 
                 g_ble_pwr_shift, 
                 g_ble_pwr_indx);
         }
@@ -1369,17 +1372,16 @@ void rwnx_cal_ble_recover_rfconfig(void)
 #if CFG_USE_TEMPERATURE_DETECT
 void rwnx_cal_do_temp_detect(UINT16 cur_val, UINT16 thre, UINT16 *last)
 {
-    TMP_PWR_PTR tmp_pwr_ptr;
-    tmp_pwr_ptr = manual_cal_set_tmp_pwr(cur_val, thre, last);
-    if(tmp_pwr_ptr) 
-    {
+	TMP_PWR_PTR tmp_pwr_ptr;
+	tmp_pwr_ptr = manual_cal_set_tmp_pwr(cur_val, thre, last);
+	if (tmp_pwr_ptr) {
 		manual_cal_do_xtal_temp_delta_set(tmp_pwr_ptr->xtal_c_dlta);
-        manual_cal_do_xtal_cali(cur_val, 0, 0, 0);
-        
-		rwnx_cal_set_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g);
-        rwnx_set_tpc_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g);
-        rwnx_cal_set_ble_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta_ble);
-    }
+		manual_cal_do_xtal_cali(cur_val, 0, 0, 0);
+
+		rwnx_cal_set_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g, (INT16)tmp_pwr_ptr->p_index_delta_ble);
+		rwnx_set_tpc_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta, (INT16)tmp_pwr_ptr->p_index_delta_g, (INT16)tmp_pwr_ptr->p_index_delta_ble);
+		rwnx_cal_set_ble_txpwr_by_tmpdetect((INT16)tmp_pwr_ptr->p_index_delta_ble);
+	}
 }
 #endif // CFG_USE_TEMPERATURE_DETECT
 
@@ -1669,7 +1671,7 @@ void bk7011_band_cal(void)
     do {
         band += BAND_CAL_ADD_STEP;
         if(band > BAND_CAL_VAL_MAX) {
-            os_printf("band cal failed- band up to 127\r\n");
+            CAL_LOGI("band cal failed- band up to 127\r\n");
             goto band_exit;
         }
         
@@ -1684,7 +1686,7 @@ void bk7011_band_cal(void)
         }
     }while(unlocked);
 
-    //os_printf("found band:%02x\r\n", band);    
+    //CAL_LOGI("found band:%02x\r\n", band);    
     band_min = band_max = band;
 
     do {
@@ -1704,11 +1706,11 @@ void bk7011_band_cal(void)
         }
     }while(!unlocked);  
 
-    //os_printf("found band_min:%02x\r\n", band_min);    
+    //CAL_LOGI("found band_min:%02x\r\n", band_min);    
     
     do {
         if(band_max >= BAND_CAL_VAL_MAX) {
-            os_printf("band cal failed- chspi_max up to 0x7F\r\n");
+            CAL_LOGI("band cal failed- chspi_max up to 0x7F\r\n");
             break;
         }
         
@@ -1725,7 +1727,7 @@ void bk7011_band_cal(void)
     }while(!unlocked);  
 
     band = (band_max + band_min) / 2;
-    //os_printf("found band_max:%02x- last:%02x\r\n", band_max, band);
+    //CAL_LOGI("found band_max:%02x- last:%02x\r\n", band_max, band);
 
     gtx_band = band;
 band_exit:
@@ -1838,7 +1840,7 @@ void bk7011_set_rfcali_mode(int mode)
     #if 0
     if((mode != CALI_MODE_AUTO) && (mode != CALI_MODE_MANUAL))
     {
-        os_printf("rfcali_mode 0/1\r\n");
+        CAL_LOGI("rfcali_mode 0/1\r\n");
         return;
     }
     #endif
@@ -1861,7 +1863,7 @@ void bk7011_set_rfcali_mode(int mode)
 
     save_info_item(RF_CFG_MODE_ITEM, (UINT8 *)&g_cali_mode, NULL, NULL);
 
-    os_printf("set rfcali_mode:%d\r\n", g_cali_mode);
+    CAL_LOGI("set rfcali_mode:%d\r\n", g_cali_mode);
 }
 #endif
 
@@ -1875,12 +1877,12 @@ void bk7011_get_rfcali_mode(void)
         if((cali_mode == CALI_MODE_AUTO) || (cali_mode == CALI_MODE_MANUAL))
         {
             g_cali_mode = cali_mode;
-            os_printf("load flash rfcali mode:%d \r\n", g_cali_mode);
+            CAL_LOGI("load flash rfcali mode:%d \r\n", g_cali_mode);
             in_valid = 0;
         }
         else
         {
-            os_printf("rfcali_mode other:%d\r\n", cali_mode);
+            CAL_LOGI("rfcali_mode other:%d\r\n", cali_mode);
             in_valid = 1;
         }
     }
@@ -1895,7 +1897,7 @@ void bk7011_get_rfcali_mode(void)
             {
                 in_valid = 0;
                 g_cali_mode = cali_mode;
-                os_printf("user define rfcali mode:%d \r\n", g_cali_mode);
+                CAL_LOGI("user define rfcali mode:%d \r\n", g_cali_mode);
             }
         }
     }
@@ -1910,7 +1912,8 @@ void bk7011_get_rfcali_mode(void)
         }
     }
         
-    bk_printf("\r\nrfcali_mode:%d\r\n", g_cali_mode);
+    CAL_LOGI("\r\n");
+    CAL_LOGI("rfcali_mode:%d\r\n", g_cali_mode);
 }
 
 int bk7011_is_rfcali_mode_auto(void)
@@ -1923,7 +1926,7 @@ void bk7011_set_rf_config_tssithred_b(int tssi_thred_b)
 {
     if((tssi_thred_b < 0) || (tssi_thred_b > 0xff))
     {
-        os_printf("b tssi range:0-255, %d\r\n", tssi_thred_b);
+        CAL_LOGI("b tssi range:0-255, %d\r\n", tssi_thred_b);
         return;
     }
 
@@ -1931,14 +1934,14 @@ void bk7011_set_rf_config_tssithred_b(int tssi_thred_b)
 
     save_info_item(RF_CFG_TSSI_B_ITEM, (UINT8 *)&gtx_tssi_thred_b, NULL, NULL);
 
-    os_printf("set b_tssi_thred:%d\r\n", gtx_tssi_thred_b);
+    CAL_LOGI("set b_tssi_thred:%d\r\n", gtx_tssi_thred_b);
 }
 
 void bk7011_set_rf_config_tssithred_g(int tssi_thred_g)
 {
     if((tssi_thred_g < 0) || (tssi_thred_g > 0xff))
     {
-        os_printf("g tssi range:0-255, %d\r\n", tssi_thred_g);
+        CAL_LOGI("g tssi range:0-255, %d\r\n", tssi_thred_g);
         return;
     }
 
@@ -1946,14 +1949,14 @@ void bk7011_set_rf_config_tssithred_g(int tssi_thred_g)
 
     save_info_item(RF_CFG_TSSI_ITEM, (UINT8 *)&gtx_tssi_thred_g, NULL, NULL);
 
-    os_printf("set g_tssi_thred:%d\r\n", gtx_tssi_thred_g);
+    CAL_LOGI("set g_tssi_thred:%d\r\n", gtx_tssi_thred_g);
 }
 
 void bk7011_set_rf_config_tssithred_n20(int tssi_thred_n20)
 {
     if((tssi_thred_n20 < 0) || (tssi_thred_n20 > 0xff))
     {
-        os_printf("n20 tssi range:0-255, %d\r\n", tssi_thred_n20);
+        CAL_LOGI("n20 tssi range:0-255, %d\r\n", tssi_thred_n20);
         return;
     }
 
@@ -1961,14 +1964,14 @@ void bk7011_set_rf_config_tssithred_n20(int tssi_thred_n20)
 
     save_info_item(RF_CFG_TSSI_N20_ITEM, (UINT8 *)&gtx_tssi_thred_n20, NULL, NULL);
 
-    os_printf("set n20_tssi_thred:%d\r\n", gtx_tssi_thred_n20);
+    CAL_LOGI("set n20_tssi_thred:%d\r\n", gtx_tssi_thred_n20);
 }
 
 void bk7011_set_rf_config_tssithred_n40(int tssi_thred_n40)
 {
     if((tssi_thred_n40 < 0) || (tssi_thred_n40 > 0xff))
     {
-        os_printf("n40 tssi range:0-255, %d\r\n", tssi_thred_n40);
+        CAL_LOGI("n40 tssi range:0-255, %d\r\n", tssi_thred_n40);
         return;
     }
 
@@ -1976,7 +1979,7 @@ void bk7011_set_rf_config_tssithred_n40(int tssi_thred_n40)
 
     save_info_item(RF_CFG_TSSI_N40_ITEM, (UINT8 *)&gtx_tssi_thred_n40, NULL, NULL);
 
-    os_printf("set n40_tssi_thred:%d\r\n", gtx_tssi_thred_n40);
+    CAL_LOGI("set n40_tssi_thred:%d\r\n", gtx_tssi_thred_n40);
 }
 #endif
 
@@ -1992,7 +1995,7 @@ void bk7011_get_txpwr_config_reg(void)
     if(get_info_item(RF_CFG_TSSI_ITEM, (UINT8 *)&tssi_thred, NULL, NULL))
     {
         gtx_tssi_thred_g = tssi_thred;
-        os_printf("load flash tssi_th:g-%d \r\n", gtx_tssi_thred_g);
+        CAL_LOGI("load flash tssi_th:g-%d \r\n", gtx_tssi_thred_g);
     }
     // otherwise check if user set default value
     else 
@@ -2003,7 +2006,7 @@ void bk7011_get_txpwr_config_reg(void)
         if(is_used)
         {
             gtx_tssi_thred_g = tssi_thred;
-            os_printf("user define tssi_th:g-%d \r\n", gtx_tssi_thred_g);
+            CAL_LOGI("user define tssi_th:g-%d \r\n", gtx_tssi_thred_g);
         }
     }
 
@@ -2011,7 +2014,7 @@ void bk7011_get_txpwr_config_reg(void)
     if(get_info_item(RF_CFG_TSSI_B_ITEM, (UINT8 *)&tssi_thred, NULL, NULL))
     {
         gtx_tssi_thred_b = tssi_thred;
-        os_printf("load flash tssi_th:b-%d \r\n", gtx_tssi_thred_b);
+        CAL_LOGI("load flash tssi_th:b-%d \r\n", gtx_tssi_thred_b);
     }
     else
 #endif
@@ -2021,7 +2024,7 @@ void bk7011_get_txpwr_config_reg(void)
         if(is_used)
         {
             gtx_tssi_thred_b = tssi_thred;
-            os_printf("user define tssi_th:b-%d \r\n", gtx_tssi_thred_b);
+            CAL_LOGI("user define tssi_th:b-%d \r\n", gtx_tssi_thred_b);
         }
     }
 
@@ -2029,7 +2032,7 @@ void bk7011_get_txpwr_config_reg(void)
     if(get_info_item(RF_CFG_TSSI_N20_ITEM, (UINT8 *)&tssi_thred, NULL, NULL))
     {
         gtx_tssi_thred_n20 = tssi_thred;
-        os_printf("load flash tssi_th:n20-%d \r\n", gtx_tssi_thred_n20);
+        CAL_LOGI("load flash tssi_th:n20-%d \r\n", gtx_tssi_thred_n20);
     }
     else
 #endif
@@ -2039,7 +2042,7 @@ void bk7011_get_txpwr_config_reg(void)
         if(is_used)
         {
             gtx_tssi_thred_n20 = tssi_thred;
-            os_printf("user define tssi_th:n20-%d \r\n", gtx_tssi_thred_n20);
+            CAL_LOGI("user define tssi_th:n20-%d \r\n", gtx_tssi_thred_n20);
         }
     }
 
@@ -2047,7 +2050,7 @@ void bk7011_get_txpwr_config_reg(void)
     if(get_info_item(RF_CFG_TSSI_N40_ITEM, (UINT8 *)&tssi_thred, NULL, NULL))
     {
         gtx_tssi_thred_n40 = tssi_thred;
-        os_printf("load flash tssi_th:n40-%d \r\n", gtx_tssi_thred_n40);
+        CAL_LOGI("load flash tssi_th:n40-%d \r\n", gtx_tssi_thred_n40);
     }
     else
 #endif
@@ -2057,11 +2060,11 @@ void bk7011_get_txpwr_config_reg(void)
         if(is_used)
         {
             gtx_tssi_thred_n40 = tssi_thred;
-            os_printf("user define tssi_th:n40-%d \r\n", gtx_tssi_thred_n40);
+            CAL_LOGI("user define tssi_th:n40-%d \r\n", gtx_tssi_thred_n40);
         }
     }
     
-    bk_printf("\r\ntssi:b-%d, g-%d, n20-%d, n40-%d\r\n", gtx_tssi_thred_b, gtx_tssi_thred_g,
+    CAL_LOGI("\r\ntssi:b-%d, g-%d, n20-%d, n40-%d\r\n", gtx_tssi_thred_b, gtx_tssi_thred_g,
         gtx_tssi_thred_n20, gtx_tssi_thred_n40);
 }
 
@@ -2100,7 +2103,7 @@ static UINT32 bk7011_get_cnt_tssi(int cnt, UINT32 *adv_tssi, int cmp_min)
         if((tssi <= ADV_TSSI_MIN) && (cmp_min == 1))
         {
             // this print for warning
-            os_printf(" <=%d, drop\r\n", ADV_TSSI_MIN);
+            CAL_LOGI(" <=%d, drop\r\n", ADV_TSSI_MIN);
             continue;
         }
         CAL_PRT("\r\n", tssi);
@@ -2159,7 +2162,7 @@ static INT32 bk7011_get_tx_output_power(void)
 
 	#if DIFFERENCE_PIECES_CFG
 		tssioutpower = tssioutpower / 4 - gtx_tssi_thred - gav_tssi_temp;
-		//bk_printf("tssioutpower:%d\n",tssioutpower);
+		//CAL_LOGI("tssioutpower:%d\n",tssioutpower);
 	#else
         tssioutpower = tssioutpower / 4 - TSSI_POUT_TH - gav_tssi_temp;
 	#endif
@@ -2515,12 +2518,11 @@ INT32 bk7011_cal_tx_output_power(INT32 *val)
 
 static INT32 bk7011_get_tx_tssi(INT32 tssi_thred, INT32 tssi_offset)
 {
-    int i;
     INT32 tssioutpower = 0;
 
     tssioutpower = bk7011_get_cnt_tssi(4, NULL, 1);
     tssioutpower = tssioutpower / 4 - tssi_thred - tssi_offset;
- 
+
     return tssioutpower;
 }
 
@@ -2535,7 +2537,7 @@ static void bk7011_do_atuo_tx_cal_print(const char *fmt, ...)
         //UINT32 is_on = rwnx_cal_is_auto_rfcali_printf_on();
         //if(is_on)
         {
-            os_printf(fmt);
+            CAL_LOGI(fmt);
         }
     }
 }
@@ -2656,8 +2658,6 @@ extern void manual_cal_11b_2_ble(void);
 INT32 g_tssi_offset = 0;
 INT32 bk7011_cal_auto_tx_power(void)
 {
-    extern UINT32 g_dif_g_n40;
-
     // tx sinewave setting
     BK7011RCBEKEN.REG0x4C->bits.TESTPATTERN = 1;
     BK7011RCBEKEN.REG0x4C->bits.ICONSTANT = 0x200;
@@ -2824,7 +2824,7 @@ UINT32 bk7011_cal_get_tssi(void)
     total_tssi = total_tssi / TSSI_CNT;
     tssi = total_tssi - g_tssi_offset;
 
-    os_printf("tssi: %d, offset: %d-%d\r\n", tssi, total_tssi, g_tssi_offset);
+    CAL_LOGI("tssi: %d, offset: %d-%d\r\n", tssi, total_tssi, g_tssi_offset);
     
     return tssi;
 }
@@ -4005,7 +4005,7 @@ void bk7011_rx_cal_en(void)
 INT32 bk7011_cal_rx_dc(void)
 {
     INT32 index = 0;
-    INT32 i, j, k, t, curr, value;
+    INT32 i, j, k, curr, value;
     UINT32 rx_dc_gain_tab_temp[8];
     UINT32 rx_dc_gain_tab_temp1[8];
 
@@ -4202,9 +4202,9 @@ INT32 bk7011_cal_rx_iq(INT32 *val)
     INT32 gold_index = 0;
     INT32 i, curr, value, value1, value2;
 
-    do 
+    do
     {
-        int ret_i, tx_ifilter, ret_q, tx_qfilter;
+        int ret_i, ret_q;
 
         if(manual_cal_need_load_cmtag_from_flash() == 0)
         {
@@ -4643,7 +4643,7 @@ void calibration_main(void)
 
     if(manual_cal_is_tlv_tag_in_flash() == 0) 
     {
-        os_printf("NO RF TLV in flash, write def tab\r\n");
+        CAL_LOGI("NO RF TLV in flash, write def tab\r\n");
         // only auto cali mode need save default tab
         if(bk7011_is_rfcali_mode_auto())
         {
@@ -4691,7 +4691,7 @@ void bk7011_la_sample_print(UINT32 isrx)
 
     buf = os_malloc(LA_SAMPLE_BUF_LEN);
     if(!buf) {
-        os_printf("la_sample_print no buffer\r\n");
+        CAL_LOGI("la_sample_print no buffer\r\n");
         return;
     }
     
@@ -4721,7 +4721,7 @@ void bk7011_la_sample_print(UINT32 isrx)
    
 	do {
          reg_val = REG_READ((0x00800000 + 0x12*4));
-         os_printf("abc:%x\r\n",reg_val&0x8);
+         CAL_LOGI("abc:%x\r\n",reg_val&0x8);
     } while(reg_val & 0x8);  // while(!get_SYS_CTRL_Reg0x12_LaSmpFinish)
     
 	delay100us(100);	
@@ -4732,7 +4732,7 @@ void bk7011_la_sample_print(UINT32 isrx)
 	
 	for(i = 0; i < len; i ++)
 	{
-		os_printf("%08x\r\n", *((uint32_t *)(buf+i*4)));
+		CAL_LOGI("%08x\r\n", *((uint32_t *)(buf+i*4)));
 	}
 
     os_free(buf);
@@ -4770,13 +4770,13 @@ static int rfcali_cfg_tssi_b(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_cfg_tssi 0-255(for b)\r\n");
+        CAL_LOGI("rfcali_cfg_tssi 0-255(for b)\r\n");
         return 0;
     }
     
     tssi_thred_b = os_strtoul(argv[1], NULL, 10);
 
-    os_printf("cmd set tssi b_thred:%d\r\n", tssi_thred_b);
+    CAL_LOGI("cmd set tssi b_thred:%d\r\n", tssi_thred_b);
 
     bk7011_set_rf_config_tssithred_b(tssi_thred_b);
     return 0; 
@@ -4788,13 +4788,13 @@ static int rfcali_cfg_tssi_g(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_cfg_tssi 0-255(for b)\r\n");
+        CAL_LOGI("rfcali_cfg_tssi 0-255(for b)\r\n");
         return 0;
     }
     
     tssi_thred_g = os_strtoul(argv[1], NULL, 10);
 
-    os_printf("cmd set tssi g_thred:%d\r\n", tssi_thred_g);
+    CAL_LOGI("cmd set tssi g_thred:%d\r\n", tssi_thred_g);
 
     bk7011_set_rf_config_tssithred_g(tssi_thred_g);
     return 0; 
@@ -4806,13 +4806,13 @@ static int rfcali_cfg_tssi_n20(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_cfg_tssi 0-255(for n20)\r\n");
+        CAL_LOGI("rfcali_cfg_tssi 0-255(for n20)\r\n");
         return 0;
     }
     
     tssi_thred_n20 = os_strtoul(argv[1], NULL, 10);
 
-    os_printf("cmd set tssi n20_thred:%d\r\n", tssi_thred_n20);
+    CAL_LOGI("cmd set tssi n20_thred:%d\r\n", tssi_thred_n20);
 
     bk7011_set_rf_config_tssithred_n20(tssi_thred_n20);
     return 0; 
@@ -4824,13 +4824,13 @@ static int rfcali_cfg_tssi_n40(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_cfg_tssi 0-255(for n40)\r\n");
+        CAL_LOGI("rfcali_cfg_tssi 0-255(for n40)\r\n");
         return 0;
     }
     
     tssi_thred_n40 = os_strtoul(argv[1], NULL, 10);
 
-    os_printf("cmd set tssi n40_thred:%d\r\n", tssi_thred_n40);
+    CAL_LOGI("cmd set tssi n40_thred:%d\r\n", tssi_thred_n40);
 
     bk7011_set_rf_config_tssithred_n40(tssi_thred_n40);
     return 0; 
@@ -4842,7 +4842,7 @@ static int rfcali_cfg_rate_dist(int argc, char **argv)
 
     if(argc != 5)
     {
-        os_printf("rfcali_cfg_rate_dist b g n40 ble (0-31)\r\n");
+        CAL_LOGI("rfcali_cfg_rate_dist b g n40 ble (0-31)\r\n");
         return 0;
     }
     
@@ -4853,13 +4853,13 @@ static int rfcali_cfg_rate_dist(int argc, char **argv)
 
     if((dist_b > 31) || (dist_g > 31) || (dist_n40 > 31) || (dist_ble > 31))
     {
-        os_printf("rate_dist range:-31 - 31\r\n");
+        CAL_LOGI("rate_dist range:-31 - 31\r\n");
         return 0;
     }
 
     if((dist_b < -31) || (dist_g < -31) || (dist_n40 < -31) || (dist_ble < -31))
     {
-        os_printf("rate_dist range:-31 - 31\r\n");
+        CAL_LOGI("rate_dist range:-31 - 31\r\n");
         return 0;
     }
     
@@ -4874,7 +4874,7 @@ static int rfcali_cfg_mode(int argc, char **argv)
 
     if(argc != 2)
     {
-        os_printf("rfcali_mode 0/1\r\n");
+        CAL_LOGI("rfcali_mode 0/1\r\n");
         return 0;
     }
     
@@ -4882,7 +4882,7 @@ static int rfcali_cfg_mode(int argc, char **argv)
 #if 0
     if((rfcali_mode != CALI_MODE_AUTO) && (rfcali_mode != CALI_MODE_MANUAL))
     {
-        os_printf("rfcali_mode 0/1, %d\r\n", rfcali_mode);
+        CAL_LOGI("rfcali_mode 0/1, %d\r\n", rfcali_mode);
         return 0;
     }
 #endif

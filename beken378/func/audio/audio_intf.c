@@ -9,20 +9,7 @@
 #include "sys_rtos.h"
 #include "rtos_pub.h"
 #include "error.h"
-
-//#include "song.h"
-
-#define AUD_INTF_DEBUG
-#include "uart_pub.h"
-#ifdef AUD_INTF_DEBUG
-#define AUD_INTF_PRT                os_printf
-#define AUD_INTF_WPRT               warning_prf
-#define AUD_INTF_FATAL              fatal_prf
-#else
-#define AUD_INTF_PRT                null_prf
-#define AUD_INTF_WPRT               null_prf
-#define AUD_INTF_FATAL              null_prf
-#endif
+#include "audio.h"
 
 enum
 {
@@ -66,8 +53,10 @@ UINT8 *audio_read;
 #define DAC_TIMER_INTVAL           (15)
 beken_timer_t audio_dac_fill_timer;
 
+__maybe_unused static void audio_intf_dac_timer_handler(void *data);
+
 static void audio_intf_dac_timer_poll(void)
-{   
+{
 #if 0    
     UINT32 free_len;
     UINT32 left = (QQQG + sizeof(QQQG)) - audio_read;
@@ -85,10 +74,10 @@ static void audio_intf_dac_timer_poll(void)
         audio_read = (UINT8*)&QQQG[copy_from_start];
     }
     
-    //AUD_INTF_PRT("%d,%d\r\n", free_len, left);
+    //AUDIO_LOGI("%d,%d\r\n", free_len, left);
     
     rtos_reload_timer(&audio_dac_fill_timer);
-    //AUD_INTF_PRT("audio_intf_dac_timer_poll, restart timer\r\n");
+    //AUDIO_LOGI("audio_intf_dac_timer_poll, restart timer\r\n");
 #endif
 }
 
@@ -125,7 +114,7 @@ static void audio_intf_dac_set_volume_poll(void)
     if(dac_vol >= 20)
         dac_vol = 0;
 
-    AUD_INTF_PRT("set dac vol :%d\r\n", dac_vol);
+    AUDIO_LOGI("set dac vol :%d\r\n", dac_vol);
     
     ddev_control(aud_dac_hdl, AUD_DAC_CMD_SET_VOLUME, &dac_vol);
 }
@@ -172,7 +161,7 @@ static void audio_intf_adc_timer_poll(void)
         ddev_write(aud_dac_hdl, (char *)adc_data, copy_len, 0);
     }
 
-    //AUD_INTF_PRT("%d\r\n", copy_len);
+    //AUDIO_LOGI("%d\r\n", copy_len);
 
     rtos_reload_timer(&audio_adc_get_timer);
 }
@@ -207,7 +196,7 @@ static void audio_intf_adc_linein_timer_poll(void)
     ddev_control(aud_adc_hdl, AUD_ADC_CMD_DO_LINEIN_DETECT, NULL);
     
     rtos_reload_timer(&audio_adc_linein_timer);
-    //AUD_INTF_PRT("restart timer\r\n");
+    //AUDIO_LOGI("restart timer\r\n");
 }
 
 static void audio_intf_adc_linein_timer_handler(void *data)
@@ -236,7 +225,7 @@ static void audio_intf_set_sample_rate_poll(void)
     ddev_control(aud_adc_hdl, AUD_ADC_CMD_SET_SAMPLE_RATE, &param);
     #endif
 
-    AUD_INTF_PRT("set sample rate:%d\r\n", param);
+    AUDIO_LOGI("set sample rate:%d\r\n", param);
 }
 
 void audio_intf_set_sample_rate(void)
@@ -394,7 +383,7 @@ static void audio_intf_main( beken_thread_arg_t data )
                 
                 case AUD_INTF_EXIT:
                 {
-                    AUD_INTF_FATAL("exit aud intf\r\n");
+                    AUDIO_LOGE("exit aud intf\r\n");
                     goto audio_exit;
                 }
                 break;
@@ -450,7 +439,7 @@ UINT32 audio_intf_init(void)
     							AUDIO_QITEM_COUNT);
     	if (kNoErr != ret) 
     	{
-    		AUD_INTF_FATAL("audio_intf ceate queue failed\r\n");
+    		AUDIO_LOGE("audio_intf ceate queue failed\r\n");
             return kGeneralErr;
     	}
         
@@ -464,7 +453,7 @@ UINT32 audio_intf_init(void)
         {
             rtos_deinit_queue(&audio_msg_que);
             audio_msg_que = NULL;
-            AUD_INTF_FATAL("Error: Failed to create audio_intf: %d\r\n", ret);
+            AUDIO_LOGE("Error: Failed to create audio_intf: %d\r\n", ret);
             return kGeneralErr;
         }
     }
@@ -474,16 +463,13 @@ UINT32 audio_intf_init(void)
 
 void audio_intf_uninit(void)
 {
-    int ret;
-    
-    if((audio_handle) && (audio_msg_que))
-    {
-    	audio_intf_send_msg(AUD_INTF_EXIT);
-        
-        // wait untill task exit
-        while(audio_handle)
-            rtos_delay_milliseconds(100);     
-    }
+	if((audio_handle) && (audio_msg_que)) {
+		audio_intf_send_msg(AUD_INTF_EXIT);
+		// wait untill task exit
+		while(audio_handle) {
+			rtos_delay_milliseconds(100);
+		}
+	}
 }
 
 void audio_intf_send_msg(u32 new_msg)
@@ -491,15 +477,14 @@ void audio_intf_send_msg(u32 new_msg)
 	OSStatus ret;
 	AUDIO_MSG_T msg;
 
-    if(audio_msg_que) {
-    	msg.audio_msg = new_msg;
-    	
-    	ret = rtos_push_to_queue(&audio_msg_que, &msg, BEKEN_NO_WAIT);
-    	if(kNoErr != ret)
-    	{
-    		os_printf("audio_intf_send_msg failed\r\n");
-    	}
-    }
+	if(audio_msg_que) {
+		msg.audio_msg = new_msg;
+
+		ret = rtos_push_to_queue(&audio_msg_que, &msg, BEKEN_NO_WAIT);
+		if(kNoErr != ret) {
+			os_printf("audio_intf_send_msg failed\r\n");
+		}
+	}
 }
 
 

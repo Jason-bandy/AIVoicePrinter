@@ -453,9 +453,10 @@ extern void bk_wlan_set_max_txpwr(FP32 max_tx_pwr);
 extern void user_callback_register(void);
 
 /** @brief  Enable mcu power save,close mcu ,and wakeup by irq
- *
  */
 extern int bk_wlan_mcu_ps_mode_enable(void);
+/** @brief  Disable mcu power save mode
+ */
 extern int bk_wlan_mcu_ps_mode_disable(void);
 extern int bk_wlan_mcu_ps_get_enable_flag(void);
 enum
@@ -517,7 +518,6 @@ int wlan_sta_get_bss_size(uint32_t * size);
 int wlan_sta_get_bss(wlan_sta_bss_info_t * bss_get);
 int wlan_sta_set_bss(wlan_sta_bss_info_t * bss_set);
 int wlan_sta_enable(void);
-int wlan_sta_disable(void);
 int wlan_sta_scan_once(void);
 int wlan_sta_scan(wlan_sta_scan_param_t *param);
 int wlan_sta_scan_result(ScanResult_adv *results);
@@ -538,7 +538,6 @@ int wlan_ap_set_config(wlan_ap_config_t *config);
 int wlan_ap_get_config(wlan_ap_config_t *config);
 int wlan_ap_enable(void);
 int wlan_ap_reload(void);
-int wlan_ap_disable(void);
 int wlan_ap_sta_num(int *num);
 int wlan_ap_sta_info(wlan_ap_stas_t *stas);
 int wlan_register_notifier(notify_func func, void *arg);
@@ -546,15 +545,20 @@ int wlan_unregister_notifier(notify_func func, void *arg);
 
 #endif
 
+int wlan_sta_disable(void);
+int wlan_ap_disable(void);
 void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn);
 monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void);
 int http_ota_download(const char *uri);
+void bk_wlan_status_register_cb(FUNC_1PARAM_PTR cb);
+FUNC_1PARAM_PTR bk_wlan_get_status_cb(void);
+int auto_check_dtim_rf_ps_mode(void );
+int bk_wlan_set_channel_with_band_width(int channel, int band_width);
 
 #if (CFG_SUPPORT_ALIOS)
 /**********************for alios*******************************/
 void bk_wifi_get_mac_address(char *mac);
 void bk_wifi_set_mac_address(char *mac);
-static void bk_monitor_callback(uint8_t *data, int len, wifi_link_info_t *info);
 uint32_t bk_wlan_max_power_level_get(void);
 OSStatus bk_wlan_get_bssid_info(apinfo_adv_t *ap, uint8_t **key, int *key_len);
 #ifdef CONFIG_AOS_MESH

@@ -8,12 +8,6 @@
 #include "common.h"
 #include "crypto.h"
 
-#if 0
-#define CRYPTO_DBG bk_printf
-#else
-#define CRYPTO_DBG(...)
-#endif
-
 #if CFG_SUPPORT_ALIOS
 #include "ali_crypto.h"
 
@@ -284,12 +278,12 @@ int hmac_sha1_vector(const u8 *key, size_t key_len, size_t num_elem,
 
     mbedtls_md_init(&ctx);
     if(mbedtls_md_setup(&ctx, md_info, 1) != 0) {
-        CRYPTO_DBG("%s:%d mbedtls_md_setup failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d mbedtls_md_setup failed\n", __FUNCTION__, __LINE__);
         return -1;
     }
 
     if (mbedtls_md_hmac_starts(&ctx, key, key_len) != 0) {
-        CRYPTO_DBG("%s:%d mbedtls_md_hmac_starts failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d mbedtls_md_hmac_starts failed\n", __FUNCTION__, __LINE__);
         goto free_md;
     }
     for (i = 0; i < num_elem; i++) {
@@ -324,12 +318,12 @@ int hmac_md5_vector(const u8 *key, size_t key_len, size_t num_elem,
 
     mbedtls_md_init(&ctx);
     if(mbedtls_md_setup(&ctx, md_info, 1) != 0) {
-        CRYPTO_DBG("%s:%d mbedtls_md_setup failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d mbedtls_md_setup failed\n", __FUNCTION__, __LINE__);
         return -1;
     }
 
     if (mbedtls_md_hmac_starts(&ctx, key, key_len) != 0) {
-        CRYPTO_DBG("%s:%d mbedtls_md_hmac_starts failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d mbedtls_md_hmac_starts failed\n", __FUNCTION__, __LINE__);
         goto free_md;
     }
     for (i = 0; i < num_elem; i++) {
@@ -359,14 +353,14 @@ void *aes_encrypt_init(const u8 *key, size_t len)
 
     aes = os_malloc(sizeof(mbedtls_aes_context));
     if (aes == NULL) {
-        CRYPTO_DBG("%s:%d os_malloc failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d os_malloc failed\n", __FUNCTION__, __LINE__);
         return NULL;
     }
     mbedtls_aes_init(aes);
 
     ret = mbedtls_aes_setkey_enc(aes, key, len * 8);
     if (ret != 0) {
-        CRYPTO_DBG("%s:%d mbedtls_aes_setkey_enc failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d mbedtls_aes_setkey_enc failed\n", __FUNCTION__, __LINE__);
         os_free(aes);
         return NULL;
     }
@@ -393,14 +387,14 @@ void * aes_decrypt_init(const u8 *key, size_t len)
 
     aes = os_malloc(sizeof(mbedtls_aes_context));
     if (aes == NULL) {
-        CRYPTO_DBG("%s:%d os_malloc failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d os_malloc failed\n", __FUNCTION__, __LINE__);
         return NULL;
     }
     mbedtls_aes_init(aes);
 
     ret = mbedtls_aes_setkey_dec(aes, key, len * 8);
     if (ret != 0) {
-        CRYPTO_DBG("%s:%d mbedtls_aes_setkey_dec failed\n", __FUNCTION__, __LINE__);
+        WPA_LOGD("%s:%d mbedtls_aes_setkey_dec failed\n", __FUNCTION__, __LINE__);
         os_free(aes);
         return NULL;
     }

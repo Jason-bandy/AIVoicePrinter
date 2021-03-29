@@ -478,8 +478,6 @@ static int codec_mp3_run(struct audio_codec *codec)
                 /* set sample rate */
                 if (codec_mp3->frame_info.samprate != codec_mp3->current_sample_rate)
                 {
-                    rt_uint16_t *buffer = RT_NULL;
-
                     codec_mp3->current_sample_rate = codec_mp3->frame_info.samprate;
                     audio_device_set_rate(codec_mp3->current_sample_rate);
                 }

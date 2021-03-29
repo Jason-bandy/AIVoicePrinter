@@ -6,7 +6,7 @@
 #define BLE_CHAR_DATA_LEN            (128)
 
 #define BLE_MSG_QUEUE_COUNT          (20)
-#define BLE_STACK_SIZE               (4096)
+#define BLE_STACK_SIZE               (3 * 1024)
 
 // ble dut uart port
 #define PORT_UART1                   (1)

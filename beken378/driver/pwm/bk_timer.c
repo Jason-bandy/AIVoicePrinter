@@ -12,7 +12,7 @@ void bk_timer_isr(void) __SECTION(".itcm");
 
 
 #if (CFG_SOC_NAME != SOC_BK7231)
-static SDD_OPERATIONS bk_timer_op =
+static const SDD_OPERATIONS bk_timer_op =
 {
     bk_timer_ctrl
 };
@@ -157,7 +157,9 @@ static UINT32 init_timer_param_us(timer_param_t *timer_param)
 
 UINT32 bk_timer_ctrl(UINT32 cmd, void *param)
 {
+#if (CFG_SOC_NAME == SOC_BK7231U)
     int i_time_out;
+#endif
     UINT32 ret = BK_TIMER_SUCCESS;
     UINT32 ucChannel;
     UINT32 value;
@@ -301,7 +303,7 @@ void bk_timer_init(void)
 	REG_WRITE(TIMER3_5_CTL, value);
 
     intc_service_register(IRQ_TIMER, PRI_IRQ_TIMER, bk_timer_isr);
-    sddev_register_dev(TIMER_DEV_NAME, &bk_timer_op);
+    sddev_register_dev(TIMER_DEV_NAME, (SDD_OPERATIONS*)&bk_timer_op);
 }
 
 void bk_timer_exit(void)

@@ -77,12 +77,12 @@ EfErrCode ef_port_read(uint32_t addr, uint32_t *buf, size_t size) {
 
     EF_ASSERT(size % 4 == 0);
 
-    flash_read((unsigned char *)buf, (unsigned long)size, addr);
+    flash_read((char *)buf, (unsigned long)size, addr);
 
     return result;
 }
 
-/* 
+/*
  * size param: The flash size of you want to erase in bytes.
  * return: Returns the size of the actual erase.
  */
@@ -119,7 +119,6 @@ static int bk_erase(uint32_t addr, size_t size)
  */
 EfErrCode ef_port_erase(uint32_t addr, size_t size) {
     EfErrCode result = EF_NO_ERR;
-    EfErrCode sfud_result = EF_NO_ERR;
 
     /* make sure the start address is a multiple of FLASH_ERASE_MIN_SIZE */
     EF_ASSERT(addr % EF_ERASE_MIN_SIZE == 0);
@@ -142,11 +141,10 @@ EfErrCode ef_port_erase(uint32_t addr, size_t size) {
  */
 EfErrCode ef_port_write(uint32_t addr, const uint32_t *buf, size_t size) {
     EfErrCode result = EF_NO_ERR;
-    EfErrCode sfud_result = EF_NO_ERR;
 
     EF_ASSERT(size % 4 == 0);
 
-    flash_write((unsigned char *)buf, (unsigned long)size, addr);
+    flash_write((char *)buf, (unsigned long)size, addr);
 
     return result;
 }

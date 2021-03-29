@@ -452,6 +452,8 @@ OSStatus rtos_init_queue( beken_queue_t* queue, const char* name, uint32_t messa
   */
 OSStatus rtos_push_to_queue( beken_queue_t* queue, void* message, uint32_t timeout_ms);
 
+OSStatus rtos_push_to_queue_front( beken_queue_t* queue, void* message, uint32_t timeout_ms );
+
 
 /** @brief    Pops an object off a queue
   *
@@ -687,6 +689,8 @@ int rtos_init_event_fd(beken_event_t event_handle);
   * @retval   0 for success. On error, -1 is returned.
   */
 int rtos_deinit_event_fd(int fd);
+
+OSStatus rtos_push_to_queue_front(beken_queue_t* queue, void* message, uint32_t timeout_ms);
 
 /**
   * @}

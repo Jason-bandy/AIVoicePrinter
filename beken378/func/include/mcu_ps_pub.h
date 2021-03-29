@@ -27,7 +27,6 @@ typedef struct  sctrl_mcu_ps {
 
 #define  PS_USE_UART_WAKE_ARM   1
 
-extern void vTaskStepTick ( const TickType_t  );
 extern void mcu_ps_init ( void );
 extern void mcu_ps_exit ( void );
 extern UINT32 mcu_power_save ( UINT32 );

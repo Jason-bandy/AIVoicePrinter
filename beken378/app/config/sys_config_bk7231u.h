@@ -243,4 +243,13 @@
 #define CFG_USE_MCU_PS                             RHINO_CONFIG_CPU_PWR_MGMT
 #endif
 
+/*section 26 ----- power table for country code */
+#define CFG_POWER_TABLE                            0
+
+/* watchdog, freertos only */
+#define CFG_INT_WDG_ENABLED                        1
+#define CFG_INT_WDG_PERIOD_MS                      10000
+#define CFG_TASK_WDG_ENABLED                       1
+#define CFG_TASK_WDG_PERIOD_MS                     60000
+
 #endif // _SYS_CONFIG_H_

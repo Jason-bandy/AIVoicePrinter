@@ -4,6 +4,7 @@
 #include "lwip/sockets.h"
 #include "lwip/ip_addr.h"
 #include "lwip/inet.h"
+#include "lwip/api.h"
 
 #include "rtos_pub.h"
 
@@ -18,16 +19,16 @@ int tcp_mqtt_net_connect(tmqtt_client_netport *np, unsigned char *host, int port
 	if(np != NULL)
 	{
 		int retVal = -1;
-		uint32_t ipAddress;
+		ip_addr_t ipAddress;
 		struct sockaddr_in sAddr;
-		
+
 		if(np->socket > 0)
 		{
 			close(np->socket);
 		}
 		np->socket = -1;
-		
-		if (0 != netconn_gethostbyname(host, &ipAddress))
+
+		if (0 != netconn_gethostbyname((char*)host, &ipAddress))
 		{
 			TMQTT_LOG("gethostbyname_failed\r\n");
 			goto exit;
@@ -47,16 +48,16 @@ int tcp_mqtt_net_connect(tmqtt_client_netport *np, unsigned char *host, int port
 		if ((retVal = connect(np->socket, (const struct sockaddr *)&sAddr, sizeof(sAddr))) < 0)
 		{
 			close(np->socket);
-			
+
 			TMQTT_LOG("connect_failed\r\n");
 		    goto exit;
 		}
-		
+
 		TMQTT_LOG("socket succeed\r\n");
 	exit:
 		return retVal;
 	}
-	
+
 	return skt;
 }
 
@@ -142,7 +143,6 @@ int tcp_mqtt_read(tmqtt_client_netport *np, unsigned char *msg, int mlen,unsigne
 int tcp_mqtt_write(tmqtt_client_netport *np, unsigned char *msg, int mlen,unsigned int timeout)
 {
 	int sd_len = 0;
-	int i;
 	
 	if( np && np->socket >= 0)
 	{
@@ -195,6 +195,6 @@ int tcp_mqtt_client_api_register(tmqtt_client_netport *np)
 
 int tcp_mqtt_client_init(void)
 {
-	
+	return MQTT_OK;
 }
 

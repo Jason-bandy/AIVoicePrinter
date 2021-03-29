@@ -27,6 +27,8 @@
 #define MAX(a, b) (((a) > (b)) ? (a) : (b))
 #endif
 
+__maybe_unused static void wmm_calc_regulatory_limit(struct hostapd_data *hapd,
+				      struct hostapd_wmm_ac_params *acp);
 
 u8 wmm_aci_aifsn(int aifsn, int acm, int aci)
 {
@@ -251,13 +253,16 @@ int wmm_process_tspec(struct wmm_tspec_element *tspec)
 {
 	u64 medium_time;
 	unsigned int pps, duration;
-	unsigned int up, psb, dir, tid;
 	u16 val, surplus;
 
+#ifndef CONFIG_NO_STDOUT_DEBUG
+	unsigned int up, psb, dir, tid;
 	up = (tspec->ts_info[1] >> 3) & 0x07;
 	psb = (tspec->ts_info[1] >> 2) & 0x01;
 	dir = (tspec->ts_info[0] >> 5) & 0x03;
 	tid = (tspec->ts_info[0] >> 1) & 0x0f;
+#endif
+
 	wpa_printf(MSG_DEBUG, "WMM: TS Info: UP=%d PSB=%d Direction=%d TID=%d",
 		   up, psb, dir, tid);
 	val = le_to_host16(tspec->nominal_msdu_size);

@@ -18,8 +18,7 @@ static BUTTON_S* head_handle = NULL;
   */
 void button_init(BUTTON_S* handle, uint8_t(*pin_level)(), uint8_t active_level,void *user_data)
 {
-	memset(handle, sizeof(BUTTON_S), 0);
-	
+	memset(handle, 0, sizeof(BUTTON_S));
 	handle->event = (uint8_t)NONE_PRESS;
 	handle->hal_button_Level = pin_level;
 	handle->user_data = user_data;

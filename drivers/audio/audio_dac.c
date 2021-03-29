@@ -1,5 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
+#include "co_list.h"
 #include "audio.h"
 #include "audio_pub.h"
 #include "intc_pub.h"
@@ -8,6 +9,7 @@
 #include "gpio_pub.h"
 #include "mem_pub.h"
 #include "mailbox_pub.h"
+#include "fake_clock_pub.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -46,7 +48,15 @@ static const AUD_VOL_ST aud_vol_table[AUD_DAC_VOL_TABLE_LEN] =
     {0x1F, 26},           // F
 };
 #else
+#if (CFG_SOC_NAME == SOC_BK7271)
+/* TODO - for bk7271, AUD_DAC_VOL_TABLE_LEN is defined as 16,
+ * may need to correct aud_vol_table if we support volume
+ * configurating for bk7271!!!
+ */
+static const AUD_VOL_ST aud_vol_table[AUD_DAC_VOL_TABLE_LEN + 1] =
+#else
 static const AUD_VOL_ST aud_vol_table[AUD_DAC_VOL_TABLE_LEN] =
+#endif
 {
     {0x1A, 0},           // 0
     {0x1A, 2},           // 1
@@ -90,6 +100,7 @@ UINT32 audio_dac_is_enable_bit(void)
 {
 #if (CFG_SOC_NAME == SOC_BK7271)
     rt_kprintf("%s:%d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__);
+    return 0;
 #else
     UINT32 reg_addr = AUDIO_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
@@ -324,6 +335,7 @@ void audio_dac_dma_handler(UINT32 param)
 
 }
 
+__maybe_unused static void audio_dac_set_dma(UINT32 enable);
 static void audio_dac_set_dma(UINT32 enable)
 {
     GDMA_CFG_ST en_cfg;
@@ -336,6 +348,7 @@ static void audio_dac_set_dma(UINT32 enable)
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
 }
 
+__maybe_unused static void audio_dac_eixt_dma(void);
 static void audio_dac_eixt_dma(void)
 {
     GDMA_CFG_ST en_cfg;
@@ -404,47 +417,44 @@ void audio_dac_init_mute_pin(void)
 void audio_dac_eable_mute(UINT32 enable)
 {
 #if (CFG_SOC_NAME == SOC_BK7271)
-    rt_kprintf("%s:%d %d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__, enable);
-#else
+	rt_kprintf("%s:%d %d UNIMPLEMENTED\r\n", __FUNCTION__, __LINE__, enable);
 #endif
 	static uint8_t mute_flg = 0xFF;
-    UINT32 param;
+	UINT32 param;
 	UINT32 cur_tick, delay_tick;
-	
-    if (enable)
-    {
-    	if(mute_flg == 1)
-    	{
+
+	if (enable) {
+		if(mute_flg == 1) {
 			return;
-    	}
+		}
+
 		mute_flg = 1;
-        param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, AUD_DAC_MUTE_ENA_LEVEL);
+		param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, AUD_DAC_MUTE_ENA_LEVEL);
 		delay_tick = PA_MUTE_DELAY;
-    }
-    else
-    {
-        if(mute_flg == 0)
-    	{
+	} else {
+		if(mute_flg == 0) {
 			return;
-    	}
+		}
+
 		mute_flg = 0;
-        param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, ~AUD_DAC_MUTE_ENA_LEVEL);
+		param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, ~AUD_DAC_MUTE_ENA_LEVEL);
 		delay_tick = PA_UNMUTE_DELAY;
-    }
-    sddev_control(GPIO_DEV_NAME, CMD_GPIO_OUTPUT, &param);
-	
-	cur_tick = fclk_get_tick();
-	while(1)
-	{
-		if(fclk_get_tick() - cur_tick > delay_tick)
-		break;
 	}
-	
+	sddev_control(GPIO_DEV_NAME, CMD_GPIO_OUTPUT, &param);
+
+	cur_tick = fclk_get_tick();
+	while(1) {
+		if(fclk_get_tick() - cur_tick > delay_tick) {
+			break;
+		}
+	}
 }
 void audio_dac_set_volume(UINT32 percent)
 {
 	UINT32 param = percent, idx;
 	AUD_VOL_PTR vol;
+
+	__maybe_unused_var(param);
 	
 	if (percent > 99)
 		percent = 99;

@@ -15,9 +15,9 @@
 #define PWM_MIN_CHANNEL         (0)
 #define PWM_MAX_CHANNEL         (5)
 
-static rt_err_t drv_pwm_control(struct rt_device_pwm *device, int cmd, void *arg);
+#ifdef RT_USING_PWM
 static rt_err_t rt_pwm_set_channel(pwm_param_t *param, struct rt_pwm_configuration *configuration);
-
+static rt_err_t drv_pwm_control(struct rt_device_pwm *device, int cmd, void *arg);
 static struct rt_pwm_ops drv_ops =
 {
     drv_pwm_control
@@ -116,11 +116,8 @@ static rt_err_t drv_pwm_control(struct rt_device_pwm *device, int cmd, void *arg
     }
 }
 
-#ifdef RT_USING_PWM
-    pwm_param_t pwm_param;
-#endif
+pwm_param_t pwm_param;
 
-#ifdef RT_USING_PWM
 static void rt_pwm_init(void)
 {
     pwm_param.channel         = PWM0;
@@ -141,8 +138,9 @@ static void rt_pwm_init(void)
 int drv_pwm_init(void)
 {
 #ifdef RT_USING_PWM
-    rt_pwm_init();
-    rt_device_pwm_register(rt_calloc(1, sizeof(struct rt_device_pwm)), "pwm", &drv_ops, &pwm_param);
+	rt_pwm_init();
+	rt_device_pwm_register(rt_calloc(1, sizeof(struct rt_device_pwm)), "pwm", &drv_ops, &pwm_param);
 #endif /* RT_USING_PWM */
+	return RT_EOK;
 }
 INIT_DEVICE_EXPORT(drv_pwm_init);

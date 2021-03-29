@@ -9,7 +9,7 @@
 
 #if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7271) && (CFG_SOC_NAME != SOC_BK7236)
 static driver_fft_t driver_fft;
-static SDD_OPERATIONS fft_op =
+static const SDD_OPERATIONS fft_op =
 {
     fft_ctrl
 };
@@ -97,7 +97,7 @@ void fft_init(void)
 {
     intc_service_register(IRQ_FFT, PRI_IRQ_FFT, fft_isr);
 
-    sddev_register_dev(FFT_DEV_NAME, &fft_op);
+    sddev_register_dev(FFT_DEV_NAME, (SDD_OPERATIONS*)&fft_op);
 }
 
 void fft_exit(void)

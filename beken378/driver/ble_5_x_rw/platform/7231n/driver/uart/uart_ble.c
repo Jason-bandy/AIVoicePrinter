@@ -104,7 +104,7 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 			if ((length == 2) && (buff[1] == EXIT_DUT_ACT)) {
 				ble_send_msg(BLE_DUT_EXIT);
 			} else {
-				bk_printf("unknow dut cmd\r\n");
+				BLE_LOG_RAW("unknow dut cmd\r\n");
 			}
 		break;
 		case TX_PWR_SET_CMD:
@@ -116,7 +116,7 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 				}
 				extern void ble_cal_set_txpwr(uint8_t idx);
 				ble_cal_set_txpwr(tx_pwr_idx);
-				bk_printf("idx:%d\r\n", tx_pwr_idx);
+				BLE_LOG_RAW("idx:%d\r\n", tx_pwr_idx);
 
 				if (ble_test_mode == USER_TX_MODE)
 				{
@@ -124,7 +124,7 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 					ble_ctrl(CMD_BLE_START_TX, &tx_mode);
 				}
 			} else {
-				bk_printf("unknow dut cmd\r\n");
+				BLE_LOG_RAW("unknow dut cmd\r\n");
 			}
 		break;
 		case TX_PWR_SAVE_CMD:
@@ -140,7 +140,7 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 				manual_cal_save_txpwr(EVM_DEFUALT_BLE_RATE, channel, pwr_idx);
 
 			} else {
-				bk_printf("unknow dut cmd\r\n");
+				BLE_LOG_RAW("unknow dut cmd\r\n");
 			}
 		break;
 		case USER_SEND_CMD:
@@ -157,7 +157,7 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 
 				ble_test_mode = USER_TX_MODE;
 			} else {
-				bk_printf("unknow dut cmd\r\n");
+				BLE_LOG_RAW("unknow dut cmd\r\n");
 			}
 		break;
 		case USER_STOP_CMD:
@@ -166,10 +166,10 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 					ble_ctrl(CMD_BLE_STOP_TX, NULL);
 					ble_test_mode = IDLE_MODE;
 				} else {
-					bk_printf("unknow dut cmd");
+					BLE_LOG_RAW("unknow dut cmd");
 				}
 			} else {
-				bk_printf("unknow dut cmd");
+				BLE_LOG_RAW("unknow dut cmd");
 			}
 		break;
 		default:
@@ -223,7 +223,7 @@ void  ble_uart_isr(void)
 		if ((uart_rx_buf[0] == 0x01) && ((uart_rx_buf[3] + 4) == uart_rx_index)
 			&& (uart_rx_buf[1] != 0xe0) && (uart_rx_buf[2] != 0xfc)) {
 			if (ble_test_mode == USER_TX_MODE) {
-				bk_printf("user test is running\r\n");
+				BLE_LOG_RAW("user test is running\r\n");
 			} else {
 				host_send_cmd(uart_rx_buf, uart_rx_index);
 			}
@@ -237,7 +237,7 @@ void  ble_uart_isr(void)
 #endif
 			extern void ble_cal_set_txpwr(uint8_t idx);
 			ble_cal_set_txpwr(tx_pwr_idx);
-			bk_printf("c:%d\r\n", uart_rx_buf[4]);
+			BLE_LOG_RAW("c:%d\r\n", uart_rx_buf[4]);
 		}
 
 		uart_rx_index=0;
@@ -299,7 +299,7 @@ void uart_h4tl_data_switch(void)
 
 	while(uart_env.uart_tx_enable == 1)
 	{
-		//uart_printf("uart_h4tl_data_switch tx_enable\r\n");
+		//BLE_LOG_RAW("uart_h4tl_data_switch tx_enable\r\n");
 		// Retrieve callback pointer
 		callback = uart_env.tx.callback;
 		data     = uart_env.tx.dummy;

@@ -2,6 +2,16 @@
 #define _BK7231U_CAL_H_
 
 #if (CFG_SOC_NAME != SOC_BK7231)
+#define BK_PWR_BASE_11B			170	/* unit 0.1dBm */
+#define BK_PWR_BASE_11G			150	/* unit 0.1dBm */
+#define BK_PWR_BASE_HT20		140	/* unit 0.1dBm */
+#define BK_PWR_BASE_HT40		130	/* unit 0.1dBm */
+
+#define BK_PWR_11B_STEP_SIZE	60	/* unit 0.01dBm */
+#define BK_PWR_11G_STEP_SIZE	60	/* unit 0.01dBm */
+#define BK_PWR_HT20_STEP_SIZE	60	/* unit 0.01dBm */
+#define BK_PWR_HT40_STEP_SIZE	60	/* unit 0.01dBm */
+
 void delay05us(INT32 num);
 
 #define trx_reg_is_write(st_trxreg)     while(BK7011RCBEKEN.REG0x1->value & st_trxreg) 	{cpu_delay(1);}

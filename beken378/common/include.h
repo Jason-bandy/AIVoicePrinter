@@ -12,6 +12,19 @@
 #include "demos_config.h"
 #endif
 
-#endif // _INCLUDES_H_ 
-// eof
+#ifndef __maybe_unused
+#if __GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 4)
+#define __maybe_unused __attribute__((unused))
+#else
+#define __maybe_unused
+#endif /* __GNUC__ */
+#endif /* __maybe_unused */
 
+#ifndef __maybe_unused_var
+#define __maybe_unused_var(_var) do {\
+	(void)(_var);\
+} while(0)
+#endif
+
+#endif // _INCLUDES_H_
+// eof

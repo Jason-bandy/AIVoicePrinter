@@ -25,7 +25,6 @@ static struct bk_spi_dev *spi_dev;
 
 rt_err_t _spi_configure(struct rt_spi_device *dev, struct rt_spi_configuration *cfg)
 {
-    int result = RT_EOK;
     uint32_t mode;
 
     RT_ASSERT(dev != RT_NULL);
@@ -64,7 +63,6 @@ rt_err_t _spi_configure(struct rt_spi_device *dev, struct rt_spi_configuration *
 rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
 {
     rt_uint32_t master;
-    struct rt_spi_bus *spi_bus = RT_NULL;
     struct rt_spi_configuration *cfg = RT_NULL;
     struct spi_message spi_msg;
 
@@ -74,7 +72,6 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
     if(msg->length == 0)
         return 0;
 
-    spi_bus = dev->bus;
     cfg = &dev->config;
     master = (cfg->mode & RT_SPI_SLAVE) ? 0 : 1;
 

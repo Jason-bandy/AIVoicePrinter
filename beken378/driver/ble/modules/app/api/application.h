@@ -305,6 +305,10 @@ void app_set_mode(remote_conn_mode mode, uint32_t timeout);
  */
 remote_ctrl_struct app_get_mode(void);
 
+uint8_t appm_get_app_status(void);
+void appm_disconnect(void);
+ble_err_t appm_stop_advertising(void);
+void appm_disconnect(void);
 
 /// @} APP
 

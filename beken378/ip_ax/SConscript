@@ -1,0 +1,52 @@
+from building import *
+
+cwd  = GetCurrentDir()
+
+src = []
+
+path = []
+
+sys_config = os.path.join(cwd, '..', '..', 'config', 'sys_config.h')
+options = LocalOptions(sys_config)
+
+wifi_lib_name = 'ip'
+platform_match = 'yes'
+
+if (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7236'):
+    wifi_lib_name += '_7236'
+else:
+    wifi_lib_name += '_unknown'
+    platform_match = 'no'
+
+"""it seems that CFG_USE_MCU_PS and CFG_USE_DEEP_PS not used in rwnx libarary
+if (GetLocalDepend(options, 'CFG_USE_MCU_PS') == 1):
+    wifi_lib_name += '_mcu'
+
+if (GetLocalDepend(options, 'CFG_USE_DEEP_PS') == 1):
+    wifi_lib_name += '_deep'
+"""
+
+if (GetLocalDepend(options, 'CFG_USE_BLE_PS') == 1):
+    wifi_lib_name += '_ble'
+
+if (GetLocalDepend(options, 'CFG_USE_STA_PS') == 1):
+    wifi_lib_name += '_sta'
+
+if (GetLocalDepend(options, 'CFG_USE_AP_PS') == 1):
+    wifi_lib_name += '_ap'
+
+
+libs = [wifi_lib_name]
+libpath = [cwd + '/']
+
+cppdefines = []
+
+if platform_match == 'yes':
+    print 'using ip_ax: lib' + wifi_lib_name + '.a'
+    group_use_lib = DefineGroup('beken_ip_lib', [], depend = [''], CPPPATH = path, CPPDEFINES = cppdefines, LIBS = libs, LIBPATH = libpath)
+    group_build_lib = DefineGroup('beken_ip', src, depend = ['BUILD_LIB'], CPPPATH = path, CPPDEFINES = cppdefines, LIBS = libs, LIBPATH = libpath, LIBNAME = 'lib' + wifi_lib_name + '.a')
+    group = group_use_lib + group_build_lib
+else:
+    group = []
+
+Return('group')

@@ -2,6 +2,7 @@
 #include <board.h>
 #include "drv_psram.h"
 #include "qspi_pub.h"
+#include "mem_pub.h"
 
 #define RT_HW_PSRAM_BEGIN (void*)(0x3000000)
 #define RT_HW_PSRAM_END   (void*)(0x3000000 + 8 *1024 * 1024)
@@ -27,13 +28,12 @@ void psram_free(void *ptr)
 void *psram_calloc(unsigned int n, unsigned int size)
 {
     void* ptr = NULL;
-    
+
     ptr = psram_malloc(n * size);
-    if (ptr)
-    {
-        memset(ptr, 0, n * size);
+    if (ptr) {
+        os_memset(ptr, 0, n * size);
     }
-    
+
     return ptr;
 }
 
@@ -53,9 +53,9 @@ void psram_init(uint8_t line_mode, uint8_t voltage_level)
 	bk_qspi_psram_reset();
 #endif
 
-	qspi_dcache_drv_desc qspi_cfg;
 	uint8_t SetLineMode = 0;
 
+	__maybe_unused_var(SetLineMode);
 	if (line_mode == 0)
 		SetLineMode = 0;
 	else if (line_mode == 1)
@@ -71,7 +71,10 @@ void psram_init(uint8_t line_mode, uint8_t voltage_level)
 	}
 
 	bk_qspi_psram_quad_mode_switch(line_mode);
-	qspi_cfg.mode = 0x00 | SetLineMode; 	// 0: 1 line mode	 3: 4 line mode
+
+#if CFG_PSRAM_HEAP
+	qspi_dcache_drv_desc qspi_cfg;
+	qspi_cfg.mode = 0x00 | SetLineMode;	// 0: 1 line mode	 3: 4 line mode
 	qspi_cfg.clk_set = 0x10;
 	qspi_cfg.wr_command = SetLineMode ? 0x38 : 0x02;		//write
 	qspi_cfg.rd_command = SetLineMode ? 0xEB : 0x03;		//read
@@ -79,7 +82,6 @@ void psram_init(uint8_t line_mode, uint8_t voltage_level)
 	qspi_cfg.rd_dummy_size = SetLineMode ? 0x06 : 0x00;
 	qspi_cfg.voltage_level = voltage_level;
 
-#if CFG_PSRAM_HEAP
 	bk_qspi_dcache_initialize(&qspi_cfg);
 	bk_qspi_start();
 
@@ -89,4 +91,3 @@ void psram_init(uint8_t line_mode, uint8_t voltage_level)
 	printf("rt_memheap_init ok!\r\n");
 }
 // eof
- 

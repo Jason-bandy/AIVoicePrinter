@@ -165,6 +165,7 @@ static int cmd_parse_argv(char *cmd, char *argv[], int size)
 	return argc;
 }
 
+#if CFG_WPA3
 /* parse all argument vectors from a command string, return argument count */
 static int cmd_parse_array_int(char *cmd, int *array, int size)
 {
@@ -192,6 +193,7 @@ static int cmd_parse_array_int(char *cmd, int *array, int size)
 
 	return argc;
 }
+#endif
 
 /* wpas parse */
 
@@ -202,12 +204,12 @@ static int cmd_wpas_parse_int(const char *value, int min, int max, int *dst)
 
 	val = strtol(value, &end, 0);
 	if (*end) {
-		bk_printf("Invalid number '%s'", value);
+		WPA_LOGE("Invalid number '%s'", value);
 		return -1;
 	}
 
 	if (val < min || val > max) {
-		bk_printf("out of range value %d (%s), range is [%d, %d]\n",
+		WPA_LOGE("out of range value %d (%s), range is [%d, %d]\n",
 			 val, value, min, max);
 		return -1;
 	}
@@ -249,7 +251,7 @@ static int cmd_wpas_parse_key_mgmt(const char *value)
 		else if (os_strcmp(start, "SAE") == 0)
 			val |= WPA_KEY_MGMT_SAE;
 		else {
-			os_printf("Invalid key_mgmt '%s'", start);
+			WPA_LOGE("Invalid key_mgmt '%s'", start);
 			errors++;
 		}
 
@@ -260,11 +262,11 @@ static int cmd_wpas_parse_key_mgmt(const char *value)
 	os_free(buf);
 
 	if (val == 0) {
-		os_printf("No key_mgmt values configured\n");
+		WPA_LOGE("No key_mgmt values configured\n");
 		errors++;
 	}
 
-	os_printf("key_mgmt: 0x%x\n", val);
+	WPA_LOGI("key_mgmt: 0x%x\n", val);
 	return errors ? -1 : val;
 }
 
@@ -355,7 +357,7 @@ static int cmd_wpas_parse_proto(const char *value)
 		else if (os_strcmp(start, "OSEN") == 0)
 			val |= WPA_PROTO_OSEN;
 		else {
-			os_printf("Invalid proto '%s'\n", start);
+			WPA_LOGE("Invalid proto '%s'\n", start);
 			errors++;
 		}
 
@@ -368,12 +370,12 @@ static int cmd_wpas_parse_proto(const char *value)
 /* softAP work on open mode. */
 #if 0
 	if (val == 0) {
-		os_printf("No proto values configured\n");
+		WPA_LOGI("No proto values configured\n");
 		errors++;
 	}
 #endif
 
-	os_printf("proto: 0x%x\n", val);
+	WPA_LOGI("proto: 0x%x\n", val);
 	return errors ? -1 : val;
 }
 
@@ -406,7 +408,7 @@ static int cmd_wpas_parse_auth_alg(const char *value)
 		else if (os_strcmp(start, "SAE") == 0)
 			val |= WPA_AUTH_ALG_SAE;
 		else {
-			os_printf("Invalid auth_alg '%s'\n", start);
+			WPA_LOGE("Invalid auth_alg '%s'\n", start);
 			errors++;
 		}
 
@@ -417,17 +419,17 @@ static int cmd_wpas_parse_auth_alg(const char *value)
 	os_free(buf);
 
 	if (val == 0) {
-		os_printf("No auth_alg values configured\n");
+		WPA_LOGE("No auth_alg values configured\n");
 		errors++;
 	}
 
-	os_printf("auth_alg: 0x%x\n", val);
+	WPA_LOGI("auth_alg: 0x%x\n", val);
 	return errors ? -1 : val;
 }
 
 static void cmd_wlan_sta_print_ap(struct ApListStruct *ap)
 {
-	os_printf("" MACSTR " ssid=%-32.32s\n",
+	WPA_LOGI("" MACSTR " ssid=%-32.32s\n",
 		MAC2STR(ap->bssid), ap->ssid);
 }
 
@@ -436,7 +438,7 @@ static void cmd_wlan_sta_print_scan_results(ScanResult_adv *results)
 	int i;
 
 	for (i = 0; i < results->ApNum; ++i) {
-		os_printf("\n%02d:  ", i + 1);
+		WPA_LOGI("%02d:  ", i + 1);
 		cmd_wlan_sta_print_ap(&results->ApList[i]);
 	}
 }
@@ -548,7 +550,7 @@ static int cmd_wlan_sta_set(char *cmd)
 			int valid = 1;
 			for (i = 0; i < num; i++) {
 				if (dragonfly_suitable_group(groups[i], 0) == 0) {
-					os_printf("Invalid sae group %d\n", groups[i]);
+					WPA_LOGE("Invalid sae group %d\n", groups[i]);
 					valid = 0;
 				}
 			}
@@ -586,7 +588,7 @@ out:
 	if (config.field < WLAN_STA_FIELD_NUM)
 		return wlan_sta_set_config(&config);
 
-	os_printf("invalid arg '%s %s'\n", cmd, value);
+	WPA_LOGE("invalid arg '%s %s'\n", cmd, value);
 	return -2;
 }
 
@@ -629,43 +631,43 @@ static int cmd_wlan_sta_get(char *cmd)
 	} else if (os_strcmp(cmd, "scan_ssid") == 0) {
 		config.field = WLAN_STA_FIELD_SCAN_SSID;
 	} else {
-		os_printf("invalid arg '%s'\n", cmd);
+		WPA_LOGE("invalid arg '%s'\n", cmd);
 		return -2;
 	}
 
 	if (wlan_sta_get_config(&config) != 0) {
-		os_printf("get config failed\n");
+		WPA_LOGE("get config failed\n");
 		return -1;
 	}
 
 	if (config.field == WLAN_STA_FIELD_SSID) {
-		os_printf("ssid: %.32s\n", config.u.ssid.ssid);
+		WPA_LOGI("ssid: %.32s\n", config.u.ssid.ssid);
 	} else if (config.field == WLAN_STA_FIELD_PSK) {
-		os_printf("psk: %s\n", config.u.psk);
+		WPA_LOGI("psk: %s\n", config.u.psk);
 	} else if (config.field == WLAN_STA_FIELD_WEP_KEY0) {
-		os_printf("wep_key0: %s\n", config.u.wep_key);
+		WPA_LOGI("wep_key0: %s\n", config.u.wep_key);
 	} else if (config.field == WLAN_STA_FIELD_WEP_KEY1) {
-		os_printf("wep_key1: %s\n", config.u.wep_key);
+		WPA_LOGI("wep_key1: %s\n", config.u.wep_key);
 	} else if (config.field == WLAN_STA_FIELD_WEP_KEY2) {
-		os_printf("wep_key2: %s\n", config.u.wep_key);
+		WPA_LOGI("wep_key2: %s\n", config.u.wep_key);
 	} else if (config.field == WLAN_STA_FIELD_WEP_KEY3) {
-		os_printf("wep_key3: %s\n", config.u.wep_key);
+		WPA_LOGI("wep_key3: %s\n", config.u.wep_key);
 	} else if (config.field == WLAN_STA_FIELD_WEP_KEY_INDEX) {
-		os_printf("wep_key_index: %d\n", config.u.wep_tx_keyidx);
+		WPA_LOGI("wep_key_index: %d\n", config.u.wep_tx_keyidx);
 	} else if (config.field == WLAN_STA_FIELD_KEY_MGMT) {
-		os_printf("key_mgmt: %#06x\n", config.u.key_mgmt);
+		WPA_LOGI("key_mgmt: %#06x\n", config.u.key_mgmt);
 	} else if (config.field == WLAN_STA_FIELD_PAIRWISE_CIPHER) {
-		os_printf("pairwise_cipher: %#06x\n", config.u.pairwise_cipher);
+		WPA_LOGI("pairwise_cipher: %#06x\n", config.u.pairwise_cipher);
 	} else if (config.field == WLAN_STA_FIELD_GROUP_CIPHER) {
-		os_printf("group_cipher: %#06x\n", config.u.group_cipher);
+		WPA_LOGI("group_cipher: %#06x\n", config.u.group_cipher);
 	} else if (config.field == WLAN_STA_FIELD_PROTO) {
-		os_printf("proto: %#06x\n", config.u.proto);
+		WPA_LOGI("proto: %#06x\n", config.u.proto);
 	} else if (config.field == WLAN_STA_FIELD_AUTH_ALG) {
-		os_printf("auth_alg: %#06x\n", config.u.auth_alg);
+		WPA_LOGI("auth_alg: %#06x\n", config.u.auth_alg);
 	} else if (config.field == WLAN_STA_FIELD_WPA_PTK_REKEY) {
-		os_printf("ptk_rekey: %d\n", config.u.wpa_ptk_rekey);
+		WPA_LOGI("ptk_rekey: %d\n", config.u.wpa_ptk_rekey);
 	} else if (config.field == WLAN_STA_FIELD_SCAN_SSID) {
-		os_printf("scan_ssid: %d\n", config.u.scan_ssid);
+		WPA_LOGI("scan_ssid: %d\n", config.u.scan_ssid);
 	}
 
 	return 0;
@@ -690,7 +692,6 @@ int cmd_wlan_sta_exec(char *cmd)
 		/* default value for WFA certification */
 
 		network_InitTypeDef_st wNetConfig;
-		int len;
 		char *oob_ssid = "Wi-Fi";
 		char *connect_key = "12345678";
 
@@ -756,11 +757,11 @@ int cmd_wlan_sta_exec(char *cmd)
 		wlan_sta_states_t state;
 		ret = wlan_sta_state(&state);
 		if (ret == 0)
-			os_printf("sta state: %d\n", state);
+			WPA_LOGI("sta state: %d\n", state);
 	} else if (os_strcmp(cmd, "ap") == 0) {
 		struct ApListStruct *ap = os_malloc(sizeof(*ap));
 		if (ap == NULL) {
-			os_printf("no mem\n");
+			WPA_LOGE("no mem\n");
 			ret = -1;
 			goto out;
 		}
@@ -782,7 +783,7 @@ int cmd_wlan_sta_exec(char *cmd)
 		os_strlcpy(param.passphrase, argv[1], sizeof(param.passphrase));
 		ret = wlan_sta_gen_psk(&param);
 		if (ret == 0) {
-			os_printf("psk: ");
+			WPA_LOGI("psk: ");
 			for (i = 0; i < sizeof(param.psk); ++i)
 				os_printf("%02x", param.psk[i]);
 			os_printf("\n");
@@ -793,7 +794,7 @@ int cmd_wlan_sta_exec(char *cmd)
 		wlan_sta_wps_pin_t wps;
 		ret = wlan_sta_wps_pin_get(&wps);
 		if (ret == 0)
-			os_printf("WPS pin: %s\n", wps.pin);
+			WPA_LOGI("WPS pin: %s\n", wps.pin);
 	} else if (os_strncmp(cmd, "wps pin ", 8) == 0) {
 		if (os_strlen(cmd + 8) != 8) {
 			ret = -2;
@@ -804,18 +805,18 @@ int cmd_wlan_sta_exec(char *cmd)
 		wps.pin[8] = '\0';
 		ret = wlan_sta_wps_pin_set(&wps);
 	} else {
-		os_printf("unknown cmd '%s'\n", cmd);
+		WPA_LOGE("unknown cmd '%s'\n", cmd);
 		return -1;
 	}
 
 out:
 	if (ret == 0) {
-		os_printf("[OK]\n");
+		WPA_LOGI("[OK]\n");
 	} else if (ret == -2) {
-		os_printf("cmd '%s' invalid arg\n", cmd);
+		WPA_LOGE("cmd '%s' invalid arg\n", cmd);
 		return -1;
 	} else if (ret == -1) {
-		os_printf("cmd '%s' exec failed\n", cmd);
+		WPA_LOGE("cmd '%s' exec failed\n", cmd);
 		return -1;
 	}
 
@@ -826,10 +827,10 @@ static void cmd_wlan_ap_print_sta_info(wlan_ap_stas_t *stas)
 {
 	int i;
 
-	os_printf("sta_num: %d\n", stas->num);
+	WPA_LOGI("sta_num: %d\n", stas->num);
 
 	for (i = 0; i < stas->num; i++) {
-		os_printf("[%02d]Mac addr: %02x:%02x:%02x:%02x:%02x:%02x\n",
+		WPA_LOGI("[%02d]Mac addr: %02x:%02x:%02x:%02x:%02x:%02x\n",
 			i + 1, stas->sta[i].addr[0], stas->sta[i].addr[1],
 			stas->sta[i].addr[2], stas->sta[i].addr[3],
 			stas->sta[i].addr[4], stas->sta[i].addr[5]);
@@ -883,7 +884,7 @@ static int cmd_wlan_ap_set(char *cmd)
 			g_ap_param_ptr->cipher_suite = BK_SECURITY_TYPE_WPA2_AES;
 		else
 			g_ap_param_ptr->cipher_suite = 0;
-		//os_printf("key_mgmt: %d\n", g_ap_param_ptr->cipher_suite);
+		//WPA_LOGI("key_mgmt: %d\n", g_ap_param_ptr->cipher_suite);
 	} else if (os_strcmp(cmd, "wpa") == 0) {
 		int wpa_cipher = cmd_wpas_parse_cipher(value);
 		if (wpa_cipher > 0) {
@@ -977,7 +978,7 @@ static int cmd_wlan_ap_set(char *cmd)
 		return wlan_ap_set_config(&config);
 
 out:
-	os_printf("invalid arg '%s %s'\n", cmd, value);
+	WPA_LOGE("invalid arg '%s %s'\n", cmd, value);
 	return -2;
 }
 
@@ -1026,59 +1027,59 @@ static int cmd_wlan_ap_get(char *cmd)
 	} else if (os_strcmp(cmd, "max_num_sta") == 0) {
 		config.field = WLAN_AP_FIELD_MAX_NUM_STA;
 	} else {
-		os_printf("invalid arg '%s'\n", cmd);
+		WPA_LOGE("invalid arg '%s'\n", cmd);
 		return -2;
 	}
 
 	if (wlan_ap_get_config(&config) != 0) {
-		os_printf("get config failed\n");
+		WPA_LOGE("get config failed\n");
 		return -1;
 	}
 
 	if (config.field == WLAN_AP_FIELD_SSID) {
-		os_printf("ssid: %.32s\n", config.u.ssid.ssid);
+		WPA_LOGI("ssid: %.32s\n", config.u.ssid.ssid);
 	} else if (config.field == WLAN_AP_FIELD_PSK) {
-		os_printf("psk: %s\n", config.u.psk);
+		WPA_LOGI("psk: %s\n", config.u.psk);
 	} else if (config.field == WLAN_AP_FIELD_KEY_MGMT) {
-		os_printf("key_mgmt: %#06x\n", config.u.key_mgmt);
+		WPA_LOGI("key_mgmt: %#06x\n", config.u.key_mgmt);
 	} else if (config.field == WLAN_AP_FIELD_WPA_CIPHER) {
-		os_printf("wpa_cipher: %#06x\n", config.u.wpa_cipher);
+		WPA_LOGI("wpa_cipher: %#06x\n", config.u.wpa_cipher);
 	} else if (config.field == WLAN_AP_FIELD_RSN_CIPHER) {
-		os_printf("rsn_cipher: %#06x\n", config.u.rsn_cipher);
+		WPA_LOGI("rsn_cipher: %#06x\n", config.u.rsn_cipher);
 	} else if (config.field == WLAN_AP_FIELD_PROTO) {
-		os_printf("proto: %#06x\n", config.u.proto);
+		WPA_LOGI("proto: %#06x\n", config.u.proto);
 	} else if (config.field == WLAN_AP_FIELD_AUTH_ALG) {
-		os_printf("auth_alg: %#06x\n", config.u.auth_alg);
+		WPA_LOGI("auth_alg: %#06x\n", config.u.auth_alg);
 	} else if (config.field == WLAN_AP_FIELD_GROUP_REKEY) {
-		os_printf("group_rekey: %d\n", config.u.group_rekey);
+		WPA_LOGI("group_rekey: %d\n", config.u.group_rekey);
 	} else if (config.field == WLAN_AP_FIELD_STRICT_REKEY) {
-		os_printf("strict_rekey: %d\n", config.u.strict_rekey);
+		WPA_LOGI("strict_rekey: %d\n", config.u.strict_rekey);
 	} else if (config.field == WLAN_AP_FIELD_GMK_REKEY) {
-		os_printf("gmk_rekey: %d\n", config.u.gmk_rekey);
+		WPA_LOGI("gmk_rekey: %d\n", config.u.gmk_rekey);
 	} else if (config.field == WLAN_AP_FIELD_PTK_REKEY) {
-		os_printf("ptk_rekey: %d\n", config.u.ptk_rekey);
+		WPA_LOGI("ptk_rekey: %d\n", config.u.ptk_rekey);
 	} else if (config.field == WLAN_AP_FIELD_HW_MODE) {
 		if (config.u.hw_mode == WLAN_AP_HW_MODE_IEEE80211B) {
-			os_printf("hw_mode: b\n");
+			WPA_LOGI("hw_mode: b\n");
 		} else if (config.u.hw_mode == WLAN_AP_HW_MODE_IEEE80211G) {
-			os_printf("hw_mode: g\n");
+			WPA_LOGI("hw_mode: g\n");
 		} else if (config.u.hw_mode == WLAN_AP_HW_MODE_IEEE80211A) {
-			os_printf("hw_mode: a\n");
+			WPA_LOGI("hw_mode: a\n");
 		} else if (config.u.hw_mode == WLAN_AP_HW_MODE_IEEE80211AD) {
-			os_printf("hw_mode: ad\n");
+			WPA_LOGI("hw_mode: ad\n");
 		} else {
-			os_printf("invalid hw_mode %d\n", config.u.hw_mode);
+			WPA_LOGI("invalid hw_mode %d\n", config.u.hw_mode);
 		}
 	} else if (config.field == WLAN_AP_FIELD_IEEE80211N) {
-		os_printf("ieee80211n: %d\n", config.u.ieee80211n);
+		WPA_LOGI("ieee80211n: %d\n", config.u.ieee80211n);
 	} else if (config.field == WLAN_AP_FIELD_CHANNEL) {
-		os_printf("channel: %d\n", config.u.channel);
+		WPA_LOGI("channel: %d\n", config.u.channel);
 	} else if (config.field == WLAN_AP_FIELD_BEACON_INT) {
-		os_printf("beacon_int: %d\n", config.u.beacon_int);
+		WPA_LOGI("beacon_int: %d\n", config.u.beacon_int);
 	} else if (config.field == WLAN_AP_FIELD_DTIM) {
-		os_printf("dtim: %d\n", config.u.dtim);
+		WPA_LOGI("dtim: %d\n", config.u.dtim);
 	} else if (config.field == WLAN_AP_FIELD_MAX_NUM_STA) {
-		os_printf("max_num_sta: %d\n", config.u.max_num_sta);
+		WPA_LOGI("max_num_sta: %d\n", config.u.max_num_sta);
 	}
 
 	return 0;
@@ -1097,7 +1098,7 @@ int cmd_wlan_ap_exec(char *cmd)
 		ret = wlan_ap_set((uint8_t *)argv[0], os_strlen(argv[0]), (uint8_t *)argv[1]);
 	} else if (os_strncmp(cmd, "set ", 4) == 0) {
 		if (!g_ap_param_ptr) {
-			os_printf("enable AP first\n");
+			WPA_LOGE("enable AP first\n");
 			goto out;
 		}
 		ret = cmd_wlan_ap_set(cmd + 4);
@@ -1145,7 +1146,7 @@ int cmd_wlan_ap_exec(char *cmd)
 		int num;
 		ret = wlan_ap_sta_num(&num);
 		if (ret == 0)
-			os_printf("sta num: %d\n", num);
+			WPA_LOGI("sta num: %d\n", num);
 	} else if (os_strncmp(cmd, "sta info ", 9) == 0) {
 		int size;
 		if (cmd_wpas_parse_int(cmd + 9, 1, 30, &size) != 0) {
@@ -1155,7 +1156,7 @@ int cmd_wlan_ap_exec(char *cmd)
 		wlan_ap_stas_t stas;
 		stas.sta = (wlan_ap_sta_t *)os_malloc(size * sizeof(wlan_ap_sta_t));
 		if (stas.sta == NULL) {
-			os_printf("no mem\n");
+			WPA_LOGE("no mem\n");
 			ret = -1;
 			goto out;
 		}
@@ -1165,18 +1166,18 @@ int cmd_wlan_ap_exec(char *cmd)
 			cmd_wlan_ap_print_sta_info(&stas);
 		os_free(stas.sta);
 	} else {
-		os_printf("unknown cmd '%s'\n", cmd);
+		WPA_LOGE("unknown cmd '%s'\n", cmd);
 		return -1;
 	}
 
 out:
 	if (ret == 0) {
-		os_printf("[OK]\n");
+		WPA_LOGI("[OK]\n");
 	} else if (ret == -2) {
-		os_printf("cmd '%s' invalid arg\n", cmd);
+		WPA_LOGE("cmd '%s' invalid arg\n", cmd);
 		return -1;
 	} else if (ret == -1) {
-		os_printf("cmd '%s' exec failed\n", cmd);
+		WPA_LOGE("cmd '%s' exec failed\n", cmd);
 		return -1;
 	}
 
@@ -1191,7 +1192,7 @@ void net_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 	// net sta xxx
 	// net ap xxx
 	if (argc <= 2) {
-		os_printf("Usage: net sta/ap <param...>\n");
+		WPA_LOGI("Usage: net sta/ap <param...>\n");
 		return;
 	}
 
@@ -1201,7 +1202,7 @@ void net_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 		snprintf(buf + len, left - len, "%s ", argv[i]);
 	}
 	buf[strlen(buf)-1] = 0;
-	//os_printf("CMD: |%s|\n", buf);
+	//WPA_LOGI("CMD: |%s|\n", buf);
 
 #if 1
 	if (os_strcmp(argv[1], "sta") == 0) {
@@ -1209,7 +1210,7 @@ void net_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 	} else if (os_strcmp(argv[1], "ap") == 0) {
 		cmd_wlan_ap_exec(buf);
 	} else {
-		os_printf("Usage: net sta/ap <param...>\n");
+		WPA_LOGI("Usage: net sta/ap <param...>\n");
 		return;
 	}
 #endif

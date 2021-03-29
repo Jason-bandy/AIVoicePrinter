@@ -29,13 +29,15 @@
 #include "ap.h"
 #include "net.h"
 #include "sm_task.h"
+#include "wpa_err.h"
 
 extern beken_thread_t wpas_thread_handle;
+static int wpa_ctrl_debug_info_dump(struct wpa_supplicant *wpas, uint32_t type);
 
 int __wpa_ctrl_request(wpa_ctrl_cmd_t cmd, void *data, int wait, uint16_t flags)
 {
 	wpah_msg_t msg = {0};
-	int result = -1;
+	int result = WPA_FAIL;
 
 	msg.cmd = cmd;
 	msg.argu = (uint32_t)data;
@@ -50,10 +52,14 @@ int __wpa_ctrl_request(wpa_ctrl_cmd_t cmd, void *data, int wait, uint16_t flags)
 	if (rtos_is_current_thread(&wpas_thread_handle)) {
 		wpa_supplicant_ctrl_iface_receive(&msg);
 	} else {
-		if (wait && rtos_init_semaphore(&msg.sema, 1) != kNoErr)
-			return -1;
+		int ret = 0;
 
-		if (wpa_hostapd_queue_command(&msg) != kNoErr) {
+		if (wait && rtos_init_semaphore(&msg.sema, 1) != kNoErr)
+			return WPA_ERR_CTRL_SEM_INIT;
+
+		ret = wpa_hostapd_queue_command(&msg);
+		if (ret != kNoErr) {
+			result = ret;
 			goto out;
 		}
 
@@ -93,7 +99,6 @@ int wpa_ctrl_event_sync(int event, void *data)
 	return __wpa_ctrl_request(event, data, 1, 0);
 }
 
-/* async: BUGGY */
 int wpa_ctrl_event_copy(int event, void *data, int len)
 {
 	void *p = os_malloc(len);
@@ -108,7 +113,6 @@ static int wpa_supplicant_ctrl_iface_select_network(
 	struct wpa_supplicant *wpa_s, int id, int chan)
 {
 	struct wpa_ssid *ssid;
-	char *pos;
 
 	/* cmd: "<network id>" or "any" */
 	if (id == -1) {
@@ -175,7 +179,7 @@ static int wpa_supplicant_ctrl_iface_select_network(
 		wpa_s->num_ssids_from_scan_req = 1;
 		wpa_s->ssids_from_scan_req = wpas_connect_ssid;
 		wpa_s->scan_req = MANUAL_SCAN_REQ;
-		os_printf("MANUAL_SCAN_REQ\r\n");
+		WPA_LOGI("MANUAL_SCAN_REQ\r\n");
 	}
 #endif
 
@@ -186,275 +190,10 @@ static int wpa_supplicant_ctrl_iface_select_network(
 	return 0;
 }
 
-static char * wpa_supplicant_cipher_txt(char *pos, char *end, int cipher)
-{
-	int ret;
-	ret = os_snprintf(pos, end - pos, "-");
-	if (os_snprintf_error(end - pos, ret))
-		return pos;
-	pos += ret;
-	ret = wpa_write_ciphers(pos, end, cipher, "+");
-	if (ret < 0)
-		return pos;
-	pos += ret;
-	return pos;
-}
-
-static char * wpa_supplicant_ie_txt(char *pos, char *end, const char *proto,
-				    const u8 *ie, size_t ie_len)
-{
-	struct wpa_ie_data data;
-	char *start;
-	int ret;
-
-	ret = os_snprintf(pos, end - pos, "[%s-", proto);
-	if (os_snprintf_error(end - pos, ret))
-		return pos;
-	pos += ret;
-
-	if (wpa_parse_wpa_ie(ie, ie_len, &data) < 0) {
-		ret = os_snprintf(pos, end - pos, "?]");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-		return pos;
-	}
-
-	start = pos;
-	if (data.key_mgmt & WPA_KEY_MGMT_IEEE8021X) {
-		ret = os_snprintf(pos, end - pos, "%sEAP",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-	if (data.key_mgmt & WPA_KEY_MGMT_PSK) {
-		ret = os_snprintf(pos, end - pos, "%sPSK",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-	if (data.key_mgmt & WPA_KEY_MGMT_WPA_NONE) {
-		ret = os_snprintf(pos, end - pos, "%sNone",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-	if (data.key_mgmt & WPA_KEY_MGMT_SAE) {
-		ret = os_snprintf(pos, end - pos, "%sSAE",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-
-	if (data.key_mgmt & WPA_KEY_MGMT_IEEE8021X_SHA256) {
-		ret = os_snprintf(pos, end - pos, "%sEAP-SHA256",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-	if (data.key_mgmt & WPA_KEY_MGMT_PSK_SHA256) {
-		ret = os_snprintf(pos, end - pos, "%sPSK-SHA256",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-
-#ifdef CONFIG_FULL_SUPPLICANT
-	if (data.key_mgmt & WPA_KEY_MGMT_OSEN) {
-		ret = os_snprintf(pos, end - pos, "%sOSEN",
-				  pos == start ? "" : "+");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-#endif
-
-	pos = wpa_supplicant_cipher_txt(pos, end, data.pairwise_cipher);
-
-	if (data.capabilities & WPA_CAPABILITY_PREAUTH) {
-		ret = os_snprintf(pos, end - pos, "-preauth");
-		if (os_snprintf_error(end - pos, ret))
-			return pos;
-		pos += ret;
-	}
-
-	ret = os_snprintf(pos, end - pos, "]");
-	if (os_snprintf_error(end - pos, ret))
-		return pos;
-	pos += ret;
-
-	return pos;
-}
-
-#ifdef CONFIG_WPS
-static char * wpa_supplicant_wps_ie_txt_buf(struct wpa_supplicant *wpa_s,
-					    char *pos, char *end,
-					    struct wpabuf *wps_ie)
-{
-	int ret;
-	const char *txt;
-
-	if (wps_ie == NULL)
-		return pos;
-	if (wps_is_selected_pbc_registrar(wps_ie))
-		txt = "[WPS-PBC]";
-	else if (wps_is_addr_authorized(wps_ie, wpa_s->own_addr, 0))
-		txt = "[WPS-AUTH]";
-	else if (wps_is_selected_pin_registrar(wps_ie))
-		txt = "[WPS-PIN]";
-	else
-		txt = "[WPS]";
-
-	ret = os_snprintf(pos, end - pos, "%s", txt);
-	if (!os_snprintf_error(end - pos, ret))
-		pos += ret;
-	wpabuf_free(wps_ie);
-	return pos;
-}
-#endif /* CONFIG_WPS */
-
-
-static char * wpa_supplicant_wps_ie_txt(struct wpa_supplicant *wpa_s,
-					char *pos, char *end,
-					const struct wpa_bss *bss)
-{
-#ifdef CONFIG_WPS
-	struct wpabuf *wps_ie;
-	wps_ie = wpa_bss_get_vendor_ie_multi(bss, WPS_IE_VENDOR_TYPE);
-	return wpa_supplicant_wps_ie_txt_buf(wpa_s, pos, end, wps_ie);
-#else /* CONFIG_WPS */
-	return pos;
-#endif /* CONFIG_WPS */
-}
-
-
-#if ORIGINAL
-/* Format one result on one text line into a buffer. */
-static int wpa_supplicant_ctrl_iface_scan_result(
-	struct wpa_supplicant *wpa_s,
-	const struct wpa_bss *bss, char *buf, size_t buflen)
-{
-	char *pos, *end;
-	int ret;
-	const u8 *ie, *ie2, *osen_ie, *p2p, *mesh, *owe;
-
-	mesh = wpa_bss_get_ie(bss, WLAN_EID_MESH_ID);
-	p2p = wpa_bss_get_vendor_ie(bss, P2P_IE_VENDOR_TYPE);
-	if (!p2p)
-		p2p = wpa_bss_get_vendor_ie_beacon(bss, P2P_IE_VENDOR_TYPE);
-	if (p2p && bss->ssid_len == P2P_WILDCARD_SSID_LEN &&
-	    os_memcmp(bss->ssid, P2P_WILDCARD_SSID, P2P_WILDCARD_SSID_LEN) ==
-	    0)
-		return 0; /* Do not show P2P listen discovery results here */
-
-	pos = buf;
-	end = buf + buflen;
-
-	ret = os_snprintf(pos, end - pos, MACSTR "\t%d\t%d\t",
-			  MAC2STR(bss->bssid), bss->freq, bss->level);
-	if (os_snprintf_error(end - pos, ret))
-		return -1;
-	pos += ret;
-	ie = wpa_bss_get_vendor_ie(bss, WPA_IE_VENDOR_TYPE);
-	if (ie)
-		pos = wpa_supplicant_ie_txt(pos, end, "WPA", ie, 2 + ie[1]);
-	ie2 = wpa_bss_get_ie(bss, WLAN_EID_RSN);
-	if (ie2) {
-		pos = wpa_supplicant_ie_txt(pos, end, mesh ? "RSN" : "WPA2",
-					    ie2, 2 + ie2[1]);
-	}
-
-	pos = wpa_supplicant_wps_ie_txt(wpa_s, pos, end, bss);
-	if (!ie && !ie2 && !osen_ie && (bss->caps & IEEE80211_CAP_PRIVACY)) {
-		ret = os_snprintf(pos, end - pos, "[WEP]");
-		if (os_snprintf_error(end - pos, ret))
-			return -1;
-		pos += ret;
-	}
-	if (mesh) {
-		ret = os_snprintf(pos, end - pos, "[MESH]");
-		if (os_snprintf_error(end - pos, ret))
-			return -1;
-		pos += ret;
-	}
-	if (bss->caps & IEEE80211_CAP_IBSS) {
-		ret = os_snprintf(pos, end - pos, "[IBSS]");
-		if (os_snprintf_error(end - pos, ret))
-			return -1;
-		pos += ret;
-	}
-	if (bss->caps & IEEE80211_CAP_ESS) {
-		ret = os_snprintf(pos, end - pos, "[ESS]");
-		if (os_snprintf_error(end - pos, ret))
-			return -1;
-		pos += ret;
-	}
-	if (p2p) {
-		ret = os_snprintf(pos, end - pos, "[P2P]");
-		if (os_snprintf_error(end - pos, ret))
-			return -1;
-		pos += ret;
-	}
-#if 0
-	if (wpa_bss_ext_capab(bss, WLAN_EXT_CAPAB_UTF_8_SSID)) {
-		ret = os_snprintf(pos, end - pos, "[UTF-8]");
-		if (os_snprintf_error(end - pos, ret))
-			return -1;
-		pos += ret;
-	}
-#endif
-	ret = os_snprintf(pos, end - pos, "\t%s",
-			  wpa_ssid_txt(bss->ssid, bss->ssid_len));
-	if (os_snprintf_error(end - pos, ret))
-		return -1;
-	pos += ret;
-
-	ret = os_snprintf(pos, end - pos, "\n");
-	if (os_snprintf_error(end - pos, ret))
-		return -1;
-	pos += ret;
-
-	return pos - buf;
-}
-
-int wpa_supplicant_ctrl_iface_scan_results(
-	struct wpa_supplicant *wpa_s, char *buf, size_t buflen)
-{
-	char *pos, *end;
-	struct wpa_bss *bss;
-	int ret;
-
-	pos = buf;
-	end = buf + buflen;
-	ret = os_snprintf(pos, end - pos, "bssid / frequency / signal level / "
-			  "flags / ssid\n");
-	if (os_snprintf_error(end - pos, ret))
-		return pos - buf;
-	pos += ret;
-
-	dl_list_for_each(bss, &wpa_s->bss_id, struct wpa_bss, list_id) {
-		ret = wpa_supplicant_ctrl_iface_scan_result(wpa_s, bss, pos,
-							    end - pos);
-		if (ret < 0 || ret >= end - pos)
-			return pos - buf;
-		pos += ret;
-	}
-
-	return pos - buf;
-}
-#else
 int wpa_supplicant_ctrl_iface_scan_results(
 	struct wpa_supplicant *wpa_s, ScanResult_adv *results)
 {
-	char *pos, *end;
 	struct wpa_bss *bss;
-	int ret;
 	int bss_num = 0;
 	int index = 0;
 
@@ -483,11 +222,9 @@ int wpa_supplicant_ctrl_iface_scan_results(
 
 	return 0;
 }
-#endif
 
 static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *params)
 {
-	char *pos;
 	unsigned int manual_scan_passive = 0;
 	unsigned int manual_scan_use_id = 1;
 	unsigned int manual_scan_only_new = 0;
@@ -497,25 +234,29 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 	void (*scan_res_handler)(struct wpa_supplicant *wpa_s,
 				 struct wpa_scan_results *scan_res);
 	int *manual_scan_freqs = NULL;
-	struct wpa_ssid_value *ssid = NULL, *ns;
+	struct wpa_ssid_value *ssid = NULL;
 	unsigned int ssid_count = 0;
 	int ret = 0;
+#ifdef CONFIG_FULL_SUPPLICANT
+	struct wpa_ssid_value *ns;
+	char *pos;
+#endif
 
 	if (wpa_s->wpa_state == WPA_INTERFACE_DISABLED) {
-		return -1;
+		return WPA_ERR_STATE;
 	}
 
 	if (radio_work_pending(wpa_s, "scan")) {
 		wpa_printf(MSG_DEBUG,
 			   "Pending scan scheduled - reject new request");
-		return -2;	// FAIL-BUSY
+		return WPA_ERR_SCAN_PENDING;
 	}
 
 #ifdef CONFIG_INTERWORKING
 	if (wpa_s->fetch_anqp_in_progress || wpa_s->network_select) {
 		wpa_printf(MSG_DEBUG,
 			   "Interworking select in progress - reject new scan");
-		return -2;
+		return WPA_ERR_SCAN_SELECT_IN_PROGRESS;
 	}
 #endif /* CONFIG_INTERWORKING */
 
@@ -529,7 +270,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 			manual_scan_freqs = freq_range_to_channel_list(wpa_s,
 								       pos + 5);
 			if (manual_scan_freqs == NULL) {
-				ret = -1;
+				ret = WPA_ERR_SCAN_FREQ;
 				goto done;
 			}
 		}
@@ -549,7 +290,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 		pos = os_strstr(params, "scan_id=");
 		if (pos && scan_id_list_parse(wpa_s, pos + 8, &scan_id_count,
 					      scan_id) < 0) {
-			ret = -1;
+			ret = WPA_ERR_SCAN_ID;
 			goto done;
 		}
 
@@ -560,7 +301,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 			pos += 6;
 			if (hwaddr_aton(pos, bssid)) {
 				wpa_printf(MSG_ERROR, "Invalid BSSID %s", pos);
-				ret = -1;
+				ret = WPA_ERR_SCAN_BSSID;
 				goto done;
 			}
 			os_memcpy(wpa_s->next_scan_bssid, bssid, ETH_ALEN);
@@ -595,7 +336,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 					wpa_printf(MSG_DEBUG,
 						   "Invalid SSID value '%s'",
 						   pos);
-					ret = -1;
+					ret = WPA_ERR_SCAN_SSID;
 					goto done;
 				}
 				ssid[ssid_count].ssid_len = (end - pos) / 2;
@@ -616,7 +357,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 		ssid_count = params->num_ssids;
 		ssid = os_realloc_array(ssid, ssid_count, sizeof(struct wpa_ssid_value));
 		if (ssid == NULL) {
-			ret = -1;
+			ret = WPA_ERR_NO_MEM;
 			goto done;
 		}
 
@@ -636,7 +377,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 		ssid_count = 1;
 		ssid = os_calloc(1, sizeof(*ssid));
 		if (!ssid) {
-			ret = -1;
+			ret = WPA_ERR_NO_MEM;
 			goto done;
 		}
 	}
@@ -677,7 +418,7 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 		wpa_s->after_wps = 0;
 		wpa_s->known_wps_freq = 0;
 #endif
-		wpa_supplicant_req_scan(wpa_s, 0, 0);
+		ret = wpa_supplicant_req_scan(wpa_s, 0, 0);
 		if (wpa_s->manual_scan_use_id) {
 			wpa_s->manual_scan_id++;
 			if (!wpa_s->manual_scan_id)
@@ -713,8 +454,13 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *p
 #endif
 	} else {
 		wpa_printf(MSG_DEBUG, "Ongoing scan action - reject new request");
-		//*reply_len = os_snprintf(reply, reply_size, "FAIL-BUSY\n");
-		ret = -2;
+
+		if (wpa_s->sched_scanning)
+			ret = WPA_ERR_SCAN_SCHED_IN_PROGRESS;
+		else if (wpa_s->scanning)
+			ret = WPA_ERR_SCAN_IN_PROGRESS;
+		else
+			ret = WPA_ERR_TRY_AGAIN;
 	}
 
 done:
@@ -853,7 +599,7 @@ int wpa_supplicant_ctrl_iface_set_network(struct wpa_supplicant *wpa_s, wlan_sta
 
 	switch (config->field) {
 	case WLAN_STA_FIELD_SSID:
-		//os_printf("ssid: |%s|\n", config->u.ssid.ssid);
+		//WPA_LOGI("ssid: |%s|\n", config->u.ssid.ssid);
 		if ((ssid->ssid_len != config->u.ssid.ssid_len) ||
 			os_memcmp(ssid->ssid, config->u.ssid.ssid, ssid->ssid_len)) {
 			ssid->psk_set = 0;	// recalc psk
@@ -868,18 +614,18 @@ int wpa_supplicant_ctrl_iface_set_network(struct wpa_supplicant *wpa_s, wlan_sta
 		break;
 
 	case WLAN_STA_FIELD_BSSID:
-		//os_printf("bssid set\n");
+		//WPA_LOGI("bssid set\n");
 		os_memcpy(ssid->bssid, config->u.bssid, ETH_ALEN);
 		ssid->bssid_set = 1;
 		break;
 
 	case WLAN_STA_FIELD_FREQ:
 		//ssid->frequency = ieee80211_chan_to_freq("CN", 7, config->u.channel);
-		//os_printf("ssid->freq = %d\n", ssid->frequency);
+		//WPA_LOGI("ssid->freq = %d\n", ssid->frequency);
 		break;
 
 	case WLAN_STA_FIELD_PSK:
-		//os_printf("psk: |%s|\n", config->u.psk);
+		//WPA_LOGI("psk: |%s|\n", config->u.psk);
 		if (config->u.psk[0] != '\0') {
 			if (os_strcmp(ssid->passphrase, (char *)config->u.psk)) {
 				ssid->psk_set = 0;
@@ -910,31 +656,31 @@ int wpa_supplicant_ctrl_iface_set_network(struct wpa_supplicant *wpa_s, wlan_sta
 		ssid->wep_tx_keyidx = config->u.wep_tx_keyidx;
 		break;
 	case WLAN_STA_FIELD_KEY_MGMT:
-		//os_printf("key_mgmt: %d\n", __func__, config->u.key_mgmt);
+		//WPA_LOGI("key_mgmt: %d\n", __func__, config->u.key_mgmt);
 		ssid->key_mgmt = config->u.key_mgmt;
 		break;
 	case WLAN_STA_FIELD_PAIRWISE_CIPHER:
-		//os_printf("pairwise_cipher: %d\n", __func__, config->u.pairwise_cipher);
+		//WPA_LOGI("pairwise_cipher: %d\n", __func__, config->u.pairwise_cipher);
 		ssid->pairwise_cipher = config->u.pairwise_cipher;
 		break;
 	case WLAN_STA_FIELD_GROUP_CIPHER:
-		//os_printf("group_cipher: %d\n", __func__, config->u.group_cipher);
+		//WPA_LOGI("group_cipher: %d\n", __func__, config->u.group_cipher);
 		ssid->group_cipher = config->u.group_cipher;
 		break;
 	case WLAN_STA_FIELD_PROTO:
-		//os_printf("proto: %d\n", __func__, config->u.proto);
+		//WPA_LOGI("proto: %d\n", __func__, config->u.proto);
 		ssid->proto = config->u.proto;
 		break;
 	case WLAN_STA_FIELD_AUTH_ALG:
-		//os_printf("auth_alg: %d\n", __func__, config->u.auth_alg);
+		//WPA_LOGI("auth_alg: %d\n", __func__, config->u.auth_alg);
 		ssid->auth_alg = config->u.auth_alg;
 		break;
 	case WLAN_STA_FIELD_WPA_PTK_REKEY:
-		//os_printf("wpa_ptk_rekey: %d\n", __func__, config->u.wpa_ptk_rekey);
+		//WPA_LOGI("wpa_ptk_rekey: %d\n", __func__, config->u.wpa_ptk_rekey);
 		ssid->wpa_ptk_rekey = config->u.wpa_ptk_rekey;
 		break;
 	case WLAN_STA_FIELD_SCAN_SSID:
-		//os_printf("scan_ssid: %d\n", __func__, config->u.scan_ssid);
+		//WPA_LOGI("scan_ssid: %d\n", __func__, config->u.scan_ssid);
 		ssid->scan_ssid = config->u.scan_ssid;
 		break;
 
@@ -945,7 +691,7 @@ int wpa_supplicant_ctrl_iface_set_network(struct wpa_supplicant *wpa_s, wlan_sta
 			os_memcpy(groups, config->u.sae_groups, sizeof(config->u.sae_groups));
 			wpa_s->conf->sae_groups = groups;
 			//while (*groups) {
-			//	os_printf("\t sae_group: %d\n", *groups);
+			//	WPA_LOGI("\t sae_group: %d\n", *groups);
 			//	groups++;
 			//}
 		}
@@ -983,17 +729,20 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 
 #define CHECK_WPA_S()				\
 	do {							\
-		if (!wpa_s) goto exit;		\
+		if (!wpa_s) {\
+			res = WPA_ERR_WPAS_INIT;\
+			goto exit;		\
+		}\
 	} while (0)
 
-#define CHECK_HAPD()				\
+#define CHECK_HAPD()\
 	do {							\
-		if (!interfaces || !interfaces->count) 	\
+		if (!interfaces || !interfaces->count)\
 			goto exit;				\
 	} while (0)
 
 
-	//os_printf("%s: cmd %d\r\n", __func__, msg->cmd);
+	//WPA_LOGI("%s: cmd %d\r\n", __func__, msg->cmd);
 	switch (msg->cmd) {
 #ifdef CONFIG_WPA_SUPPLICANT_MULTI_NETWORK
 	case WPA_CTRL_CMD_ADD_NETWORK:
@@ -1142,7 +891,6 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 		// try to add a new hostapd_iface if not exist
 		if (!interfaces->count) {
 			char bss_config[] = "bss_config=phy0:dummy.conf";
-			char add_iface_buf[] = "wlan0 dummy.conf";	// <iface_name> <config_name>
 			res = hostapd_add_iface(interfaces, bss_config);
 			if (res)
 				break;
@@ -1163,7 +911,7 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 	}	break;
 
 	case WPA_CTRL_CMD_AP_DISABLE: {
-		int ret, flag, empty;
+		int flag, empty;
 
 		uap_ip_down();
 		net_wlan_remove_netif(&g_ap_param_ptr->bssid);
@@ -1220,6 +968,11 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 		remove_wlan_notifier(req->func, req->arg);
 	}	break;
 
+	case WPA_CTRL_CMD_DEBUG_INFO_DUMP: {
+		CHECK_WPA_S();
+		wpa_ctrl_debug_info_dump(wpa_s, (uint32_t)msg->argu);
+		break;
+	}
 	}
 
 exit:
@@ -1235,6 +988,42 @@ exit:
 	return 0;
 }
 
+static void mlme_event_unprot_disconnect(struct wpa_supplicant *wpa_s,
+					 enum wpa_event_type type,
+					 const u8 *frame, size_t len)
+{
+	const struct ieee80211_mgmt *mgmt;
+	union wpa_event_data event;
+	u16 reason_code = 0;
+
+	if (type == EVENT_UNPROT_DEAUTH)
+		wpa_printf(MSG_DEBUG, "Unprot Deauthenticate event");
+	else
+		wpa_printf(MSG_DEBUG, "Unprot Disassociate event");
+
+	if (len < 24)
+		return;
+
+	mgmt = (const struct ieee80211_mgmt *) frame;
+
+	os_memset(&event, 0, sizeof(event));
+	/* Note: Same offset for Reason Code in both frame subtypes */
+	if (len >= 24 + sizeof(mgmt->u.deauth))
+		reason_code = le_to_host16(mgmt->u.deauth.reason_code);
+
+	if (type == EVENT_UNPROT_DISASSOC) {
+		event.unprot_disassoc.sa = mgmt->sa;
+		event.unprot_disassoc.da = mgmt->da;
+		event.unprot_disassoc.reason_code = reason_code;
+	} else {
+		event.unprot_deauth.sa = mgmt->sa;
+		event.unprot_deauth.da = mgmt->da;
+		event.unprot_deauth.reason_code = reason_code;
+	}
+
+	wpa_supplicant_event_sta(wpa_s, type, &event);
+}
+
 int wpa_supplicant_handle_events(wpah_msg_t *msg)
 {
 	struct wpa_supplicant *wpa_s = wpa_suppliant_ctrl_get_wpas();
@@ -1245,7 +1034,7 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 		if (!wpa_s) goto exit;		\
 	} while (0)
 
-	//os_printf("%s: evt %d\r\n", __func__, msg->cmd);
+	//WPA_LOGI("%s: evt %d\r\n", __func__, msg->cmd);
 
 	CHECK_WPA_S();
 
@@ -1267,10 +1056,10 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 			data.auth.ies = ind->ie_buf;
 			data.auth.ies_len = ind->ie_len;
 
-			//os_printf("%s: WPA_CTRL_EVENT_AUTH_IND\n", __func__);
+			//WPA_LOGI("%s: WPA_CTRL_EVENT_AUTH_IND\n", __func__);
 			wpa_supplicant_event_sta(wpa_s, EVENT_AUTH, &data);
 		} else {
-			os_printf("%s %d: null\n", __func__, __LINE__);
+			WPA_LOGE("%s %d: null\n", __func__, __LINE__);
 		}
 #endif
 	}	break;
@@ -1312,7 +1101,7 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 				wpa_supplicant_event_sta(wpa_s, EVENT_ASSOC_REJECT, &data);
 			}
 		} else {
-			os_printf("%s %d: null\n", __func__, __LINE__);
+			WPA_LOGE("%s %d: null\n", __func__, __LINE__);
 		}
 #endif
 	}	break;
@@ -1342,7 +1131,7 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 		if (ind) {
 			union wpa_event_data data;
 
-			//os_printf("%s: WPA_CTRL_EVENT_MGMT_IND\n", __func__);
+			//WPA_LOGI("%s: WPA_CTRL_EVENT_MGMT_IND\n", __func__);
 
 			os_memset(&data, 0, sizeof(data));
 			data.rx_mgmt.ssi_signal = ind->rssi;
@@ -1353,8 +1142,24 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 			//print_hex_dump("MGMT: ", ind->payload, ind->length);
 			wpa_supplicant_event_sta(wpa_s, EVENT_RX_MGMT, &data);
 		} else {
-			os_printf("%s %d: null\n", __func__, __LINE__);
+			WPA_LOGI("%s %d: null\n", __func__, __LINE__);
 		}
+	}	break;
+
+#if CFG_IEEE80211AX
+	case WPA_CTRL_EVENT_RX_MGMT_FRAME:
+		break;
+#endif
+
+	case WPA_CTRL_EVENT_UNPROT_DEAUTHENTICATE:
+		/* fall through */
+	case WPA_CTRL_EVENT_UNPROT_DISASSOCIATE: {
+		struct pbuf *p = (struct pbuf *)msg->argu;
+
+		mlme_event_unprot_disconnect(wpa_s,
+			msg->cmd == WPA_CTRL_EVENT_UNPROT_DEAUTHENTICATE ? EVENT_UNPROT_DEAUTH : EVENT_UNPROT_DISASSOC,
+			p->payload, p->len);
+		pbuf_free(p);
 	}	break;
 
 	default:
@@ -1372,6 +1177,42 @@ exit:
 #undef CHECK_WPA_S
 
 	return 0;
+}
+
+static int wpa_ctrl_debug_info_dump_scan(struct wpa_supplicant *wpas)
+{
+	struct os_reltime now;
+
+	if (!wpas)
+		return WPA_ERR_PARAM;
+
+	WPA_LOGI("wpa_state=%d\n", wpas->wpa_state);
+	WPA_LOGI("scan_prev_wpa_state=%d\n", wpas->scan_prev_wpa_state);
+	struct wpa_radio_work *scan_work = wpas->scan_work;
+	if (scan_work) {
+		os_get_reltime(&now);
+		WPA_LOGI("scan_work: freq=%d type=%s start=%d bands=%d time(%d.%d) now(%d.%d)\n",
+			scan_work->freq, scan_work->type, scan_work->started, scan_work->bands,
+			scan_work->time.sec, scan_work->time.usec);
+	}
+	WPA_LOGI("scanning=%d\n", wpas->scanning);
+	WPA_LOGI("sched_scanning=%d\n", wpas->sched_scanning);
+	WPA_LOGI("sched_scan_stop_req=%d\n", wpas->sched_scan_stop_req);
+	WPA_LOGI("disconnected=%d\n", wpas->disconnected);
+	WPA_LOGI("scan_req=%d\n", wpas->scan_req);
+	WPA_LOGI("last_scan_req=%d\n", wpas->last_scan_req);
+	WPA_LOGI("enabled_networks=%d\n", wpa_supplicant_enabled_networks(wpas));
+	WPA_LOGI("scan_for_connection=%d\n", wpas->scan_for_connection);
+
+	return WPA_OK;
+}
+
+static int wpa_ctrl_debug_info_dump(struct wpa_supplicant *wpas, uint32_t type)
+{
+	if (type == WPA_CTRL_DEBUG_INFO_DUMP_SCAN)
+		wpa_ctrl_debug_info_dump_scan(wpas);
+
+	return WPA_OK;
 }
 
 #endif //CFG_WPA_CTRL_IFACE

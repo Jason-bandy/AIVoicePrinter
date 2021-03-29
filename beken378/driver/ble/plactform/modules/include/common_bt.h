@@ -79,7 +79,9 @@
 #define SCAN_RSP_DATA_LEN   0x1F
 #define LE_CHNL_MAP_LEN     0x05
 #define CHNL_MAP_LEN        0x0A
+#ifndef KEY_LEN
 #define KEY_LEN             0x10
+#endif
 #define PIN_CODE_MIN_LEN    0x01
 #define PIN_CODE_MAX_LEN    0x10
 #define PRIV_KEY_192_LEN    24

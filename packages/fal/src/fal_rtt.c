@@ -568,7 +568,7 @@ static void fal(uint8_t argc, char **argv) {
 #define CMD_ERASE_INDEX               3
 #define CMD_BENCH_INDEX               4
 
-    int result;
+    int result = 0;
     static const struct fal_flash_dev *flash_dev = NULL;
     static const struct fal_partition *part_dev = NULL;
     size_t i = 0, j = 0;
@@ -600,7 +600,7 @@ static void fal(uint8_t argc, char **argv) {
     else
     {
         const char *operator = argv[1];
-        uint32_t addr, size;
+        uint32_t addr, size = 0;
 
         if (!strcmp(operator, "probe"))
         {

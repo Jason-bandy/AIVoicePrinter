@@ -20,6 +20,7 @@
 #include "bk7011_cal_pub.h"
 #include "flash_pub.h"
 #include "error.h"
+#include "application.h"
 
 #define BLE_MSG_QUEUE_COUNT          (20)
 
@@ -61,6 +62,10 @@ extern void sctrl_modem_core_reset(void);
 extern void delay(INT32 num);
 extern void rw_main(void);
 extern void appm_update_param(struct gapc_conn_param *conn_param);
+extern UINT32 flash_read(char *user_buf, UINT32 count, UINT32 address);
+extern UINT32 flash_write(char *user_buf, UINT32 count, UINT32 address);
+extern UINT32 flash_ctrl(UINT32 cmd, void *parm);
+
 
 void ble_intc_set(uint32_t enable)
 {
@@ -754,18 +759,17 @@ void ble_set_read_cb(bk_ble_read_cb_t func)
 
 uint8_t ble_flash_read(uint8_t flash_space, uint32_t address, uint32_t len, uint8_t *buffer, void (*callback)(void))
 {
-	 flash_read(buffer, len, address);
+	 flash_read((char*)buffer, len, address);
 	 return 0;
 }
 
 uint8_t ble_flash_write(uint8_t flash_space, uint32_t address, uint32_t len, uint8_t *buffer, void (*callback)(void))
 {
-	 flash_write(buffer, len, address);
+	 flash_write((char*)buffer, len, address);
 	 return 0;
 }
 
 
-#define SECTOR_SIZE  (1024)
 uint8_t ble_flash_erase(uint8_t flash_type, uint32_t address, uint32_t len, void (*callback)(void))
 {
     flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);

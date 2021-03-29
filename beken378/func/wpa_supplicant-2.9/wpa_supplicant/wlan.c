@@ -7,17 +7,18 @@
 #include "mem_pub.h"
 #include "str_pub.h"
 #include "defs.h"
+#include "wpa_err.h"
+#include "common.h"
+#include "wpa_debug.h"
 
 #if CFG_WPA_CTRL_IFACE
 #define WLAN_CHECK_ARG	0
-
-#define WLAN_ERR bk_printf
 
 #if WLAN_CHECK_ARG
 #define WLAN_ASSERT_POINTER(p)                  \
     do {                                        \
         if (p == NULL) {                        \
-            WLAN_ERR("invalid param\n");        \
+            WPA_LOGE("invalid param\n");        \
             return -1;                          \
         }                                       \
     } while (0)
@@ -41,7 +42,7 @@
 int wlan_sta_set(uint8_t *ssid, uint8_t ssid_len, uint8_t *psk)
 {
 	if ((ssid == NULL) || (ssid_len == 0) || (ssid_len > WLAN_SSID_MAX_LEN)) {
-		WLAN_ERR("invalid ssid (%p, %u)\n", ssid, ssid_len);
+		WPA_LOGE("invalid ssid (%p, %u)\n", ssid, ssid_len);
 		return -1;
 	}
 
@@ -212,6 +213,13 @@ int wlan_sta_scan_once(void)
 	return wlan_sta_scan(NULL);
 }
 
+static bool wlan_sta_scan_need_retry(int ret)
+{
+	return ( (ret == WPA_ERR_SCAN_PENDING) || (ret == WPA_ERR_SCAN_SELECT_IN_PROGRESS)
+		|| (ret == WPA_ERR_SCAN_SCHED_IN_PROGRESS) || (ret == WPA_ERR_SCAN_IN_PROGRESS)
+		|| (ret == WPA_ERR_TRY_AGAIN) );
+}
+
 #define WLAN_SCAN_MAX_RETRIES 50
 /**
  * @brief Station scan once according to the specified parameters
@@ -224,12 +232,13 @@ int wlan_sta_scan(wlan_sta_scan_param_t *param)
 
 	while (1) {
 		ret = wpa_ctrl_request(WPA_CTRL_CMD_STA_SCAN, param);
-		if (ret == -2) {
+		if (wlan_sta_scan_need_retry(ret)) {
 			/* previous scan in progress */
-			if (++max_tries > WLAN_SCAN_MAX_RETRIES)
+			if (++max_tries > WLAN_SCAN_MAX_RETRIES) {
+				wpa_ctrl_request(WPA_CTRL_CMD_DEBUG_INFO_DUMP, (void*)WPA_CTRL_DEBUG_INFO_DUMP_SCAN);
 				return ret;
+			}
 
-			//bk_printf("previous scan in progress, retry...\n");
 			rtos_delay_milliseconds(100);
 			continue;
 		} else {
@@ -394,7 +403,7 @@ int wlan_sta_wps_pin_set(wlan_sta_wps_pin_t *wps)
 int wlan_ap_set(uint8_t *ssid, uint8_t ssid_len, uint8_t *psk)
 {
 	if ((ssid == NULL) || (ssid_len == 0) || (ssid_len > WLAN_SSID_MAX_LEN)) {
-		WLAN_ERR("invalid ssid (%p, %u)\n", ssid, ssid_len);
+		WPA_LOGE("invalid ssid (%p, %u)\n", ssid, ssid_len);
 		return -1;
 	}
 

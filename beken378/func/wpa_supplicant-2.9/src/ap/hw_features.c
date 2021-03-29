@@ -105,7 +105,7 @@ int hostapd_get_hw_features(struct hostapd_iface *iface)
 
 	for (i = 0; i < num_modes; i++) {
 		struct hostapd_hw_modes *feature = &modes[i];
-#ifndef CONFIG_NO_STDOUT_DEBUG
+#ifdef CONFIG_FULL_HOSTAPD
 		int dfs_enabled = hapd->iconf->ieee80211h &&
 			(iface->drv_flags & WPA_DRIVER_FLAGS_RADAR);
 #endif
@@ -255,7 +255,7 @@ static int ieee80211n_allowed_ht40_channel_pair(struct hostapd_iface *iface)
 					 sec_chan);
 }
 
-
+#ifdef CONFIG_FULL_HOSTAPD
 static void ieee80211n_switch_pri_sec(struct hostapd_iface *iface)
 {
 	if (iface->conf->secondary_channel > 0) {
@@ -290,6 +290,7 @@ static int ieee80211n_check_40mhz_5g(struct hostapd_iface *iface,
 
 	return !!res;
 }
+#endif
 
 
 static int ieee80211n_check_40mhz_2g4(struct hostapd_iface *iface,
@@ -406,6 +407,7 @@ static void ieee80211n_scan_channels_2g4(struct hostapd_iface *iface,
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static void ieee80211n_scan_channels_5g(struct hostapd_iface *iface,
 					struct wpa_driver_scan_params *params)
 {
@@ -445,7 +447,7 @@ static void ieee80211n_scan_channels_5g(struct hostapd_iface *iface,
 		params->freqs[pos++] = chan->freq;
 	}
 }
-
+#endif
 
 static void ap_ht40_scan_retry(void *eloop_data, void *user_data)
 {

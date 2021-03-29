@@ -14,10 +14,15 @@
 #include "target.h"
 #include "timer.h"
 
+#include "rtos_pub.h"
 #include "co_list.h"
+#if (CFG_SUPPORT_RTT)
+#include "data_node.h"
+#else
+#include "audio_pub.h"
+#endif
 #include "sys_ctrl_pub.h"
 #include "mailbox_pub.h"
-#include "audio_pub.h"
 #include "arm_mcu_pub.h"
 #include "ring_buffer.h"
 #include "gpio_bk7271.h"

@@ -68,8 +68,11 @@
 #endif
 #include "include.h"
 #include "uart_pub.h"
+#include "wpa_err.h"
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static void wpa_bss_tmp_disallow_timeout(void *eloop_ctx, void *timeout_ctx);
+#endif
 #if defined(CONFIG_FILS) && defined(IEEE8021X_EAPOL)
 static void wpas_update_fils_connect_params(struct wpa_supplicant *wpa_s);
 #endif /* CONFIG_FILS && IEEE8021X_EAPOL */
@@ -447,8 +450,6 @@ void wpas_flush_fils_hlp_req(struct wpa_supplicant *wpa_s)
 
 static void wpa_supplicant_cleanup(struct wpa_supplicant *wpa_s)
 {
-	int i;
-
 #ifdef CONFIG_BGSCAN
 	bgscan_deinit(wpa_s);
 #endif
@@ -586,7 +587,7 @@ static void wpa_supplicant_cleanup(struct wpa_supplicant *wpa_s)
 #endif /* CONFIG_HS20 */
 
 #ifdef CONFIG_FULL_SUPPLICANT
-	for (i = 0; i < NUM_VENDOR_ELEM_FRAMES; i++) {
+	for (int i = 0; i < NUM_VENDOR_ELEM_FRAMES; i++) {
 		wpabuf_free(wpa_s->vendor_elem[i]);
 		wpa_s->vendor_elem[i] = NULL;
 	}
@@ -779,8 +780,7 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 {
 	enum wpa_states old_state = wpa_s->wpa_state;
 
-	wpa_dbg(wpa_s, MSG_DEBUG, "State: %s -> %s",
-		wpa_supplicant_state_txt(wpa_s->wpa_state),
+	WPA_LOGI("%s -> %s\n", wpa_supplicant_state_txt(wpa_s->wpa_state),
 		wpa_supplicant_state_txt(state));
 
 	if (state == WPA_INTERFACE_DISABLED) {
@@ -843,6 +843,7 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		struct wpa_ssid *ssid = wpa_s->current_ssid;
 		int fils_hlp_sent = 0;
 
+		__maybe_unused_var(fils_hlp_sent);
 #ifdef CONFIG_SME
 		if ((wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME) &&
 		    wpa_auth_alg_fils(wpa_s->sme.auth_alg))
@@ -1873,7 +1874,6 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 			      struct wpa_bss *bss, struct wpa_ssid *ssid)
 {
 	struct wpa_connect_work *cwork;
-	int rand_style;
 
 	wpa_s->own_disconnect_req = 0;
 
@@ -1884,10 +1884,13 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 	wpabuf_free(wpa_s->pending_eapol_rx);
 	wpa_s->pending_eapol_rx = NULL;
 
+#ifdef CONFIG_RANDOM_MAC
+	int rand_style;
 	if (ssid->mac_addr == -1)
 		rand_style = wpa_s->conf->mac_addr;
 	else
 		rand_style = ssid->mac_addr;
+#endif
 
 	wmm_ac_clear_saved_tspecs(wpa_s);
 	wpa_s->reassoc_same_bss = 0;
@@ -2087,7 +2090,9 @@ void ibss_mesh_setup_freq(struct wpa_supplicant *wpa_s,
 			  const struct wpa_ssid *ssid,
 			  struct hostapd_freq_params *freq)
 {
+#ifdef CONFIG_IEEE80211AX
 	int ieee80211_mode = wpas_mode_to_ieee80211_mode(ssid->mode);
+#endif
 	enum hostapd_hw_mode hw_mode;
 	struct hostapd_hw_modes *mode = NULL;
 	int ht40plus[] = { 36, 44, 52, 60, 100, 108, 116, 124, 132, 149, 157,
@@ -3305,7 +3310,7 @@ static void wpas_start_assoc_cb(struct wpa_radio_work *work, int deinit)
 		params.prev_bssid = prev_bssid;
 
 	/* append bcn ie */
-	//os_printf("%s: bss %p, ie_len %d\n", __func__, bss, bss ? bss->ie_len : -1);
+	//WPA_LOGI("%s: bss %p, ie_len %d\n", __func__, bss, bss ? bss->ie_len : -1);
 	if (bss && bss->ie_len) {
 		params.bcn_ie = (u8 *)(bss + 1);
 		params.bcn_len = bss->ie_len;
@@ -4053,9 +4058,11 @@ static int select_driver(struct wpa_supplicant *wpa_s, int i)
 static int wpa_supplicant_set_driver(struct wpa_supplicant *wpa_s,
 				     const char *name)
 {
+#ifdef CONFIG_FULL_SUPPLICANT
 	int i;
 	size_t len;
 	const char *pos, *driver = name;
+#endif
 
 	if (wpa_s == NULL)
 		return -1;
@@ -4147,7 +4154,7 @@ void wpa_supplicant_rx_eapol(void *ctx, const u8 *src_addr,
 		 * Authenticator uses BSSID as the src_addr (which is not the
 		 * case with wired IEEE 802.1X).
 		 */
-		os_printf("Not associated - Delay processing "
+		WPA_LOGI("Not associated - Delay processing "
 			"of received EAPOL frame (state=%s bssid=" MACSTR ")\r\n",
 			wpa_supplicant_state_txt(wpa_s->wpa_state),
 			MAC2STR(wpa_s->bssid));
@@ -4289,6 +4296,7 @@ int wpa_supplicant_update_mac_addr(struct wpa_supplicant *wpa_s)
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static void wpa_supplicant_rx_eapol_bridge(void *ctx, const u8 *src_addr,
 					   const u8 *buf, size_t len)
 {
@@ -4312,6 +4320,7 @@ static void wpa_supplicant_rx_eapol_bridge(void *ctx, const u8 *src_addr,
 	wpa_supplicant_rx_eapol(wpa_s, src_addr, buf + sizeof(*eth),
 				len - sizeof(*eth));
 }
+#endif
 
 
 /**
@@ -4327,7 +4336,7 @@ int wpa_supplicant_driver_init(struct wpa_supplicant *wpa_s)
 {
 	static int interface_count = 0;
 
-	os_printf("wpa_dInit\r\n");
+	WPA_LOGI("wpa_dInit\r\n");
 	if (wpa_supplicant_update_mac_addr(wpa_s) < 0)
 		return -1;
 
@@ -4889,6 +4898,7 @@ static void radio_work_free(struct wpa_radio_work *work)
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static int radio_work_is_connect(struct wpa_radio_work *work)
 {
 	return os_strcmp(work->type, "sme-connect") == 0 ||
@@ -4994,6 +5004,7 @@ static struct wpa_radio_work * radio_work_get_next_work(struct wpa_radio *radio)
 	/* Did not find a radio work to schedule in parallel. */
 	return NULL;
 }
+#endif
 
 
 static void radio_start_next_work(void *eloop_ctx, void *timeout_ctx)
@@ -5175,13 +5186,16 @@ int radio_add_work(struct wpa_supplicant *wpa_s, unsigned int freq,
 		   void (*cb)(struct wpa_radio_work *work, int deinit),
 		   void *ctx)
 {
+#ifdef CONFIG_FULL_SUPPLICANT
 	struct wpa_radio *radio = wpa_s->radio;
+#endif
 	struct wpa_radio_work *work;
 	int was_empty;
 
 	work = os_zalloc(sizeof(*work));
 	if (work == NULL)
-		return -1;
+		return WPA_ERR_NO_MEM;
+
 	wpa_dbg(wpa_s, MSG_DEBUG, "Add radio work '%s'@%p", type, work);
 	os_get_reltime(&work->time);
 	work->freq = freq;
@@ -5219,7 +5233,7 @@ int radio_add_work(struct wpa_supplicant *wpa_s, unsigned int freq,
 	}
 #endif
 
-	return 0;
+	return WPA_OK;
 }
 
 
@@ -6038,7 +6052,10 @@ static void wpas_periodic(void *eloop_ctx, void *timeout_ctx)
 struct wpa_global * wpa_supplicant_init(struct wpa_params *params)
 {
 	struct wpa_global *global;
-	int ret, i;
+	int i;
+#ifdef CONFIG_FULL_SUPPLICANT
+	int ret;
+#endif
 
 	if (params == NULL)
 		return NULL;
@@ -6171,13 +6188,7 @@ struct wpa_global * wpa_supplicant_init(struct wpa_params *params)
  */
 int wpa_supplicant_run(struct wpa_global *global)
 {
-	struct wpa_supplicant *wpa_s;
-
-	//eloop_register_signal_terminate(wpa_supplicant_terminate, global);
-	//eloop_register_signal_reconfig(wpa_supplicant_reconfig, global);
-
-    wpa_hostapd_queue_poll((uint32_t)0xff);
-
+	wpa_hostapd_queue_poll((uint32_t)0xff);
 	return 0;
 }
 

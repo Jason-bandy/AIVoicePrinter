@@ -1,0 +1,10 @@
+#ifndef __REG_MACBYPASS_H_
+#define __REG_MACBYPASS_H_
+
+#define REG_MACBYPASS_SIZE 1024
+
+#define REG_MACBYPASS_BASE_ADDR 0x01060000
+
+
+#endif // __REG_MACBYPASS_H_
+

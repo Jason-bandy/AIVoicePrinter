@@ -559,6 +559,8 @@ OSStatus rtos_deinit_timer( beken_timer_t* timer );
 
 BOOL rtos_is_timer_running( beken_timer_t* timer );
 
+void rtos_deinit_free_beken_timer(rt_timer_t t);
+
 
 /**
   * @}

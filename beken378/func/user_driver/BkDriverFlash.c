@@ -65,7 +65,7 @@ const bk_logic_partition_t bk7231_partitions[BK_PARTITION_MAX] =
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "RF Firmware",
 #if (CFG_SOC_NAME == SOC_BK7221U)
-        .partition_start_addr      = 0x10000,// bootloader unused space for rf cal+mac related info.
+        .partition_start_addr      = 0x1e0000,// bootloader unused space for rf cal+mac related info.
 #elif (CFG_SOC_NAME == SOC_BK7271)
         .partition_start_addr      = 0x3FE000,
 #else

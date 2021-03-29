@@ -111,8 +111,11 @@ void rs_init(UINT32 channel, UINT32 mode)
 
 void rs_rx_monitor(void)
 {
+#if !CFG_IEEE80211AX
 	hal_machw_enter_monitor_mode();
-
+#else
+    hal_machw_monitor_mode();
+#endif
 	RS_PRT("[RS]rs_rx_monitor\r\n");
 }
 

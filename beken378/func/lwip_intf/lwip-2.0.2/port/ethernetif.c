@@ -80,17 +80,6 @@
 
 #include "uart_pub.h"
 
-#define ETH_INTF_DEBUG
-#ifdef ETH_INTF_DEBUG
-#define ETH_INTF_PRT      warning_prf
-#define ETH_INTF_WARN     warning_prf
-#define ETH_INTF_FATAL    fatal_prf
-#else
-#define ETH_INTF_PRT      null_prf
-#define ETH_INTF_WARN     null_prf
-#define ETH_INTF_FATAL    null_prf
-#endif
-
 extern int bmsg_tx_sender(struct pbuf *p, uint32_t vif_idx);
     
 /* Forward declarations. */
@@ -124,8 +113,8 @@ static void low_level_init(struct netif *netif)
 	//wifi_get_mac_address((char *)wireless_mac, type);
 	
     /* set MAC hardware address length */
-    ETH_INTF_PRT("enter low level!\r\n");
-    ETH_INTF_PRT("mac %2x:%2x:%2x:%2x:%2x:%2x\r\n", macptr[0], macptr[1], macptr[2],
+    LWIP_LOGI("enter low level!\r\n");
+    LWIP_LOGI("mac %2x:%2x:%2x:%2x:%2x:%2x\r\n", macptr[0], macptr[1], macptr[2],
                  macptr[3], macptr[4], macptr[5]);
     
     netif->hwaddr_len = ETHARP_HWADDR_LEN;
@@ -135,7 +124,7 @@ static void low_level_init(struct netif *netif)
     /* device capabilities */
     /* don't set NETIF_FLAG_ETHARP if this device is not an ethernet one */
     netif->flags = NETIF_FLAG_BROADCAST | NETIF_FLAG_ETHARP | NETIF_FLAG_LINK_UP;
-    ETH_INTF_PRT("leave low level!\r\n");
+    LWIP_LOGI("leave low level!\r\n");
 }
 
 /**
@@ -159,7 +148,7 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
 	err_t err = ERR_OK;
     uint8_t vif_idx = rwm_mgmt_get_netif2vif(netif);
 
-	//os_printf("output:%x\r\n", p);
+	//LWIP_LOGI("output:%x\r\n", p);
 	ret = bmsg_tx_sender(p, (uint32_t)vif_idx);
 	if(0 != ret)
 	{
@@ -191,7 +180,7 @@ ethernetif_input(int iface, struct pbuf *p)
 
 	netif = rwm_mgmt_get_vif2netif((uint8_t)iface);
     if(!netif) {
-        //ETH_INTF_PRT("ethernetif_input no netif found %d\r\n", iface);
+        //LWIP_LOGI("ethernetif_input no netif found %d\r\n", iface);
         pbuf_free(p);
         p = NULL;
         return;

@@ -403,6 +403,7 @@ void phy_get_diag_state(struct dbg_debug_info_tag *dbg_info);
 void phy_enable_rx_switch(void);
 void phy_disable_rx_switch(void);
 uint8_t check_large_singal_status(void);
+void update_large_singal_status(uint8_t status);
 void phy_large_signal_support(int8_t rssi);
 /// @}
 

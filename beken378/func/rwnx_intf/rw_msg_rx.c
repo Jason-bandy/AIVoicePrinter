@@ -31,6 +31,7 @@
 #include "rxu_task.h"
 #include "main_none.h"
 #include "sys_ctrl_pub.h"
+#include "rwnx_defs.h"
 
 uint32_t resultful_scan_cfm = 0;
 uint8_t *ind_buf_ptr = 0;
@@ -52,6 +53,30 @@ IND_CALLBACK_T deassoc_evt_cb = {0};
 IND_CALLBACK_T deauth_evt_cb = {0};
 IND_CALLBACK_T wlan_connect_user_cb = {0};
 rw_event_handler rw_event_handlers[RW_EVT_MAX] = {0};
+
+#if defined(CFG_USE_SOFTAP_PROBEREQ_CB) && CFG_USE_SOFTAP_PROBEREQ_CB
+apvif_probereq_frame_t apvif_probereq_frame_cb = NULL;
+
+void ap_vif_probe_req_frame_cb_register(apvif_probereq_frame_t cb)
+{
+	apvif_probereq_frame_cb = cb;
+}
+
+void ap_vif_probe_req_frame_cb_hander(unsigned char *data,unsigned int length)
+{
+	apvif_probereq_frame_t probereq_cb = apvif_probereq_frame_cb;
+
+	if(probereq_cb) {
+		uint8_t *mgnt_buf;
+		mgnt_buf = os_malloc(length);
+		if( mgnt_buf ) {
+			os_memcpy(mgnt_buf, (uint8_t *)data, length);
+			probereq_cb(mgnt_buf,length);
+			os_free(mgnt_buf);
+		}
+	}
+}
+#endif
 
 extern FUNC_1PARAM_PTR bk_wlan_get_status_cb(void);
 extern void app_set_sema(void);
@@ -87,7 +112,7 @@ UINT8 *sr_malloc_shell(void)
 	}
 	else
 	{
-    	os_printf("sr_malloc fail \r\n");
+    	RWNX_LOGI("sr_malloc fail \r\n");
 		return 0;
 	}
 }
@@ -159,7 +184,7 @@ void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 	GLOBAL_INT_DISABLE();
 	if((0 == ptr) || (0 == ptr->ref))
 	{
-		os_printf("released_scan_results\r\n");
+		RWNX_LOGI("released_scan_results\r\n");
 		goto release_exit;
 	}
 
@@ -167,7 +192,7 @@ void sr_release_scan_results(SCAN_RST_UPLOAD_PTR ptr)
 
 	if(ptr->ref)
 	{
-		os_printf("release_scan_results later\r\n");
+		RWNX_LOGI("release_scan_results later\r\n");
 		goto release_exit;
 	}
 
@@ -396,7 +421,7 @@ void mhdr_disconnect_ind(void *msg)
     msg_ptr = (struct ke_msg *)msg;
     disc = (struct sm_disconnect_ind *)msg_ptr->param;
 
-    os_printf("%s reason_code=%d\n", __FUNCTION__, disc->reason_code);
+    RWNX_LOGI("%s reason_code=%d\n", __FUNCTION__, disc->reason_code);
     switch (disc->reason_code)
     {
         case WLAN_REASON_PREV_AUTH_NOT_VALID:
@@ -418,7 +443,7 @@ void mhdr_disconnect_ind(void *msg)
 	else if(msg && disc
 				&& (VENDOR_CONNECTION_LOSS == disc->reason_code))
 	{
-		os_printf("VENDOR_CONNECTION_LOSS\r\n");
+		RWNX_LOGI("VENDOR_CONNECTION_LOSS\r\n");
 		rl_sta_cache_request_enter();
 	}
 	else if(rl_pre_sta_get_status() >= RL_STATUS_STA_SCANNING)
@@ -433,7 +458,7 @@ void mhdr_disconnect_ind(void *msg)
     if(deassoc_evt_cb.cb)
 #endif
 	{
-		os_printf("deassoc_evt_cb\r\n");
+		RWNX_LOGI("deassoc_evt_cb\r\n");
         (*deassoc_evt_cb.cb)(deassoc_evt_cb.ctxt_arg, disc->vif_idx);
     }
 }
@@ -453,7 +478,7 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
 	wpa_ctrl_event_copy(WPA_CTRL_EVENT_ASSOC_IND, ind, sizeof(*ind));
 
 	if (0 == ind->status_code) {
-		os_printf("---------SM_ASSOC_IND_ok\r\n");
+		RWNX_LOGI("SM_ASSOC_IND_ok\r\n");
 
 		bk7011_default_rxsens_setting();
 
@@ -491,7 +516,7 @@ void mhdr_connect_ind(void *msg, UINT32 len)
 
 #if !CFG_WPA_CTRL_IFACE
 	if (0 == conn_ind_ptr->status_code) {
-		os_printf("---------SM_CONNECT_IND_ok\r\n");
+		RWNX_LOGI("SM_CONNECT_IND_ok\r\n");
 
 		bk7011_default_rxsens_setting();
 		if (assoc_cfm_cb.cb)
@@ -500,19 +525,19 @@ void mhdr_connect_ind(void *msg, UINT32 len)
 		if (wlan_connect_user_cb.cb)
 			(*wlan_connect_user_cb.cb)(wlan_connect_user_cb.ctxt_arg, 0);
 	} else {
-		os_printf("---------SM_CONNECT_IND_fail\r\n");
+		RWNX_LOGI("SM_CONNECT_IND_fail\r\n");
 		mhdr_disconnect_ind(msg);
 	}
 #else
 	if (0 == conn_ind_ptr->status_code) {
-		os_printf("---------SM_CONNECT_IND_ok\n");
+		RWNX_LOGI("SM_CONNECT_IND_ok\n");
 
 		bk7011_default_rxsens_setting();
 
 		if (wlan_connect_user_cb.cb)
 			(*wlan_connect_user_cb.cb)(wlan_connect_user_cb.ctxt_arg, 0);
 	} else {
-		os_printf("---------SM_CONNECT_IND_fail\n");
+		RWNX_LOGI("SM_CONNECT_IND_fail\n");
 	}
 
 	/* Send to wpa_supplicant */
@@ -664,7 +689,7 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
                     ssid_len = MAC_SSID_LEN;
 
                 os_memcpy(ssid_b, elmt_addr + MAC_SSID_SSID_OFT, ssid_len);
-                os_printf("drop: %s, chan:%d\r\n", ssid_b, chann);
+                RWNX_LOGI("drop: %s, chan:%d\r\n", ssid_b, chann);
             }
 
             goto scan_rst_exit;
@@ -679,7 +704,7 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
     {
         chann = rw_ieee80211_get_chan_id(scanu_ret_ptr->center_freq);
         on_channel = 0;
-        os_printf("scan rst no ds param, drop it?\r\n");
+        RWNX_LOGI("scan rst no ds param, drop it?\r\n");
     }
 
     /* check the duplicate bssid*/
@@ -724,7 +749,7 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
     }
     else
     {
-        os_printf("NoSSid\r\n");
+        RWNX_LOGI("NoSSid\r\n");
     }
 
     os_memcpy(item->bssid, probe_rsp_ieee80211_ptr->bssid, ETH_ALEN);
@@ -799,7 +824,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 				mhdr_scanu_result_ind(scan_rst_set_ptr, rx_msg, rx_msg->param_len);
 			}
 			else{
-				os_printf("scan_rst_set_ptr malloc fail\r\n");
+				RWNX_LOGI("scan_rst_set_ptr malloc fail\r\n");
 			}
 		}
 		else{
@@ -845,7 +870,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 #endif
 
 	case SM_DISCONNECT_IND:
-		os_printf("SM_DISCONNECT_IND\r\n");
+		RWNX_LOGI("SM_DISCONNECT_IND\r\n");
 		mhdr_disconnect_ind(rx_msg);
 
 #if (CFG_SOC_NAME != SOC_BK7271)
@@ -884,7 +909,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		break;
 
 	case MM_TAGGED_PARAM_CHANGE:
-		bk_printf("[wzl]MM_TAGGED_PARAM_CHANGE\r\n");
+		RWNX_LOGI("MM_TAGGED_PARAM_CHANGE\r\n");
 
 #if RL_SUPPORT_FAST_CONNECT
 		rl_clear_bssid_info();

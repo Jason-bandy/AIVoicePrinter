@@ -170,11 +170,10 @@ static rt_size_t audio_adc_read(rt_device_t dev, rt_off_t pos,
 
 static rt_err_t audio_adc_control(rt_device_t dev, int cmd, void *args)
 {
-    rt_err_t result = RT_EOK, stat;
+    rt_err_t result = RT_EOK;
     struct audio_mic_device *audio = RT_NULL;
 
     audio = (struct audio_mic_device *)dev;
-    stat = audio->stat;
 
     switch (cmd)
     {
@@ -240,7 +239,7 @@ static rt_err_t audio_adc_control(rt_device_t dev, int cmd, void *args)
         result = RT_ERROR;
     }
 
-    return RT_EOK;
+    return result;
 }
 
 static rt_err_t audio_adc_close(rt_device_t dev)
@@ -297,6 +296,7 @@ static rt_err_t audio_adc_close(rt_device_t dev)
 
     audio_adc->stat = stat;
     dbg_log(DBG_INFO, "close mic device");
+	return 0;
 }
 
 #if (CFG_SOC_NAME == SOC_BK7271)
@@ -335,40 +335,41 @@ static void audio_adc_callback_handler(MAILBOX_TYPE_T type, mailbox_t *param)
 #else
 void audio_adc_irq_handler(UINT32 arg)
 {
-    rt_uint32_t status, cnt;
-    struct audio_mic_device *audio_adc = RT_NULL;
+	rt_uint32_t status, cnt;
+	struct audio_mic_device *audio_adc = RT_NULL;
+	INT16 *left = 0;
+	INT16 *right = 0;
 
-    audio_adc = &_g_audio_mic;
+	audio_adc = &_g_audio_mic;
 
-    status = REG_READ(AUD_AD_FIFO_STATUS);
-    if (status & ADC_INT_FLAG)
-    {
-        cnt = 0;
-        while (!(status & (ADC_FIFO_EMPTY)))
-        {
-            if (audio_adc->n_channel == 1)
-                audio_adc_get_l_sample(&audio_adc->recv_fifo[cnt++]);
-            else
-                audio_adc_get_l_and_r_samples(&audio_adc->recv_fifo[cnt++],
-                                              &audio_adc->recv_fifo[cnt++]);
+	status = REG_READ(AUD_AD_FIFO_STATUS);
+	if (status & ADC_INT_FLAG) {
+		cnt = 0;
+		while (!(status & (ADC_FIFO_EMPTY))) {
 
-            status = REG_READ(AUD_AD_FIFO_STATUS);
-        }
-        if (cnt > 0)
-        {
-            rt_device_write(&audio_adc->record_pipe.parent, 0, audio_adc->recv_fifo, cnt << 1);
-        }
-    }
+			if (audio_adc->n_channel == 1) {
+				audio_adc_get_l_sample((INT16*)&audio_adc->recv_fifo[cnt++]);
+			} else {
+				left = (INT16*)&audio_adc->recv_fifo[cnt++];
+				right = (INT16*)&audio_adc->recv_fifo[cnt++];
+				audio_adc_get_l_and_r_samples(left, right);
+			}
+
+			status = REG_READ(AUD_AD_FIFO_STATUS);
+		}
+
+		if (cnt > 0) {
+			rt_device_write(&audio_adc->record_pipe.parent, 0, audio_adc->recv_fifo, cnt << 1);
+		}
+	}
 }
 
 void adc_dma_half_handler(UINT32 flag)
 {
-    
 }
 
 void adc_dma_finish_handler(UINT32 flag)
 {
-    int result;
     struct audio_mic_device *audio_adc = RT_NULL;
     rt_uint8_t *adc_buf_ptr, *end_buf;
 
@@ -458,7 +459,6 @@ static const struct rt_device_ops audio_mic_ops =
 
 int rt_audio_adc_hw_init(void)
 {
-    int result = RT_EOK;
     struct audio_mic_device *audio_adc = &_g_audio_mic;
     struct rt_device *device = &audio_adc->parent;
 

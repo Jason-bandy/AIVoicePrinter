@@ -11,10 +11,16 @@
 
 #include "wpabuf.h"
 #include "sys_config.h"
+#include "bk_log.h"
 
 extern int wpa_debug_level;
 extern int wpa_debug_show_keys;
 extern int wpa_debug_timestamp;
+
+#define WPA_LOGI(...) BK_LOGI("wpa", ##__VA_ARGS__)
+#define WPA_LOGW(...) BK_LOGW("wpa", ##__VA_ARGS__)
+#define WPA_LOGE(...) BK_LOGE("wpa", ##__VA_ARGS__)
+#define WPA_LOGD(...) BK_LOGD("wpa", ##__VA_ARGS__)
 
 /* Debugging function - conditional printf and hex dump. Driver wrappers can
  * use these for debugging purposes. */
@@ -355,7 +361,7 @@ static inline void wpa_debug_close_linux_tracing(void)
 #define WPA_ASSERT(a)						       \
 	do {							       \
 		if (!(a)) {					       \
-			os_printf("WPA_ASSERT FAILED '" #a "' "	       \
+			WPA_LOGI("WPA_ASSERT FAILED '" #a "' "	       \
 			       "%s %s:%d\n",			       \
 			       __FUNCTION__, __FILE__, __LINE__);      \
 		}						       \

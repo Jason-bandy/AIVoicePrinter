@@ -118,7 +118,7 @@ int main(int argc, char** argv)
   if(argc > 1) {
     FILE* f;
     const char* filename;
-    os_printf("reading input from file... ");
+    LWIP_LOGI("reading input from file... ");
     fflush(stdout);
     filename = argv[1];
     LWIP_ASSERT("invalid filename", filename != NULL);
@@ -126,7 +126,7 @@ int main(int argc, char** argv)
     LWIP_ASSERT("open failed", f != NULL);
     len = fread(pktbuf, 1, sizeof(pktbuf), f);
     fclose(f);
-    os_printf("testing file: \"%s\"...\r\n", filename);
+    LWIP_LOGI("testing file: \"%s\"...\r\n", filename);
   } else {
     len = fread(pktbuf, 1, sizeof(pktbuf), stdin);
   }

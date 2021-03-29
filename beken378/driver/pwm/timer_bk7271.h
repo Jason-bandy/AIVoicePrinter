@@ -8,7 +8,7 @@
 #define BK_TIMER_FAILURE							(1)
 #define BK_TIMER_SUCCESS							(0)
 
-#define TIMER_GROUNP_BASE(x)                         (0x00802780 +0x40 *x)
+#define TIMER_GROUNP_BASE(x)                         (0x00802780 +0x40 *(x))
 
 #define TIMER0_CNT(x)                                (TIMER_GROUNP_BASE(x)  + 0 * 4)
 #define TIMER1_CNT(x)                                (TIMER_GROUNP_BASE(x)  + 1 * 4)
@@ -40,13 +40,13 @@
 #define TIMER_READ_CNT_ENABLE							(1 << 0)
 #define TIMER_READ_CNT_MASK								(1 << 0)
 
-#define TIMER_READ_CNT_CHANNEL(x)					   (x << 2)
+#define TIMER_READ_CNT_CHANNEL(x)					   ((x) << 2)
 #define TIMER0_2_READ_CNT_MASK						   (3 << 2)
 
 #define TIMER0_2_READ_VALUE(x)						 (TIMER_GROUNP_BASE(x)  + 5* 4)
 
 #define REG_TIMERCTLA_PERIOD_ADDR(n)                 (TIMER_GROUNP_BASE(0) +  0x04 * (n))
-#define REG_TIMERCTLB_PERIOD_ADDR(n)                 (TIMER_GROUNP_BASE(1) + 0x04 * (n - 3))
+#define REG_TIMERCTLB_PERIOD_ADDR(n)                 (TIMER_GROUNP_BASE(1) + 0x04 * ((n) - 3))
 
 
 UINT32 bk_timer_ctrl(UINT32 cmd, void *param);

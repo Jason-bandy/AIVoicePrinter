@@ -432,8 +432,7 @@ int httpclient_recv(httpclient_t *client, char *buf, int min_len, int max_len, i
 
 void http_flash_wr ( UINT8 *src, unsigned len)
 {
-    UINT32 param , or_crc;
-    UINT32 param1;
+    UINT32 param;
     GLOBAL_INT_DECLARATION();
 
     if(bk_http_ptr->flash_address % 0x1000 == 0)
@@ -448,12 +447,12 @@ void http_flash_wr ( UINT8 *src, unsigned len)
         && (((u32)bk_http_ptr->flash_address + len) < (bk_http_ptr->pt->partition_start_addr + bk_http_ptr->pt->partition_length)))
     {
         GLOBAL_INT_DISABLE();
-        ddev_write(bk_http_ptr->flash_hdl, src, len, (u32)bk_http_ptr->flash_address);
+        ddev_write(bk_http_ptr->flash_hdl, (char*)src, len, (u32)bk_http_ptr->flash_address);
         GLOBAL_INT_RESTORE();
         if(bk_http_ptr->wr_tmp_buf)
         {
             GLOBAL_INT_DISABLE();
-            ddev_read(bk_http_ptr->flash_hdl, bk_http_ptr->wr_tmp_buf, len , (u32)bk_http_ptr->flash_address);
+            ddev_read(bk_http_ptr->flash_hdl, (char*)bk_http_ptr->wr_tmp_buf, len , (u32)bk_http_ptr->flash_address);
             GLOBAL_INT_RESTORE();
             if(!os_memcmp(src , bk_http_ptr->wr_tmp_buf, len ))
             {

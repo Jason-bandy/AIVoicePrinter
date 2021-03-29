@@ -19,7 +19,6 @@ uint8 udisk_is_attached(void)
 uint8 udisk_init(void)
 {
 	uint32 ret = USB_RET_ERROR;
-	int ret_val;
 
 	FAT_PRT("udisk_init_wzl\r\n");
 

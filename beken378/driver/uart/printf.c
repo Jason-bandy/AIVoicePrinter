@@ -529,7 +529,6 @@ int __wrap_vsnprintf(char *str, size_t size, const char *format, va_list args)
 				 * manner." (C99: 7.19.6.1, 8)
 				 */
 				if (*format == 'm' || *format == 'M') {
-					char mac_lower[17];
 					unsigned char *macstr;
 					if (*format == 'M')
 						flags |= PRINT_F_UP;
@@ -1132,7 +1131,6 @@ static void fmtip(char *buf, size_t *len, size_t size, unsigned int value)
 static void fmtmac(char *buf, size_t *len, size_t size, const unsigned char *mac, int caps)
 {
 	const char *digits = caps ? "0123456789ABCDEF" : "0123456789abcdef";
-	size_t pos = 0;
 	int i;
 	unsigned char c;
 

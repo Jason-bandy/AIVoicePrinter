@@ -200,6 +200,7 @@ static int ieee802_11_parse_vendor_specific(const u8 *pos, size_t elen,
 }
 
 
+#if defined(CONFIG_FULL_SUPPLICANT) || defined(CONFIG_FULL_HOSTAPD) || defined(CONFIG_IEEE80211AX)
 static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 				      struct ieee802_11_elems *elems,
 				      int show_errors)
@@ -304,6 +305,7 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 
 	return 0;
 }
+#endif
 
 
 /**
@@ -532,6 +534,9 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 		case WLAN_EID_FRAGMENT:
 			/* TODO */
 			break;
+#endif
+
+#ifdef CONFIG_IEEE80211AX
 		case WLAN_EID_EXTENSION:
 			if (ieee802_11_parse_extension(pos, elen, elems,
 						       show_errors))

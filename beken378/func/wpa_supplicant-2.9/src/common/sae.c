@@ -450,7 +450,7 @@ fail:
 }
 
 
-static int sae_derive_pwe_ffc(struct sae_data *sae, const u8 *addr1,
+__maybe_unused static int sae_derive_pwe_ffc(struct sae_data *sae, const u8 *addr1,
 			      const u8 *addr2, const u8 *password,
 			      size_t password_len, const char *identifier)
 {
@@ -567,7 +567,7 @@ static int sae_derive_commit_element_ecc(struct sae_data *sae,
 }
 
 
-static int sae_derive_commit_element_ffc(struct sae_data *sae,
+__maybe_unused static int sae_derive_commit_element_ffc(struct sae_data *sae,
 					 struct crypto_bignum *mask)
 {
 	/* COMMIT-ELEMENT = inverse(scalar-op(mask, PWE)) */
@@ -686,7 +686,7 @@ fail:
 }
 
 
-static int sae_derive_k_ffc(struct sae_data *sae, u8 *k)
+__maybe_unused static int sae_derive_k_ffc(struct sae_data *sae, u8 *k)
 {
 	struct crypto_bignum *K;
 	int ret = -1;
@@ -1069,7 +1069,7 @@ static u16 sae_parse_commit_element_ecc(struct sae_data *sae, const u8 **pos,
 }
 
 
-static u16 sae_parse_commit_element_ffc(struct sae_data *sae, const u8 **pos,
+__maybe_unused static u16 sae_parse_commit_element_ffc(struct sae_data *sae, const u8 **pos,
 					const u8 *end)
 {
 	struct crypto_bignum *res, *one;
@@ -1319,7 +1319,7 @@ static void sae_cn_confirm_ecc(struct sae_data *sae, const u8 *sc,
 }
 
 
-static void sae_cn_confirm_ffc(struct sae_data *sae, const u8 *sc,
+__maybe_unused static void sae_cn_confirm_ffc(struct sae_data *sae, const u8 *sc,
 			       const struct crypto_bignum *scalar1,
 			       const struct crypto_bignum *element1,
 			       const struct crypto_bignum *scalar2,

@@ -582,6 +582,10 @@ int lwip_fcntl(int s, int cmd, int val);
     (((af) == AF_INET6) ? ip6addr_aton((src),(ip6_addr_t*)(dst)) : 0)
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
 
+#else
+
+int setsockopt(int s, int level, int optname, const void *optval, socklen_t optlen);
+
 #endif /* LWIP_COMPAT_SOCKETS */
 
 #ifdef __cplusplus

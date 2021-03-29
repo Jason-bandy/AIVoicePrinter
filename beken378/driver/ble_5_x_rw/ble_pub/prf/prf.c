@@ -26,6 +26,7 @@
 
 #include "rwip_config.h"
 #include "rwprf_config.h"
+#include "common_log.h"
 #if (BLE_PROFILES)
 #include "rwip.h"
 #include "prf.h"
@@ -81,7 +82,7 @@ struct prf_env_tag prf_env;
 static const struct prf_task_cbs * prf_itf_get(uint16_t task_id)
 {
     const struct prf_task_cbs* prf_cbs = NULL;
-    //uart_printf("~~~~~~~~~~~~~~~~~~~~~~~task id=%d",KERNEL_TYPE_GET(task_id));
+    //BLE_LOGI("~~~~~~~~~~~~~~~~~~~~~~~task id=%d",KERNEL_TYPE_GET(task_id));
 
 	uint16_t id = KERNEL_TYPE_GET(task_id);
 
@@ -137,7 +138,7 @@ static const struct prf_task_cbs * prf_itf_get(uint16_t task_id)
 void prf_init(uint8_t init_type)
 {
     uint8_t i;
-    uart_printf("!!!!!!init_type=%x\n",init_type);
+    BLE_LOGI("init_type=%x\n",init_type);
     for(i = 0; i < BLE_NB_PROFILES ; i++)
     {
         switch (init_type)
@@ -382,7 +383,7 @@ struct prf_env_t * prf_env_get_from_uuid(uint8_t conidx,uint8_t uuid_len,const u
     // find if profile present in profile tasks
     for(i = 0; i < BLE_NB_PROFILES ; i++)
     {	
-		//UART_PRINTF("prf_env.prf[%d].id = 0x%x \r\n",i,prf_env.prf[i].id);
+		//BLE_LOGI("prf_env.prf[%d].id = 0x%x \r\n",i,prf_env.prf[i].id);
 		if(prf_env.prf[i].role == PRF_CLIENT)
 		{
 			sdp_env = (struct sdp_env_tag *) prf_env.prf[i].env;
@@ -414,7 +415,7 @@ struct prf_env_t * prf_env_get_from_handle(uint8_t conidx,uint16_t handle)
     // find if profile present in profile tasks
     for(i = 0; i < BLE_NB_PROFILES ; i++)
     {	
-		//UART_PRINTF("prf_env.prf[%d].id = 0x%x \r\n",i,prf_env.prf[i].id);
+		//BLE_LOGI("prf_env.prf[%d].id = 0x%x \r\n",i,prf_env.prf[i].id);
 		if(prf_env.prf[i].role == PRF_CLIENT)
 		{
 			sdp_env = (struct sdp_env_tag *) prf_env.prf[i].env;

@@ -17,6 +17,7 @@
 #ifndef _HAL_MACHW_H_
 #define _HAL_MACHW_H_
 
+#include "co_log.h"
 /**
  *****************************************************************************************
  * @defgroup HAL HAL
@@ -38,6 +39,7 @@
 #include "reg_mac_core.h"
 #include "reg_mac_pl.h"
 #include "reg_mac_core.h"
+#include "uart_pub.h"
 
 /*
  * DEFINES
@@ -203,7 +205,7 @@ __INLINE uint32_t hal_machw_time(void)
 	else if(time != 0xdead5555)
 		last_rw_time = time;
 	if (time == 0xdead5555)
-		bk_printf("XXXXXXXXXX time dead 2\r\n");
+		IP_LOGE("time dead 2\r\n");
 	return time;
 }
 
@@ -309,7 +311,7 @@ __INLINE uint32_t hal_machw_frame_duration(uint8_t bw, uint8_t modf, uint8_t rat
         }
     }
 
-    os_printf("hal_machw_frame_duration timeout\r\n");
+    IP_LOGI("hal_machw_frame_duration timeout\r\n");
     return 500;
 }
 
@@ -439,6 +441,7 @@ extern void hal_machw_gen_handler(void);
 extern void hal_init_cipher_keys(void);
 extern void hal_machw_allow_rx_rts_cts(void);
 extern void hal_machw_disallow_rx_rts_cts(void);
+extern bool hal_machw_wkup_check(void);
 /**
  ****************************************************************************************
  * @brief Ask to HW to move to IDLE state.

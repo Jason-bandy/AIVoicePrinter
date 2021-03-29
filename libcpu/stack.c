@@ -27,6 +27,7 @@
 #define NOINT           0xc0
 
 #define RT_HW_DUMP_STACK_MEM  0
+#define RT_STACK_BUF_SIZE     32
 
 extern uint32_t und_stack_start;
 extern uint32_t abt_stack_start;
@@ -105,7 +106,7 @@ static void rt_hw_stack_parse_backtrace(const char *str_type,
 	extern void fiq_handler();
 	extern char __rt_init_end;
 
-	uint32_t call_stack_buf[32] = {0};
+	uint32_t call_stack_buf[RT_STACK_BUF_SIZE] = {0};
 	uint32_t code_start_addr;
 	uint32_t code_end_addr;
 	uint32_t pc;
@@ -119,7 +120,7 @@ static void rt_hw_stack_parse_backtrace(const char *str_type,
 #if RT_HW_DUMP_STACK_MEM
 	rt_hw_stack_mem_dump(sp, stack_end_addr);
 #endif
-	for (; sp < stack_end_addr; sp += sizeof(size_t)) {
+	for (; sp < stack_end_addr && (call_stack_index < RT_STACK_BUF_SIZE); sp += sizeof(size_t)) {
 		pc = *((uint32_t *) sp);
 
 		/* ARM9 using thumb instruction, so the pc must be an odd number */
@@ -158,8 +159,6 @@ static void rt_hw_thread_stack_print(rt_thread_t thread, rt_bool_t in_exception)
 	uint32_t stack_start_addr;
 	uint32_t stack_end_addr;
 	uint32_t sp;
-	uint32_t pc;
-	int call_stack_index = 0;
 
 	if (NULL == thread) {
 		thread = rt_thread_self();

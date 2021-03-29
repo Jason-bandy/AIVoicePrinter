@@ -132,7 +132,7 @@ extern UINT32 usb_write (char *user_buf, UINT32 count, UINT32 op_flag);
 extern UINT32 usb_ctrl(UINT32 cmd, void *param);
 extern void usb_event_post(void);
 extern void usb_isr(void);
+void usb_check_int_handler(void);
 
-#endif //_USB_H_ 
+#endif //_USB_H_
 // eof
-

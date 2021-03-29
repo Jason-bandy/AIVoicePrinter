@@ -65,7 +65,7 @@ UINT32 test_sdcard_read(UINT32 blk)
     os_memset(testbuf, 0, 512);
 	if(testbuf == NULL)
 		return 1;
-	ret = ddev_read(sdcard_hdl, testbuf, 1, blk);
+	ret = ddev_read(sdcard_hdl, (char*)testbuf, 1, blk);
 
     for(int i = 0;i<512;i++)
         {
@@ -93,7 +93,7 @@ UINT32 test_sdcard_write(UINT32 blk)
     for(i=0;i<512;i++)
         testbuf[i]=0x50;
     //blk = 0x20000;//just for test
-    ret = ddev_write(sdcard_hdl, testbuf, 1, blk);
+    ret = ddev_write(sdcard_hdl, (char*)testbuf, 1, blk);
     os_free(testbuf);
 	return ret;
 }

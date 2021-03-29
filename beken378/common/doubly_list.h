@@ -4,6 +4,9 @@
 #ifndef offsetof
 #define offsetof(TYPE, MEMBER) ((size_t) &((TYPE *)0)->MEMBER)
 #endif
+#ifdef list_entry
+#undef list_entry
+#endif
 #define list_entry(ptr, type, member) ((type *)((char *)ptr - offsetof(type,member)))
 
 /*

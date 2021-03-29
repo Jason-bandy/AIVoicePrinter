@@ -161,6 +161,7 @@ static void hostapd_clear_old(struct hostapd_iface *iface)
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static int hostapd_iface_conf_changed(struct hostapd_config *newconf,
 				      struct hostapd_config *oldconf)
 {
@@ -177,6 +178,7 @@ static int hostapd_iface_conf_changed(struct hostapd_config *newconf,
 
 	return 0;
 }
+#endif
 
 
 int hostapd_reload_config(struct hostapd_iface *iface)
@@ -1154,7 +1156,7 @@ static int setup_interface(struct hostapd_iface *iface)
 	}
 
     //if (iface->num_bss != iface->conf->num_bss) {
-    //    os_printf("%s num_bss=%d vs %d\n", __FUNCTION__, iface->num_bss, iface->conf->num_bss);
+    //    WPA_LOGI("%s num_bss=%d vs %d\n", __FUNCTION__, iface->num_bss, iface->conf->num_bss);
     //    return -1;
     //}
 
@@ -2978,7 +2980,7 @@ int hostapd_switch_channel(struct hostapd_data *hapd,
 		return -1;
 	}
 
-	os_printf("hostapd_switch_channel\r\n");
+	WPA_LOGI("hostapd_switch_channel\r\n");
 	ret = hostapd_fill_csa_settings(hapd, settings);
 	if (ret)
 		return ret;

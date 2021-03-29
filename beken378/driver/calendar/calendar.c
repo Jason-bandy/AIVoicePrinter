@@ -4,7 +4,7 @@
 #include "calendar_pub.h"
 #include "calendar.h"
 
-static SDD_OPERATIONS cal_op = {
+static const SDD_OPERATIONS cal_op = {
             cal_ctrl
 };
 			
@@ -73,7 +73,7 @@ void cal_init(void)
 	cal_cfg_init_value(0);
 	cal_enable();
 	
-	sddev_register_dev(CAL_DEV_NAME, &cal_op);
+	sddev_register_dev(CAL_DEV_NAME, (SDD_OPERATIONS*)&cal_op);
 }
 
 void cal_exit(void)

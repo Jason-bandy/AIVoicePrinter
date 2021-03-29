@@ -12,7 +12,7 @@
 void bk_timer_isr(void) __SECTION(".itcm");
 
 
-static SDD_OPERATIONS bk_timer_op = {
+static const SDD_OPERATIONS bk_timer_op = {
 	bk_timer_ctrl
 };
 
@@ -276,7 +276,7 @@ void bk_timer_init(void)
 	REG_WRITE(TIMER0_2_CTL(1), value);
 
 	intc_service_register(IRQ_TIMER, PRI_IRQ_TIMER, bk_timer_isr);
-	sddev_register_dev(TIMER_DEV_NAME, &bk_timer_op);
+	sddev_register_dev(TIMER_DEV_NAME, (SDD_OPERATIONS*)&bk_timer_op);
 }
 
 void bk_timer_exit(void)

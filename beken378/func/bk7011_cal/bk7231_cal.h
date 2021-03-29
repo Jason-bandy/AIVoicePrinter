@@ -4,21 +4,22 @@
 #if (CFG_SOC_NAME == SOC_BK7231)
 
 #include "uart_pub.h"
+#include "cal_log.h"
 
 #define CAL_DEBUG          0
 
 #if CAL_DEBUG
-#define CAL_PRT       null_prf
-#define CAL_WARN      null_prf
-#define CAL_FATAL     fatal_prf
-#define CAL_TIM_PRT   os_printf
-#define CAL_FLASH_PRT os_printf
+#define CAL_PRT       CAL_LOGD
+#define CAL_WARN      CAL_LOGD
+#define CAL_FATAL     CAL_LOGE
+#define CAL_TIM_PRT   CAL_LOGI
+#define CAL_FLASH_PRT CAL_LOGI
 #else
-#define CAL_PRT       null_prf
-#define CAL_WARN      null_prf
-#define CAL_FATAL     null_prf
-#define CAL_TIM_PRT   null_prf
-#define CAL_FLASH_PRT null_prf
+#define CAL_PRT       CAL_LOGD
+#define CAL_WARN      CAL_LOGD
+#define CAL_FATAL     CAL_LOGD
+#define CAL_TIM_PRT   CAL_LOGD
+#define CAL_FLASH_PRT CAL_LOGD
 #endif
 
 #define REGTRXV2A

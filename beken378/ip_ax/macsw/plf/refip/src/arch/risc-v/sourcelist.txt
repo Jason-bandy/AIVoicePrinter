@@ -1,0 +1,4 @@
+# RISC-V specific files
+    arch_main.c
+    boot/$BUILDTOOL/crt0.S
+    boot/$BUILDTOOL/interrupt.c

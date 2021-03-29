@@ -36,7 +36,7 @@ static void ble_app_event_cb_handler(ble_event_t event, void *param)
  */
 void appm_create_advertising(void)
 {
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
 	
 	if (get_app_ble_adv_state() == APP_ADV_STATE_IDLE)
 	{
@@ -55,12 +55,12 @@ void appm_set_adv_data(void)
 	set_app_ble_adv_state(APP_ADV_STATE_SETTING_ADV_DATA);
 	ret = ble_appm_set_adv_data(get_app_ble_adv_actv_idx(),adv_info.advData,adv_info.advDataLen);
 	
-	bk_printf("[%s]ret:%d\r\n",__func__,ret);
+	BLE_LOGI("[%s]ret:%d\r\n",__func__,ret);
 }
 
 void appm_set_scan_rsp_data(void)
 {
-    bk_printf("[%s]\r\n",__func__);
+    BLE_LOGI("[%s]\r\n",__func__);
 
 	// Update advertising state
     set_app_ble_adv_state(APP_ADV_STATE_SETTING_SCAN_RSP_DATA);
@@ -69,7 +69,7 @@ void appm_set_scan_rsp_data(void)
 
 void appm_start_advertising_cmd(void)
 {
-    bk_printf("[%s]\r\n",__func__);
+    BLE_LOGI("[%s]\r\n",__func__);
     if((get_app_ble_adv_state() == APP_ADV_STATE_CREATED) 
 		|| (get_app_ble_adv_state() == APP_ADV_STATE_SETTING_SCAN_RSP_DATA))
     {
@@ -91,7 +91,7 @@ ble_err_t appm_start_advertising(void)
 	*/
     /*if(BLE_ROLE_MASTER == ble_get_role_mode())
     {
-        bk_printf("current role should not be master\r\n");
+        BLE_LOGI("current role should not be master\r\n");
         return ERR_ADV_FAIL;
     }
 	*/
@@ -101,7 +101,7 @@ ble_err_t appm_start_advertising(void)
     {
     	appm_create_advertising();
        /*
-        bk_printf("appm start advertising\r\n");
+        BLE_LOGI("appm start advertising\r\n");
 
         ble_init_over = 1;
       ///  mcu_prevent_set(MCU_PS_BLE_FROBID);
@@ -124,7 +124,7 @@ ble_err_t appm_start_advertising(void)
 ble_err_t appm_stop_advertising(void)
 {
 	ble_err_t status = ERR_SUCCESS;
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
 
     if (APP_ADV_STATE_STARTED == get_app_ble_adv_state())
     {
@@ -148,7 +148,7 @@ ble_err_t appm_stop_advertising(void)
 
 void appm_delete_advertising(void)
 {
-    bk_printf("[%s]\r\n",__func__);
+    BLE_LOGI("[%s]\r\n",__func__);
 	
 	set_app_ble_adv_state(APP_ADV_STATE_DELETEING);
 	ble_appm_delete_advertising(get_app_ble_adv_actv_idx());
@@ -206,13 +206,13 @@ void appm_start_direct_dvertising(void)
 			kernel_msg_send_basic(APP_PERIOD_TIMER,TASK_APP,TASK_APP);
 			#endif
 
-		//	UART_PRINTF("appm start direct advertising\r\n");
+		//	BLE_LOGI("appm start direct advertising\r\n");
 		}
 		else
 		{
 			kernel_msg_free(kernel_param2msg(cmd));
             appm_start_advertising();		
- 		//	UART_PRINTF("appm start general advertising\r\n");
+ 		//	BLE_LOGI("appm start general advertising\r\n");
 		}
 
 	    kernel_state_set(TASK_APP, APPM_ADVERTISING);	
@@ -236,7 +236,7 @@ uint8_t appm_updata_adv_data(uint16_t length, uint8_t *p_data)
     // Returned status
     uint8_t status = GAP_ERR_INVALID_PARAM;
 	
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
     if(!ble_app_gapm_adv_check_data_sanity(length,p_data))
     {
         status = GAP_ERR_ADV_DATA_INVALID;
@@ -265,7 +265,7 @@ uint8_t appm_updata_scan_rsp_data(uint16_t length, uint8_t *p_data)
     // Returned status
     uint8_t status = GAP_ERR_INVALID_PARAM;
 	
-	bk_printf("[%s]\r\n",__func__);
+	BLE_LOGI("[%s]\r\n",__func__);
 	
     if((get_app_ble_adv_state() == APP_ADV_STATE_CREATED) 
 		|| (get_app_ble_adv_state() == APP_ADV_STATE_STARTED))
@@ -317,10 +317,10 @@ uint8_t app_connect_device_info_get(void)
 {
     uint8_t num = 0;
     
-    bk_printf("\r\n+CHINFO{\r\n");
+    BLE_LOGI("\r\n+CHINFO{\r\n");
     for(int i = 0;i < APP_IDX_MAX;i++)
     {     
-        bk_printf("idx:%d,state:%x\r\n",i,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,i)));        
+        BLE_LOGI("idx:%d,state:%x\r\n",i,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,i)));        
         if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,i)) == APPM_CONNECTED)
 			||(kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,i)) == APPM_READY)
             /*||(kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,i)) == APPC_SDP_DISCOVERING)
@@ -329,11 +329,11 @@ uint8_t app_connect_device_info_get(void)
             num++;
             for(int j = 0; j < GAP_BD_ADDR_LEN;j ++)
             {
-                bk_printf("%02x",app_ble_ctx.con_dev_addr[i].addr.addr[j]);
-            }bk_printf(",%x,3\r\n",app_ble_ctx.con_dev_addr[i].addr_type); 
+                BLE_LOGI("%02x",app_ble_ctx.con_dev_addr[i].addr.addr[j]);
+            }BLE_LOGI(",%x,3\r\n",app_ble_ctx.con_dev_addr[i].addr_type); 
         }
     }
-    bk_printf("+CHINFO}\r\n\r\nOK\r\n");
+    BLE_LOGI("+CHINFO}\r\n\r\nOK\r\n");
     
     return num;
 }
@@ -342,7 +342,7 @@ uint8_t app_connect_device_info_get(void)
 //////////////////Application ///////////////////////////
 void appm_adv_fsm_next(char flag)
 {
-    bk_printf("[%s] cur adv_state:%x\r\n",__func__,get_app_ble_adv_state());
+    BLE_LOGI("[%s] cur adv_state:%x\r\n",__func__,get_app_ble_adv_state());
     switch (get_app_ble_adv_state())
     {
         case (APP_ADV_STATE_IDLE): // 0
@@ -408,7 +408,7 @@ void appm_adv_fsm_next(char flag)
         	break;
     }
     
-    bk_printf("end adv_state:%x\r\n",get_app_ble_adv_state());
+    BLE_LOGI("end adv_state:%x\r\n",get_app_ble_adv_state());
 }
 
 void appm_update_adv_state(char start)
@@ -425,7 +425,7 @@ static void ble_common_event_callback_handler(void *parama)
 	uint8_t cur_adv_state;
 
 	cur_adv_state = get_app_ble_adv_state();
-	bk_printf("[%s]operation:%x\r\n",__FUNCTION__,param->operation);
+	BLE_LOGI("[%s]operation:%x\r\n",__FUNCTION__,param->operation);
 	switch(param->operation)
 	{
 		case (GAPM_CREATE_ADV_ACTIVITY)://0xA0              
@@ -622,7 +622,7 @@ static void ble_actiove_created_ind_handler(struct ble_activity_created_ind *p_p
 			if(get_app_ble_adv_state() == APP_ADV_STATE_CREATING){
 				// Store the advertising activity index
 				set_app_ble_adv_actv_idx( p_param->actv_idx );
-				bk_printf("adv_actv_idx:%d,tx_pwr:%d\r\n",p_param->actv_idx,p_param->tx_pwr);
+				BLE_LOGI("adv_actv_idx:%d,tx_pwr:%d\r\n",p_param->actv_idx,p_param->tx_pwr);
 			}
 			break;
 		case BLE_ACTV_TYPE_SCAN:
@@ -631,7 +631,7 @@ static void ble_actiove_created_ind_handler(struct ble_activity_created_ind *p_p
 				// Store the scaning activity index
 				set_app_ble_scan_actv_idx(p_param->actv_idx);
 				set_app_ble_scan_state(APP_SCAN_STATE_CREATED);
-				bk_printf("scan_actv_idx:%d,scan_state:%d\r\n",get_app_ble_scan_actv_idx(),get_app_ble_scan_state());
+				BLE_LOGI("scan_actv_idx:%d,scan_state:%d\r\n",get_app_ble_scan_actv_idx(),get_app_ble_scan_state());
 			}
 			break;
 		case BLE_ACTV_TYPE_INIT:
@@ -640,7 +640,7 @@ static void ble_actiove_created_ind_handler(struct ble_activity_created_ind *p_p
 				// Store the scaning activity index
 				set_app_ble_init_actv_idx(p_param->actv_idx);
 				set_app_ble_init_state(APP_INIT_STATE_CREATED);
-				bk_printf("init_actv_idx:%d\r\n",get_app_ble_init_actv_idx());
+				BLE_LOGI("init_actv_idx:%d\r\n",get_app_ble_init_actv_idx());
 			}
 			break;
 		default:

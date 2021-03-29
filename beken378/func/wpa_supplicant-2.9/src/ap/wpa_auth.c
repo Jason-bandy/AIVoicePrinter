@@ -952,6 +952,7 @@ void wpa_receive(struct wpa_authenticator *wpa_auth,
 	size_t keyhdrlen, mic_len;
 	u8 *mic;
 
+	__maybe_unused_var(msgtxt);
 	if (wpa_auth == NULL || !wpa_auth->conf.wpa || sm == NULL)
 		return;
 	wpa_hexdump(MSG_MSGDUMP, "WPA: RX EAPOL data", data, data_len);

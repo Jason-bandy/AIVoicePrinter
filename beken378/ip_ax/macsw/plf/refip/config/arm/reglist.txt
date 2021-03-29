@@ -1,0 +1,30 @@
+# This file contains the description of the register files that must be parsed during
+# the build process.
+# - The first element is the name of the register description file, it
+#   is expected to be an XLS (EXCEL) sheet meeting the standard RivieraWaves format.
+# - The second element is the base address of the register block described in the input
+#   file.
+# - The third element is the prefix of the register access MACROs (R/W)defined in the
+#   reg_access.h. These macros are used in the register/field set/get functions. The same
+#   MACROS may be used for several types of registers, but some registers may require
+#   a different form of access, hence a different macro.(e.g. REG_PL_RD/WR or REG_RF_RD/WR)
+# - The fourth element is the prefix to use for every name of define or function in the
+#   generated header files. It is another factor of name uniqueness.
+# - The fifth element informs if the output register file must use long naming format or
+#   short one. Long naming means that the register's name are appended to each field name,
+#   short naming means that the field names are used directly. If two registers are using
+#   the same field name, long naming should be used. This is not verified during register
+#   build time but at compilation time.
+
+# All this address mapping can be found in the reference platform user manual
+# reference platform
+    import/${ARCH}/INTC.xls         ${INTC_ADDR}    REG_PL INTC short
+    import/ipc/${IPC}/IPC_EMB.xls   ${IPC_EMB_ADDR} REG_PL IPC short
+    import/SYSCTRL.xls              ${SYSCTRL_ADDR} REG_PL SYSCTRL short
+    import/HSU.xls                  ${HSU_ADDR}     REG_PL HSU short
+    import/DMA.xls                  ${DMA_ADDR}     REG_PL DMA long
+    import/LA.xls                   ${LA_ADDR}      REG_PL LA short
+
+# MAC
+    ../../ip/lmac/import/${MAC}/MAC_CORE.xls ${MAC_CORE_ADDR} REG_PL NXMAC short
+    ../../ip/lmac/import/${MAC}/MAC_PL.xls   ${MAC_PL_ADDR}   REG_PL NXMAC short

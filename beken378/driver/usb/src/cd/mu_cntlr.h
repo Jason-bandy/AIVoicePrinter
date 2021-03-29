@@ -19,6 +19,7 @@
 #define __MUSB_CONTROLLER_H__
 
 #include "plat_cnf.h"
+#include "mu_dsi.h"
 
 /* Set feature types per controller type */
 #ifdef MUSB_FDRC
@@ -64,5 +65,8 @@
 #if defined(MUSB_MHDRC_DMA) && !defined(MUSB_DMA)
 #define MUSB_DMA
 #endif
+
+uint32_t MUSB_StopController(MUSB_Controller *pController);
+uint32_t MUSB_DestroyController(MUSB_Controller *pController);
 
 #endif	/* multiple inclusion protection */

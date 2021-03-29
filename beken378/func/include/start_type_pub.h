@@ -7,14 +7,11 @@
 #define     START_TYPE_ADDR        (0x0080a080)
 #endif
 
-#define     CRASH_XAT0_VALUE              0xbedead00
+#define     CRASH_ILLEGAL_JUMP_VALUE      0xbedead00
 #define     CRASH_UNDEFINED_VALUE         0xbedead01
 #define     CRASH_PREFETCH_ABORT_VALUE    0xbedead02
 #define     CRASH_DATA_ABORT_VALUE        0xbedead03
 #define     CRASH_UNUSED_VALUE            0xbedead04
-
-#define     START_TYPE_DMEMORY_ADDR        (0x0040001c)
-
 
 typedef enum {
 	RESET_SOURCE_POWERON = 0x0,
@@ -24,18 +21,20 @@ typedef enum {
 	RESET_SOURCE_DEEPPS_GPIO = 0x3,
 	RESET_SOURCE_DEEPPS_RTC = 0x4,
 
-	RESET_SOURCE_CRASH_XAT0 = 0x5,
+	RESET_SOURCE_CRASH_ILLEGAL_JUMP = 0x5,
 	RESET_SOURCE_CRASH_UNDEFINED = 0x6,
 	RESET_SOURCE_CRASH_PREFETCH_ABORT = 0x7,
 	RESET_SOURCE_CRASH_DATA_ABORT = 0x8,
 	RESET_SOURCE_CRASH_UNUSED = 0x9,
 
-    RESET_SOURCE_DEEPPS_USB = 0xa,
+	RESET_SOURCE_DEEPPS_USB = 0xa,
+	RESET_SOURCE_UNKNOWN = 0xb,
 
 } RESET_SOURCE_STATUS;
 
 RESET_SOURCE_STATUS bk_misc_get_start_type();
+void bk_misc_printf_start_type(void);
 RESET_SOURCE_STATUS bk_misc_init_start_type(void);
-void bk_misc_update_set_type(RESET_SOURCE_STATUS type);
+void bk_misc_update_set_type(uint32_t type);
 
 #endif //__START_TYPE_PUB_H_

@@ -27,10 +27,10 @@ struct rwnx_mod_params rwnx_mod_params = {
 	PARAM(vht_on, true),
 	PARAM(he_on, true),
 	PARAM(mcs_map, IEEE80211_VHT_MCS_SUPPORT_0_9),
-	PARAM(he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_11),
+	PARAM(he_mcs_map, IEEE80211_HE_MCS_SUPPORT_0_9),
 	PARAM(he_ul_on, false),
 #if CFG_IEEE80211AX
-	PARAM(ldpc_on, true),
+	//PARAM(ldpc_on, true),	// FIXME: BK7236, LDPC TX may cause dma and phy err in iperf test
 #else
 	PARAM(ldpc_on, false),
 #endif
@@ -44,37 +44,33 @@ struct rwnx_mod_params rwnx_mod_params = {
 	PARAM(uapsd_timeout, 300),
 	PARAM(ap_uapsd_on, true),
 	PARAM(sgi, true),
-	PARAM(sgi80, true),
+	//PARAM(sgi80, true),
 #if CFG_IEEE80211AX
 	PARAM(use_2040, 1),
 #else
 	PARAM(use_2040, 0),
 #endif
 	PARAM(nss, 1),
-#if CFG_IEEE80211AX
-	PARAM(amsdu_rx_max, 2),
-#else
 	PARAM(amsdu_rx_max, 0), // max amsdu size 3839
-#endif
 	PARAM(bfmee, true),
 	PARAM(bfmer, false),
-	PARAM(mesh, true),
+	//PARAM(mesh, true),
 	PARAM(murx, true),
-	PARAM(mutx, true),
-	PARAM(mutx_on, true),
-	PARAM(use_80, true),
+	//PARAM(mutx, true),
+	//PARAM(mutx_on, true),
+	//PARAM(use_80, true),
 	PARAM(custregd, false),
 	PARAM(custchan, false),
 	PARAM(roc_dur_max, 500),
 	PARAM(listen_itv, 0),  // hm set to 2
 	PARAM(listen_bcmc, true),
 	PARAM(lp_clk_ppm, 1000),   // original 20
-	PARAM(ps_on, true),
+	PARAM(ps_on, false),
 	PARAM(tx_lft, RWNX_TX_LIFETIME_MS), // hm set to 0
 	PARAM(amsdu_maxnb, NX_TX_PAYLOAD_MAX),
 	// By default, only enable UAPSD for Voice queue (see IEEE80211_DEFAULT_UAPSD_QUEUE comment)
 	PARAM(uapsd_queues, IEEE80211_WMM_IE_STA_QOSINFO_AC_VO), // hm set to 0
-	PARAM(tdls, true),
+	//PARAM(tdls, true),
 	PARAM(uf, false),  // hm set true
 	PARAM(ftl, ""),
 	PARAM(dpsm, false), // original true
@@ -113,10 +109,9 @@ static int rwnx_check_fw_hw_feature(struct rwnx_hw *rwnx_hw,
 	uint32_t mac_feat = rwnx_hw->version_cfm.version_machw_1;
 	uint32_t phy_feat = rwnx_hw->version_cfm.version_phy_1;
 	uint32_t phy_vers = rwnx_hw->version_cfm.version_phy_2;
-	uint16_t max_sta_nb = rwnx_hw->version_cfm.max_sta_nb;
-	uint8_t max_vif_nb = rwnx_hw->version_cfm.max_vif_nb;
 	int bw, res = 0;
 	int amsdu_rx;
+	uint32_t rf;
 
 	if (!rwnx_hw->mod_params->custregd)
 		rwnx_hw->mod_params->custchan = false;
@@ -127,7 +122,7 @@ static int rwnx_check_fw_hw_feature(struct rwnx_hw *rwnx_hw,
 	}
 
 	if (!(sys_feat & BIT(MM_FEAT_UMAC_BIT))) {
-		os_printf("Loading softmac firmware with fullmac driver\n");
+		RWNX_LOGI("Loading softmac firmware with fullmac driver\n");
 		res = -1;
 	}
 
@@ -207,9 +202,9 @@ static int rwnx_check_fw_hw_feature(struct rwnx_hw *rwnx_hw,
 
 	// LDPC is mandatory for HE40 and above, so if LDPC is not supported, then disable
 	// HE to use HT/VHT only
-	if (rwnx_hw->mod_params->use_2040 && !rwnx_hw->mod_params->ldpc_on) {
-		rwnx_hw->mod_params->he_on = false;
-		rwnx_hw->mod_params->he_ul_on = false;
+	if (rwnx_hw->mod_params->he_on && !rwnx_hw->mod_params->ldpc_on) {
+		rwnx_hw->mod_params->use_80 = false;
+		rwnx_hw->mod_params->use_2040 = false;
 	}
 
 	// HT greenfield is not supported in modem >= 3.0
@@ -233,55 +228,21 @@ static int rwnx_check_fw_hw_feature(struct rwnx_hw *rwnx_hw,
 		rwnx_hw->mod_params->mutx = false;
 	}
 
-#if 0
-#ifdef CONFIG_RWNX_WAPI
-	if (sys_feat & BIT(MM_FEAT_WAPI_BIT))
-		rwnx_enable_wapi(rwnx_hw);
-#endif
-
-#ifdef CONFIG_RWNX_FULLMAC
-	if (sys_feat & BIT(MM_FEAT_MFP_BIT))
-		rwnx_enable_mfp(rwnx_hw);
-#endif
-
-#ifdef CONFIG_RWNX_SOFTMAC
-#define QUEUE_NAME "BEACON queue "
-#else
-#define QUEUE_NAME "Broadcast/Multicast queue "
-#endif /* CONFIG_RWNX_SOFTMAC */
-
-	if (sys_feat & BIT(MM_FEAT_BCN_BIT)) {
-#if NX_TXQ_CNT == 4
-		wiphy_err(wiphy, QUEUE_NAME
-				  "enabled in firmware but support not compiled in driver\n");
-		res = -1;
-#endif /* NX_TXQ_CNT == 4 */
-	} else {
-#if NX_TXQ_CNT == 5
-		wiphy_err(wiphy, QUEUE_NAME
-				  "disabled in firmware but support compiled in driver\n");
-		res = -1;
-#endif /* NX_TXQ_CNT == 5 */
-	}
-#undef QUEUE_NAME
-
-#ifdef CONFIG_RWNX_RADAR
-	if (sys_feat & BIT(MM_FEAT_RADAR_BIT)) {
-		/* Enable combination with radar detection */
-		wiphy->n_iface_combinations++;
-	}
-#endif /* CONFIG_RWNX_RADAR */
-#endif
-
-	switch (__MDM_PHYCFG_FROM_VERS(phy_feat)) {
+	rf = __MDM_PHYCFG_FROM_VERS(phy_feat);
+	switch (rf) {
 	case MDM_PHY_CONFIG_TRIDENT:
 	case MDM_PHY_CONFIG_ELMA:
 		rwnx_hw->mod_params->nss = 1;
+		if ((rwnx_hw->mod_params->phy_cfg < 0) || (rwnx_hw->mod_params->phy_cfg > 2))
+			rwnx_hw->mod_params->phy_cfg = 2;
 		break;
 	case MDM_PHY_CONFIG_KARST: {
 		int nss_supp = (phy_feat & MDM_NSS_MASK) >> MDM_NSS_LSB;
 		if (rwnx_hw->mod_params->nss > nss_supp)
 			rwnx_hw->mod_params->nss = nss_supp;
+
+		if ((rwnx_hw->mod_params->phy_cfg < 0) || (rwnx_hw->mod_params->phy_cfg > 1))
+			rwnx_hw->mod_params->phy_cfg = 0;
 	}
 	break;
 	default:
@@ -289,25 +250,38 @@ static int rwnx_check_fw_hw_feature(struct rwnx_hw *rwnx_hw,
 		break;
 	}
 
+	if ((rf !=  MDM_PHY_CONFIG_KARST) ||
+		(phy_feat & (MDM_LDPCDEC_BIT | MDM_LDPCENC_BIT)) !=
+		(MDM_LDPCDEC_BIT | MDM_LDPCENC_BIT)) {
+		rwnx_hw->mod_params->ldpc_on = false;
+	}
+
 	if (rwnx_hw->mod_params->nss < 1 || rwnx_hw->mod_params->nss > 2)
 		rwnx_hw->mod_params->nss = 1;
-
-	if (rwnx_hw->mod_params->phy_cfg < 0 || rwnx_hw->mod_params->phy_cfg > 5)
-		rwnx_hw->mod_params->phy_cfg = 2;
 
 	if (rwnx_hw->mod_params->mcs_map < 0 || rwnx_hw->mod_params->mcs_map > 2)
 		rwnx_hw->mod_params->mcs_map = 0;
 
-	os_printf("PHY features: [NSS=%d][CHBW=%d]%s%s\n",
-			  rwnx_hw->mod_params->nss,
+#define PRINT_RWNX_PHY_FEAT(feat)                                   \
+	(phy_feat & MDM_##feat##_BIT ? "["#feat"]" : "")
+
+	RWNX_LOGI("PHY features: [NSS=%d][CHBW=%d]%s%s%s%s%s%s%s\n",
+			  (phy_feat & MDM_NSS_MASK) >> MDM_NSS_LSB,
 			  20 * (1 << ((phy_feat & MDM_CHBW_MASK) >> MDM_CHBW_LSB)),
-			  rwnx_hw->mod_params->ldpc_on ? "[LDPC]" : "",
-			  rwnx_hw->mod_params->he_on ? "[HE]" : "");
+			  (phy_feat & (MDM_LDPCDEC_BIT | MDM_LDPCENC_BIT)) ==
+			  (MDM_LDPCDEC_BIT | MDM_LDPCENC_BIT) ? "[LDPC]" : "",
+			  PRINT_RWNX_PHY_FEAT(VHT),
+			  PRINT_RWNX_PHY_FEAT(HE),
+			  PRINT_RWNX_PHY_FEAT(BFMER),
+			  PRINT_RWNX_PHY_FEAT(BFMEE),
+			  PRINT_RWNX_PHY_FEAT(MUMIMOTX),
+			  PRINT_RWNX_PHY_FEAT(MUMIMORX)
+			 );
 
 #define PRINT_RWNX_FEAT(feat)                                   \
 	(sys_feat & BIT(MM_FEAT_##feat##_BIT) ? "["#feat"]" : "")
 
-	os_printf("FW features: %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
+	RWNX_LOGI("FW features: %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s\n",
 			  PRINT_RWNX_FEAT(BCN),
 			  PRINT_RWNX_FEAT(AUTOBCN),
 			  PRINT_RWNX_FEAT(HWSCAN),
@@ -334,7 +308,9 @@ static int rwnx_check_fw_hw_feature(struct rwnx_hw *rwnx_hw,
 			  PRINT_RWNX_FEAT(MU_MIMO_TX),
 			  PRINT_RWNX_FEAT(MESH),
 			  PRINT_RWNX_FEAT(TDLS),
-			  PRINT_RWNX_FEAT(ANT_DIV));
+			  PRINT_RWNX_FEAT(ANT_DIV),
+			  PRINT_RWNX_FEAT(UF),
+			  PRINT_RWNX_FEAT(TWT));
 #undef PRINT_RWNX_FEAT
 
 	return res;

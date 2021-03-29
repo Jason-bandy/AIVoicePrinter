@@ -77,13 +77,13 @@ static uint32_t ble_sleep_enable = 1;
 
 #define BLE_APP_CHECK_ACTVS_IDX(actv_idx) \
 	if (actv_idx >= BLE_ACTIVITY_MAX) {\
-		bk_printf("[%s]unknow actv_idx:%d\r\n",__FUNCTION__,actv_idx);\
+		BLE_LOGI("[%s]unknow actv_idx:%d\r\n",__FUNCTION__,actv_idx);\
 		return ERR_UNKNOW_IDX;\
 	}
 
 #define BLE_APP_CHECK_CONN_IDX(conn_idx) \
 	if (conn_idx >= BLE_CONNECTION_MAX) {\
-		bk_printf("[%s]unknow conn_idx:%d\r\n",__FUNCTION__,conn_idx);\
+		BLE_LOGI("[%s]unknow conn_idx:%d\r\n",__FUNCTION__,conn_idx);\
 		return ERR_UNKNOW_IDX;\
 	}
 
@@ -113,7 +113,7 @@ uint8_t app_ble_get_idle_actv_idx_handle(void)
 	}
 
 	if (index == BLE_ACTIVITY_MAX) {
-		bk_printf("Don't have free actv\r\n");
+		BLE_LOGI("Don't have free actv\r\n");
 		return UNKNOW_ACT_IDX;
 	}
 
@@ -221,7 +221,7 @@ ble_err_t app_ble_create_advertising(uint8_t actv_idx,
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not idle\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not idle\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -254,7 +254,7 @@ ble_err_t app_ble_start_advertising(uint8_t actv_idx, uint16 duration)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not created\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not created\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -285,7 +285,7 @@ ble_err_t app_ble_stop_advertising(uint8_t actv_idx)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not started\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not started\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -317,7 +317,7 @@ ble_err_t app_ble_delete_advertising(uint8_t actv_idx)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not created\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not created\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -355,7 +355,7 @@ ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsign
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not created\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not created\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -392,7 +392,7 @@ ble_err_t app_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, 
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not created\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not created\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -431,7 +431,7 @@ ble_err_t app_ble_update_param(uint8_t conn_idx, struct gapc_conn_param *conn_pa
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("unknow conhdl");
+		BLE_LOGI("unknow conhdl");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -462,7 +462,7 @@ ble_err_t app_ble_disconnect(uint8_t conn_idx, uint8_t reason)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("unknow conhdl");
+		BLE_LOGI("unknow conhdl");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -494,7 +494,7 @@ ble_err_t app_ble_gatt_mtu_change(uint8_t conn_idx)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("unknow conhdl");
+		BLE_LOGI("unknow conhdl");
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -528,7 +528,7 @@ ble_err_t app_ble_create_scaning(uint8_t actv_idx)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not idle\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not idle\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -568,7 +568,7 @@ ble_err_t app_ble_start_scaning(uint8_t actv_idx, uint16_t scan_intv, uint16_t s
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not created\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not created\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -600,7 +600,7 @@ ble_err_t app_ble_stop_scaning(uint8_t actv_idx)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not started\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not started\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -632,7 +632,7 @@ ble_err_t app_ble_delete_scaning(uint8_t actv_idx)
 			ret = ERR_NO_MEM;
 		}
 	} else {
-		bk_printf("actv[%d] is not created\r\n", actv_idx);
+		BLE_LOGI("actv[%d] is not created\r\n", actv_idx);
 		ret = ERR_BLE_STATUS;
 	}
 
@@ -685,7 +685,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 				app_ble_start_advertising(idx, app_ble_env.actvs[idx].param.adv.duration);
 				break;
 			default:
-				bk_printf("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
+				BLE_LOGI("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
 				break;
 			}
 		} else {
@@ -712,7 +712,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 			if (op_idx == BLE_OP_DEL_ADV_POS) {
 				app_ble_delete_advertising(idx);
 			} else {
-				bk_printf("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
+				BLE_LOGI("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
 			}
 		} else {
 			app_ble_reset();
@@ -728,7 +728,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 			if (op_idx == BLE_OP_START_SCAN_POS) {
 				app_ble_start_scaning(idx, app_ble_env.actvs[idx].param.scan.interval, app_ble_env.actvs[idx].param.scan.window);
 			} else {
-				bk_printf("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
+				BLE_LOGI("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
 			}
 		} else {
 			if (cmd_op_cb) {
@@ -754,7 +754,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 			if (op_idx == BLE_OP_DEL_SCAN_POS) {
 				app_ble_delete_scaning(idx);
 			} else {
-				bk_printf("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
+				BLE_LOGI("Cmd[%d] have err operation[%d]\r\n", app_ble_env.cmd, op_idx);
 			}
 		} else {
 			app_ble_reset();
@@ -766,7 +766,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 		}
 		break;
 	case BLE_INIT_CREATE:
-		bk_printf("Cmd[%d]operation[%d]BLE_INIT_CREATE\r\n", app_ble_env.cmd, op_idx);
+		BLE_LOGI("Cmd[%d]operation[%d]BLE_INIT_CREATE\r\n", app_ble_env.cmd, op_idx);
 		app_ble_reset();
 		if (cmd_op_cb) {
 			cmd_ret.cmd_idx = idx;
@@ -775,7 +775,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 		}
 		break;
 	case BLE_INIT_START_CONN:
-		bk_printf("Cmd[%d]operation[%d]BLE_INIT_START_CONN\r\n", app_ble_env.cmd, op_idx);
+		BLE_LOGI("Cmd[%d]operation[%d]BLE_INIT_START_CONN\r\n", app_ble_env.cmd, op_idx);
 		app_ble_reset();
 		if (cmd_op_cb) {
 			cmd_ret.cmd_idx = idx;
@@ -784,7 +784,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 		}
 		break;
 	case BLE_INIT_STOP_CONN:
-		bk_printf("Cmd[%d]operation[%d]BLE_INIT_STOP_CONN\r\n", app_ble_env.cmd, op_idx);
+		BLE_LOGI("Cmd[%d]operation[%d]BLE_INIT_STOP_CONN\r\n", app_ble_env.cmd, op_idx);
 		app_ble_reset();
 		if (cmd_op_cb) {
 			cmd_ret.cmd_idx = idx;
@@ -796,7 +796,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 		break;
 	case BLE_INIT_READ_CHAR:
 	case BLE_INIT_WRITE_CHAR:
-		bk_printf("Cmd[%d]operation[%d] READ/Write CHAR\r\n", app_ble_env.cmd, op_idx);
+		BLE_LOGI("Cmd[%d]operation[%d] READ/Write CHAR\r\n", app_ble_env.cmd, op_idx);
 		app_ble_reset();
 		if (cmd_op_cb) {
 			cmd_ret.cmd_idx = idx;
@@ -805,7 +805,7 @@ void app_ble_next_operation(uint8_t idx, uint8_t status)
 		}
 		break;
 	default:
-		bk_printf("unknow ble app command:%d\r\n", app_ble_env.cmd);
+		BLE_LOGI("unknow ble app command:%d\r\n", app_ble_env.cmd);
 		break;
 	}
 }

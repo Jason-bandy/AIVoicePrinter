@@ -145,7 +145,11 @@ typedef struct i2c2_msg {
                        // AL(bit 2):  0:7bit address, 1:10bit address
                        // IA(bit 3):  0:without inner address, 1: with inner address
                        // reserved(bit [4:7]):  reserved
+#if (USE_CAMERA != HM_1055_DEV)
 	UINT8  InnerAddr;
+#else
+	UINT16 InnerAddr;
+#endif
 	UINT8  SendAddr;   //only master send address
 	UINT32 CurrentNum;
 	UINT32 AllDataNum;

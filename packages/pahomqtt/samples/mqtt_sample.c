@@ -79,8 +79,6 @@ static int mqtt_start(int argc, char **argv)
 {
     /* init condata param by using MQTTPacket_connectData_initializer */
     MQTTPacket_connectData condata = MQTTPacket_connectData_initializer;
-    static char cid[20] = { 0 };
-    
 
     if (argc != 1)
     {

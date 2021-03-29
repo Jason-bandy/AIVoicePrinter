@@ -4,7 +4,7 @@
 //#define MCU_PS_DEBUG
 
 #ifdef MCU_PS_DEBUG
-#define MCU_PS_PRT                 os_printf
+#define MCU_PS_PRT                 PS_LOGI
 
 #else
 #define MCU_PS_PRT                 os_null_printf

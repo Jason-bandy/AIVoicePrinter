@@ -34,18 +34,20 @@
 #define SME_AUTH_TIMEOUT 6
 #define SME_ASSOC_TIMEOUT 6
 
+#ifdef CONFIG_SME
 static void sme_auth_timer(void *eloop_ctx, void *timeout_ctx);
 static void sme_assoc_timer(void *eloop_ctx, void *timeout_ctx);
 static void sme_obss_scan_timeout(void *eloop_ctx, void *timeout_ctx);
+#endif
 #ifdef CONFIG_IEEE80211W
 static void sme_stop_sa_query(struct wpa_supplicant *wpa_s);
 #endif /* CONFIG_IEEE80211W */
+
+#ifdef CONFIG_SAE
 static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 			u16 status_code, const u8 *data, size_t len,
 			int external, const u8 *sa);
 
-
-#ifdef CONFIG_SAE
 
 static int index_within_array(const int *array, int idx)
 {
@@ -1153,11 +1155,16 @@ static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 		wpabuf_free(wpa_s->sme.sae_token);
 		wpa_s->sme.sae_token = wpabuf_alloc_copy(data + sizeof(le16),
 							 len - sizeof(le16));
+
+#ifdef CONFIG_SME
 		if (!external)
 			sme_send_authentication(wpa_s, wpa_s->current_bss,
 						wpa_s->current_ssid, 2);
 #ifdef CONFIG_SAE_EXTERNAL
 		else
+#endif
+#endif /* CONFIG_SME */
+#ifdef CONFIG_SAE_EXTERNAL
 			sme_external_auth_send_sae_commit(
 				wpa_s, wpa_s->sme.ext_auth_bssid,
 				wpa_s->current_ssid);
@@ -1174,11 +1181,15 @@ static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 		if (sme_set_sae_group(wpa_s) < 0)
 			return -1; /* no other groups enabled */
 		wpa_dbg(wpa_s, MSG_DEBUG, "SME: Try next enabled SAE group");
+#ifdef CONFIG_SME
 		if (!external)
 			sme_send_authentication(wpa_s, wpa_s->current_bss,
 						wpa_s->current_ssid, 1);
 #ifdef CONFIG_SAE_EXTERNAL
 		else
+#endif
+#endif /* CONFIG_SME */
+#ifdef CONFIG_SAE_EXTERNAL
 			sme_external_auth_send_sae_commit(
 				wpa_s, wpa_s->sme.ext_auth_bssid,
 				wpa_s->current_ssid);
@@ -1190,6 +1201,7 @@ static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 	    status_code == WLAN_STATUS_UNKNOWN_PASSWORD_IDENTIFIER) {
 		const u8 *bssid = sa ? sa : wpa_s->pending_bssid;
 
+		__maybe_unused_var(bssid);
 		wpa_msg(wpa_s, MSG_INFO,
 			WPA_EVENT_SAE_UNKNOWN_PASSWORD_IDENTIFIER MACSTR,
 			MAC2STR(bssid));
@@ -1230,11 +1242,15 @@ static int sme_sae_auth(struct wpa_supplicant *wpa_s, u16 auth_transaction,
 
 		wpabuf_free(wpa_s->sme.sae_token);
 		wpa_s->sme.sae_token = NULL;
+#ifdef CONFIG_SME
 		if (!external)
 			sme_send_authentication(wpa_s, wpa_s->current_bss,
 						wpa_s->current_ssid, 0);
 #ifdef CONFIG_SAE_EXTERNAL
 		else
+#endif
+#endif /* CONFIG_SME */
+#ifdef CONFIG_SAE_EXTERNAL
 			sme_external_auth_send_sae_confirm(wpa_s, sa);
 #endif
 		return 0;
@@ -1289,7 +1305,7 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 
 #ifdef CONFIG_NO_STDOUT_DEBUG
 	if (data->auth.status_code)
-		bk_printf("SME: AuthRSP: peer=" MACSTR
+		WPA_LOGI("SME: AuthRSP: peer=" MACSTR
 			" auth_type=%d auth_transaction=%d status_code=%d\n",
 			MAC2STR(data->auth.peer), data->auth.auth_type,
 			data->auth.auth_transaction, data->auth.status_code);
@@ -1824,7 +1840,7 @@ pfs_fail:
 		params.uapsd = -1;
 
 	/* append bcn ie */
-	//bk_printf("%s: bss %p, ie_len %d\n", __func__, wpa_s->current_bss, wpa_s->current_bss ? wpa_s->current_bss->ie_len : -1);
+	//WPA_LOGI("%s: bss %p, ie_len %d\n", __func__, wpa_s->current_bss, wpa_s->current_bss ? wpa_s->current_bss->ie_len : -1);
 	if (wpa_s->current_bss && wpa_s->current_bss->ie_len) {
 		params.bcn_ie = (u8 *)(wpa_s->current_bss + 1);
 		params.bcn_len = wpa_s->current_bss->ie_len;

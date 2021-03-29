@@ -19,6 +19,7 @@
 #include "ieee802_11.h"
 #include "dfs.h"
 
+#ifdef CONFIG_IEEE80211AC
 
 u8 * hostapd_eid_vht_capabilities(struct hostapd_data *hapd, u8 *eid, u32 nsts)
 {
@@ -223,7 +224,7 @@ u8 * hostapd_eid_txpower_envelope(struct hostapd_data *hapd, u8 *eid)
 	struct hostapd_config *iconf = iface->conf;
 	struct hostapd_hw_modes *mode = iface->current_mode;
 	struct hostapd_channel_data *chan;
-	int dfs, i;
+	int dfs = 0, i;
 	u8 channel, tx_pwr_count, local_pwr_constraint;
 	int max_tx_power;
 	u8 tx_pwr;
@@ -264,6 +265,7 @@ u8 * hostapd_eid_txpower_envelope(struct hostapd_data *hapd, u8 *eid)
 		return eid;
 	}
 
+#ifdef CONFIG_DFS
 	/*
 	 * Below local_pwr_constraint logic is referred from
 	 * hostapd_eid_pwr_constraint.
@@ -273,6 +275,7 @@ u8 * hostapd_eid_txpower_envelope(struct hostapd_data *hapd, u8 *eid)
 	dfs = hostapd_is_dfs_required(hapd->iface);
 	if (dfs < 0)
 		dfs = 0;
+#endif
 
 	/*
 	 * In order to meet regulations when TPC is not implemented using
@@ -515,3 +518,4 @@ void hostapd_get_vht_capab(struct hostapd_data *hapd,
 
 	neg_vht_cap->vht_capabilities_info = host_to_le32(cap);
 }
+#endif // CONFIG_IEEE80211AX

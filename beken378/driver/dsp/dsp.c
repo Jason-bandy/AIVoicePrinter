@@ -6,6 +6,11 @@
 #include "dsp.h"
 #include "rtos_pub.h"
 #include "pmu.h"
+#include "ate_app.h"
+#include "sys_config.h"
+#include "bk_log.h"
+
+#define TAG "dsp"
 
 #if (CFG_SOC_NAME == SOC_BK7271)
 int g_dsp_inited = 0;
@@ -39,7 +44,7 @@ void dsp_start(void)
 	src_ext_data_len    = REG_READ(CFG_DSP_SRC_ADD + 36);
 	dst_ext_data_offset = REG_READ(CFG_DSP_SRC_ADD + 40);
 
-	bk_printf("code:0x%08x 0x%08x\r\n" "dst_code_offset:0x%08x \r\n"
+	BK_LOGI(TAG, "code:0x%08x 0x%08x\r\n" "dst_code_offset:0x%08x \r\n"
 			  "data:0x%08x 0x%08x\r\n" "dst_data_offset:0x%08x \r\n"
 			  "ext_data:0x%08x 0x%08x\r\n" "dst_ext_data_offset:0x%08x \r\n"
 			  , src_code_offset, src_code_len, dst_code_offset
@@ -49,7 +54,7 @@ void dsp_start(void)
 	/* LBUS should be ready when copy dsp and bluetooth data */
 	*((volatile unsigned long *) PMU_CO_MCU_CONFIG) |= 0x15;
 
-	bk_printf("start code DL !! \r\n");
+	BK_LOGI(TAG, "start code DL !! \r\n");
 	i = 0;
 	while (i < src_code_len) {
 		*((volatile unsigned long *)(dst_code_base + dst_code_offset  + i)) =
@@ -57,7 +62,7 @@ void dsp_start(void)
 		i += 4;
 	}
 
-	bk_printf("start data DL !! \r\n");
+	BK_LOGI(TAG, "start data DL !! \r\n");
 	i = 0;
 	while (i < src_data_len) {
 		*((volatile unsigned long *)(dst_data_base + dst_data_offset + i)) =
@@ -67,9 +72,9 @@ void dsp_start(void)
 
 	if (*((volatile unsigned long *)(dst_data_base + dst_data_offset + i - 4)) !=
 		*((volatile unsigned long *)(CFG_DSP_SRC_ADD + src_data_offset + i - 4)))
-		bk_printf("last dst data error \r\n");
+		BK_LOGI(TAG, "last dst data error \r\n");
 
-	bk_printf("start ext data DL !! \r\n");
+	BK_LOGI(TAG, "start ext data DL !! \r\n");
 	i = 0;
 	while (i < src_ext_data_len) {
 		*((volatile unsigned long *)(dst_ext_data_base + dst_ext_data_offset + i)) =
@@ -79,7 +84,7 @@ void dsp_start(void)
 
 	if (*((volatile unsigned long *)(dst_ext_data_base + dst_ext_data_offset + i - 4)) !=
 		*((volatile unsigned long *)(CFG_DSP_SRC_ADD + src_ext_data_offset + i - 4)))
-		bk_printf("last dst ext data error \r\n");
+		BK_LOGI(TAG, "last dst ext data error \r\n");
 
 	*((volatile unsigned long *) PMU_CO_MCU_CONFIG) &= ~(0x1 << 0);
 }
@@ -100,7 +105,7 @@ void dsp_init(void)
 		return;
 	}
 #if CFG_USE_DSP
-	DSP_PRT("dsp_init\r\n");
+	BK_LOGI(TAG, "dsp_init\r\n");
 	dsp_start();
 	g_dsp_inited = 1;
 #endif

@@ -10,8 +10,8 @@
  *                                                                *
  ******************************************************************/
 
-#ifndef __MUSB_Os_BOARD_H__
-#define __MUSB_Os_BOARD_H__
+#ifndef __MUSB_OS_BOARD_H__
+#define __MUSB_OS_BOARD_H__
 
 #include "mu_dsi.h"
 #include "mu_sys.h"

@@ -87,7 +87,7 @@ int __l2_packet_send(struct l2_packet_data *l2, const u8 *dst_addr, u16 proto,
 	if (sync) {
 		ret = rtos_get_semaphore(&cb.sema, 5*1000 /*BEKEN_NEVER_TIMEOUT*/);
 		if (ret != kNoErr) {
-			os_printf("%s: send failed\r\n", __func__);
+			WPA_LOGE("%s: send failed\r\n", __func__);
 		} else {
 			ret = cb.result;
 		}
@@ -162,7 +162,7 @@ struct l2_packet_data * l2_packet_init(
 
     l2->vif_index = rwm_mgmt_vif_mac2idx((void*)own_addr);
     if(l2->vif_index == 0xff) {
-        os_printf("not found vif_index in l2_packet_init\r\n");
+        WPA_LOGE("not found vif_index in l2_packet_init\r\n");
     }
 
 	l2->rx_callback = rx_callback;

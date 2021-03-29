@@ -49,7 +49,7 @@ static UINT32 audio_adc_close(void);
 static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag);
 static UINT32 audio_adc_ctrl(UINT32 cmd, void *param);
 
-DD_OPERATIONS adu_adc_op =
+const DD_OPERATIONS adu_adc_op =
 {
     audio_adc_open,
     audio_adc_close,
@@ -246,7 +246,7 @@ static void audio_adc_set_sample_rate(UINT32 sample_rate)
         break;
 
     default:
-        AUD_PRT("unsupported sample rate:%d\r\n", sample_rate);
+        AUDIO_LOGE("unsupported sample rate:%d\r\n", sample_rate);
         break;
     }
 }
@@ -254,7 +254,7 @@ static void audio_adc_set_sample_rate(UINT32 sample_rate)
 #if CFG_GENERAL_DMA
 void audio_adc_dma_handler(UINT32 param)
 {
-    //AUD_PRT("audio_dac_dma_handler:%d\r\n", param);
+    //AUDIO_LOGI("audio_dac_dma_handler:%d\r\n", param);
 }
 
 static void audio_adc_config_dma(void)
@@ -367,20 +367,20 @@ static void audio_adc_linein_detect(void)
         
         param = aud_adc.linein_detect_pin;
         gpio_val = sddev_control(GPIO_DEV_NAME, CMD_GPIO_INPUT, &param);
-        //AUD_PRT("%d\r\n", gpio_val);
+        //AUDIO_LOGI("%d\r\n", gpio_val);
         if((gpio_val == AUD_ADC_LINEIN_ENABLE_LEVEL)
             &&(!(aud_adc.mode & AUD_ADC_MODE_LINEIN)))
         {
             audio_adc_enable_linein();
             aud_adc.mode |= AUD_ADC_MODE_LINEIN;
-            AUD_PRT("enable line in: %d\r\n", aud_adc.mode);
+            AUDIO_LOGI("enable line in: %d\r\n", aud_adc.mode);
         }
         else if((gpio_val != AUD_ADC_LINEIN_ENABLE_LEVEL)
             &&(aud_adc.mode & AUD_ADC_MODE_LINEIN))
         {
             audio_adc_disable_linein();
             aud_adc.mode &= ~AUD_ADC_MODE_LINEIN;
-            AUD_PRT("disable line in: %d\r\n", aud_adc.mode);
+            AUDIO_LOGI("disable line in: %d\r\n", aud_adc.mode);
         }
     }
 }
@@ -390,7 +390,7 @@ static UINT32 audio_adc_open(UINT32 op_flag)
     AUD_ADC_DESC_PTR cfg;
    
     if(!op_flag) {
-        AUD_PRT("audio_adc_open is NULL\r\n");
+        AUDIO_LOGE("audio_adc_open is NULL\r\n");
         return AUD_FAILURE;
     }
 
@@ -399,7 +399,7 @@ static UINT32 audio_adc_open(UINT32 op_flag)
     #if(!CFG_GENERAL_DMA)
     if(cfg->mode & AUD_ADC_MODE_DMA_BIT)
     {
-        AUD_PRT("audio_dac_open no support dma\r\n");
+        AUDIO_LOGE("audio_dac_open no support dma\r\n");
         return AUD_FAILURE;
     }
     #endif // !CFG_GENERAL_DMA
@@ -480,11 +480,10 @@ static UINT32 audio_adc_close(void)
 static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     int fill_size;
-    UINT8 *read, *write;
 
     if(aud_adc.status != AUD_ADC_STA_PLAYING)
         return 0;
-    if(aud_adc.mode & AUD_ADC_MODE_DMA_BIT) 
+    if(aud_adc.mode & AUD_ADC_MODE_DMA_BIT)
     {
         #if CFG_GENERAL_DMA
         RB_DMA_WR_PTR rb;
@@ -492,19 +491,19 @@ static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag)
         fill_size = rb_get_fill_size_dma_write(rb);
         if(fill_size > count)
             fill_size = count;
-        rb_read_dma_write(rb, user_buf, fill_size, 1);
+        rb_read_dma_write(rb, (UINT8*)user_buf, fill_size, 1);
         #endif
-    } 
-    else 
+    }
+    else
     {
         RB_PTR rb;
-        
+
         rb = &aud_adc.u.rb;
         fill_size = rb_get_fill_size(rb);
         if(fill_size > count)
             fill_size = count;
-            
-        rb_read(rb, user_buf, fill_size, 1);
+
+        rb_read(rb, (UINT8*)user_buf, fill_size, 1);
     }
 
     return fill_size;
@@ -513,7 +512,6 @@ static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag)
 static UINT32 audio_adc_get_fill_buf_size(void)
 {
     int free_size;
-    UINT8 *read, *write;
 
     if(aud_adc.status != AUD_ADC_STA_PLAYING)
         return 0;
@@ -590,7 +588,7 @@ static void audio_adc_set_volume(UINT32 volume)
 
     REG_WRITE(reg_addr, reg_val);
 
-    AUD_PRT("set adc vol: %d - %d\r\n", volume, act_vol);
+    AUDIO_LOGI("set adc vol: %d - %d\r\n", volume, act_vol);
 }
 
 static UINT32 audio_adc_ctrl(UINT32 cmd, void *param)
@@ -635,7 +633,7 @@ static UINT32 audio_adc_ctrl(UINT32 cmd, void *param)
 
 void audio_adc_software_init(void)
 {
-    ddev_register_dev(AUD_ADC_DEV_NAME, &adu_adc_op);
+    ddev_register_dev(AUD_ADC_DEV_NAME, (DD_OPERATIONS*)&adu_adc_op);
     
     os_memset(&aud_adc, 0, sizeof(AUD_ADC_DESC_ST));
     aud_adc.status = AUD_ADC_STA_CLOSED;
@@ -660,7 +658,7 @@ void audio_adc_isr(void)
                 {
                     audio_adc_get_l_and_r_samples(&sample[0], &sample[1]);
                     ret = rb_write(rb, (UINT8*)&sample[0], sizeof(int16), 2);
-                    //AUD_PRT("%d\r\n", ret);
+                    //AUDIO_LOGI("%d\r\n", ret);
                     if(!ret)
                         break;
                     status = REG_READ(AUD_AD_FIFO_STATUS);
@@ -670,7 +668,7 @@ void audio_adc_isr(void)
                 {
                     audio_adc_get_l_sample(&sample[0]);
                     ret = rb_write(rb, (UINT8*)&sample[0], sizeof(int16), 1);
-                    //AUD_PRT("%d\r\n", ret);
+                    //AUDIO_LOGI("%d\r\n", ret);
                     if(!ret)
                         break;
                     status = REG_READ(AUD_AD_FIFO_STATUS);
@@ -686,7 +684,7 @@ void audio_adc_isr(void)
             audio_adc_get_l_and_r_samples(&sample[0], &sample[1]);
             status = REG_READ(AUD_AD_FIFO_STATUS);
         }
-        //AUD_PRT("set\r\n");
+        //AUDIO_LOGI("set\r\n");
     }
 
     //audio_adc_linein_detect();

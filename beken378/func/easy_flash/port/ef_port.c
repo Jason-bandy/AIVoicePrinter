@@ -35,6 +35,7 @@
 #include "rtos_pub.h"
 #include "uart_pub.h"
 #include "drv_model_pub.h"
+#include "flash.h"
 
 /* default ENV set for user */
 static const ef_env default_env_set[] =
@@ -86,7 +87,7 @@ EfErrCode ef_port_read(uint32_t addr, uint32_t *buf, size_t size)
 
     EF_ASSERT(size % 4 == 0);
 
-    flash_read((unsigned char *)buf, (unsigned long)size, addr);
+    flash_read((char *)buf, (unsigned long)size, addr);
 
     return result;
 }
@@ -149,7 +150,6 @@ static int bk_erase(uint32_t addr, size_t size)
 EfErrCode ef_port_erase(uint32_t addr, size_t size)
 {
     EfErrCode result = EF_NO_ERR;
-    EfErrCode sfud_result = EF_NO_ERR;
 
     /* make sure the start address is a multiple of FLASH_ERASE_MIN_SIZE */
     EF_ASSERT(addr % EF_ERASE_MIN_SIZE == 0);
@@ -177,7 +177,6 @@ EfErrCode ef_port_write(uint32_t addr, const uint32_t *buf, size_t size)
 	int protect_type;
     DD_HANDLE flash_handle;
     EfErrCode result = EF_NO_ERR;
-    EfErrCode sfud_result = EF_NO_ERR;
 
     EF_ASSERT(size % 4 == 0);
 	
@@ -190,8 +189,7 @@ EfErrCode ef_port_write(uint32_t addr, const uint32_t *buf, size_t size)
 	    ddev_control(flash_handle, CMD_FLASH_SET_PROTECT, (void *)&param);
 	}
 
-    flash_write((unsigned char *)buf, (unsigned long)size, addr);
-		
+    flash_write((char *)buf, (unsigned long)size, addr);
 	if(FLASH_PROTECT_NONE != protect_type)
 	{
 		param = protect_type;

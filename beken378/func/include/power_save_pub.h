@@ -62,7 +62,6 @@ enum
     NEED_REBOOT = 1,
 };
 #define NEED_DISABLE_BIT            CO_BIT(NEED_DISABLE)
-#define NEED_REBOOT_BIT             CO_BIT(NEED_REBOOT)
 
 typedef enum {
     PS_FORBID_NO_ON = 1,
@@ -169,6 +168,7 @@ extern void power_save_set_reseted_flag ( void );
 extern UINT32 power_save_get_rf_ps_dtim_time ( void );
 extern uint8_t ble_switch_mac_sleeped;
 extern void power_save_set_keep_timer_time ( UINT32 );
+extern void power_save_wake_mac_rf_end_clr_flag(void);
 
 extern void ps_set_rf_prevent(void);
 extern void ps_clear_rf_prevent(void);

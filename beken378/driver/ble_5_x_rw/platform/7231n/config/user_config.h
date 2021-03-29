@@ -13,9 +13,9 @@
 #define USER_CONFIG_H_
 
 #include "uart_pub.h"
+#include "common_log.h"
 
 #define VIRTUAL_UART_H4TL          1
-#define UART_PRINTF_ENABLE         1
 #define DEBUG_HW                   0
 #define GPIO_DBG_MSG               0
 #define DEBUG_RF_REG               0
@@ -32,9 +32,6 @@
 #define USB_DRIVER                  0 
 #define SPI_DRIVER                  0 
 #define AON_RTC_DRIVER              1
-
-#define uart_printf              bk_printf
-#define UART_PRINTF              bk_printf
 
 /// Default Device Name
 #define APP_DFLT_DEVICE_NAME            ("BK7231N-BLE")

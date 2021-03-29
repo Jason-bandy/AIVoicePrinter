@@ -5,6 +5,7 @@
 #include "co_list.h"
 #include "power_save_pub.h"
 #include "ps_debug_pub.h"
+#include "bk_log.h"
 
 #define     PS_DTIM_PERI_WAKE_DELAY                 0
 #define     PS_WAKE_DATA_DELAY                      1
@@ -127,6 +128,12 @@ extern void power_save_wait_timer_stop ( void );
                                && (power_save_beacon_state_get() == STA_GET_TRUE    \
                                    || power_save_wkup_way_get() == PS_ARM_WAKEUP_USER) \
                                && power_save_if_ps_can_sleep())
+
+#define PSTAG "ps"
+#define PS_LOGI(...) BK_LOGI(PSTAG, ##__VA_ARGS__)
+#define PS_LOGW(...) BK_LOGW(PSTAG, ##__VA_ARGS__)
+#define PS_LOGE(...) BK_LOGE(PSTAG, ##__VA_ARGS__)
+#define PS_LOGD(...) BK_LOGD(PSTAG, ##__VA_ARGS__)
 
 #endif // _POWER_SAVE_H_
 // eof

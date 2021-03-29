@@ -6,8 +6,13 @@
 #include "mem_pub.h"
 #if CFG_IEEE80211AX
 #include "rwnx_defs.h"
-#include "fhost_msdu.h"
+#include "rwnx_rx.h"
 #include "rwnx_params.h"
+#endif
+#include "rwnx_defs.h"
+
+#if CFG_POWER_TABLE
+#include "bk_pwr_tbl_pub.h"
 #endif
 
 typedef struct _wifi_cn_code_st_ {
@@ -182,10 +187,12 @@ unsigned char beacon[149] = {
     .ppe_thres = {0x08, 0x1c, 0x07},                            \
 }
 
+#if CFG_IEEE80211AX
 static struct ieee80211_sband_iftype_data rwnx_he_capa = {
 //	.types_mask = BIT(NL80211_IFTYPE_STATION),
 	.he_cap = RWNX_HE_CAPABILITIES,
 };
+#endif
 
 static struct ieee80211_supported_band rwnx_band_2GHz = {
 	.channels   = rw_2ghz_channels,
@@ -225,12 +232,11 @@ static struct ieee80211_supported_band rwnx_band_5GHz = {
 
 UINT32 rw_ieee80211_init(void)
 {
-	RW_CONNECTOR_T intf;
-
 #if CFG_IEEE80211AX
 	struct rwnx_hw *rwnx_hw;
 	int i;
 #endif
+	RW_CONNECTOR_T intf = {0, };
 	struct wiphy *wiphy;
 
 	wiphy = &g_wiphy;
@@ -254,21 +260,22 @@ UINT32 rw_ieee80211_init(void)
 	wiphy->bands[IEEE80211_BAND_2GHZ] = &rwnx_band_2GHz;
 	wiphy->bands[IEEE80211_BAND_5GHZ] = &rwnx_band_5GHz;
 
-#if CFG_IEEE80211AX
-	fhost_rx_data_handler = rwm_upload_data;
-	fhost_rx_monitor_handler = rwm_rx_monitor;
-#else
+#if !CFG_IEEE80211AX
 	//SMPS disabled, 20M SGI, TxSTBC ?!(only one NSS), Rx STBC,
 	wiphy->bands[IEEE80211_BAND_2GHZ]->ht_cap.cap = 0x1ac;  // FIXME: hard coded here, use `rwnx_set_ht_capa()` function.
+#endif
 
 	intf.msg_outbound_func = mr_kmsg_fwd;
 	intf.data_outbound_func = rwm_upload_data;
 	intf.rx_alloc_func = rwm_get_rx_free_node;
+#if CFG_IEEE80211AX
+	intf.monitor_outbound_func = rwm_rx_monitor;
+#else
 	intf.get_rx_valid_status_func = rwm_get_rx_valid;
 	intf.tx_confirm_func = rwm_tx_confirm;
+#endif
 
 	rwnxl_register_connector(&intf);
-#endif
 
 	/* init country code */
 	g_country_code.cfg.cc[0] = 'C';
@@ -284,6 +291,51 @@ UINT32 rw_ieee80211_init(void)
 	return 0;
 }
 
+#if CFG_POWER_TABLE
+static UINT32 rw_ieee80211_set_chan_power(void)
+{
+    uint8_t chan_idx;
+    uint16_t txpwr;
+
+    if(g_country_code.init == 0)
+        return kNotInitializedErr;
+
+    if(g_country_code.cfg.policy == WIFI_COUNTRY_POLICY_AUTO)
+        return kNoErr;
+
+    if(g_country_code.cfg.max_tx_power < 0)
+    {
+        // disable this channel
+        txpwr = 0;
+    }
+    else if(g_country_code.cfg.max_tx_power == 0)
+    {
+        // use default
+        txpwr = 300;
+    }
+    else
+    {
+        txpwr = g_country_code.cfg.max_tx_power * 10;
+    }
+
+    for (chan_idx = 1; chan_idx <= 14; chan_idx++)
+    {
+        if(rw_ieee80211_is_scan_rst_in_countrycode(chan_idx) == 1)
+        {
+            pwr_tbl_set_chan_pwr(chan_idx, txpwr, txpwr, txpwr, txpwr);
+        }
+        else
+        {
+            // disable this channel
+            pwr_tbl_set_chan_pwr(chan_idx, 0, 0, 0, 0);
+        }
+    }
+    os_printf("set chan maxpower:%d-%d\r\n", txpwr, g_country_code.cfg.max_tx_power);
+
+    return kNoErr;
+}
+#endif
+
 UINT32 rw_ieee80211_set_country(const wifi_country_t *country)
 {
 	if (country) {
@@ -295,21 +347,24 @@ UINT32 rw_ieee80211_set_country(const wifi_country_t *country)
 		prev_policy = g_country_code.cfg.policy;
 
 		os_memcpy(&g_country_code.cfg, country, sizeof(wifi_country_t));
-		os_printf("rw_ieee80211_set_country code:\r\n");
-		os_printf("code: %s\r\n", g_country_code.cfg.cc);
-		os_printf("channel: %d - %d\r\n", g_country_code.cfg.schan,
+		RWNX_LOGI("rw_ieee80211_set_country code:\r\n");
+		RWNX_LOGI("code: %s\r\n", g_country_code.cfg.cc);
+		RWNX_LOGI("channel: %d - %d\r\n", g_country_code.cfg.schan,
 				  g_country_code.cfg.schan + g_country_code.cfg.nchan - 1);
 
 		if (g_country_code.cfg.policy == WIFI_COUNTRY_POLICY_MANUAL) {
-			os_printf("mode: MANUAL\r\n", g_country_code.cfg.policy);
+			RWNX_LOGI("mode: MANUAL\r\n", g_country_code.cfg.policy);
 		} else {
-			os_printf("mode: AUTO\r\n", g_country_code.cfg.policy);
+			RWNX_LOGI("mode: AUTO\r\n", g_country_code.cfg.policy);
 			if (prev_policy != g_country_code.cfg.policy) {
-				os_printf("in auto mode, need change softap beacon\r\n");
+				RWNX_LOGI("in auto mode, need change softap beacon\r\n");
 				// to do
 			}
 		}
 
+#if CFG_POWER_TABLE
+		rw_ieee80211_set_chan_power();
+#endif
 		return kNoErr;
 	} else {
 		return kParamErr;
@@ -349,7 +404,7 @@ UINT32 rw_ieee80211_get_centre_frequency(UINT32 chan_id)
 	if (freq != 0) {
 		return freq;
 	} else {
-		os_printf("centre freq is 0 \r\n");
+		RWNX_LOGI("centre freq is 0 \r\n");
 		return 0;
 	}
 }

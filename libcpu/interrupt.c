@@ -17,18 +17,11 @@ extern rt_uint32_t rt_interrupt_nest;
 rt_uint32_t rt_interrupt_from_thread, rt_interrupt_to_thread;
 rt_uint32_t rt_thread_switch_interrupt_flag;
 
-static void rt_hw_interrupt_handler(int vector, void *param)
-{
-    rt_kprintf("Unhandled interrupt %d occured!!!\n", vector);
-}
-
 /**
  * This function will initialize hardware interrupt
  */
 void rt_hw_interrupt_init(void)
 {
-    rt_int32_t idx;
-
     intc_init();
 
     /* init interrupt nest, and context in thread sp */

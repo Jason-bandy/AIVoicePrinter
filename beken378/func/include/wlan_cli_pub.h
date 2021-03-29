@@ -23,7 +23,7 @@
 #define EXIT_MSG		              "exit"
 
 #define NUM_BUFFERS		              1
-#define MAX_COMMANDS	              64
+#define MAX_COMMANDS	              128
 #define INBUF_SIZE                    128
 #define OUTBUF_SIZE                   2048
 
@@ -69,6 +69,9 @@ struct cli_st
 
 #if (CFG_SOC_NAME == SOC_BK7271)
 void bk7271_dsp_cli_init(void);
+#if CFG_USE_BT
+void bk7271_ble_cli_init(void);
+#endif
 #endif
 
 /** Register a CLI command

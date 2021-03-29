@@ -8,7 +8,7 @@
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 
-static DD_OPERATIONS i2c2_op =
+static const DD_OPERATIONS i2c2_op =
 {
     i2c2_open,
     i2c2_close,
@@ -17,7 +17,10 @@ static DD_OPERATIONS i2c2_op =
     i2c2_ctrl
 };
 
+__maybe_unused static void i2c2_set_slave_addr(UINT32 addr);
+__maybe_unused static void i2c2_clk_source_set_26M(void);
 static volatile I2C2_MSG_ST *gi2c2 ;
+static int op_addr_flag = 0;
 
 static void i2c2_set_idle_cr(UINT32 idle_cr)
 {
@@ -251,15 +254,13 @@ static void i2c2_send_start(void)
 	cfg_data |= (int_mode << 6);
 	cfg_data |= I2C2_SMBUS_STA;
 	
-	REG_WRITE(REG_I2C2_STA, cfg_data);	
+	REG_WRITE(REG_I2C2_STA, cfg_data);
 }
 
 static void i2c2_get_message(I2C2_MSG_ST *i2c2_config)
 {
-	UINT32 reg;
-
 	gi2c2 = i2c2_config;
-	
+
     I2C2_PRT("gi2c2.WkMode = 0x%x\r\n",   gi2c2->WkMode);
     I2C2_PRT("gi2c2.SalveID= 0x%x\r\n",   gi2c2->Slave_addr);
     I2C2_PRT("gi2c2.SendAddr = 0x%x\r\n", gi2c2->SendAddr);
@@ -293,477 +294,428 @@ static UINT8  i2c2_get_busy(void)
 
 static void i2c2_isr(void)
 {
-    UINT32 i2c2_stat,i2c2_config;
+	UINT32 i2c2_stat, i2c2_config;
 	UINT32 work_mode, ack, sta, sto, si;
 	volatile UINT8 fifo_empty_num = 0;
 	volatile UINT8 data_num = 0;
 	UINT8 i, uctemp, remain_data_cnt;
 
-    i2c2_stat = REG_READ(REG_I2C2_STA);
+	i2c2_stat = REG_READ(REG_I2C2_STA);
 	si = i2c2_stat & I2C2_SMBUS_SI;
 
-    I2C2_DEBUG_PRINTF("i2c2_stat=0x%x\r\n", i2c2_stat);	
-    I2C2_DEBUG_PRINTF("A\r\n");	
-	
-	if(!si)
+	I2C2_DEBUG_PRINTF("i2c2_stat=0x%x\r\n", i2c2_stat);
+	I2C2_DEBUG_PRINTF("A\r\n");
+
+	if (!si)
 	{
-		if(i2c2_stat & I2C2_SCL_TIMEOUT)				// SCL low level over time interrupt
-		{
+		if (i2c2_stat & I2C2_SCL_TIMEOUT) {			// SCL low level over time interrupt
 			I2C2_EPRT("i\r\n");
 			i2c2_open(0);
 		}
-			
-		if(i2c2_stat & I2C2_ARB_LOST)
-		{
+
+		if (i2c2_stat & I2C2_ARB_LOST) {
 			i2c2_stat |= I2C2_ARB_LOST;
-            REG_WRITE(REG_I2C2_STA, i2c2_stat);			
+			REG_WRITE(REG_I2C2_STA, i2c2_stat);
 		}
-				
+
 		return;
 	}
 
 	i2c2_config =  REG_READ(REG_I2C2_CONFIG);
-	REG_WRITE(REG_I2C2_CONFIG, i2c2_config & (~(I2C2_SMB_CS_MASK<< I2C2_SMB_CS_POSI)));			//fix bug 
+	REG_WRITE(REG_I2C2_CONFIG, i2c2_config & (~(I2C2_SMB_CS_MASK << I2C2_SMB_CS_POSI)));			//fix bug
 
-	I2C2_DEBUG_PRINTF("i2c2_config=0x%x\r\n", i2c2_config);	
+	I2C2_DEBUG_PRINTF("i2c2_config=0x%x\r\n", i2c2_config);
 
 	ack = i2c2_stat & I2C2_SMBUS_ACK;
 	sto = i2c2_stat & I2C2_SMBUS_STOP;
 	sta = i2c2_stat & I2C2_SMBUS_STA;
-	
-    work_mode = gi2c2->WkMode & 0x03;
+
+	work_mode = gi2c2->WkMode & 0x03;
 	remain_data_cnt = gi2c2->AllDataNum - gi2c2->CurrentNum;
-	
+
 	switch (work_mode)
 	{
-		case 0x00:										//master write
-		{
-			I2C2_DEBUG_PRINTF("B\r\n");	
+	case 0x00: {									//master write
+		I2C2_DEBUG_PRINTF("B\r\n");
 
-			i2c2_stat &= ~I2C2_SMBUS_STA;
-			
-			if(gi2c2->ack_check && !ack)
-			{
-				i2c2_stat |= I2C2_SMBUS_STOP;			//send stop
-                gi2c2->TransDone = 1;
-							
-                break;				
-			}
-			
-			uctemp = gi2c2->AddrFlag;
-								
-			if(uctemp & 0x10)      // all address bytes has been tx, now tx data
-			{				
-				I2C2_DEBUG_PRINTF("F\r\n");	
-				
-				if(remain_data_cnt == 0)   // all data bytes has been tx, now send stop
-				{
-					I2C2_DEBUG_PRINTF("H\r\n");	
-					i2c2_stat |= I2C2_SMBUS_STOP;		//send stop
-					gi2c2->TransDone = 1;	
+		i2c2_stat &= ~I2C2_SMBUS_STA;
 
-					break;
-				}
+		if (gi2c2->ack_check && !ack) {
+			i2c2_stat |= I2C2_SMBUS_STOP;			//send stop
+			gi2c2->TransDone = 1;
 
-				switch (i2c2_stat & 0x00C0)
-				{
-					case 0x00: fifo_empty_num = 16; break;
-					case 0x40: fifo_empty_num = 12; break;
-					case 0x80: fifo_empty_num = 8;  break;
-					case 0xC0: fifo_empty_num = 4;  break;
-					default  : fifo_empty_num = 0;  break;
-
-				}
-
-				if(remain_data_cnt < fifo_empty_num)
-				{
-				
-					I2C2_DEBUG_PRINTF("I\r\n");	
-					data_num = remain_data_cnt;			
-				}
-				else
-				{
-					
-					I2C2_DEBUG_PRINTF("J\r\n");	
-					data_num = fifo_empty_num;
-				}
-
-				for(i=0; i<data_num; i++)				
-				{
-					I2C2_DEBUG_PRINTF("K\r\n");
-					
-					REG_WRITE(REG_I2C2_DAT, gi2c2->pData[gi2c2->CurrentNum]);
-		            gi2c2->CurrentNum ++;
-		            remain_data_cnt --;
-				}
-
-				if(remain_data_cnt < fifo_empty_num)
-				{
-					
-					I2C2_DEBUG_PRINTF("L\r\n");	
-					i2c2_stat &= ~(I2C2_SMBUS_STA | I2C2_INT_MODE_MASK);
-				}				
-				break;
-			}
-			
-			if(gi2c2->WkMode & I2C2_MSG_WORK_MODE_AL_BIT)		//10bit address
-			{	
-				I2C2_DEBUG_PRINTF("M\r\n");	
-				if(gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT)	//with inner address
-				{					
-					if((uctemp & 0x08) == 0)
-					{
-						if((uctemp & 0x03) == 0x00)
-						{
-							I2C2_DEBUG_PRINTF("tx error!!!\r\n");	
-							break;
-						}
-						else if((uctemp & 0x03) == 0x01)
-						{
-						
-							I2C2_DEBUG_PRINTF("O\r\n");	
-							gi2c2->SendAddr &= 0xFF;
-							REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr);
-							gi2c2->AddrFlag++;
-						}
-						else
-						{		
-							I2C2_DEBUG_PRINTF("P\r\n");						
-							REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr);
-							gi2c2->AddrFlag |= 0x1B;
-						}
-					}
-					else 
-					{
-						gi2c2->AddrFlag |= 0x13;
-					}
-				}
-				else 												//without inner address
-				{
-				
-					I2C2_DEBUG_PRINTF("N\r\n");	
-					if((uctemp & 0x03) == 0x00)
-					{
-						I2C2_DEBUG_PRINTF("tx error!!!\r\n");	
-						break;
-					}
-					else if((uctemp & 0x03) == 0x01)
-					{
-						I2C2_DEBUG_PRINTF("O\r\n");	
-						gi2c2->SendAddr &= 0xFF;
-						REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr);
-						gi2c2->AddrFlag |= 0x13;
-					}
-					else
-					{
-						gi2c2->AddrFlag |= 0x13;
-					}
-				}
-			}
-			else 												//7 bit address
-			{
-				
-				I2C2_DEBUG_PRINTF("M'\r\n");	
-				if(gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT)	//with inner address
-				{
-				
-					I2C2_DEBUG_PRINTF("N\r\n");	
-					
-					if((uctemp & 0x08) == 0)
-					{
-						I2C2_DEBUG_PRINTF("O\r\n");	
-						REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr); 	//write inner address 
-						
-						gi2c2->AddrFlag |= 0x13;
-					}
-					else 
-					{
-						I2C2_DEBUG_PRINTF("P\r\n");
-						gi2c2->AddrFlag |= 0x13;	
-					}
-				}
-				else 
-				{
-					gi2c2->AddrFlag |= 0x13;
-				}
-			}
 			break;
 		}
 
-		case 0x01:												  //master read
-		{
-			i2c2_stat &= ~I2C2_SMBUS_STA;
-			I2C2_DEBUG_PRINTF("C\r\n");	
-				
-			if(sta && gi2c2->ack_check && !ack)
-			{
-				i2c2_stat = i2c2_stat | I2C2_SMBUS_STOP;			//send stop
-                gi2c2->TransDone = 1;
-			
-                break;				
-			}
+		uctemp = gi2c2->AddrFlag;
 
-			uctemp = gi2c2->AddrFlag;
-			
-			if(uctemp & 0x10)      									// all address bytes has been tx, now tx data
-			{
-				I2C2_DEBUG_PRINTF("D\r\n");	
-				
-				if(sta)
-				{
-					i2c2_stat = i2c2_stat | I2C2_SMBUS_ACK; 		//sen ack
-					break;
-				}
+		if (uctemp & 0x10) {   // all address bytes has been tx, now tx data
+			I2C2_DEBUG_PRINTF("F\r\n");
 
-				switch (i2c2_stat & 0x00C0)
-				{
-					case 0x00: data_num = 12; break;
-					case 0x40: data_num = 8;  break;
-					case 0x80: data_num = 4;  break;
-					case 0xC0: data_num = 1;  break;
-					default  : data_num = 0;  break;
-				}
-				
-				for(i=0; i<data_num; i++)
-				{	
-					I2C2_DEBUG_PRINTF("E\r\n");
-					
-					gi2c2->pData[gi2c2->CurrentNum] = REG_READ(REG_I2C2_DAT);
-                    gi2c2->CurrentNum ++;
-                   remain_data_cnt --;
-				}				
-				
-				if(remain_data_cnt == 0)   // all data bytes has been tx, now send stop
-				{
-					I2C2_DEBUG_PRINTF("F\r\n");	
-					
-					i2c2_stat = (i2c2_stat &(~(I2C2_SMBUS_ACK | I2C2_SMBUS_STA))) | I2C2_SMBUS_STOP ;		//send no ack/stop
-					gi2c2->TransDone = 1;	
+			if (remain_data_cnt == 0) { // all data bytes has been tx, now send stop
+				I2C2_DEBUG_PRINTF("H\r\n");
+				i2c2_stat |= I2C2_SMBUS_STOP;		//send stop
+				gi2c2->TransDone = 1;
 
-				}
-				else if (remain_data_cnt < data_num)
-				{
-					i2c2_stat = i2c2_stat | (I2C2_SMBUS_ACK | I2C2_INT_MODE_MASK);
-				}
-				else
-				{
-					i2c2_stat = i2c2_stat | I2C2_SMBUS_ACK ;
-				}		
 				break;
 			}
-			if(gi2c2->WkMode & I2C2_MSG_WORK_MODE_AL_BIT)		//10bit address			
-			{	
-			
-				I2C2_DEBUG_PRINTF("G\r\n");	
-				
-				if(gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT)	//with inner address
-				{
-					I2C2_DEBUG_PRINTF("F\r\n");	
-					
-					if((uctemp & 0x08) == 0)
-					{
-						if((uctemp & 0x03) == 0x00)
-						{
-							I2C2_DEBUG_PRINTF("tx error!!!\r\n");	
-							
-							break;
-						}
-						else if((uctemp & 0x03) == 0x01)
-						{
-							REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr & 0xFF);
-							gi2c2->AddrFlag++;
-						}
-						else
-						{		
-							REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr);
-							gi2c2->AddrFlag |= 0x08;
-						}
-					}
-					else 
-					{
-						if((uctemp & 0x03) == 0x02)
-						{
-							i2c2_stat |= I2C2_SMBUS_STA;
-							REG_WRITE(REG_I2C2_DAT, ((gi2c2->SendAddr >>7) & 0x06) | 0xF1);
-							gi2c2->AddrFlag |= 0x13;			
-						}
-						else
-						{
-							I2C2_DEBUG_PRINTF("read error1!!!\r\n");	
-							break;
-						}
-					}
-				}
-				else 												//without inner address
-				{
-				
-					if((uctemp & 0x03) == 0x00)
-					{
-						I2C2_DEBUG_PRINTF("read error1!!!\r\n"); 
-					}
-					else if((uctemp & 0x03) == 0x01)
-					{
-						REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr & 0xFF);	
-						
-						gi2c2->AddrFlag ++;							
-					}
-					else if((uctemp & 0x03) == 0x02)
-					{
-						i2c2_stat |= I2C2_SMBUS_STA;
-						REG_WRITE(REG_I2C2_DAT, ((gi2c2->SendAddr >>7) & 0x06) | 0xF1);
-						
-						gi2c2->AddrFlag |= 0x13;
-					}
-					else
-					{
-						I2C2_DEBUG_PRINTF("read error1!!!\r\n"); 
-						break;
-					}
-		
-				}
-			}
-			else												// 7 bite address
-			{
-				I2C2_DEBUG_PRINTF("H\r\n");	
-				
-				if(gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT)	//with inner address
-				{
-					I2C2_DEBUG_PRINTF("D\r\n");	
-					
-					if((uctemp & 0x08) == 0)
-					{
-						REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr); 	//write inner address 
-						
-						gi2c2->AddrFlag = (gi2c2->AddrFlag & ~0x0B) | 0x0A;
-					}
-					else 
-					{
-						i2c2_stat |= I2C2_SMBUS_STA;
-						REG_WRITE(REG_I2C2_DAT, (gi2c2->SendAddr << 1) | 0x01);
-						
-						gi2c2->AddrFlag |= 0x13; 
-					}
-				}
-				else 												//without inner address
-				{
-					gi2c2->AddrFlag |= 0x13;
-				}
+
+			switch (i2c2_stat & 0x00C0) {
+			case 0x00:
+				fifo_empty_num = 16;
+				break;
+			case 0x40:
+				fifo_empty_num = 12;
+				break;
+			case 0x80:
+				fifo_empty_num = 8;
+				break;
+			case 0xC0:
+				fifo_empty_num = 4;
+				break;
+			default  :
+				fifo_empty_num = 0;
+				break;
 
 			}
-			break;
-			
-		}
-        case 0x02:      // slave write
-        {
-			I2C2_DEBUG_PRINTF("d\r\n");
-			
-            if (sto)    // detect a STOP
-            {
-            	
-				I2C2_DEBUG_PRINTF("k\r\n");	
-				
-                gi2c2->TransDone = 1;
-                break;
-            }
 
+			if (remain_data_cnt < fifo_empty_num) {
 
-            if (i2c2_stat & I2C2_ADDR_MATCH)      // match address byte
-            {
-				
-				I2C2_DEBUG_PRINTF("l\r\n");	
-				
-                i2c2_stat |= I2C2_SMBUS_ACK;     // send ACK for address byte
-            }
+				I2C2_DEBUG_PRINTF("I\r\n");
+				data_num = remain_data_cnt;
+			} else {
 
-            if ((i2c2_stat & I2C2_TX_MODE) == 0)      // read mode
-            {
-                break;
-            }
+				I2C2_DEBUG_PRINTF("J\r\n");
+				data_num = fifo_empty_num;
+			}
 
+			for (i = 0; i < data_num; i++) {
+				I2C2_DEBUG_PRINTF("K\r\n");
 
-            if (i2c2_stat & I2C2_SMBUS_ACK)      // detect an ACK
-            {
-            	
-				I2C2_DEBUG_PRINTF("i\r\n");	
-				
 				REG_WRITE(REG_I2C2_DAT, gi2c2->pData[gi2c2->CurrentNum]);
 				gi2c2->CurrentNum ++;
 				remain_data_cnt --;
+			}
 
-                if (remain_data_cnt == 0)
-                {
-					I2C2_DEBUG_PRINTF("j\r\n"); 
+			if (remain_data_cnt < fifo_empty_num) {
 
-                    // TODO
-                }
-            }
-            break;
-        }		
-		case 0x03:											// slave read
-		{
-			I2C2_DEBUG_PRINTF("e\r\n");	
+				I2C2_DEBUG_PRINTF("L\r\n");
+				i2c2_stat &= ~(I2C2_SMBUS_STA | I2C2_INT_MODE_MASK);
+			}
+			break;
+		}
 
-			if (sto)										// detect a STOP
-			{
-				gi2c2->TransDone = 1;
+		if (gi2c2->WkMode & I2C2_MSG_WORK_MODE_AL_BIT) {	//10bit address
+			I2C2_DEBUG_PRINTF("M\r\n");
+			if (gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT) {	//with inner address
+				if ((uctemp & 0x08) == 0) {
+					if ((uctemp & 0x03) == 0x00) {
+						I2C2_DEBUG_PRINTF("tx error!!!\r\n");
+						break;
+					} else if ((uctemp & 0x03) == 0x01) {
+
+						I2C2_DEBUG_PRINTF("O\r\n");
+						gi2c2->SendAddr &= 0xFF;
+						REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr);
+						gi2c2->AddrFlag++;
+					} else {
+						I2C2_DEBUG_PRINTF("P\r\n");
+						REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr);
+						gi2c2->AddrFlag |= 0x1B;
+					}
+				} else
+					gi2c2->AddrFlag |= 0x13;
+			} else {											//without inner address
+
+				I2C2_DEBUG_PRINTF("N\r\n");
+				if ((uctemp & 0x03) == 0x00) {
+					I2C2_DEBUG_PRINTF("tx error!!!\r\n");
+					break;
+				} else if ((uctemp & 0x03) == 0x01) {
+					I2C2_DEBUG_PRINTF("O\r\n");
+					gi2c2->SendAddr &= 0xFF;
+					REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr);
+					gi2c2->AddrFlag |= 0x13;
+				} else
+					gi2c2->AddrFlag |= 0x13;
+			}
+		} else {											//7 bit address
+			I2C2_DEBUG_PRINTF("M'\r\n");
+			if (gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT) {		//with inner address
+
+				I2C2_DEBUG_PRINTF("N\r\n");
+#if (USE_CAMERA != HM_1055_DEV)
+				if ((uctemp & 0x08) == 0) {
+					I2C2_DEBUG_PRINTF("O\r\n");
+					REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr);		//write inner address
+
+					gi2c2->AddrFlag |= 0x13;
+				}
+#else
+				if ((uctemp & 0x08) == 0) {
+					if (op_addr_flag == 0) {
+						uint8 inner_address = (uint8)(gi2c2->InnerAddr >> 8);
+						//bk_printf("O:0x%02x\r\n",inner_address);
+						REG_WRITE(REG_I2C2_DAT, inner_address);	//write inner address
+						op_addr_flag++;
+					} else {
+						op_addr_flag = 0;
+
+						gi2c2->InnerAddr = gi2c2->InnerAddr & 0xFF;
+						//bk_printf("Op:0x%02x\r\n",gi2c2->InnerAddr);
+						uint8 inner_address = (uint8) gi2c2->InnerAddr;
+						REG_WRITE(REG_I2C2_DAT, inner_address);	//write inner address
+
+						gi2c2->AddrFlag |= 0x13;
+					}
+				}
+#endif
+				else {
+					I2C2_DEBUG_PRINTF("P\r\n");
+					gi2c2->AddrFlag |= 0x13;
+				}
+			} else
+				gi2c2->AddrFlag |= 0x13;
+		}
+		break;
+	}
+
+	case 0x01: {											  //master read
+		i2c2_stat &= ~I2C2_SMBUS_STA;
+		I2C2_DEBUG_PRINTF("C\r\n");
+
+		if (sta && gi2c2->ack_check && !ack) {
+			i2c2_stat = i2c2_stat | I2C2_SMBUS_STOP;			//send stop
+			gi2c2->TransDone = 1;
+
+			break;
+		}
+
+		uctemp = gi2c2->AddrFlag;
+
+		if (uctemp & 0x10) {									// all address bytes has been tx, now tx data
+			I2C2_DEBUG_PRINTF("D\r\n");
+
+			if (sta) {
+				i2c2_stat = i2c2_stat | I2C2_SMBUS_ACK;			//sen ack
 				break;
 			}
 
-			if (i2c2_stat & I2C2_ADDR_MATCH)	  // match address byte
-			{
-
-				i2c2_stat |= I2C2_SMBUS_ACK;	   // send ACK
+			switch (i2c2_stat & 0x00C0) {
+			case 0x00:
+				data_num = 12;
+				break;
+			case 0x40:
+				data_num = 8;
+				break;
+			case 0x80:
+				data_num = 4;
+				break;
+			case 0xC0:
+				data_num = 1;
+				break;
+			default  :
+				data_num = 0;
 				break;
 			}
 
-			switch (i2c2_stat & I2C2_INT_MODE_MASK)
-			{
-				case 0x0000:   data_num = 12;  break;
-				case 0x0040:   data_num = 8;   break;
-				case 0x0080:   data_num = 4;   break;
-				case 0x00C0:   data_num = 1;   break;
-				default    :   data_num = 0;   break;
-			}
-
-			for (i = 0; i < data_num; i ++)
-			{
+			for (i = 0; i < data_num; i++) {
+				I2C2_DEBUG_PRINTF("E\r\n");
 
 				gi2c2->pData[gi2c2->CurrentNum] = REG_READ(REG_I2C2_DAT);
 				gi2c2->CurrentNum ++;
 				remain_data_cnt --;
 			}
 
-			if (remain_data_cnt == 0)
-			{
+			if (remain_data_cnt == 0) { // all data bytes has been tx, now send stop
+				I2C2_DEBUG_PRINTF("F\r\n");
 
-				i2c2_stat &= ~I2C2_SMBUS_ACK; 	// send NACK
+				i2c2_stat = (i2c2_stat & (~(I2C2_SMBUS_ACK | I2C2_SMBUS_STA))) | I2C2_SMBUS_STOP ;		//send no ack/stop
 				gi2c2->TransDone = 1;
-			}
-			else if (remain_data_cnt < data_num)
-			{
 
-				// send ACK, set int_mode
-				i2c2_stat = i2c2_stat | I2C2_SMBUS_ACK | I2C2_INT_MODE_MASK;
-			}
+			} else if (remain_data_cnt < data_num)
+				i2c2_stat = i2c2_stat | (I2C2_SMBUS_ACK | I2C2_INT_MODE_MASK);
 			else
-			{
+				i2c2_stat = i2c2_stat | I2C2_SMBUS_ACK ;
+			break;
+		}
+		if (gi2c2->WkMode & I2C2_MSG_WORK_MODE_AL_BIT) {	//10bit address
 
-				i2c2_stat |= I2C2_SMBUS_ACK;	   // send ACK
+			I2C2_DEBUG_PRINTF("G\r\n");
+
+			if (gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT) {	//with inner address
+				I2C2_DEBUG_PRINTF("F\r\n");
+
+				if ((uctemp & 0x08) == 0) {
+					if ((uctemp & 0x03) == 0x00) {
+						I2C2_DEBUG_PRINTF("tx error!!!\r\n");
+
+						break;
+					} else if ((uctemp & 0x03) == 0x01) {
+						REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr & 0xFF);
+						gi2c2->AddrFlag++;
+					} else {
+						REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr);
+						gi2c2->AddrFlag |= 0x08;
+					}
+				} else {
+					if ((uctemp & 0x03) == 0x02) {
+						i2c2_stat |= I2C2_SMBUS_STA;
+						REG_WRITE(REG_I2C2_DAT, ((gi2c2->SendAddr >> 7) & 0x06) | 0xF1);
+						gi2c2->AddrFlag |= 0x13;
+					} else {
+						I2C2_DEBUG_PRINTF("read error1!!!\r\n");
+						break;
+					}
+				}
+			} else {											//without inner address
+
+				if ((uctemp & 0x03) == 0x00)
+					I2C2_DEBUG_PRINTF("read error1!!!\r\n");
+				else if ((uctemp & 0x03) == 0x01) {
+					REG_WRITE(REG_I2C2_DAT, gi2c2->SendAddr & 0xFF);
+
+					gi2c2->AddrFlag ++;
+				} else if ((uctemp & 0x03) == 0x02) {
+					i2c2_stat |= I2C2_SMBUS_STA;
+					REG_WRITE(REG_I2C2_DAT, ((gi2c2->SendAddr >> 7) & 0x06) | 0xF1);
+
+					gi2c2->AddrFlag |= 0x13;
+				} else {
+					I2C2_DEBUG_PRINTF("read error1!!!\r\n");
+					break;
+				}
+
 			}
+		} else {			// 7 bite address
+			I2C2_DEBUG_PRINTF("H\r\n");
+
+			if (gi2c2->WkMode & I2C2_MSG_WORK_MODE_IA_BIT) {	//with inner address
+				I2C2_DEBUG_PRINTF("D\r\n");
+
+				if ((uctemp & 0x08) == 0) {
+					REG_WRITE(REG_I2C2_DAT, gi2c2->InnerAddr);	//write inner address
+
+					gi2c2->AddrFlag = (gi2c2->AddrFlag & ~0x0B) | 0x0A;
+				} else {
+					i2c2_stat |= I2C2_SMBUS_STA;
+					REG_WRITE(REG_I2C2_DAT, (gi2c2->SendAddr << 1) | 0x01);
+
+					gi2c2->AddrFlag |= 0x13;
+				}
+			} else												//without inner address
+				gi2c2->AddrFlag |= 0x13;
+
+		}
+		break;
+
+	}
+	case 0x02: {    // slave write
+		I2C2_DEBUG_PRINTF("d\r\n");
+
+		if (sto) {  // detect a STOP
+
+			I2C2_DEBUG_PRINTF("k\r\n");
+
+			gi2c2->TransDone = 1;
 			break;
 		}
 
-		default:
+
+		if (i2c2_stat & I2C2_ADDR_MATCH) {    // match address byte
+
+			I2C2_DEBUG_PRINTF("l\r\n");
+
+			i2c2_stat |= I2C2_SMBUS_ACK;     // send ACK for address byte
+		}
+
+		if ((i2c2_stat & I2C2_TX_MODE) == 0)      // read mode
 			break;
+
+
+		if (i2c2_stat & I2C2_SMBUS_ACK) {    // detect an ACK
+
+			I2C2_DEBUG_PRINTF("i\r\n");
+
+			REG_WRITE(REG_I2C2_DAT, gi2c2->pData[gi2c2->CurrentNum]);
+			gi2c2->CurrentNum ++;
+			remain_data_cnt --;
+
+			if (remain_data_cnt == 0) {
+				I2C2_DEBUG_PRINTF("j\r\n");
+
+				// TODO
+			}
+		}
+		break;
 	}
-				
-	REG_WRITE(REG_I2C2_STA, i2c2_stat & (~I2C2_SMBUS_SI)); 		//clear si
-	REG_WRITE(REG_I2C2_CONFIG, i2c2_config);	
+	case 0x03: {										// slave read
+		I2C2_DEBUG_PRINTF("e\r\n");
+
+		if (sto) {									// detect a STOP
+			gi2c2->TransDone = 1;
+			break;
+		}
+
+		if (i2c2_stat & I2C2_ADDR_MATCH) {  // match address byte
+
+			i2c2_stat |= I2C2_SMBUS_ACK;	   // send ACK
+			break;
+		}
+
+		switch (i2c2_stat & I2C2_INT_MODE_MASK) {
+		case 0x0000:
+			data_num = 12;
+			break;
+		case 0x0040:
+			data_num = 8;
+			break;
+		case 0x0080:
+			data_num = 4;
+			break;
+		case 0x00C0:
+			data_num = 1;
+			break;
+		default    :
+			data_num = 0;
+			break;
+		}
+
+		for (i = 0; i < data_num; i ++) {
+
+			gi2c2->pData[gi2c2->CurrentNum] = REG_READ(REG_I2C2_DAT);
+			gi2c2->CurrentNum ++;
+			remain_data_cnt --;
+		}
+
+		if (remain_data_cnt == 0) {
+
+			i2c2_stat &= ~I2C2_SMBUS_ACK;		// send NACK
+			gi2c2->TransDone = 1;
+		} else if (remain_data_cnt < data_num) {
+
+			// send ACK, set int_mode
+			i2c2_stat = i2c2_stat | I2C2_SMBUS_ACK | I2C2_INT_MODE_MASK;
+		} else {
+
+			i2c2_stat |= I2C2_SMBUS_ACK;		// send ACK
+		}
+		break;
+	}
+
+	default:
+		break;
+	}
+
+	REG_WRITE(REG_I2C2_STA, i2c2_stat & (~I2C2_SMBUS_SI));			//clear si
+	REG_WRITE(REG_I2C2_CONFIG, i2c2_config);
 }
+
+
 
 static void i2c2_software_init(void)
 {
-    ddev_register_dev(I2C2_DEV_NAME, &i2c2_op);
+    ddev_register_dev(I2C2_DEV_NAME, (DD_OPERATIONS*)&i2c2_op);
 }
 
 static void i2c2_hardware_init(void)

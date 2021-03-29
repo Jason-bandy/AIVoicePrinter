@@ -1,0 +1,115 @@
+/* configure the CPU type */
+OUTPUT_ARCH(arm)
+/* link with the standard c library */
+INPUT(-lc)
+/* link with the standard GCC library */
+INPUT(-lgcc)
+/* configure the entry point */
+ENTRY(vectors)
+
+MEMORY
+{
+    /* the internal SRAM */
+    ram (wx) : ORIGIN = 0, LENGTH = 256K
+
+    /* the shared RAM */
+    shared_memory (rw!x) : ORIGIN = 0x10000000, LENGTH = 256K
+
+    /* Fake LA memory */
+    lamac_memory (!rx) : org = 0x20000000, len = 1024K
+
+    /* the MACHW MIB location */
+    machw_mib_loc (rw!x) : ORIGIN = 0x13000800, LENGTH = 4K
+}
+
+/* configure the stack sizes */
+stack_len_fiq = 0x3F0;
+stack_len_irq = 0x10;
+stack_len_svc = 0x3F0;
+stack_len_unused = 0x10;
+
+SECTIONS
+{
+    /* shared RAM */
+    SHARED (NOLOAD):
+    {
+        _sshram = . ;
+        *(SHAREDRAMIPC)
+        *(SHAREDRAM)
+        _eshram = . ;
+        _trace_start = .;
+        _trace_end = ORIGIN(shared_memory) + LENGTH(shared_memory);
+    } > shared_memory
+
+    /* MAC logic analyzer RAM */
+    LA (NOLOAD):
+    {
+        _slarammac = . ;
+        *(LARAM)
+        _elarammac = . ;
+    } > lamac_memory
+
+    /* MAC HW MIBs */
+    HW_MIB (NOLOAD):
+    {
+        _smachw_mib = . ;
+        *(MACHWMIB)
+        _emachw_mib = . ;
+    } > machw_mib_loc
+
+    EXEC_RAM_TEXT 0x0 :
+    {
+        /* the address 0 must contain the boot vectors */
+        *boot_vectors.o(.text)
+        /* immediately followed by the boot handlers */
+        *boot_handlers.o(.text)
+        *(.text)
+        *(.rodata)
+    } > ram
+
+    /* ram data immediately follows the TEXT */
+    RAM_DATA :
+    {
+        *(.data)
+    } > ram
+
+    /* BSS section */
+    RAM_BSS :
+    {
+        bss_base = .;
+        *(.bss)
+        *(COMMON)
+        bss_end = .;
+    } > ram
+    bss_length = bss_end - bss_base;
+
+    /* UNUSED STACK */
+    RAM_STACK_UNUSED ORIGIN(ram) + LENGTH(ram) - stack_len_fiq - stack_len_irq - stack_len_svc - stack_len_unused :
+    {
+        stack_base_unused = .;
+        *ipc_shared.o(.bss)
+        . = stack_len_unused;
+    } > ram
+
+    /* SVC STACK */
+    RAM_STACK_SVC ORIGIN(ram) + LENGTH(ram) - stack_len_fiq - stack_len_irq - stack_len_svc :
+    {
+        stack_base_svc = .;
+        . = stack_len_svc;
+    } > ram
+
+    /* IRQ STACK */
+    RAM_STACK_IRQ ORIGIN(ram) + LENGTH(ram) - stack_len_fiq - stack_len_irq :
+    {
+        stack_base_irq = .;
+        . = stack_len_irq;
+    } > ram
+
+    /* FIQ STACK */
+    RAM_STACK_FIQ ORIGIN(ram) + LENGTH(ram) - stack_len_fiq :
+    {
+        stack_base_fiq = .;
+        . = stack_len_fiq;
+    } > ram
+}
+

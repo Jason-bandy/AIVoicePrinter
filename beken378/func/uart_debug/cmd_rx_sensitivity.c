@@ -14,6 +14,7 @@
 #include "drv_model_pub.h"
 #include "bk7011_cal_pub.h"
 #include "reg_mdm_cfg.h"
+#include "sys_config.h"
 
 #if CFG_RX_SENSITIVITY_TEST
 beken_timer_t rx_sens_tmr = {0};
@@ -23,6 +24,9 @@ UINT32 g_rxsens_start = 0;
 
 extern void bk7011_max_rxsens_setting(void);
 extern void bk7011_normal_rxsens_setting(void);
+extern void rwnx_cal_en_rx_filter_offset(void);
+extern void rwnx_cal_set_bw_i2v(int enable);
+extern void rwnx_cal_dis_rx_filter_offset(void);
 
 int bk7011_reduce_vdddig_for_rx(int reduce)
 {
@@ -103,8 +107,6 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
 
     UINT32 arg_id = 1;
     UINT32 arg_cnt = argc;
-
-	UINT32 reg;
 
 #if CFG_RX_SENSITIVITY_TEST
     uint32_t t_ms = 0;
@@ -344,12 +346,12 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
 #else
         if(mode == 0)
         {
-            reg = 3;
+            UINT32 reg = 3;
             sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, &reg);
         }
         else
         {
-            reg = 5;
+            UINT32 reg = 5;
             sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, &reg);
         }
 #endif
@@ -363,6 +365,14 @@ static int do_rx_sensitivity_implement(int argc, char *const argv[])
         mdm_cpemode_setf(1);
 #elif (CFG_SOC_NAME == SOC_BK7236)
 		// TODO: BK7236 phy karst
+        if(mode == 1)
+        {
+            rwnx_cal_set_40M_extra_setting(1);
+        }
+        else
+        {
+            rwnx_cal_set_40M_extra_setting(0);
+        }
 #else
         if((channel == 13) ||(channel == 14))
             rwnx_cal_set_reg_adda_ldo(0);
@@ -472,6 +482,7 @@ int do_rx_sensitivity(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 
     reg = RF_HOLD_BY_ATE_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+	return 0;
 }
 
 // eof

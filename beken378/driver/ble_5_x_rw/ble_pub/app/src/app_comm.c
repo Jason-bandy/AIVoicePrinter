@@ -39,7 +39,7 @@ static uint8_t bk_ble_get_prf_by_id(uint16_t id, struct prf_task_env **env)
 ble_err_t bk_ble_create_db (struct bk_ble_db_cfg* ble_db_cfg)
 {
     ble_err_t ret = ERR_SUCCESS;
-    bk_printf("ble create new db\r\n");
+    BLE_LOGI("ble create new db\r\n");
 
     if (kernel_state_get(TASK_BLE_APP) == APPM_READY)
     {
@@ -88,11 +88,9 @@ ble_err_t bk_ble_send_ntf_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uin
     ble_err_t ret = ERR_SUCCESS;
     uint16_t prf_task_id = prf_id + TASK_BLE_ID_COMMON;
     struct prf_task_env *prf_env = NULL;
-    struct bk_ble_env_tag* ble_env = NULL;
 
     uint8_t status = bk_ble_get_prf_by_id(prf_task_id, &prf_env);
-    ble_env = (struct bk_ble_env_tag*)(prf_env->env);
-    
+
     if(status == GAP_ERR_NO_ERROR)
     {
         // Allocate the message
@@ -121,10 +119,8 @@ ble_err_t bk_ble_send_ind_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uin
 	ble_err_t ret = ERR_SUCCESS;
 	uint16_t prf_task_id = prf_id + TASK_BLE_ID_COMMON;
 	struct prf_task_env *prf_env = NULL;
-	struct bk_ble_env_tag* ble_env = NULL;
 
 	uint8_t status = bk_ble_get_prf_by_id(prf_task_id, &prf_env);
-	ble_env = (struct bk_ble_env_tag*)(prf_env->env);
 
 	if (status == GAP_ERR_NO_ERROR) {
 		// Allocate the message
@@ -172,7 +168,7 @@ static int bk_ble_gattc_cmp_evt_handler(kernel_msg_id_t const msgid,  struct bk_
 	uint8_t status = (param->status == GAP_ERR_NO_ERROR) ? ERR_SUCCESS : ERR_CMD_RUN;
 
 	if( param->operation == GATTC_INDICATE || param->operation == GATTC_NOTIFY) {
-		bk_printf("[%s]\r\n",__FUNCTION__);
+		BLE_LOGI("[%s]\r\n",__FUNCTION__);
 		if (ble_event_notice)
 			ble_event_notice(BLE_5_TX_DONE, NULL);
 		app_ble_next_operation(conn_idx, status);

@@ -5,6 +5,7 @@
 #include "lite-log.h"
 #include "utils_timer.h"
 #include "uart_pub.h"
+#include "rtos_pub.h"
 
 #if CFG_SUPPORT_OTA_HTTP
 

@@ -209,7 +209,7 @@ static void dhcp_up(uint32_t ip, uint32_t netmask, uint32_t gateway, uint32_t dn
 	struct in_addr addr;
 	
 	os_memset(pnetpara, 0, sizeof(IPStatusTypedef));
-	wifi_get_mac_address(mac, CONFIG_ROLE_STA);
+	wifi_get_mac_address((char*)mac, CONFIG_ROLE_STA);
 
 	sprintf(macstr, "%02x%02x%02x%02x%02x%02x", mac[0],
 			mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -285,7 +285,7 @@ static void wm_netif_status_callback(struct netif *n)
             {
 				// dhcp success
 				os_printf("IP up: %x\r\n", ip_addr_get_ip4_u32(&n->ip_addr));
-				dns_server = dns_getserver(0);
+				dns_server = (ip_addr_t*)dns_getserver(0);
 				dhcp_up(ip_addr_get_ip4_u32(&n->ip_addr), 
                     ip_addr_get_ip4_u32(&n->netmask), 
                     ip_addr_get_ip4_u32(&n->gw),

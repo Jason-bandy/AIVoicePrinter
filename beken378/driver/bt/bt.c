@@ -13,9 +13,14 @@
 #include "gpio_pub.h"
 #include "bt_pub.h"
 #include "bt.h"
+#include "port.h"
+#include "beken_external.h"
+#include "param_config.h"
 
 beken_thread_t bt_thread_handle = NULL;
 uint32_t bt_stack_size = 51200; //50k
+extern btaddr_t btaddr_def;
+extern char bt_unit_name[32];
 
 static void bt_start(void)
 {
@@ -57,7 +62,7 @@ static void bt_thread_start(void)
 	OSStatus ret;
 
 	ret = rtos_create_thread(&bt_thread_handle,
-							6,
+							8,
 							"bt",
 							(beken_thread_function_t)bt_main,
 							(unsigned short)bt_stack_size,
@@ -67,11 +72,25 @@ static void bt_thread_start(void)
 
 void bt_activate(char *bt_name)
 {
+	uint8_t *bt_mac = &btaddr_def.b[0];
+	uint8_t ble_mac[6];
+
 	BT_PRT("BT Activate\r\n");
 
-	if (!bt_name) {
-		BT_PRT("bt start no bt name\r\n");
-		bt_name = "BK7271BT-TEST";
+	/*set bt address*/
+	wifi_get_mac_address((char *)bt_mac, CONFIG_ROLE_STA);
+	bt_mac[5] += 1; // add 1, diff from wifi's mac
+
+	wifi_get_mac_address((char *)ble_mac, CONFIG_ROLE_STA);
+	ble_mac[5] += 2;
+	ble_host_to_controller(MAILBOX_CMD_BLE_SET_ADDR, ble_mac, 6, 0);
+
+	/*set bt name*/
+	if (bt_name) {
+		os_strncpy(bt_unit_name, bt_name, sizeof(bt_unit_name));
+	} else {
+		/*use default bt name BK7271_BT-XXXXXXXXXXXX*/
+		os_memset(bt_unit_name, 0, sizeof(bt_unit_name));
 	}
 
 	bt_thread_start();
@@ -150,5 +169,20 @@ void bt_init(void)
 
 void bt_exit(void)
 {
+}
+
+void ble_host_to_controller(uint32_t cmd, uint8_t *buff,uint32_t len, uint32_t param)
+{
+	int i;
+	mailbox_t mbx;
+	uint8_t *src = (uint8_t *)buff;
+	uint8_t *dst = (uint8_t *)HOST2CTRL_BUFFER_ADDR;
+
+	for (i = 0; i < len; i++) {
+		*dst++ = *src++;
+	}
+
+	mailbox_set_param(&mbx, cmd, HOST2CTRL_BUFFER_ADDR, len, param);
+	mailbox_ctrl(CMD_MAILBOX_CPU2BT_SEND, &mbx);
 }
 

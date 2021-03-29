@@ -55,6 +55,8 @@
 #define CMD_WRITE_ENABLE          0x06
 #define CMD_WRITE_DISABLE         0x04
 
+__maybe_unused static UINT16 spi_flash_read_status(void);
+
 static void spi_flash_send_command(UINT8 cmd)
 {
     UINT8 ucmd = cmd;
@@ -106,8 +108,6 @@ static UINT32 spi_flash_is_busy(void)
     msg.recv_buf = ustatus_buf;
     msg.recv_len = READ_STATUS_LEN;
     bk_spi_master_xfer(&msg);
-    
-    ustatus_buf[0];
 
     return (ustatus_buf[0] & FLASH_STATUS_WIP_BIT);
 }
@@ -205,7 +205,6 @@ static int spi_flash_read_page(UINT32 addr, UINT32 size, UINT8 *dst)
 {
     struct spi_message msg;
     UINT8 ucmd[] = {CMD_READ_DATA, 0x00, 0x00, 0x00};
-    UINT32 send_len;
 
     if(dst == NULL)
         return 1;
@@ -241,7 +240,6 @@ static int spi_flash_program_page(UINT32 addr, UINT32 size, UINT8 *src)
 {
     struct spi_message msg;
     UINT8 *ucmd;
-    UINT32 send_len;
 
     if(src == NULL)
         return 1;
@@ -360,18 +358,14 @@ UINT32 spi_flash_read_id(void)
 
 int spi_flash_read(UINT32 addr, UINT32 size, UINT8 *dst)
 {
-    struct spi_message msg;
-    UINT8 ucmd[] = {CMD_READ_DATA, 0x00, 0x00, 0x00};
-    UINT32 send_len;
-
     if(dst == NULL)
         return 1;
-    
+
     if(size == 0)
     {
         return 0;
     }
-    
+
     for(int i=0; i<size; )
     {
         int ret;
@@ -381,19 +375,19 @@ int spi_flash_read(UINT32 addr, UINT32 size, UINT8 *dst)
             dsize = FLASH_PHY_PAGE_SIZE;
         else
             dsize = size - i;
-        
+
         ret = spi_flash_read_page(addr, dsize, dst);
         if(ret)
         {
             BK_SPI_PRT("spiff read page err:%d\r\n", ret);
             return 1;
         }
-        
+
         addr = addr + dsize;
         dst = dst + dsize;
         i = i + dsize;
     }
-    
+
     return 0;
 }
 
@@ -401,12 +395,12 @@ int spi_flash_write(UINT32 addr, UINT32 size, UINT8 *src)
 {
     if(src == NULL)
         return 1;
-    
+
     if(size == 0)
     {
         return 0;
     }
-        
+
     for(int i=0; i<size; )
     {
         int ret;
@@ -416,19 +410,19 @@ int spi_flash_write(UINT32 addr, UINT32 size, UINT8 *src)
             dsize = FLASH_PHY_PAGE_SIZE;
         else
             dsize = size - i;
-        
+
         ret = spi_flash_program_page(addr, dsize, src);
         if(ret)
         {
             BK_SPI_PRT("spiff write page err:%d\r\n", ret);
             return 1;
         }
-        
+
         addr = addr + dsize;
         src = src + dsize;
         i = i + dsize;
     }
-    
+
     return 0;
 }
 
@@ -439,7 +433,7 @@ int spi_flash_erase(UINT32 addr, UINT32 size)
     while (left_size > 0)
     {
         UINT32 erase_size = 0, erase_mode;
-        
+
         if(left_size <= 4 * 1024)
         {
             erase_size = 4 * 1024;

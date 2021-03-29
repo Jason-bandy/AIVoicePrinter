@@ -1,16 +1,24 @@
 #ifndef _GPIO_BK7271_H_
 #define _GPIO_BK7271_H_
 
-#if (CFG_SOC_NAME == SOC_BK7271)
 #include "sys_config.h"
+#if (CFG_SOC_NAME == SOC_BK7271)
 #include "icu.h"
-
-#define GPIO_PRT                        os_printf
-#define WARN_PRT                        os_printf
-#define FATAL_PRT                       os_printf
 
 #if CFG_JTAG_ENABLE
 #define JTAG_GPIO_FILTER
+#endif
+
+#ifndef GPIO_PRT
+#define GPIO_PRT                        os_printf
+#endif
+
+#ifndef WARN_PRT
+#define WARN_PRT                        os_printf
+#endif
+
+#ifndef WARN_PRT
+#define FATAL_PRT                       os_printf
 #endif
 
 #define GPIO_INIT_FLAG                   ((UINT32)1)

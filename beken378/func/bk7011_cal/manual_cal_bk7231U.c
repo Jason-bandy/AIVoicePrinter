@@ -11,6 +11,7 @@
 #include "phy.h"
 #include "bk7011_cal_pub.h"
 #include "bk7011_cal.h"
+#include "bk_pwr_tbl.h"
 
 #include <string.h>
 #include "flash_pub.h"
@@ -59,15 +60,15 @@
 #define BK_FLASH_WRITE_CHECK_TIMES        3
 
 #define MCAL_DEBUG                        1
-#include "uart_pub.h"
+#include "cal_log.h"
 #if MCAL_DEBUG
-#define MCAL_PRT      os_printf
-#define MCAL_WARN     os_printf
-#define MCAL_FATAL    fatal_prf
+#define MCAL_PRT      CAL_LOGI
+#define MCAL_WARN     CAL_LOGI
+#define MCAL_FATAL    CAL_LOGE
 #else
-#define MCAL_PRT      null_prf
-#define MCAL_WARN     null_prf
-#define MCAL_FATAL    null_prf
+#define MCAL_PRT      CAL_LOGD
+#define MCAL_WARN     CAL_LOGD
+#define MCAL_FATAL    CAL_LOGD
 #endif
 
 /* bit[7]: TXPWR flag
@@ -538,10 +539,11 @@ const UINT16 shift_tab_n20[8] = {0, 1, 1, 2, 2, 4, 4, 6/*4*/};; // n20 mcs7base 
 const UINT16 shift_tab_n40[8] = {0, 1, 1, 2, 2, 4, 4, 6/*4*/}; // n40 mcs7base -  mcs0
 #endif
 
-UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_gain)
+UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_gain, UINT32 channel)
 {
     const UINT16 *shift;
     UINT32 idex, ret = 2;
+    UINT32 pwr_mode;
 
     if(bandwidth == PHY_CHNL_BW_20)
     {
@@ -549,13 +551,16 @@ UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_g
             shift = shift_tab_b;
             idex = 3 - rate;
             ret = 1;
+            pwr_mode = PWR_MODE_11B;
         }
         else if(rate <= 11 ){  // for g: 6-54M -- 3-11
             shift = shift_tab_g;
             idex = 11 - rate;
+            pwr_mode = PWR_MODE_11G;
         }else if((rate >= 128) && (rate <= 135)){ // for n20 MCS0-7
             shift = shift_tab_n20;
             idex = 135 - rate;
+            pwr_mode = PWR_MODE_HT20;
         }else{
             MCAL_FATAL("\r\nget_pwr_idx_shift wrong rate:%d\r\n", rate);
             return 0;
@@ -565,6 +570,7 @@ UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_g
         if((rate >= 128) && (rate <= 135)){
             shift = shift_tab_n40;
             idex = 135 - rate;
+            pwr_mode = PWR_MODE_HT40;
         }else{
             MCAL_FATAL("\r\nget_pwr_idx_shift wrong rate:%d\r\n", rate);
             return 0;
@@ -574,6 +580,18 @@ UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_g
     //MCAL_PRT("get_pwr_info: idx: %d, pwr:%d", shift[idex], *pwr_gain);remove for midea
 
     idex = shift[idex] + *pwr_gain;
+#if CFG_POWER_TABLE
+    if (channel) {
+        int tmp;
+        tmp = idex - pwr_tbl_get_pwr_idx_backoff(channel, pwr_mode);
+        if (tmp < 0)
+            idex = 0;
+        else
+            idex = tmp;
+    }
+#endif
+    pwr_mode = pwr_mode;
+
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     *pwr_gain = (idex > 79)? 79: idex;
 #else
@@ -657,7 +675,8 @@ void manual_cal_show_txpwr_tab(void)
 {
     TXPWR_PTR txpwr_tab_ptr = NULL;
     UINT32 i;
-    INT32 tx_tssi_thred_b, tx_tssi_thred_g;
+    INT32 tx_tssi_thred_g = 0;
+    INT32 tx_tssi_thred_b = 0;
     extern INT32 gtx_dcorMod;
     extern INT32 gtx_dcorPA;
 
@@ -722,43 +741,43 @@ void manual_cal_show_txpwr_tab(void)
 
     if(manual_cal_need_load_cmtag_from_flash() == 1)
     {
-        int ret_tx_dcorMod, tx_dcorMod = 0;
-        int ret_tx_dcorPA, tx_dcorPA = 0;
-        int ret_tx_pre_gain, tx_pre_gain = 0;
-        int ret_tx_i_dc_comp, tx_i_dc_comp = 0;
-        int ret_tx_q_dc_comp, tx_q_dc_comp = 0;
-        int ret_tx_i_gain_comp, tx_i_gain_comp = 0;
-        int ret_tx_q_gain_comp, tx_q_gain_comp = 0;
+        int tx_dcorMod = 0;
+        int tx_dcorPA = 0;
+        int tx_pre_gain = 0;
+        int tx_i_dc_comp = 0;
+        int tx_q_dc_comp = 0;
+        int tx_i_gain_comp = 0;
+        int tx_q_gain_comp = 0;
 
-        int ret_tx_ifilter_corner, tx_ifilter_corner = 0;
-        int ret_tx_qfilter_corner, tx_qfilter_corner = 0;
-        int ret_tx_phase_comp, tx_phase_comp = 0;
-        int ret_tx_phase_ty2, tx_phase_ty2 = 0;
+        int tx_ifilter_corner = 0;
+        int tx_qfilter_corner = 0;
+        int tx_phase_comp = 0;
+        int tx_phase_ty2 = 0;
 
-        int rx_dc_gain_tab[8], ret_rx_dc;
+        int rx_dc_gain_tab[8];
 
-        int ret_rx_amp_err_wr, rx_amp_err_wr = 0; ;
-        int ret_rx_phase_err_wr, rx_phase_err_wr = 0;
+        int rx_amp_err_wr = 0; ;
+        int rx_phase_err_wr = 0;
 
         os_memset(&rx_dc_gain_tab, 0, sizeof(int)*8);
 
-        ret_tx_dcorMod = manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_MOD, &tx_dcorMod, sizeof(int));
-        ret_tx_dcorPA = manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_PA, &tx_dcorPA, sizeof(int));
-        ret_tx_pre_gain = manual_cal_load_calimain_tag_from_flash(CM_TX_PREGAIN, &tx_pre_gain, sizeof(int));
-        ret_tx_i_dc_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_I_DC_COMP, &tx_i_dc_comp, sizeof(int));
-        ret_tx_q_dc_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_Q_DC_COMP, &tx_q_dc_comp, sizeof(int));
-        ret_tx_i_gain_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_I_GAIN_COMP, &tx_i_gain_comp, sizeof(int));
-        ret_tx_q_gain_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_Q_GAIN_COMP, &tx_q_gain_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_MOD, &tx_dcorMod, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_PA, &tx_dcorPA, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_PREGAIN, &tx_pre_gain, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_I_DC_COMP, &tx_i_dc_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_Q_DC_COMP, &tx_q_dc_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_I_GAIN_COMP, &tx_i_gain_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_Q_GAIN_COMP, &tx_q_gain_comp, sizeof(int));
 
-        ret_tx_ifilter_corner = manual_cal_load_calimain_tag_from_flash(CM_TX_I_FILTER_CORNER, &tx_ifilter_corner, sizeof(int));
-        ret_tx_qfilter_corner = manual_cal_load_calimain_tag_from_flash(CM_TX_Q_FILTER_CORNER, &tx_qfilter_corner, sizeof(int));
-        ret_tx_phase_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_COMP, &tx_phase_comp, sizeof(int));
-        ret_tx_phase_ty2 = manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_TY2, &tx_phase_ty2, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_I_FILTER_CORNER, &tx_ifilter_corner, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_Q_FILTER_CORNER, &tx_qfilter_corner, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_COMP, &tx_phase_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_TY2, &tx_phase_ty2, sizeof(int));
 
 
-        ret_rx_dc = manual_cal_load_calimain_tag_from_flash(CM_RX_DC_GAIN_TAB, &rx_dc_gain_tab[0], sizeof(int)*8);
-        ret_rx_amp_err_wr = manual_cal_load_calimain_tag_from_flash(CM_RX_AMP_ERR_WR, &rx_amp_err_wr, sizeof(int));
-        ret_rx_phase_err_wr = manual_cal_load_calimain_tag_from_flash(CM_RX_PHASE_ERR_WR, &rx_phase_err_wr, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_RX_DC_GAIN_TAB, &rx_dc_gain_tab[0], sizeof(int)*8);
+        manual_cal_load_calimain_tag_from_flash(CM_RX_AMP_ERR_WR, &rx_amp_err_wr, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_RX_PHASE_ERR_WR, &rx_phase_err_wr, sizeof(int));
 
         MCAL_PRT("*********** flash result **********\r\n");
         MCAL_PRT("trx_0x0B[15-12]  gtx_dcorMod            : 0x%x\r\n", tx_dcorMod);
@@ -851,9 +870,9 @@ static void manual_cal_do_fitting(TXPWR_PTR dst, TXPWR_PTR srclow, TXPWR_PTR src
 void manual_cal_11b_2_ble(void)
 {
 	TXPWR_PTR tab_ptr = NULL;
-	unsigned char gain;
 
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+	unsigned char gain;
 	tab_ptr = gtxpwr_tab_g;
 	if (ble_cal_bit == 0) {
 		if (GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED) {
@@ -2109,7 +2128,7 @@ int manual_cal_save_chipinfo_tab_to_flash(void)
 #endif
     // for tag TXID_THERMAL
     //manual_cal_get_current_temperature();
-    os_printf("save sys temper:%d\r\n", g_cur_temp);
+    CAL_LOGI("save sys temper:%d\r\n", g_cur_temp);
     tag_com_ptr = (TAG_COMM_PTR)(info_buf  );
     tag_com.head.type = TXID_THERMAL;
     tag_com.head.len = sizeof(tag_com.value);
@@ -2137,7 +2156,9 @@ int manual_cal_save_chipinfo_tab_to_flash(void)
     tag_com_ptr = (TAG_COMM_PTR)(info_buf);
     tag_com.head.type = TXID_ADC;
     tag_com.head.len = sizeof(tag_com.value);
-    tag_com.value = *((UINT32 *)&saradc_val);
+
+    void *tmp = (unsigned short*)&saradc_val; //Define tmp to avoid "strict-aliasing" warning
+    tag_com.value = *((UINT32 *)tmp);
     os_memcpy(tag_com_ptr, &tag_com, sizeof(TAG_COMM_ST));
 
     // for tag lpf i&q
@@ -2148,7 +2169,7 @@ int manual_cal_save_chipinfo_tab_to_flash(void)
 
     tag_lpf_iq.lpf_i = g_lpf_cal_i;
     tag_lpf_iq.lpf_q = g_lpf_cal_q;
-    os_printf("%x, %d, %d, %d\r\n", TXID_LPFCAP, tag_lpf_iq.head.len, g_lpf_cal_i, g_lpf_cal_q);
+    CAL_LOGI("%x, %d, %d, %d\r\n", TXID_LPFCAP, tag_lpf_iq.head.len, g_lpf_cal_i, g_lpf_cal_q);
     os_memcpy(tag_lpf_iq_ptr, &tag_lpf_iq, sizeof(TAG_LPF_IQ_ST));
 
     manual_cal_update_flash_area(0, (char *)buf, len);
@@ -2357,7 +2378,7 @@ static UINT32 manual_cal_g_rfcali_status(void)
         else
             g_cali_status = flash_status;
     }
-    //os_printf("%d, %d\r\n", g_cali_status, g_rfcali_mode);
+    //CAL_LOGI("%d, %d\r\n", g_cali_status, g_rfcali_mode);
 
     return g_cali_status;
 }
@@ -2526,7 +2547,7 @@ void manual_cal_set_xtal(UINT32 xtal)
     if(xtal > PARAM_XTALH_CTUNE_MASK)
         param = PARAM_XTALH_CTUNE_MASK;
 
-    os_printf("xtal_cali:%d\r\n", xtal);
+    CAL_LOGI("xtal_cali:%d\r\n", xtal);
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_XTALH_CTUNE, &param);
     g_xtal = param;
 }
@@ -2716,14 +2737,14 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
     extern INT32 gtx_dcorMod;
     extern INT32 gtx_dcorPA;
     extern INT32 gtx_pre_gain;
-    INT32 gtx_i_dc_comp;
-    INT32 gtx_q_dc_comp;
-    INT32 gtx_i_gain_comp;
-    INT32 gtx_q_gain_comp;
-    INT32 gtx_ifilter_corner;
-    INT32 gtx_qfilter_corner;
-    INT32 gtx_phase_comp;
-    INT32 gtx_phase_ty2;
+    INT32 gtx_i_dc_comp = 0;
+    INT32 gtx_q_dc_comp = 0;
+    INT32 gtx_i_gain_comp = 0;
+    INT32 gtx_q_gain_comp = 0;
+    INT32 gtx_ifilter_corner = 0;
+    INT32 gtx_qfilter_corner = 0;
+    INT32 gtx_phase_comp = 0;
+    INT32 gtx_phase_ty2 = 0;
 
     UINT32 len = 0, txpwr_len = 0, flash_len = 0;
     UINT8 *buf = NULL, *txpwr_buf = NULL;;
@@ -2732,9 +2753,8 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
     TAG_COMM_ST tag_comm;
     TAG_COMM_PTR tag_comm_ptr = NULL;
 
-    UINT32 status, addr, addr_start;
+    UINT32 status, addr_start;
     DD_HANDLE flash_handle;
-    TXPWR_ELEM_ST head;
 	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
 
     // alloc all memery at onece, so we no need to change the size of buf in combin function
@@ -2909,8 +2929,8 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
 int manual_cal_save_cailmain_rx_tab_to_flash(void)
 {
     INT32 rx_dc_gain_tab[8];
-    INT32 rx_amp_err_wr;
-    INT32 rx_phase_err_wr;
+    INT32 rx_amp_err_wr = 0;
+    INT32 rx_phase_err_wr = 0;
 
     UINT32 len = 0, txpwr_len = 0, flash_len = 0;
     UINT8 *buf = NULL, *txpwr_buf = NULL;;
@@ -2921,9 +2941,8 @@ int manual_cal_save_cailmain_rx_tab_to_flash(void)
     TAG_RX_DC_ST tag_rx_dc;
     TAG_RX_DC_PTR tag_rx_dc_ptr = NULL;
 
-    UINT32 status, addr, addr_start;
+    UINT32 status, addr_start;
     DD_HANDLE flash_handle;
-    TXPWR_ELEM_ST head;
 	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
 
     // alloc all memery at onece, so we no need to change the size of buf in combin function
@@ -3079,8 +3098,6 @@ UINT32 manual_cal_is_tlv_tag_in_flash(void)
 {
     UINT32 status, addr;
 
-	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
-
     status = manual_cal_search_opt_tab(&addr);
     if(!status) {
         // no tlv in flash
@@ -3231,7 +3248,7 @@ void manual_cal_init_xtal_cali(UINT16 init_temp, UINT16 init_xtal)
 {
 	g_xcali.init_xtal = init_xtal;
 	g_xcali.last_xtal = init_xtal;
-	os_printf("--init_xtal = %d\n",init_xtal);
+	CAL_LOGI("--init_xtal = %d\n",init_xtal);
 }
 
 void manual_cal_set_tmp_pwr_flag(UINT8 flag)
@@ -3248,13 +3265,13 @@ void manual_cal_tmp_pwr_init_reg(UINT16 reg_mod, UINT16 reg_pa)
 extern struct temp_cal_pwr_st g_temp_pwr_current;
 extern struct temp_cal_pwr_st g_temp_pwr_current_tpc;
 extern INT16 g_ble_pwr_indx, g_ble_pwr_shift;
-extern void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g);
+extern void rwnx_cal_set_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 UINT16 g_tmp_pwr_indx_bak = 255;
 void manual_cal_store_cur_temp(void)
 {
     g_tmp_pwr_indx_bak = g_tmp_pwr.indx;
 
-    os_printf("restore g_tmp_pwr.indx:%d\r\n", g_tmp_pwr_indx_bak);
+    CAL_LOGI("restore g_tmp_pwr.indx:%d\r\n", g_tmp_pwr_indx_bak);
 }
 
 void manual_cal_recover_cur_temp(void)
@@ -3266,15 +3283,15 @@ void manual_cal_recover_cur_temp(void)
     else
         g_tmp_pwr.indx = g_tmp_pwr_indx_bak;
 
-    os_printf("recover g_tmp_pwr.indx:%d\r\n", g_tmp_pwr.indx);
+    CAL_LOGI("recover g_tmp_pwr.indx:%d\r\n", g_tmp_pwr.indx);
 }
 
-extern void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g);
+extern void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 extern void rwnx_cal_set_ble_txpwr_by_tmpdetect(INT16 shift_ble);
 void manual_cal_temp_pwr_unint(void)
 {
-    rwnx_cal_set_txpwr_by_tmpdetect(0, 0);
-    rwnx_set_tpc_txpwr_by_tmpdetect(0, 0);
+    rwnx_cal_set_txpwr_by_tmpdetect(0, 0, 0);
+    rwnx_set_tpc_txpwr_by_tmpdetect(0, 0, 0);
 
 #if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
     rwnx_cal_set_ble_txpwr_by_tmpdetect(0);
@@ -3283,31 +3300,31 @@ void manual_cal_temp_pwr_unint(void)
 	manual_cal_do_xtal_temp_delta_set(0);
     manual_cal_do_xtal_cali(0, 0, 0, 0);
 
-    os_printf("stop pwr info:     pwridx:%d, shift_b:%d, shift_g:%d, rate:%d\r\n",
+    CAL_LOGI("stop pwr info:     pwridx:%d, shift_b:%d, shift_g:%d, rate:%d\r\n",
         g_temp_pwr_current.idx,
         g_temp_pwr_current.shift,
         g_temp_pwr_current.shift_g,
         g_temp_pwr_current.mode);
 
-    os_printf("stop pwr tpc info: pwridx:%d, shift_b:%d, shift_g:%d, rate:%d\r\n",
+    CAL_LOGI("stop pwr tpc info: pwridx:%d, shift_b:%d, shift_g:%d, rate:%d\r\n",
         g_temp_pwr_current_tpc.idx,
         g_temp_pwr_current_tpc.shift,
         g_temp_pwr_current_tpc.shift_g,
         g_temp_pwr_current_tpc.mode);
 
 #if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
-    os_printf("stop pwr ble info: pwridx:%d, shift:%d\r\n",
+    CAL_LOGI("stop pwr ble info: pwridx:%d, shift:%d\r\n",
         g_ble_pwr_indx, g_ble_pwr_shift);
 #endif
 
-    bk_printf("stop td-indx:%d, tab:%d,",
+    CAL_LOGI("stop td-indx:%d, tab:%d,",
         g_tmp_pwr.indx,
         g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
 
-    os_printf("stop xtal info: init:%d, c_delta:%d\r\n",
+    CAL_LOGI("stop xtal info: init:%d, c_delta:%d\r\n",
         g_xcali.init_xtal, g_xcali.xtal_c_delta);
 
-	bk_printf("--0xc:%02x, pidx_b:%d, pidx_g:%d, X:%d\n",
+	CAL_LOGI("--0xc:%02x, pidx_b:%d, pidx_g:%d, X:%d\n",
         g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
         g_tmp_pwr.pwr_ptr->p_index_delta,
         g_tmp_pwr.pwr_ptr->p_index_delta_g,
@@ -3315,7 +3332,7 @@ void manual_cal_temp_pwr_unint(void)
     manual_cal_store_cur_temp();
 
     manual_cal_set_tmp_pwr_flag(0);
-    os_printf("set flag to disable, don't do pwr any more:%d\r\n", g_tmp_pwr.flag);
+    CAL_LOGI("set flag to disable, don't do pwr any more:%d\r\n", g_tmp_pwr.flag);
 }
 
 void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dist)
@@ -3328,7 +3345,7 @@ void manual_cal_tmp_pwr_init(UINT16 init_temp, UINT16 init_thre, UINT16 init_dis
 
 	if(init_temp >= ADC_TEMP_VAL_MAX)
     {
-		os_printf("init temp too large %d, failed\r\n");
+		CAL_LOGI("init temp too large %d, failed\r\n");
 		return;
 	}
 
@@ -3454,7 +3471,7 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 #ifdef ATE_PRINT_DEBUG
         if (!get_ate_mode_state())
         {
-            os_printf("cal_bias!\r\n");
+            CAL_LOGI("cal_bias!\r\n");
         }
 #endif
         g_tmp_pwr.indx_cali_bias = indx;
@@ -3467,7 +3484,7 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
 #ifdef ATE_PRINT_DEBUG
         if (!get_ate_mode_state())
         {
-            os_printf("cal dpll!\r\n");
+            CAL_LOGI("cal dpll!\r\n");
         }
 #endif
 
@@ -3513,17 +3530,17 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
         g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[indx];
         *last = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
 
-        ///os_printf("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
+        ///CAL_LOGI("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
         //    g_tmp_pwr.pwr_ptr->mod, g_tmp_pwr.pwr_ptr->pa, *last);
 #ifdef ATE_PRINT_DEBUG
         if (!get_ate_mode_state())
         {
-            bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
+            CAL_LOGI("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
                 cur_val,
                 last_idx, g_tmp_pwr.temp_tab[last_idx],
                 g_tmp_pwr.indx, g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
 
-            bk_printf("--0xc:%02x, shift_b:%d, shift_g:%d, shift_ble:%d X:%d\n",
+            CAL_LOGI("--0xc:%02x, shift_b:%d, shift_g:%d, shift_ble:%d X:%d\n",
                 g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
                 g_tmp_pwr.pwr_ptr->p_index_delta,
                 g_tmp_pwr.pwr_ptr->p_index_delta_g,
@@ -3619,7 +3636,7 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if(need_cal_dpll)
     {
         if(ble_in_dut_mode() == 0)
-            os_printf("cal dpll!\r\n");
+            CAL_LOGI("cal dpll!\r\n");
 
         power_save_wake_rf_if_in_sleep();
         sctrl_cali_dpll(0);
@@ -3630,7 +3647,7 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
     if(need_cal_bais)
     {
         if(ble_in_dut_mode() == 0)
-            os_printf("cal_bias!\r\n");
+            CAL_LOGI("cal_bias!\r\n");
         bk7011_cal_bias();
     }
 
@@ -3643,16 +3660,16 @@ TMP_PWR_PTR manual_cal_set_tmp_pwr(UINT16 cur_val, UINT16 thre, UINT16 *last)
         g_tmp_pwr.pwr_ptr = (TMP_PWR_PTR)&tmp_pwr_tab[indx];
         *last = g_tmp_pwr.temp_tab[g_tmp_pwr.indx];
 
-        ///os_printf("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
+        ///CAL_LOGI("set_tmp_pwr: indx:%d, mod:%d, pa:%d, tmp:%d\r\n", indx,
         //    g_tmp_pwr.pwr_ptr->mod, g_tmp_pwr.pwr_ptr->pa, *last);
         if(ble_in_dut_mode() == 0)
         {
-            bk_printf("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
+            CAL_LOGI("do td cur_t:%d--last:idx:%d,t:%d -- new:idx:%d,t:%d \r\n",
                 cur_val,
                 last_idx, g_tmp_pwr.temp_tab[last_idx],
                 g_tmp_pwr.indx, g_tmp_pwr.temp_tab[g_tmp_pwr.indx]);
 
-    		bk_printf("--0xc:%02x, shift_b:%d, shift_g:%d, X:%d\n",
+    		CAL_LOGI("--0xc:%02x, shift_b:%d, shift_g:%d, X:%d\n",
                 g_tmp_pwr.pwr_ptr->trx0x0c_12_15,
                 g_tmp_pwr.pwr_ptr->p_index_delta,
                 g_tmp_pwr.pwr_ptr->p_index_delta_g,
@@ -3687,34 +3704,35 @@ void manual_cal_do_single_temperature(void)
 
         GLOBAL_INT_RESTORE();
 
-        os_printf("std set pwr: idx:%d, shift:%d, rate:%d\r\n",
+        CAL_LOGI("std set pwr: idx:%d, shift:%d, rate:%d\r\n",
             g_temp_pwr_current.idx, g_temp_pwr_current.shift,
             g_temp_pwr_current.mode);
 
-        os_printf("std tpc set pwr: idx:%d, shift:%d, rate:%d\r\n",
+        CAL_LOGI("std tpc set pwr: idx:%d, shift:%d, rate:%d\r\n",
             g_temp_pwr_current_tpc.idx, g_temp_pwr_current_tpc.shift,
             g_temp_pwr_current_tpc.mode);
 
-        os_printf("std done:%0d\r\n", temp_value);
+        CAL_LOGI("std done:%0d\r\n", temp_value);
     }
     else
     {
-        os_printf("std failed\r\n", temp_value);
+        CAL_LOGI("std failed\r\n", temp_value);
     }
 }
 
 void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 init_val)
 {
-    if(g_tmp_pwr.flag == 0)
-        return;
-    
+	if(g_tmp_pwr.flag == 0) {
+		return;
+	}
+
 	INT32 param;
 
 	param = g_xcali.init_xtal + g_xcali.xtal_c_delta;
     if(g_xcali.last_xtal != param)
     {
 #ifdef ATE_PRINT_DEBUG
-		os_printf("init_xtal:%d, delta:%d, last_xtal:%d\r\n",
+		CAL_LOGI("init_xtal:%d, delta:%d, last_xtal:%d\r\n",
                         g_xcali.init_xtal,
                         g_xcali.xtal_c_delta,
                         g_xcali.last_xtal);
@@ -3732,7 +3750,7 @@ void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 i
         sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_XTALH_CTUNE, &param);
         g_xcali.last_xtal = param;
 
-        //os_printf("do_xtal_cali: c-d:%d-%d, l:%d, h:%d, v:%d\r\n", cur_val, dist,
+        //CAL_LOGI("do_xtal_cali: c-d:%d-%d, l:%d, h:%d, v:%d\r\n", cur_val, dist,
         //    p_xtal->low, p_xtal->high, param);
     }
 }
@@ -3772,8 +3790,8 @@ UINT32 manual_cal_load_adc_cali_flash(void)
     ddev_read(flash_handle, (char *)&head, sizeof(TXPWR_ELEM_ST), addr);
     ddev_read(flash_handle, (char *)&saradc_val, head.len, addr + sizeof(TXPWR_ELEM_ST));
 
-    os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
-    os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
+    CAL_LOGI("calibrate low value:[%x]\r\n", saradc_val.low);
+    CAL_LOGI("calibrate high value:[%x]\r\n", saradc_val.high);
 
     return SARADC_SUCCESS;
 
