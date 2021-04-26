@@ -39,7 +39,7 @@ void sa_ap_init(void)
         SAAP_PRT("[saap]MM_START_REQ\r\n");
         rw_msg_send_start();
     }
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
     else
     {
         SAAP_PRT("[saap]mm_bcn_init\r\n");

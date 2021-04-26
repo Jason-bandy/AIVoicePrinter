@@ -599,7 +599,8 @@ void manual_cal_show_txpwr_tab(void)
 {
     TXPWR_PTR txpwr_tab_ptr = NULL;
     UINT32 i;
-    INT32 tx_tssi_thred_b, tx_tssi_thred_g;
+    INT32 tx_tssi_thred_g = 0;
+    INT32 tx_tssi_thred_b = 0;
     extern INT32 gtx_dcorMod;
     extern INT32 gtx_dcorPA;
     
@@ -660,43 +661,43 @@ void manual_cal_show_txpwr_tab(void)
 
     if(manual_cal_need_load_cmtag_from_flash() == 1)
     {
-        int ret_tx_dcorMod, tx_dcorMod = 0;
-        int ret_tx_dcorPA, tx_dcorPA = 0;
-        int ret_tx_pre_gain, tx_pre_gain = 0;
-        int ret_tx_i_dc_comp, tx_i_dc_comp = 0;
-        int ret_tx_q_dc_comp, tx_q_dc_comp = 0;
-        int ret_tx_i_gain_comp, tx_i_gain_comp = 0;
-        int ret_tx_q_gain_comp, tx_q_gain_comp = 0;
+        int tx_dcorMod = 0;
+        int tx_dcorPA = 0;
+        int tx_pre_gain = 0;
+        int tx_i_dc_comp = 0;
+        int tx_q_dc_comp = 0;
+        int tx_i_gain_comp = 0;
+        int tx_q_gain_comp = 0;
 
-        int ret_tx_ifilter_corner, tx_ifilter_corner = 0;
-        int ret_tx_qfilter_corner, tx_qfilter_corner = 0;
-        int ret_tx_phase_comp, tx_phase_comp = 0;
-        int ret_tx_phase_ty2, tx_phase_ty2 = 0;
+        int tx_ifilter_corner = 0;
+        int tx_qfilter_corner = 0;
+        int tx_phase_comp = 0;
+        int tx_phase_ty2 = 0;
 
-        int rx_dc_gain_tab[8], ret_rx_dc;
+        int rx_dc_gain_tab[8];
         
-        int ret_rx_amp_err_wr, rx_amp_err_wr = 0; ;
-        int ret_rx_phase_err_wr, rx_phase_err_wr = 0;
+        int rx_amp_err_wr= 0; ;
+        int rx_phase_err_wr;
 
         os_memset(&rx_dc_gain_tab, 0, sizeof(int)*8);
 
-        ret_tx_dcorMod = manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_MOD, &tx_dcorMod, sizeof(int));
-        ret_tx_dcorPA = manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_PA, &tx_dcorPA, sizeof(int));
-        ret_tx_pre_gain = manual_cal_load_calimain_tag_from_flash(CM_TX_PREGAIN, &tx_pre_gain, sizeof(int));
-        ret_tx_i_dc_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_I_DC_COMP, &tx_i_dc_comp, sizeof(int));
-        ret_tx_q_dc_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_Q_DC_COMP, &tx_q_dc_comp, sizeof(int));
-        ret_tx_i_gain_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_I_GAIN_COMP, &tx_i_gain_comp, sizeof(int));
-        ret_tx_q_gain_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_Q_GAIN_COMP, &tx_q_gain_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_MOD, &tx_dcorMod, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_DCOR_PA, &tx_dcorPA, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_PREGAIN, &tx_pre_gain, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_I_DC_COMP, &tx_i_dc_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_Q_DC_COMP, &tx_q_dc_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_I_GAIN_COMP, &tx_i_gain_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_Q_GAIN_COMP, &tx_q_gain_comp, sizeof(int));
 
-        ret_tx_ifilter_corner = manual_cal_load_calimain_tag_from_flash(CM_TX_I_FILTER_CORNER, &tx_ifilter_corner, sizeof(int));
-        ret_tx_qfilter_corner = manual_cal_load_calimain_tag_from_flash(CM_TX_Q_FILTER_CORNER, &tx_qfilter_corner, sizeof(int));
-        ret_tx_phase_comp = manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_COMP, &tx_phase_comp, sizeof(int));
-        ret_tx_phase_ty2 = manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_TY2, &tx_phase_ty2, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_I_FILTER_CORNER, &tx_ifilter_corner, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_Q_FILTER_CORNER, &tx_qfilter_corner, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_COMP, &tx_phase_comp, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_TX_PHASE_TY2, &tx_phase_ty2, sizeof(int));
 
 
-        ret_rx_dc = manual_cal_load_calimain_tag_from_flash(CM_RX_DC_GAIN_TAB, &rx_dc_gain_tab[0], sizeof(int)*8);
-        ret_rx_amp_err_wr = manual_cal_load_calimain_tag_from_flash(CM_RX_AMP_ERR_WR, &rx_amp_err_wr, sizeof(int));
-        ret_rx_phase_err_wr = manual_cal_load_calimain_tag_from_flash(CM_RX_PHASE_ERR_WR, &rx_phase_err_wr, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_RX_DC_GAIN_TAB, &rx_dc_gain_tab[0], sizeof(int)*8);
+        manual_cal_load_calimain_tag_from_flash(CM_RX_AMP_ERR_WR, &rx_amp_err_wr, sizeof(int));
+        manual_cal_load_calimain_tag_from_flash(CM_RX_PHASE_ERR_WR, &rx_phase_err_wr, sizeof(int));
         
         MCAL_PRT("*********** flash result **********\r\n");
         MCAL_PRT("trx_0x0B[15-12]  gtx_dcorMod            : 0x%x\r\n", tx_dcorMod);
@@ -789,9 +790,9 @@ static void manual_cal_do_fitting(TXPWR_PTR dst, TXPWR_PTR srclow, TXPWR_PTR src
 void manual_cal_11b_2_ble(void)
 {	
 	TXPWR_PTR tab_ptr = NULL;
-	unsigned char gain;
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
+	unsigned char gain;
 	tab_ptr = gtxpwr_tab_g;
 	if (ble_cal_bit == 0) {
 		if (GET_TXPWR_FLAG(&tab_ptr[0]) == TXPWR_ELEM_INUSED) {
@@ -1979,7 +1980,9 @@ int manual_cal_save_chipinfo_tab_to_flash(void)
     tag_com_ptr = (TAG_COMM_PTR)(info_buf);
     tag_com.head.type = TXID_ADC;
     tag_com.head.len = sizeof(tag_com.value);
-    tag_com.value = *((UINT32 *)&saradc_val);
+
+    void *tmp = (unsigned short*)&saradc_val; //Define tmp to avoid "strict-aliasing" warning
+    tag_com.value = *((UINT32 *)tmp);
     os_memcpy(tag_com_ptr, &tag_com, sizeof(TAG_COMM_ST));
 	
     // for tag lpf i&q
@@ -2556,15 +2559,15 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
     extern INT32 gtx_dcorMod;
     extern INT32 gtx_dcorPA;
     extern INT32 gtx_pre_gain;
-    INT32 gtx_i_dc_comp;
-    INT32 gtx_q_dc_comp;
-    INT32 gtx_i_gain_comp;
-    INT32 gtx_q_gain_comp;
-    INT32 gtx_ifilter_corner;
-    INT32 gtx_qfilter_corner;
-    INT32 gtx_phase_comp;
-    INT32 gtx_phase_ty2;
-    
+    INT32 gtx_i_dc_comp = 0;
+    INT32 gtx_q_dc_comp = 0;
+    INT32 gtx_i_gain_comp = 0;
+    INT32 gtx_q_gain_comp = 0;
+    INT32 gtx_ifilter_corner = 0;
+    INT32 gtx_qfilter_corner = 0;
+    INT32 gtx_phase_comp = 0;
+    INT32 gtx_phase_ty2 = 0;
+
     UINT32 len = 0, txpwr_len = 0, flash_len = 0;
     UINT8 *buf = NULL, *txpwr_buf = NULL;;
     TAG_TXPWR_ST tag_txpwr;
@@ -2572,9 +2575,8 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
     TAG_COMM_ST tag_comm;
     TAG_COMM_PTR tag_comm_ptr = NULL;
 
-    UINT32 status, addr, addr_start;
+    UINT32 status, addr_start;
     DD_HANDLE flash_handle;
-    TXPWR_ELEM_ST head;
 	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
 
     // alloc all memery at onece, so we no need to change the size of buf in combin function
@@ -2748,9 +2750,9 @@ int manual_cal_save_cailmain_tx_tab_to_flash(void)
 int manual_cal_save_cailmain_rx_tab_to_flash(void)
 {
     INT32 rx_dc_gain_tab[8];
-    INT32 rx_amp_err_wr;
-    INT32 rx_phase_err_wr;
-    
+    INT32 rx_amp_err_wr = 0;
+    INT32 rx_phase_err_wr = 0;
+
     UINT32 len = 0, txpwr_len = 0, flash_len = 0;
     UINT8 *buf = NULL, *txpwr_buf = NULL;;
     TAG_TXPWR_ST tag_txpwr;
@@ -2760,9 +2762,8 @@ int manual_cal_save_cailmain_rx_tab_to_flash(void)
     TAG_RX_DC_ST tag_rx_dc;
     TAG_RX_DC_PTR tag_rx_dc_ptr = NULL;
 
-    UINT32 status, addr, addr_start;
+    UINT32 status, addr_start;
     DD_HANDLE flash_handle;
-    TXPWR_ELEM_ST head;
 	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
 
     // alloc all memery at onece, so we no need to change the size of buf in combin function
@@ -2914,8 +2915,6 @@ int manual_cal_load_calimain_tag_from_flash(UINT32 tag, int *tag_addr, int tag_s
 UINT32 manual_cal_is_tlv_tag_in_flash(void)
 {
     UINT32 status, addr;
-
-	bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
 
     status = manual_cal_search_opt_tab(&addr);
     if(!status) {
@@ -3544,10 +3543,11 @@ void manual_cal_do_single_temperature(void)
 
 void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 init_val)
 {
-    if(g_tmp_pwr.flag == 0) 
+    if(g_tmp_pwr.flag == 0)  {
         return;
+    }
     
-	INT32 param;
+    INT32 param;
 
 	param = g_xcali.init_xtal + g_xcali.xtal_c_delta;
     if(g_xcali.last_xtal != param) 

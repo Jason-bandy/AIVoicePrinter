@@ -38,6 +38,7 @@
 #include "reg_mac_core.h"
 #include "reg_mac_pl.h"
 #include "reg_mac_core.h"
+#include "uart_pub.h"
 
 /*
  * DEFINES
@@ -439,6 +440,7 @@ extern void hal_machw_gen_handler(void);
 extern void hal_init_cipher_keys(void);
 extern void hal_machw_allow_rx_rts_cts(void);
 extern void hal_machw_disallow_rx_rts_cts(void);
+extern bool hal_machw_wkup_check(void);
 /**
  ****************************************************************************************
  * @brief Ask to HW to move to IDLE state.

@@ -722,7 +722,6 @@ static void sdp_cleanup(struct prf_task_env* env, uint8_t conidx, uint8_t reason
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
 		bk_printf("sdp_cleanup not cur connected!!\r\n");
 #endif
-		kernel_state_set(KERNEL_BUILD_ID(env->task, 0), SDP_FREE);
 		return;
 	}
 

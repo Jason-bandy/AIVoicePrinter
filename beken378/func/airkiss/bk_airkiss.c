@@ -237,7 +237,7 @@ void bk_airkiss_decode_complete_handle(void)
             BK_AIRKISS_PRT("GET IP Time Out!!! \n");
             return;
         }
-    }while(0 == rl_sta_is_launched());
+    } while(mhdr_get_station_status() != RW_EVT_STA_GOT_IP);
 
     bk_airkiss_start_udp_boardcast(airkiss_result.random);
 }

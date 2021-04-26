@@ -205,7 +205,6 @@
 #define MGC_M_TXCSR1_H_ERROR       0x04
 
 /* RXCSR in Peripheral and Host mode */
-
 #define MGC_M_RXCSR2_AUTOCLEAR     0x80
 #define MGC_M_RXCSR2_DMAENAB       0x20
 #define MGC_M_RXCSR2_DISNYET       0x10
@@ -219,19 +218,16 @@
 #define MGC_M_RXCSR1_RXPKTRDY      0x01
 
 /* RXCSR in Peripheral mode */
-
 #define MGC_M_RXCSR2_P_ISO         0x40
 #define MGC_M_RXCSR1_P_SENTSTALL   0x40
 #define MGC_M_RXCSR1_P_SENDSTALL   0x20
 #define MGC_M_RXCSR1_P_OVERRUN     0x04
 
 /* RXCSR in Host mode */
-
 #define MGC_M_RXCSR2_H_AUTOREQ     0x40
 #define MGC_M_RXCSR1_H_RXSTALL     0x40
 #define MGC_M_RXCSR1_H_REQPKT      0x20
 #define MGC_M_RXCSR1_H_ERROR       0x04
-
 
 /*
  *  DRC register access macros

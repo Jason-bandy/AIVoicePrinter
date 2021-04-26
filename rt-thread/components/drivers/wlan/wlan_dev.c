@@ -84,6 +84,7 @@ int rt_wlan_init(struct rt_wlan_device *device, rt_wlan_mode_t mode)
         {
             ssid = rt_malloc(SSID_LENGTH_MAX_SIZE);
             info->ssid = ssid;
+			info->mode = mode;
         }
         device->info = info;
     }
@@ -209,22 +210,25 @@ struct rt_wlan_info *rt_wlan_get_info(struct rt_wlan_device *device)
     return info;
 }
 
-int rt_wlan_scan(struct rt_wlan_device *device, struct rt_wlan_info *info, struct rt_wlan_scan_result **scan_result)
+int rt_wlan_scan(struct rt_wlan_device *device, struct rt_wlan_info *wifi_info,
+		struct rt_wlan_scan_result **scan_result)
 {
-    struct rt_wlan_info empty_info;
-    int result;
+	struct rt_wifi_scan_param scan_param;
+	struct rt_wlan_info empty_info;
+	int result;
 
-    if (info == RT_NULL)
-    {
-        /* using empty info to clear last setting */
-        rt_wlan_info_init(&empty_info, WIFI_STATION, SECURITY_UNKNOWN, NULL);
-        info = &empty_info;
-    }
-    rt_wlan_set_info(device, info);
+	if (wifi_info == RT_NULL) {
+		/* using empty info to clear last setting */
+		rt_wlan_info_init(&empty_info, WIFI_STATION, SECURITY_UNKNOWN, NULL);
+		scan_param.wifi_info = &empty_info;
+	} else {
+		scan_param.wifi_info = wifi_info;
+	}
 
-    result = rt_device_control(RT_DEVICE(device), WIFI_SCAN, scan_result);
+	scan_param.scan_result = scan_result;
+	result = rt_device_control(RT_DEVICE(device), WIFI_SCAN, (void*)&scan_param);
 
-    return result;
+	return result;
 }
 
 int rt_wlan_get_rssi(struct rt_wlan_device *device)
@@ -312,6 +316,8 @@ int rt_wlan_indicate_event_handle(struct rt_wlan_device *device, rt_wlan_event_t
     case WIFI_EVT_AP_ASSOCIATE_FAILED:
         break;
 #endif
+	default:
+		break;
     }
 
     if (device->handler[event] != RT_NULL)

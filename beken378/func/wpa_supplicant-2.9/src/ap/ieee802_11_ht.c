@@ -241,6 +241,7 @@ void hostapd_2040_coex_action(struct hostapd_data *hapd,
 	wpa_printf(MSG_DEBUG,
 		   "HT: Received 20/40 BSS Coexistence Management frame from "
 		   MACSTR, MAC2STR(mgmt->sa));
+	__maybe_unused_var(is_ht40_allowed);
 
 	hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
 		       HOSTAPD_LEVEL_DEBUG, "hostapd_public_action - action=%d",

@@ -161,10 +161,12 @@ void mac_vsie_add(uint8_t *buffer,
                   uint8_t const *vsie,
                   uint8_t ouilen);
 
-uint8_t *mac_vendor_ie_find(unsigned int oui, 
-							uint8_t oui_type, 
-							uint8_t *ies, 
+uint8_t *mac_vendor_ie_find(unsigned int oui,
+							uint8_t oui_type,
+							uint8_t *ies,
 							int len);
+
+uint32_t mac_ie_rsn_find(uint32_t buffer, uint16_t buflen, uint8_t *ie_len);
 
 /// @}
 #endif // _MAC_IE_H_

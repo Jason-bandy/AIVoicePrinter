@@ -40,7 +40,7 @@ static void adc_detect_callback1(int new_mv, void *user_data)
 {
 	static int total=0;
 	static int cnt = 0;
-	int reg,low_adc;
+	int low_adc;
 	static int temp=0;
 	if(temp++<100)
 		return;
@@ -70,12 +70,12 @@ static void adc_detect_callback2(int new_mv, void *user_data)
 	static int temp=0;
 	if(temp++<100)
 		return;
-	int reg,high_adc;
+	int high_adc;
 	test_adc.user_data = (void*)new_mv;
 	total+=new_mv;
 	cnt++;
 	if(cnt >= 100)
-	{	
+	{
 		high_adc=total/cnt;
 		saradc_val.high=high_adc;
 		cnt = 0;
@@ -87,25 +87,18 @@ static void adc_detect_callback2(int new_mv, void *user_data)
 		adc_obj_stop(&test_adc);
 	}
 }
+
+__maybe_unused static void adc_detect_callback3(int new_mv, void *user_data);
 static void adc_detect_callback3(int new_mv, void *user_data)
 {
 
 	static int cnt = 0;
-	int adc_value;
-	float voltage = 0.0;
 	test_adc.user_data = (void*)new_mv;
 
 	if(cnt++ >= 50)
-	{	
+	{
 		cnt = 0;
-		adc_value = new_mv;
-		//rt_kprintf("adc_offfset=%d, adc_value_2v= %d, adc_value=%d\r\n",adc_offfset,adc_value_2v,adc_value);
-		//voltage = saradc_cal_voltage(adc_value);
-		//adc_voltage = (int) 1000*voltage;
-		//rt_kprintf("adc_voltage=%d\r\n", adc_voltage);
-		//rt_kprintf("step2: adc channel:%d adc_value_2v:%d\r\n",test_adc.channel,adc_voltage);
 	}
-
 }
 
 void adc_channel_test(int argc,char *argv[])

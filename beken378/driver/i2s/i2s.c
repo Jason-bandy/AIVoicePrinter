@@ -193,7 +193,7 @@ static void i2s_set_pcm_dlen(UINT8 val)
 
 static void i2s_set_freq_datawidth(i2s_rate_t *p_rate)
 {
-    UINT32 bitratio, value ,lrck_div,sys_clk= 0;
+    UINT32 bitratio, value = 0,lrck_div,sys_clk= 0;
 	
     if( (p_rate->freq != 8000) && (p_rate->freq != 16000) && 
 		(p_rate->freq != 24000) && (p_rate->freq != 32000) &&(p_rate->freq != 48000)&&
@@ -417,7 +417,8 @@ static void i2s_gpio_configuration()
 
 static UINT8 i2s_get_busy(void)
 {
-
+	//TODO
+	return 0;
 }
 
 static void i2s_master_enable(UINT32 enable)
@@ -486,7 +487,7 @@ static UINT8 i2s_disable_i2s(void)
 	UINT32 status;
 
 	param = 0;
-    i2s_ctrl(I2S_CMD_UNIT_ENABLE, (void *)&param);
+	i2s_ctrl(I2S_CMD_UNIT_ENABLE, (void *)&param);
 	
 	status = REG_READ(PCM_STAT);
 	
@@ -495,8 +496,10 @@ static UINT8 i2s_disable_i2s(void)
  	REG_WRITE( PCM_STAT, status );
 	
 	i2s_icu_configuration(0);  //disable clock;
+	return 0;
 }
 
+__maybe_unused static UINT32 i2s_read_rxfifo(UINT8 *data);
 static UINT32 i2s_read_rxfifo(UINT8 *data)
 {
     UINT32 value;
@@ -515,6 +518,7 @@ static UINT32 i2s_read_rxfifo(UINT8 *data)
 	return 0;
 }
 
+__maybe_unused static void i2s_txfifo_fill(void);
 static void i2s_txfifo_fill(void)
 {
     UINT32 value;
@@ -815,7 +819,7 @@ UINT32 i2s_transfer(UINT32 *i2s_send_buf , UINT32 *i2s_recv_buf, UINT32 count, U
 void i2s_isr(void)
 {
 	uint16_t i,rxint,txint0,ultemp;
-	uint32_t i2s_status,temp;
+	uint32_t i2s_status;
 	volatile uint16_t data_num ;
 	
 	i2s_status= REG_READ(PCM_STAT);

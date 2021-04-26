@@ -58,6 +58,8 @@ src += ["umac/src/me/me_mgmtframe.c"]
 src += ["umac/src/me/me_mic.c"]
 src += ["umac/src/me/me_task.c"]
 src += ["umac/src/me/me_utils.c"]
+src += ["umac/src/mfp/mfp.c"]
+src += ["umac/src/mfp/mfp_bip.c"]
 src += ["umac/src/rc/rc.c"]
 src += ["umac/src/rc/rc_basic.c"]
 src += ["umac/src/rxu/rxu_cntrl.c"]
@@ -99,6 +101,8 @@ path += [cwd + '/umac/src/txu']
 path += [cwd + '/umac/src/apm']
 path += [cwd + '/umac/src/rc']
 path += [cwd + '/umac/src/mesh']
+path += [cwd + '/umac/src/mfp']
+path += [cwd + '/port/include']
 
 sys_config = os.path.join(cwd, '..', '..', 'config', 'sys_config.h')
 options = LocalOptions(sys_config)

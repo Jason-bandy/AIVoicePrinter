@@ -287,7 +287,7 @@
 	BLT   3b            //branch to previous local label
 	.endm
 
-	 .section .data
+	 .section .bss
 	 .align 3
 	 .global und_stack_start
  und_stack_start:

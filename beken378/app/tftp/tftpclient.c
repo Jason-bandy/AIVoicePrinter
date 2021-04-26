@@ -460,7 +460,7 @@ void tftp_start(void)
 }
 #endif
 
-#if (CFG_SUPPORT_OTA_TFTP || CFG_SUPPORT_OTA_HTTP)
+#if (CFG_SUPPORT_OTA_TFTP )
 void store_block (unsigned block, uint8_t *src, unsigned len)
 {
     uint8_t *f_data;

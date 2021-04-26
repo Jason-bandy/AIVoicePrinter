@@ -118,8 +118,8 @@ static void rl_sta_fast_connect(RL_BSSID_INFO_PTR bssid_info)
 	}
 	else
 	{
-	os_strcpy((char*)inNetworkInitParaAdv.key, bssid_info->psk);
-	inNetworkInitParaAdv.key_len = os_strlen(bssid_info->psk);
+		os_strcpy((char*)inNetworkInitParaAdv.key, bssid_info->psk);
+		inNetworkInitParaAdv.key_len = os_strlen(bssid_info->psk);
 	}
 	inNetworkInitParaAdv.dhcp_mode = DHCP_CLIENT;
 

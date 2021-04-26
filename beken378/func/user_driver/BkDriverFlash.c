@@ -52,12 +52,20 @@ const bk_logic_partition_t bk7231_partitions[BK_PARTITION_MAX] =
         .partition_length          = 0x143000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
+    [BK_PARTITION_OTA] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "ota",
+        .partition_start_addr      = 0x132000,
+        .partition_length          = 0xAE000, //696KB
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
     [BK_PARTITION_RF_FIRMWARE] =
     {
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "RF Firmware",
 #if (CFG_SOC_NAME == SOC_BK7221U)
-        .partition_start_addr      = 0x10000,// bootloader unused space for rf cal+mac related info.
+        .partition_start_addr      = 0x1e0000,// bootloader unused space for rf cal+mac related info.
 #else
         .partition_start_addr      = 0x1e0000,// for rf related info
 #endif

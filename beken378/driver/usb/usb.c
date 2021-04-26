@@ -22,10 +22,14 @@
 #include "brd_cnf.h"
 #include "uart_pub.h"
 
+extern void MGC_AfsUdsIsr(void);
+extern uint32_t MUSB_NoneRunBackground(void);
+
 #define USB_BACKGROUND_STACK_SIZE     (2 * 1024)
 beken_thread_t ubg_thread_handle = NULL;
 beken_semaphore_t ubg_semaphore = NULL;
 uint32_t usb_connected_flag = 0;
+uint8_t usb_status= 0;
 
 #if CFG_SUPPORT_MSD
 #include "usb_msd.h"
@@ -40,11 +44,16 @@ uint32_t usb_connected_flag = 0;
 
 static DD_OPERATIONS usb_op =
 {
-    usb_open,
-    usb_close,
-    usb_read,
-    usb_write,
-    usb_ctrl
+	usb_open,
+	usb_close,
+#if (CFG_SOC_NAME == SOC_BK7271)
+	NULL, //usb_read, FIXME
+	NULL, //usb_write, FIXME
+#else
+	usb_read,
+	usb_write,
+#endif
+	usb_ctrl
 };
 
 
@@ -159,7 +168,7 @@ sw_open_exit:
 UINT32 usb_open (UINT32 op_flag)
 {
     UINT8 reg;
-    UINT32 param, ret;
+    UINT32 param;
     UINT32 usb_mode = op_flag;
 
     USB_PRT("usb_open\r\n");
@@ -246,6 +255,7 @@ UINT32 usb_open (UINT32 op_flag)
 
 
 #if CFG_USB
+	int ret = 0;
     if (usb_sw_init() == 0)
     {
         os_printf("usb_sw_init OK\r\n");
@@ -272,8 +282,6 @@ UINT32 usb_open (UINT32 op_flag)
 
 UINT32 usb_close (void)
 {
-    UINT32 param;
-
     USB_PRT("usb_close\r\n");
 
     param = IRQ_USB_BIT;
@@ -419,7 +427,17 @@ void usb_isr(void)
     MGC_AfsUdsIsr();
 }
 
+void usb_check_int_handler(void)
+{
+	if (usb_status > 100)
+		usb_status = 0;
+
+	if ((usb_status % 10) == 0)
+		USB_NPRT("[usb_debug]usb int handler:%d\r\n", usb_status);
+	usb_status ++;
+}
 #endif
+
 
 #if (CFG_SOC_NAME == SOC_BK7221U)
 UINT32 usb_plug_inout_open(UINT32 op_flag);

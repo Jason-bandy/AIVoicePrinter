@@ -14,6 +14,8 @@
 #define SPI_PERI_CLK_26M		(26 * 1000 * 1000)
 #define SPI_PERI_CLK_DCO		(120 * 1000 * 1000)
 
+__maybe_unused static void spi_txfifo_fill(void);
+
 static SDD_OPERATIONS spi_op =
 {
     spi_ctrl
@@ -497,7 +499,7 @@ UINT32 spi_ctrl(UINT32 cmd, void *param)
     case CMD_SPI_SET_BITWIDTH:
         spi_set_bit_wdth(*(UINT8 *)param);
         break;
-    case CMD_SPI_SET_NSSID:
+    case CMD_SPI_SET_NSSMD:
         spi_set_nssmd(*(UINT8 *)param);
         break;
     case CMD_SPI_SET_CKR:
@@ -564,23 +566,14 @@ UINT32 spi_ctrl(UINT32 cmd, void *param)
 void spi_isr(void)
 {
     UINT32 status, slv_status;
-    volatile UINT8 fifo_empty_num, data_num, rxfifo_empty;
 
-    //REG_WRITE((0x00802800+(19*4)), 0x02);
-    
-	data_num = 0; /*fix warning by clang analyzer*/
-	fifo_empty_num = 0; /*fix warning by clang analyzer*/
-	
     status = REG_READ(SPI_STAT);
     slv_status = REG_READ(SPI_SLAVE_CTRL);
 
     REG_WRITE(SPI_STAT, status);
     REG_WRITE(SPI_SLAVE_CTRL, slv_status);
 
-    //os_printf("0x%08x, 0x%08x\r\n", status, slv_status);
-    //REG_WRITE((0x00802800+(19*4)), 0x00);
-    
-    if((status & RXINT) || (slv_status & SPI_S_CS_UP_INT_STATUS)) 
+    if((status & RXINT) || (slv_status & SPI_S_CS_UP_INT_STATUS))
     {
         if (spi_receive_callback.callback != 0)
         {

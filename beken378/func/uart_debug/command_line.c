@@ -483,9 +483,9 @@ static int bkreg_run_command_implement(const char *content, int cnt)
         UINT8 flag = 0;
         rx_param        = (REGISTER_PARAM *)pHCIrxBuf->param;
         write_buf       = (UINT8 *)(rx_param + 1);
-        
+
         flag = manual_cal_wirte_otp_flash(rx_param->addr, rx_param->value, write_buf);
-        
+
         pHCItxBuf->total = OTP_CMD_RET_LEN + 1;
         os_memcpy(pHCItxBuf->param, pHCIrxBuf, HCI_EVENT_HEAD_LENGTH);
         pHCItxBuf->param[3] = pHCIrxBuf->cmd;
@@ -499,17 +499,17 @@ static int bkreg_run_command_implement(const char *content, int cnt)
         }
         break;
 
-    case BEKEN_READ_OTP_CMD: { 
+    case BEKEN_READ_OTP_CMD: {
         UINT32 len, len_left = 0, addr;
         UINT8 *read_buf = (UINT8 *)&pHCItxBuf->param[OTP_CMD_RET_LEN];
-        
+
         rx_param        = (REGISTER_PARAM *)pHCIrxBuf->param;
 
 		bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_RF_FIRMWARE);
 
         len_left = rx_param->value;
         addr = rx_param->addr - pt->partition_start_addr;//0xFA000;
-        
+
         while(len_left) {
             len = (len_left > OTP_READ_MAX_LEN)? OTP_READ_MAX_LEN : len_left;
             len = manual_cal_read_otp_flash(addr, len, read_buf);
@@ -536,12 +536,12 @@ static int bkreg_run_command_implement(const char *content, int cnt)
         extern void audio_intf_dac_pause(void);
         audio_intf_dac_pause();
         #endif
-        
+
         #if ((CFG_USE_AUD_ADC) && (CFG_SOC_NAME == SOC_BK7221U))
         extern void audio_intf_adc_pause(void);
         audio_intf_adc_pause();
         #endif
-        
+
         }
         break;
 
@@ -572,37 +572,37 @@ static int bkreg_run_command_implement(const char *content, int cnt)
         }
         break;
 
-    case LOOP_MODE_CMD: 
+    case LOOP_MODE_CMD:
 		{
             #if ((CFG_USE_AUDIO) && (CFG_SOC_NAME == SOC_BK7221U))
             extern void audio_intf_uninit(void);
-			
+
             audio_intf_uninit();
             #endif
         }
         break;
-        
+
     case BEKEN_DUMP_ENV_CMD:
         {
             #if ((CFG_USE_AUDIO) && (CFG_SOC_NAME == SOC_BK7221U))
             extern UINT32 audio_intf_init(void);
-            
+
             audio_intf_init();
             #endif
         }
         break;
-        
+
 #if CFG_USE_TEMPERATURE_DETECT
     case BEKEN_TEMP_DETECT_CONFIG_CMD:		// 01 E0 FC 04 ec 02 01 05
     {
         extern void temp_detect_change_configuration(UINT32 intval, UINT32 thre, UINT32 dist);
-		
+
         int intval, thre, dist;
-		
+
         intval = (int)pHCIrxBuf->param[0];
         thre   = (int)pHCIrxBuf->param[1];
         dist   = (int)pHCIrxBuf->param[2];
-		
+
         temp_detect_change_configuration(intval, thre, dist);
     }
     break;
@@ -619,7 +619,7 @@ static int bkreg_run_command_implement(const char *content, int cnt)
         #endif
     }
     break;
-        
+
     case BEKEN_SHOW_BT_DEBUG:
     {
         #if ((CFG_USE_AUD_DAC) && (CFG_SOC_NAME == SOC_BK7221U))
@@ -663,6 +663,8 @@ int bkreg_run_command(const char *content, int cnt)
 
     param = RF_HOLD_BY_BKREG_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &param);
+
+    return 0;
 }
 #endif // CFG_SUPPORT_BKREG
 #endif // CFG_UART_DEBUG

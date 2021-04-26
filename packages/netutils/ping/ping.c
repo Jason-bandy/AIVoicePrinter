@@ -138,7 +138,7 @@ static int ping_recv(int s, int *ttl)
 
 rt_err_t ping(char* target_name, rt_uint32_t times, rt_size_t size)
 {
-    int s, ttl, recv_len;
+    int s, ttl = 0, recv_len;
     struct timeval timeout = { PING_RCV_TIMEO / RT_TICK_PER_SECOND, PING_RCV_TIMEO % RT_TICK_PER_SECOND };
     ip_addr_t target_addr;
     rt_uint32_t send_times;

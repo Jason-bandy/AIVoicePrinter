@@ -1,6 +1,7 @@
 #ifndef _RW_MSDU_H_
 #define _RW_MSDU_H_
 
+#include "sys_config.h"
 #include "doubly_list.h"
 #include "tx_swdesc.h"
 #include "lwip/pbuf.h"
@@ -57,6 +58,7 @@ extern UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len);
 extern UINT32 rwm_get_rx_valid(void);
 extern UINT8 rwm_get_tid();
 extern void rwm_set_tid(UINT8 tid);
+uint8_t classify8021d(UINT8 *buf);
 
 #endif // _RW_MSDU_H_
 // eof

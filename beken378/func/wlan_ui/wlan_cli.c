@@ -10,10 +10,8 @@
 #include "sys_rtos.h"
 #include "rtos_pub.h"
 #include "error.h"
-
 #include "wlan_cli_pub.h"
 #include "stdarg.h"
-
 #include "include.h"
 #include "mem_pub.h"
 #include "str_pub.h"
@@ -42,6 +40,21 @@
 #include "lwip/ping.h"
 #include "ble_pub.h"
 #include "sensor.h"
+#include "spi_pub.h"
+#include "i2c_pub.h"
+#include "BkDriverTimer.h"
+#include "saradc_intf.h"
+#include "spi_pub.h"
+
+#if (CFG_SUPPORT_BLE == 1)
+#if (CFG_BLE_VERSION == BLE_VERSION_4_2)
+#include "application.h"
+#endif
+
+#if (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#include "app_ble_task.h"
+#endif
+#endif
 
 #if (CFG_SOC_NAME == SOC_BK7221U)
 #include "security_pub.h"
@@ -49,9 +62,6 @@ extern void sec_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #endif
 
 #include "temp_detect_pub.h"
-#if CFG_SUPPORT_OTA_HTTP
-#include "utils_httpc.h"
-#endif
 
 #ifdef monitor_printf_debug
 #define monitor_dbg(fmt, ...)   bk_printf(fmt, ##__VA_ARGS__)
@@ -72,18 +82,13 @@ extern int cli_putstr(const char *msg);
 extern int hexstr2bin(const char *hex, u8 *buf, size_t len);
 extern void make_tcp_server_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 extern void net_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
-#if CFG_SUPPORT_OTA_HTTP
-extern int httpclient_common(httpclient_t *client,
-                             const char *url,
-                             int port,
-                             const char *ca_crt,
-                             int method,
-                             uint32_t timeout_ms,
-                             httpclient_data_t *client_data);
-#endif
+uint32_t bk_wlan_reg_rx_mgmt_cb(mgmt_rx_cb_t cb, uint32_t rx_mgmt_flag);
+
 #if CFG_AIRKISS_TEST
-u32 airkiss_process(u8 start);
+extern u32 airkiss_process(u8 start);
+extern uint32_t airkiss_is_at_its_context(void);
 #endif
+
 
 #if CFG_SARADC_CALIBRATE
 static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
@@ -316,93 +321,97 @@ static void tab_complete(char *inbuf, unsigned int *bp)
 * Returns: 1 if there is input, 0 if the line should be ignored. */
 static int get_input(char *inbuf, unsigned int *bp)
 {
-    if (inbuf == NULL)
-    {
-        os_printf("inbuf_null\r\n");
-        return 0;
-    }
+	if (inbuf == NULL){
+		os_printf("inbuf_null\r\n");
+		return 0;
+	}
 
-    while (cli_getchar(&inbuf[*bp]) == 1)
-    {
+	while (cli_getchar(&inbuf[*bp]) == 1)
+	{
 #if CFG_SUPPORT_BKREG
-        if((0x01U == (UINT8)inbuf[*bp]) && (*bp == 0)) {
-            (*bp)++;
-            continue;
-        } else if((0xe0U == (UINT8)inbuf[*bp]) && (*bp == 1)) {
-            (*bp)++;
-            continue;
-        } else if((0xfcU == (UINT8)inbuf[*bp]) && (*bp == 2)) {
-            (*bp)++;
-            continue;
-        } else {
-            if((0x01U == (UINT8)inbuf[0])
-                && (0xe0U == (UINT8)inbuf[1])
-                && (0xfcU == (UINT8)inbuf[2])
-                && (*bp == 3))
-            {
-                char ch = inbuf[*bp];
-                int left = (int)ch, len = 4 + (int)ch;
-                inbuf[*bp] = ch;
-                (*bp)++;
+		if ((0x01U == (UINT8)inbuf[*bp]) && (*bp == 0)) {
+			(*bp)++;
+			continue;
+		} else if ((0xe0U == (UINT8)inbuf[*bp]) && (*bp == 1)) {
+			(*bp)++;
+			continue;
+		} else if ((0xfcU == (UINT8)inbuf[*bp]) && (*bp == 2)) {
+			(*bp)++;
+			continue;
+		} else {
+			if ((0x01U == (UINT8)inbuf[0])
+				&& (0xe0U == (UINT8)inbuf[1])
+				&& (0xfcU == (UINT8)inbuf[2])
+				&& (*bp == 3)) {
+				uint8_t ch = inbuf[*bp];
+				uint8_t left = ch, len = 4 + (uint8_t)ch;
+				inbuf[*bp] = ch;
+				(*bp)++;
 
-                while(left--) {
-                    cli_getchar(&ch);
-                    inbuf[*bp] = ch;
-                    (*bp)++;
-                }
+				if (ch >= INBUF_SIZE) {
+					os_printf("Error: input buffer overflow\r\n");
+					os_printf(PROMPT);
+					*bp = 0;
+					return 0;
+				}
 
-                extern int bkreg_run_command(const char *content, int cnt);
-                bkreg_run_command(inbuf, len);
-                memset(inbuf, 0, len);
-                *bp = 0;
-                continue;
-            }
-        }
+				while (left--) {
+					if (0 == cli_getchar((char*)&ch))
+						break;
+
+					inbuf[*bp] = ch;
+					(*bp)++;
+				}
+
+				extern int bkreg_run_command(const char *content, int cnt);
+				bkreg_run_command(inbuf, len);
+				memset(inbuf, 0, len);
+				*bp = 0;
+				continue;
+			}
+		}
 #endif
-        if (inbuf[*bp] == RET_CHAR)
-            continue;
-        if (inbuf[*bp] == END_CHAR)  	/* end of input line */
-        {
-            inbuf[*bp] = '\0';
-            *bp = 0;
-            return 1;
-        }
+		if (inbuf[*bp] == RET_CHAR)
+			continue;
+		if (inbuf[*bp] == END_CHAR) {   /* end of input line */
+			inbuf[*bp] = '\0';
+			*bp = 0;
+			return 1;
+		}
 
-        if ((inbuf[*bp] == 0x08) ||	/* backspace */
-                (inbuf[*bp] == 0x7f))  	/* DEL */
-        {
-            if (*bp > 0)
-            {
-                (*bp)--;
-                if (!pCli->echo_disabled)
-                    os_printf("%c %c", 0x08, 0x08);
-            }
-            continue;
-        }
+		if ((inbuf[*bp] == 0x08) || /* backspace */
+			(inbuf[*bp] == 0x7f)) { /* DEL */
+			if (*bp > 0) {
+				(*bp)--;
+				if (!pCli->echo_disabled)
+					os_printf("%c %c", 0x08, 0x08);
+			}
+			continue;
+		}
 
-        if (inbuf[*bp] == '\t')
-        {
-            inbuf[*bp] = '\0';
-            tab_complete(inbuf, bp);
-            continue;
-        }
+		if (inbuf[*bp] == '\t') {
+			inbuf[*bp] = '\0';
+			tab_complete(inbuf, bp);
+			continue;
+		}
 
-        if (!pCli->echo_disabled)
-            os_printf("%c", inbuf[*bp]);
+		if (!pCli->echo_disabled)
+			os_printf("%c", inbuf[*bp]);
 
-        (*bp)++;
-        if (*bp >= INBUF_SIZE)
-        {
-            os_printf("Error: input buffer overflow\r\n");
-            os_printf(PROMPT);
-            *bp = 0;
-            return 0;
-        }
+		(*bp)++;
+		if (*bp >= INBUF_SIZE) {
+			os_printf("Error: input buffer overflow\r\n");
+			os_printf(PROMPT);
+			*bp = 0;
+			return 0;
+		}
 
-    }
+	}
 
-    return 0;
+	return 0;
 }
+
+
 
 /* Print out a bad command string, including a hex
 * representation of non-printable characters.
@@ -895,12 +904,19 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 	if (oob_ssid)
     {
         unsigned char *oob_ssid_tp = conv_utf8((uint8_t*)oob_ssid);
-
-        if(oob_ssid_tp)
-        {
-            demo_sta_app_init((char*)oob_ssid_tp, connect_key);
-            os_free(oob_ssid_tp);
-        }
+		
+		if (oob_ssid_tp)
+		{
+#if CFG_AIRKISS_TEST
+			if (airkiss_is_at_its_context()) {
+				os_printf("airkiss is on-the-go\r\n");
+				return;
+			}
+#endif
+		
+			demo_sta_app_init((char *)oob_ssid_tp, connect_key);
+			os_free(oob_ssid_tp);
+		}
         else
         {
             os_printf("not buf for utf8\r\n");
@@ -908,7 +924,7 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     }
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 void wifi_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     char *oob_ssid = NULL;
@@ -1030,49 +1046,6 @@ void memory_show_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
     cmd_printf("free memory %d\r\n", xPortGetFreeHeapSize());
 }
 
-void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
-{
-    bk_pwm_t pwm;
-    uint32_t frequency;
-    uint32_t duty_cycle;
-
-    if(4 != argc)
-    {
-        os_printf("parameters are exceptional\r\n");
-        os_printf("usage: pwm index freq duty\r\n");
-        os_printf("\r\n");
-
-        return;
-    }
-
-    /*get the parameters from command line*/
-    pwm = os_strtoul(argv[1], NULL, 10);
-    frequency = os_strtoul(argv[2], NULL, 10);
-    duty_cycle = os_strtoul(argv[3], NULL, 10);
-
-    os_printf("pwm %d %d %d\r\n", pwm, frequency, duty_cycle);
-
-    /*check the parameters*/
-    if(pwm > BK_PWM_MAX)
-    {
-        os_printf("pwm index is not correct\r\n");
-        return;
-    }
-
-    if(duty_cycle > frequency)
-    {
-        os_printf("duty cycle value is not correct\r\n");
-        return;
-    }
-
-    /*start pwm*/
-#if (CFG_SOC_NAME == SOC_BK7231N)
-    bk_pwm_initialize(pwm, frequency, duty_cycle, 0, 0);
-#else
-    bk_pwm_initialize(pwm, frequency, duty_cycle);
-#endif
-    bk_pwm_start(pwm);
-}
 
 void memory_dump_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
 {
@@ -1510,49 +1483,27 @@ static void tftp_ota_get_Command(char *pcWriteBuffer, int xWriteBufferLen, int a
 
 }
 #endif
+
 #if CFG_SUPPORT_OTA_HTTP
-#define HTTP_RESP_CONTENT_LEN   (256)
-/*
-*when HTTP_WR_TO_FLASH = 1 & CFG_SUPPORT_OTA_HTTP = 0 http data will write to flash ,addr #define HTTP_FLASH_ADDR  0xff000
-*when HTTP_WR_TO_FLASH = 1 & CFG_SUPPORT_OTA_HTTP = 1 http data will write to flash ,with bk ota fromat
-*when HTTP_WR_TO_FLASH = 0 can get http data at http_data_process()
-*/
-void http_client_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+void http_ota_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     int ret;
-    httpclient_t httpclient;
-    httpclient_data_t httpclient_data;
-    char http_content[HTTP_RESP_CONTENT_LEN];
-
-    if ( argc != 2 )
-    {
+    if ( argc != 2 ) {
         goto HTTP_CMD_ERR;
     }
-    os_memset(&httpclient, 0, sizeof(httpclient_t));
-    os_memset(&httpclient_data, 0, sizeof(httpclient_data));
-    os_memset(&http_content, 0, sizeof(HTTP_RESP_CONTENT_LEN));
-    httpclient.header = "Accept: text/xml,text/html,\r\n";
-    httpclient_data.response_buf = http_content;
-    httpclient_data.response_content_len = HTTP_RESP_CONTENT_LEN;
-    ret = httpclient_common(&httpclient,
-        argv[1],
-        80,
-        NULL,
-        HTTPCLIENT_GET,
-        5000,
-        &httpclient_data);
+    ret = http_ota_download(argv[1]);
+
     if (0 != ret) {
-        os_printf("request epoch time from remote server failed.");
-        } else {
-        os_printf("sucess.\r\n");
+        os_printf("http_ota download failed.");
     }
 
     return;
-HTTP_CMD_ERR:
-    os_printf("Usage:httpc [url:]\r\n");
 
+HTTP_CMD_ERR:
+    os_printf("Usage:http_ota [url:]\r\n");
 }
 #endif
+
 static void reg_write_read_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     UINT32 reg_addr = 0, reg_value = 0;
@@ -1922,21 +1873,6 @@ static void ble_command_usage(void)
     os_printf("ble disc           - Disconnect\r\n");
 }
 
-static void ble_get_info_handler(void)
-{
-    UINT8 *ble_mac;
-    os_printf("\r\n****** ble information ************\r\n");
-
-    if (ble_is_start() == 0) {
-        os_printf("no ble startup          \r\n");
-        return;
-    }
-    ble_mac = ble_get_mac_addr();
-    os_printf("* name: %s             \r\n", ble_get_name());
-    os_printf("* mac:%02x-%02x-%02x-%02x-%02x-%02x\r\n", ble_mac[0], ble_mac[1],ble_mac[2],ble_mac[3],ble_mac[4],ble_mac[5]);
-    os_printf("***********  end  *****************\r\n");
-}
-
 typedef adv_info_t ble_adv_param_t;
 
 static void ble_advertise(void)
@@ -2037,9 +1973,8 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         }
 
         len = os_strlen(argv[4]);
-        if(len % 2 != 0)
-        {
-            os_printf("ERROR\r\n");
+        if ((len % 2 != 0) || (len > 40)) {
+            os_printf("notify buffer len error\r\n");
             return;
         }
         hexstr2bin(argv[4], write_buffer, len/2);
@@ -2066,9 +2001,8 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         }
 
         len = os_strlen(argv[4]);
-        if(len % 2 != 0)
-        {
-            os_printf("ERROR\r\n");
+        if ((len % 2 != 0) || (len > 40)) {
+            os_printf("indicate buffer len error\r\n");
             return;
         }
         hexstr2bin(argv[4], write_buffer, len/2);
@@ -2083,7 +2017,11 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
     }
     else if(os_strcmp(argv[1], "disc") == 0)
     {
+#if (CFG_BLE_VERSION == BLE_VERSION_4_2)
+        appm_disconnect();
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_x)
         appm_disconnect(0x13);
+#endif
     }
 }
 #elif (CFG_BLE_VERSION == BLE_VERSION_5_x)
@@ -2310,7 +2248,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	if (os_strcmp(argv[1], "deinit_scan") == 0) {
 		bk_ble_scan_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
-#if CFG_BLE_MASTER_ROLE_NUM
+#if CFG_BLE_INIT_NUM
 	if (os_strcmp(argv[1], "con_create") == 0)
 	{
 		ble_set_notice_cb(ble_notice_cb);
@@ -2454,7 +2392,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		app_sdp_service_filtration(en);
 	}
 #endif
-#endif ///CFG_BLE_MASTER_ROLE_NUM
+#endif ///CFG_BLE_INIT_NUM
 }
 #endif
 #endif
@@ -2571,7 +2509,7 @@ static void wifi_raw_tx_thread(void *arg)
 			tx_param->counter);
 
 	for (uint32_t i = 0; i < tx_param->counter; i++) {
-		ret = bk_wlan_send_80211_raw_frame(frame, sizeof(frame));
+		ret = bk_wlan_send_80211_raw_frame((unsigned char*)frame, sizeof(frame));
 		if (ret != kNoErr) {
 			os_printf("raw tx error, ret=%d\n", ret);
 		}
@@ -2649,7 +2587,6 @@ static const struct cli_command built_ins[] =
     {"tasklist", "list all thread name status", task_Command},
 
     // others
-    {"pwm", "pwm test", pwm_Command},
     {"memshow", "print memory information", memory_show_Command},
     {"memdump", "<addr> <length>", memory_dump_Command},
     {"os_memset", "<addr> <value 1> [<value 2> ... <value n>]", memory_set_Command},
@@ -2693,7 +2630,7 @@ static const struct cli_command built_ins[] =
     {"tmpdetect", "tmpdetect <cmd>", temp_detect_Command},
 #endif
 #if CFG_SUPPORT_OTA_HTTP
-	{"httpc", "http client", http_client_Command},
+    {"http_ota", "http_ota url", http_ota_Command},
 #endif
     {"regshow", "regshow -w/r addr [value]", reg_write_read_test},
 
@@ -2962,26 +2899,18 @@ static void Deep_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int arg
 static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     UINT32 dtim = 0;
-	UINT32 gpio_index = 0;
 
 	#if PS_SUPPORT_MANUAL_SLEEP
     UINT32 standby_time = 0;
     UINT32 dtim_wait_time = 0;
 	#endif
 
-    UINT32 dtim_data_wait_time = 0;
-    UINT32 dtim_uart_wait_time = 0;
-	PS_DEEP_CTRL_PARAM deep_sleep_param;
-
-	deep_sleep_param.gpio_index_map = gpio_index;
-	deep_sleep_param.gpio_edge_map  = dtim;
-	deep_sleep_param.wake_up_way = PS_DEEP_WAKEUP_GPIO;
-
     if(argc < 3)
     {
         goto IDLE_CMD_ERR;
     }
 #if  CFG_USE_DEEP_PS
+
     if(0 == os_strcmp(argv[1], "deepps"))
     {
     	PS_DEEP_CTRL_PARAM deep_sleep_param;
@@ -3574,6 +3503,13 @@ static const struct cli_command user_clis[] =
 #endif
 };
 
+
+extern int video_demo_register_cmd(void);
+
+#if CFG_PERIPHERAL_TEST
+void bk_peripheral_cli_init();
+#endif
+
 int cli_init(void)
 {
     int ret;
@@ -3591,7 +3527,17 @@ int cli_init(void)
         goto init_general_err;
     }
 
-    cli_register_commands(user_clis, sizeof(user_clis) / sizeof(struct cli_command));
+    if(cli_register_commands(user_clis, sizeof(user_clis) / sizeof(struct cli_command))) {
+        goto init_general_err;
+    }
+
+    if (video_demo_register_cmd()) {
+        goto init_general_err;
+    }
+
+#if CFG_PERIPHERAL_TEST
+	bk_peripheral_cli_init();
+#endif
 
     ret = rtos_create_thread(&cli_thread_handle,
                              BEKEN_DEFAULT_WORKER_PRIORITY,

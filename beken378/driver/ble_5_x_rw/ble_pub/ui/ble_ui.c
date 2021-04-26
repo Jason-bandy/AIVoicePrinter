@@ -10,6 +10,8 @@
 #endif
 #endif
 
+#include "gattc.h"
+
 ble_notice_cb_t ble_event_notice = NULL;
 extern struct app_env_tag app_ble_env;
 #if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))

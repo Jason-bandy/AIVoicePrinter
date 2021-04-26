@@ -12,6 +12,7 @@
  */
 #include <rtthread.h>
 #include <string.h>
+#include "arm_mcu_pub.h"
 
 /*****************************/
 /* CPU Mode                  */
@@ -24,6 +25,15 @@
 #define UNDEFMODE       0x1b
 #define MODEMASK        0x1f
 #define NOINT           0xc0
+
+#define RT_HW_DUMP_STACK_MEM  0
+
+extern uint32_t und_stack_start;
+extern uint32_t abt_stack_start;
+extern uint32_t fiq_stack_start;
+extern uint32_t irq_stack_start;
+extern uint32_t sys_stack_start;
+extern uint32_t svc_stack_start;
 
 /**
  * This function will initialize thread stack
@@ -70,53 +80,140 @@ rt_uint8_t *rt_hw_stack_init(void *tentry, void *parameter,
     return (rt_uint8_t *)stk;
 }
 
+#if RT_HW_DUMP_STACK_MEM
+static void rt_hw_stack_mem_dump(uint32_t sp, uint32_t stack_end_addr)
+{
+	uint32_t data = *((uint32_t *) sp);
+	uint32_t cnt = 0;
+
+	rt_kprintf("cur sp=%08x, stack end=%08x\n", sp, stack_end_addr);
+	for (;  sp < stack_end_addr; sp += sizeof(size_t)) {
+		data = *((uint32_t*) sp);
+		if ((cnt++ % 4) == 0) {
+			rt_kprintf("\n%08x: ", sp);
+		}
+		rt_kprintf("%08x ", data);
+	}
+	rt_kprintf("\n");
+}
+#endif
+
+static void rt_hw_stack_parse_backtrace(const char *str_type,
+		uint32_t stack_start_addr, uint32_t stack_end_addr,
+		uint32_t sp, rt_bool_t thumb_mode)
+{
+	extern void fiq_handler();
+	extern char __rt_init_end;
+
+	uint32_t call_stack_buf[32] = {0};
+	uint32_t code_start_addr;
+	uint32_t code_end_addr;
+	uint32_t pc;
+	int call_stack_index = 0;
+	uint32_t init_sp = sp;
+
+	/* TODO: it should be more portable to calculate code space, like _stext _etext */
+	code_start_addr = (uint32_t)fiq_handler;
+	code_end_addr = (uint32_t)(&__rt_init_end);
+
+#if RT_HW_DUMP_STACK_MEM
+	rt_hw_stack_mem_dump(sp, stack_end_addr);
+#endif
+	for (; sp < stack_end_addr; sp += sizeof(size_t)) {
+		pc = *((uint32_t *) sp);
+
+		/* ARM9 using thumb instruction, so the pc must be an odd number */
+		if (thumb_mode && (pc & 1) == 0) {
+			continue;
+		}
+
+		if ((code_start_addr < pc) && (pc < code_end_addr)) {
+			if (pc & 1) {
+				pc = pc -1;
+			}
+
+			call_stack_buf[call_stack_index] = pc;
+			call_stack_index++;
+		}
+	}
+
+	if (call_stack_index > 0) {
+		int index;
+
+		rt_kprintf("%s, stack=[0x%x,0x%x], sp=0x%x, stackoverflow=%d\n",
+			str_type, stack_start_addr, stack_end_addr, init_sp, init_sp < stack_start_addr);
+		rt_kprintf("addr2line.exe -e rtthread.elf -piaf");
+		for (index = 0; index < call_stack_index; index++) {
+			rt_kprintf(" %lx", call_stack_buf[index]);
+		}
+		rt_kprintf("\n");
+	} else if (init_sp < stack_start_addr) {
+		rt_kprintf("%s, stack=[0x%x,0x%x], sp=0x%x, stackoverflow=%d\n",
+			str_type, stack_start_addr, stack_end_addr, init_sp, init_sp < stack_start_addr);
+	}
+}
+
+static void rt_hw_thread_stack_print(rt_thread_t thread, rt_bool_t in_exception)
+{
+	uint32_t stack_start_addr;
+	uint32_t stack_end_addr;
+	uint32_t sp;
+
+	if (NULL == thread) {
+		thread = rt_thread_self();
+	}
+
+	stack_start_addr = (uint32_t)thread ->stack_addr;
+	stack_end_addr = thread->stack_size + stack_start_addr;
+
+	if (in_exception) {
+		sp = *(uint32_t*)(MCU_REG_BACKUP_SP_SVC);
+	} else {
+		sp = (uint32_t)thread->sp;
+	}
+
+	rt_hw_stack_parse_backtrace(thread->name, stack_start_addr, stack_end_addr, sp, RT_TRUE);
+}
+
+void rt_hw_exception_stack_print(void)
+{
+	uint32_t stack_start;
+	uint32_t sp;
+
+	sp = *(uint32_t*)(MCU_REG_BACKUP_SP_FIQ);
+	stack_start = (uint32_t)&fiq_stack_start;
+	rt_hw_stack_parse_backtrace("fiq", (stack_start - FIQ_STACK_SIZE), stack_start, sp, RT_FALSE);
+
+	sp = *(uint32_t*)(MCU_REG_BACKUP_SP_IRQ);
+	stack_start = (uint32_t)&irq_stack_start;
+	rt_hw_stack_parse_backtrace("irq", (stack_start - IRQ_STACK_SIZE), stack_start, sp, RT_FALSE);
+
+	sp = *(uint32_t*)(MCU_REG_BACKUP_SP_UND);
+	stack_start = (uint32_t)&und_stack_start;
+	rt_hw_stack_parse_backtrace("und", stack_start - UND_STACK_SIZE, stack_start, sp, RT_FALSE);
+
+	sp = *(uint32_t*)(MCU_REG_BACKUP_SP_ABT);
+	stack_start = (uint32_t)&abt_stack_start;
+	rt_hw_stack_parse_backtrace("abt", stack_start - ABT_STACK_SIZE, stack_start, sp, RT_FALSE);
+
+	sp = *(uint32_t*)(MCU_REG_BACKUP_SP_SVC);
+	stack_start = (uint32_t)&svc_stack_start;
+	rt_hw_stack_parse_backtrace("svc", stack_start - SVC_STACK_SIZE, stack_start, sp, RT_FALSE);
+
+	sp = *(uint32_t*)(MCU_REG_BACKUP_SP_SYS);
+	stack_start = (uint32_t)&sys_stack_start;
+	rt_hw_stack_parse_backtrace("sys", stack_start - SYS_STACK_SIZE, stack_start, sp, RT_FALSE);
+}
+
+void rt_hw_stack_print_after_exception(void)
+{
+	rt_hw_thread_stack_print(NULL, RT_TRUE);
+	rt_hw_exception_stack_print();
+}
+
 void rt_hw_stack_print(rt_thread_t thread)
 {
-    extern void fiq_handler();
-    extern char __rt_init_end;
-
-    uint32_t call_stack_buf[32] = {0};
-    uint32_t code_start_addr;
-    uint32_t code_end_addr;
-    uint32_t stack_start_addr;
-    uint32_t stack_end_addr;
-    uint32_t sp;
-    uint32_t pc;
-    int call_stack_index = 0;
-
-    /* TODO: it should be more portable to calculate code space, like _stext _etext */
-    code_start_addr = (uint32_t)fiq_handler;
-    code_end_addr = (uint32_t)(&__rt_init_end);
-
-    if (NULL == thread) {
-        thread = rt_thread_self();
-    }
-
-    stack_start_addr = (uint32_t)thread ->stack_addr;
-    stack_end_addr = thread->stack_size + stack_start_addr;
-    sp = (uint32_t)thread->sp;
-    rt_kprintf("task=%.8s,stack=[0x%x,0x%x],sp=0x%x,stackoverflow=%d\n", thread->name, stack_start_addr, stack_end_addr, sp, sp < stack_start_addr);
-    for (; sp < stack_end_addr; sp += sizeof(size_t))
-    {
-        pc = *((uint32_t *) sp);
-        /* ARM9 using thumb instruction, so the pc must be an odd number */
-        if ((pc & 1) == 0) {
-            continue;
-        }
-        if ((code_start_addr < pc) && (pc < code_end_addr)) {
-            call_stack_buf[call_stack_index] = pc - 1;
-            call_stack_index++;
-        }
-    }
-    if (call_stack_index > 0)
-    {
-        int index;
-        rt_kprintf("addr2line.exe -e rtthread.elf -a -f");
-        for (index = 0; index < call_stack_index; index++) {
-            rt_kprintf(" %lx", call_stack_buf[index]);
-        }
-        rt_kprintf("\n");
-    }
+	rt_hw_thread_stack_print(thread, RT_FALSE);
 }
 
 void rt_stack_print(int argc, char **argv)

@@ -46,6 +46,8 @@
 #include "demos_start.h"
 #endif
 #include "ap_idle_pub.h"
+#include "arbitrate.h"
+#include "ke_event.h"
 
 beken_thread_t  init_thread_handle;
 beken_thread_t  app_thread_handle;
@@ -569,7 +571,9 @@ static void core_thread_main( void *arg )
     OSStatus ret;
     BUS_MSG_T msg;
     uint8_t ke_skip = 0;
+#if CFG_USE_STA_PS
     uint8_t ps_flag = 0;
+#endif
 
     while(1)
     {
@@ -630,10 +634,9 @@ static void core_thread_main( void *arg )
                 break;
 
 #if (SUPPORT_LSIG_MONITOR)
-				case BMSG_RX_LSIG:
-					bmsg_rx_lsig_handler(&msg);
-					break;
-
+			case BMSG_RX_LSIG:
+				bmsg_rx_lsig_handler(&msg);
+				break;
 #endif
             default:
                 APP_PRT("unknown_msg\r\n");

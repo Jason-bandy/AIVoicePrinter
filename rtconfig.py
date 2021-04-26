@@ -42,7 +42,7 @@ if PLATFORM == 'gcc':
     OBJCPY  = PREFIX + 'objcopy'
 
     DEVICE  = ' -mcpu=arm968e-s -mthumb-interwork -mthumb -ffunction-sections -fdata-sections'
-    CFLAGS  = DEVICE + ' -Iconfig' + ' -Irelease'
+    CFLAGS  = DEVICE + ' -Iconfig' + ' -Irelease' + ' -Werror' + ' -Wall' + ' -Wno-format' + ' -Wno-unknown-pragmas'
     AFLAGS  = ' -c' + DEVICE + ' -x assembler-with-cpp -Iconfig'
     LFLAGS  = DEVICE + ' -nostartfiles -Wl,--gc-sections,-Map=rtthread.map,-cref,-u,system_vectors -T link.lds'
     CPATH   = ''

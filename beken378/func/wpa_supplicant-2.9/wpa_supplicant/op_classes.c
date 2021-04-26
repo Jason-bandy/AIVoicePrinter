@@ -207,6 +207,7 @@ enum chan_allowed verify_channel(struct hostapd_hw_modes *mode, u8 channel,
 }
 
 
+#ifdef CONFIG_FULL_SUPPLICANT
 static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 				   struct wpa_ssid *ssid,
 				   const struct oper_class_map *op_class)
@@ -332,6 +333,7 @@ static int wpas_op_class_supported(struct wpa_supplicant *wpa_s,
 
 	return found;
 }
+#endif
 
 
 size_t wpas_supp_op_class_ie(struct wpa_supplicant *wpa_s,

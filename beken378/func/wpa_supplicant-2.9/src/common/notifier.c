@@ -1,8 +1,9 @@
-#include "notifier.h"
+#include "typedef.h"
+#include "notifier_pub.h"
 #include "mem_pub.h"
 #include "uart_pub.h"
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 /*
  * add_notifier - add a new function to be called when something happens.
  */

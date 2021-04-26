@@ -6,6 +6,7 @@
 #include "rw_pub.h"
 #include "wlan_ui_pub.h"
 #include "sys_ctrl_pub.h"
+#include "drv_model_pub.h"
 
 //#define PS_DEBUG
 
@@ -41,7 +42,7 @@ typedef enum {
     PS_BMSG_IOCTL_AP_PS_STOP = 14,
     PS_BMSG_IOCTL_AP_PS_START = 15,
     PS_BMSG_IOCTL_AP_PS_RUN = 16,
-    
+
 } PS_BMSG_IOCTL_CMD;
 
 #define ICU_BASE                                     (0x00802000)
@@ -111,6 +112,7 @@ extern int power_save_dtim_disable();
 extern void power_save_rf_dtim_manual_do_wakeup ( void );
 extern void power_save_rf_ps_wkup_semlist_set ( void );
 extern bool power_save_rf_sleep_check ( void );
+extern uint32_t ps_get_sleep_prevent(void);
 extern void ps_set_key_prevent ( void );
 extern void ps_clear_key_prevent ( void );
 extern void ps_set_data_prevent ( void );
@@ -135,6 +137,8 @@ extern void *power_save_rf_ps_wkup_semlist_insert ( void );
 extern void power_save_rf_ps_wkup_semlist_wait ( void * );
 extern void power_save_rf_ps_wkup_semlist_destroy ( void * );
 extern void power_save_rf_ps_wkup_semlist_get ( void * );
+extern void power_save_set_temp_use_rf_flag(void);
+extern void power_save_clr_temp_use_rf_flag(void);
 
 
 extern void power_save_set_dtim_count ( UINT8 );
@@ -160,6 +164,7 @@ extern void power_save_set_reseted_flag ( void );
 extern UINT32 power_save_get_rf_ps_dtim_time ( void );
 extern uint8_t ble_switch_mac_sleeped;
 extern void power_save_set_keep_timer_time ( UINT32 );
+extern void power_save_wake_mac_rf_end_clr_flag(void);
 
 extern void ps_set_rf_prevent(void);
 extern void ps_clear_rf_prevent(void);

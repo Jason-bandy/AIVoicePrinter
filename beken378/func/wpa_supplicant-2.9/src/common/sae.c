@@ -48,7 +48,7 @@ int sae_set_group(struct sae_data *sae, int group)
 		tmp->order_len = crypto_ec_order_len(tmp->ec);
 		tmp->order = crypto_ec_get_order(tmp->ec);
 #if CFG_OS_FREERTOS
-		wpa_printf(MSG_DEBUG, "%s: after %d %d\n", __func__,
+		wpa_printf(MSG_DEBUG, "%s: after %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 		return 0;
@@ -85,7 +85,7 @@ int sae_set_group(struct sae_data *sae, int group)
 		tmp->order = tmp->order_buf;
 
 #if CFG_OS_FREERTOS
-		wpa_printf(MSG_DEBUG, "%s: after %d %d\n", __func__,
+		wpa_printf(MSG_DEBUG, "%s: after %d %d", __func__,
 				xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 		return 0;
@@ -306,7 +306,7 @@ static int sae_derive_pwe_ecc(struct sae_data *sae, const u8 *addr1,
 		       * mask */
 
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: before %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: before %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 	os_memset(x_bin, 0, sizeof(x_bin));
@@ -433,7 +433,7 @@ static int sae_derive_pwe_ecc(struct sae_data *sae, const u8 *addr1,
 		wpa_printf(MSG_DEBUG, "SAE: Could not solve y");
 	}
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: after %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: after %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 
@@ -596,7 +596,7 @@ static int sae_derive_commit(struct sae_data *sae)
 	int ret;
 
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: before %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: before %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 	mask = crypto_bignum_init();
@@ -616,7 +616,7 @@ static int sae_derive_commit(struct sae_data *sae)
 		 ;
 	crypto_bignum_deinit(mask, 1);
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: before %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: before %d %d", __func__,
 		xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 	return ret ? -1 : 0;
@@ -628,7 +628,7 @@ int sae_prepare_commit(const u8 *addr1, const u8 *addr2,
 		       const char *identifier, struct sae_data *sae)
 {
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: before %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: before %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 	if (sae->tmp == NULL ||
@@ -643,7 +643,7 @@ int sae_prepare_commit(const u8 *addr1, const u8 *addr2,
 	    sae_derive_commit(sae) < 0)
 		return -1;
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: after %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: after %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 	return 0;
@@ -788,7 +788,7 @@ int sae_process_commit(struct sae_data *sae)
 	u8 k[SAE_MAX_PRIME_LEN];
 #endif
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: before %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: before %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 	if (sae->tmp == NULL ||
@@ -803,7 +803,7 @@ int sae_process_commit(struct sae_data *sae)
 		return -1;
 	}
 #if CFG_OS_FREERTOS
-	wpa_printf(MSG_DEBUG, "%s: after %d %d\n", __func__,
+	wpa_printf(MSG_DEBUG, "%s: after %d %d", __func__,
 			xPortGetFreeHeapSize(), xPortGetMinimumEverFreeHeapSize());
 #endif
 

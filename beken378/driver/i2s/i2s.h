@@ -121,6 +121,5 @@
 UINT32 i2s_configure(UINT32 fifo_level, UINT32 sample_rate, UINT32 bits_per_sample, UINT32 mode);
 
 UINT32 i2s_transfer(UINT32 *i2s_send_buf , UINT32 *i2s_recv_buf, UINT32 count , UINT32 param );
-static UINT32 i2s_ctrl(UINT32 cmd, void *param);
 
 #endif //_I2S_H_

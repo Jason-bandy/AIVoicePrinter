@@ -583,7 +583,6 @@ int lwip_fcntl(int s, int cmd, int val);
 #define inet_pton(af,src,dst) \
     (((af) == AF_INET6) ? ip6addr_aton((src),(ip6_addr_t*)(dst)) : 0)
 #endif /* LWIP_IPV4 && LWIP_IPV6 */
-
 #endif /* LWIP_COMPAT_SOCKETS */
 
 #ifdef __cplusplus

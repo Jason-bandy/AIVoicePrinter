@@ -60,5 +60,8 @@ typedef struct
     mac_param_t mac[MAX_MAC];
     u8 mac_cnt;
 } airkiss_mac_t;
+
+extern uint32_t airkiss_is_at_its_context(void);
+
 #endif // _AIRKISS_MAIN_H_
 // eof

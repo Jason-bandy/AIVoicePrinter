@@ -50,7 +50,7 @@ struct audio_codec *codec_amr_create(struct audio_stream *stream)
 
 static int codec_amr_run(struct audio_codec *codec)
 {
-    int err, event;
+    int event;
     uint8_t *buffer;
     int bytes_read, buf_sz;
     uint32_t buffer_pos;
@@ -75,8 +75,9 @@ static int codec_amr_run(struct audio_codec *codec)
 
     if (codec_amr->current_sample_rate == 0)
     {
-        char amr_header[6 + 1], len;
-        int retry_cnt = 5; 
+        char amr_header[6 + 1];
+        int retry_cnt = 5;
+	uint8_t len = 0;
 
         LOG_D("current_sample_rate == 0.");
 

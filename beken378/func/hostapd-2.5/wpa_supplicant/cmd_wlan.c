@@ -121,7 +121,7 @@
 //#include "wlan.h"
 #include "sys_config.h"
 #include "common.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "uart_pub.h"
 #include "wlan_ui_pub.h"
 #include "param_config.h"

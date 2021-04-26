@@ -424,8 +424,6 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 #define MEM_LIBC_MALLOC                (1)
 
-#define DEFAULT_UDP_RECVMBOX_SIZE       3 //each udp socket max buffer 3 packets.
-
 #define MEMP_MEM_MALLOC (1)
 #define TCP_MSL (TCP_TMR_INTERVAL)
 
@@ -455,6 +453,9 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 #define TCP_QUEUE_OOSEQ                 1
 
 #define ETHARP_SUPPORT_STATIC_ENTRIES   1
+
+/* Beken specific LWIP options */
+#define BK_DHCP                         1
 
 #endif /* __LWIPOPTS_H__ */
 

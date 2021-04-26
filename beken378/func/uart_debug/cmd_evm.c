@@ -22,6 +22,7 @@
 
 #include "ate_app.h"
 #include "param_config.h"
+#include "bk7011_cal_pub.h"
 
 #include "arm_arch.h"
 
@@ -143,7 +144,6 @@ static int do_evm_implement(int argc, char *const argv[])
     UINT32 is_ble_test = 0;;
     UINT32 ble_test = 0;
     UINT32 reg;
-    UINT32 txdelay = 125;
     SC_TYPE_T single_carrier_type = SINGLE_CARRIER_11G;
 	
 	#if (CFG_SOC_NAME != SOC_BK7231)
@@ -620,7 +620,7 @@ static int do_evm_implement(int argc, char *const argv[])
             {
                 single_carrier_type = SINGLE_CARRIER_11G;
             }
-            if (g_single_carrier != single_carrier)
+            //if (g_single_carrier != single_carrier)
             {
                 g_single_carrier = single_carrier;
 #if (CFG_SOC_NAME == SOC_BK7231N)
@@ -788,6 +788,8 @@ int do_evm(cmd_tbl_t *cmdtp, int flag, int argc, char *const argv[])
 
     reg = RF_HOLD_BY_ATE_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+
+    return 0;
 }
 
 // eof

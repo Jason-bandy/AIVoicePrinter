@@ -73,18 +73,17 @@ static int drv_pm_init(void)
 
 int set_log(int argc, char *argv[])
 {
-    char val;
+	char val;
 
-    val = atoi(argv[1]);
+	val = atoi(argv[1]);
 
-    if(val == 1)
-    {
-        log_print = 1;
-    }
-    else
-    {
-        log_print = 0;
-    }
+	if(val == 1) {
+		log_print = 1;
+	} else {
+		log_print = 0;
+	}
+
+	return 0;
 }
 
 MSH_CMD_EXPORT(set_log, set_log on or off);

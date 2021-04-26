@@ -16,8 +16,8 @@
 #include "wps/wps_defs.h"
 #include "config_ssid.h"
 #include "wmm_ac.h"
-#if CFG_NEW_SUPP
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "notifier_pub.h"
 #endif
 
 extern const char *const wpa_supplicant_version;
@@ -664,7 +664,7 @@ struct wpa_supplicant {
 	const u8 *extended_capa, *extended_capa_mask;
 	unsigned int extended_capa_len;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	int fast_connect;
 #endif
 	int max_scan_ssids;

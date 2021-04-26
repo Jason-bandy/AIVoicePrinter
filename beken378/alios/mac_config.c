@@ -165,7 +165,7 @@ int wifi_get_mac_address_from_efuse(UINT8 *mac)
 int wifi_write_efuse(UINT8 addr, UINT8 data)
 {
     EFUSE_OPER_ST efuse;
-    int i = 0, ret;
+    int ret;
 
     if(addr > EFUSE_CTRL_ADDR) {
         os_printf("efuse addr:0x%x out of range(0-0x1F)\r\n", addr);
@@ -187,7 +187,7 @@ int wifi_write_efuse(UINT8 addr, UINT8 data)
 UINT8 wifi_read_efuse(UINT8 addr)
 {
     EFUSE_OPER_ST efuse;
-    int i = 0, ret;
+    int ret;
 
     if(addr > EFUSE_CTRL_ADDR) {
         os_printf("efuse addr:0x%x out of range(0-0x1F)\r\n", addr);

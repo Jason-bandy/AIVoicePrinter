@@ -23,42 +23,42 @@
 #define THD_LWIP_PRIORITY                          4
 #define THD_INIT_PRIORITY                          4
 #define THD_RECONNECT_PRIORITY                     4
-#define THD_MEDIA_PRIORITY						   4
+#define THD_MEDIA_PRIORITY                         4
 #define THD_WPAS_PRIORITY                          5
 #define THD_EXTENDED_APP_PRIORITY                  5
 #define THD_HOSTAPD_PRIORITY                       5
-#define THDD_KEY_SCAN_PRIORITY					   7
+#define THDD_KEY_SCAN_PRIORITY                     7
 
 /*section 2-----function macro config-----*/
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
-#define CFG_ROLE_LAUNCH                            1
-#define CFG_USE_WPA_29							   1
-#define CFG_NEW_SUPP							   0
+#define CFG_ROLE_LAUNCH                            0
+#define CFG_USE_WPA_29                             1
+#define CFG_WPA_CTRL_IFACE                         1
 #define CFG_RWNX_QOS_MSDU                          1
+#define CFG_WLAN_FAST_CONNECT                      0
 /* PMF */
-#define CFG_IEEE80211W							   0
-#if CFG_NEW_SUPP
+#define CFG_IEEE80211W                             0
+#if CFG_WPA_CTRL_IFACE
 #undef CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 #endif
-#define CFG_WPA3								   0
+#define CFG_WPA3                                   0
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
-#define CFG_USE_WPA_29							   1
+#define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
-#define CFG_IEEE80211W							   1
-/* if WPA3 is enabled, define CONFIG_SME */
-#define CONFIG_SME								   1
+#define CFG_IEEE80211W                             1
+#define CFG_SME                                    0
 #endif
-//#define CFG_MESH								   0
-#define CFG_WFA_CERT							   0
+//#define CFG_MESH                                 0
+#define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             1
 #define CFG_AP_SUPPORT_HT_IE                       0
-#define CFG_SUPPORT_BSSID_CONNECT				   0
+#define CFG_SUPPORT_BSSID_CONNECT                  0
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
@@ -171,10 +171,14 @@
 #define CFG_USE_SDCARD_HOST                        0
 
 /*section 20 ----- support mp3 decoder*/
-#define CONFIG_APP_MP3PLAYER 			           0
+#define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_SUPPORT_OTA_HTTP                       0
+#else
+#define CFG_SUPPORT_OTA_HTTP                       1
+#endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
 /*section 22 ----- support adc calibrate*/

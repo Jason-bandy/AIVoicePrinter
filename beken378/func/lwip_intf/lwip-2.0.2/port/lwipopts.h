@@ -406,7 +406,6 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 //#ifdef CONFIG_ENABLE_MXCHIP
 /* save memory */
 #if ((defined(CFG_LWIP_MEM_POLICY))&&(CFG_LWIP_MEM_POLICY == LWIP_REDUCE_THE_PLAN))
-#define PBUF_POOL_SIZE          (3)
 #define TCP_MSS                 (1500 - 40)
 /* TCP receive window. */
 #define TCP_WND                 (3 * TCP_MSS)
@@ -415,7 +414,6 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 #define TCP_SND_QUEUELEN        (20)
 #else
-#define PBUF_POOL_SIZE                  10
 #define TCP_MSS                 (1500 - 40)
 /* TCP receive window. */
 #define TCP_WND                 (10*TCP_MSS)
@@ -454,6 +452,10 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 #define ETHARP_SUPPORT_STATIC_ENTRIES   1
 
-#define LWIP_RIPPLE20					1
+#define LWIP_RIPPLE20                   1
+
+/* Beken specific LWIP options */
+#define BK_DHCP                         1
+
 #endif /* __LWIPOPTS_H__ */
 

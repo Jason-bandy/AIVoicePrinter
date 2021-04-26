@@ -2,6 +2,7 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 
+#include "sys_config.h"
 #include "typedef.h"
 #include "drv_sys_ctrl.h"
 #include "sys_ctrl.h"
@@ -62,6 +63,6 @@ INIT_DEVICE_EXPORT(rt_hw_sys_ctrl_init);
 
 int rt_hw_sys_ctrl_exit(void)
 {
-    /* unregister device */
-    rt_device_unregister(&(sys_ctrl_dev.parent));
+	/* unregister device */
+	return rt_device_unregister(&(sys_ctrl_dev.parent));
 }

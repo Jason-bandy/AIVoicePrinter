@@ -1,6 +1,8 @@
 #ifndef _SCTRL_PUB_H_
 #define _SCTRL_PUB_H_
 
+#include "start_type_pub.h"
+
 #define SCTRL_DEV_NAME       "sys_ctrl"
 
 #define SCTRL_FAILURE        ((UINT32)-1)
@@ -377,4 +379,6 @@ extern UINT32 usb_power_is_pluged(void);
 extern void sctrl_rf_ps_enable_set(void);
 extern void sctrl_rf_ps_enable_clear(void);
 extern int sctrl_rf_ps_enabled(void);
+RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void);
+UINT8 sctrl_if_mcu_can_sleep(void);
 #endif // _SCTRL_PUB_H_

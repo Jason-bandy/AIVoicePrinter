@@ -1,16 +1,28 @@
 #ifndef _QSPI_PUB_H_
 #define _QSPI_PUB_H_
 
+#include "uart_pub.h"
+
+#define BK_QSPI_DEBUG                0
+#if BK_QSPI_DEBUG
+#define BK_QSPI_PRT               os_printf
+#define BK_QSPI_WPRT              warning_prf
+#define BK_QSPI_FATAL             fatal_prf
+#else
+#define BK_QSPI_PRT               null_prf
+#define BK_QSPI_WPRT              null_prf
+#define BK_QSPIFATAL	          null_prf
+#endif
+
 #define QSPI_FAILURE                (1)
 #define QSPI_SUCCESS                (0)
 
 #define QSPI_DEV_NAME                "qspi"
 #define QSPI_DCACHE_BASE			(0x03000000)
-
 #define QSPI_CMD_MAGIC              (0xa250000)
+#define QSPI_DEBUG                   0
 
-//#define QSPI_DEBUG
-#ifdef  QSPI_DEBUG
+#if QSPI_DEBUG
 #define QSPI_WPRT                os_printf
 #define QSPI_EPRT                os_printf
 #define QSPI_DEBUG_PRINTF		 os_printf
@@ -32,19 +44,6 @@ enum
     QSPI_DCACHE_CMD_OPEN,
     QSPI_DCACHE_CMD_CLOSE,
 };
-
-#define BK_QSPI_DEBUG                1
-#include "uart_pub.h"
-#if BK_QSPI_DEBUG
-#define BK_QSPI_PRT               os_printf
-#define BK_QSPI_WPRT              warning_prf
-#define BK_QSPI_FATAL             fatal_prf
-#else
-#define BK_QSPI_PRT               null_prf
-#define BK_QSPI_WPRT              null_prf
-#define BK_QSPIFATAL	          null_prf
-#endif
-
 
 //----------------------------------------------
 // QSPI GE0 driver description
@@ -147,9 +146,8 @@ extern void bk_qspi_psram_reset(void);
 extern void bk_qspi_psram_set_length(void);
 extern UINT16 bk_qspi_psram_read_id(void);
 extern void psram_init(uint8_t line_mode,uint8_t voltage_level);
-
-int bk_qspi_dcache_configure(qspi_dcache_drv_desc *qspi_cfg);
-int bk_qspi_dcache_write_data(UINT32 set_addr, UINT32 *wr_data, UINT32 data_length);
-int bk_qspi_dcache_read_data(UINT32 set_addr, UINT32 *rd_data, UINT32 data_length);
-
+extern int bk_qspi_dcache_configure(qspi_dcache_drv_desc *qspi_cfg);
+extern int bk_qspi_dcache_write_data(UINT32 set_addr, UINT32 *wr_data, UINT32 data_length);
+extern int bk_qspi_dcache_read_data(UINT32 set_addr, UINT32 *rd_data, UINT32 data_length);
 #endif //_QSPI_PUB_H_
+

@@ -29,6 +29,7 @@
 #ifdef CONFIG_SME
 #include "driver.h"
 #endif
+#include "main_none.h"
 
 static const u8 rfc1042_header[6] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
 
@@ -197,7 +198,14 @@ static void handle_frame(struct hostap_driver_data *drv, u8 *buf, size_t len)
         os_memset(&event, 0, sizeof(event));
         event.rx_mgmt.frame = buf;
         event.rx_mgmt.frame_len = data_len;
+#if CFG_IEEE80211AX
+		if (drv->wpa_s)
+	        wpa_supplicant_event_sta(drv->wpa_s, EVENT_RX_MGMT, &event);
+		else
+			wpa_supplicant_event(drv->hapd, EVENT_RX_MGMT, &event);
+#else
         wpa_supplicant_event(drv->hapd, EVENT_RX_MGMT, &event);
+#endif
         break;
     case WLAN_FC_TYPE_CTRL:
         wpa_printf(MSG_DEBUG, "CTRL");
@@ -232,7 +240,15 @@ static void handle_read(int sock, void *eloop_ctx, void *sock_ctx)
         goto read_exit;
     }
 
-    handle_frame(drv, buf, len);
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	if (hostapd_is_init_completed()) {
+		handle_frame(drv, buf, len);
+	} else {
+		wpa_printf(MSG_DEBUG, "hapd: rx frame, but init not completed!\n");
+	}
+#else
+	handle_frame(drv, buf, len);
+#endif
 
 read_exit:
     if(buf)
@@ -1326,7 +1342,6 @@ int hostap_set_ap(void *priv, struct wpa_driver_ap_params *params)
 static void hostap_poll_client_null_frame(void *priv, const u8 *own_addr,
         const u8 *addr, int qos)
 {
-	int ret;
     struct hostap_driver_data *drv = priv;
     struct prism2_hostapd_param param;
 
@@ -1334,7 +1349,7 @@ static void hostap_poll_client_null_frame(void *priv, const u8 *own_addr,
 	param.u.poll_null_data.own_addr = (u8 *)own_addr;
 	param.u.poll_null_data.sta_addr = (u8 *)addr;
 
-	ret = hostapd_ioctl(drv, &param, sizeof(param));
+	hostapd_ioctl(drv, &param, sizeof(param));
 
 	return;
 }
@@ -1500,6 +1515,7 @@ void wpa_handler_signal(void *arg, u8 vif_idx)
 	if(ret)
 	{
 		os_printf("eloop_handle_signal failed: sig %d\r\n", sig);
+		return;
 	}
 
     wpa_hostapd_queue_poll((uint32_t)vif_idx);
@@ -1507,11 +1523,12 @@ void wpa_handler_signal(void *arg, u8 vif_idx)
 
 int wpa_driver_scan2(void *priv, struct wpa_driver_scan_params *params)
 {
-    struct hostap_driver_data *drv = priv;
-    struct prism2_hostapd_param *param;
-    u8 *buf;
-    size_t blen;
-    int ret = 0, i;
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	u8 *buf;
+	size_t blen;
+	int ret = 0, i;
+	int *freqs;
 
 	blen = sizeof(*param);
 	buf = os_zalloc(blen);
@@ -1519,43 +1536,48 @@ int wpa_driver_scan2(void *priv, struct wpa_driver_scan_params *params)
 		return -1;
 
 	eloop_register_signal(SIGSCAN, wpa_driver_scan_sig_handler, drv->wpa_s);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	eloop_register_signal(SIGSCAN_START, wpa_driver_scan_start_sig_handler, drv->wpa_s);
 #endif
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->cmd = PRISM2_HOSTAPD_REG_SCAN_CALLBACK;
-    param->vif_idx = drv->vif_index;
-    param->u.reg_scan_cfm.cb = wpa_handler_signal;
-    param->u.reg_scan_cfm.arg = (void *)SIGSCAN;
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_REG_SCAN_CALLBACK;
+	param->vif_idx = drv->vif_index;
+	param->u.reg_scan_cfm.cb = wpa_handler_signal;
+	param->u.reg_scan_cfm.arg = (void *)SIGSCAN;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
-    param = (struct prism2_hostapd_param *)buf;
-    param->cmd = PRISM2_HOSTAPD_SCAN_REQ;
-    param->u.scan_req.ssids_num = MIN(SCAN_SSID_MAX, params->num_ssids);
-    param->vif_idx = drv->vif_index;
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_SCAN_REQ;
+	param->u.scan_req.ssids_num = MIN(SCAN_SSID_MAX, params->num_ssids);
+	param->vif_idx = drv->vif_index;
 
-    for(i = 0; i < param->u.scan_req.ssids_num; i++)
-    {
-        param->u.scan_req.ssids[i].ssid_len = params->ssids[i].ssid_len;
-        os_memcpy(param->u.scan_req.ssids[i].ssid, params->ssids[i].ssid, param->u.scan_req.ssids[i].ssid_len);
+	for (i = 0; i < param->u.scan_req.ssids_num; i++) {
+		param->u.scan_req.ssids[i].ssid_len = params->ssids[i].ssid_len;
+		os_memcpy(param->u.scan_req.ssids[i].ssid, params->ssids[i].ssid, param->u.scan_req.ssids[i].ssid_len);
 #if CFG_SUPPORT_BSSID_CONNECT
-        os_memcpy(param->u.scan_req.ssids[i].bssid, params->ssids[i].bssid, sizeof(param->u.scan_req.ssids[i].bssid));
+		os_memcpy(param->u.scan_req.ssids[i].bssid, params->ssids[i].bssid, sizeof(param->u.scan_req.ssids[i].bssid));
 #endif
-    }
+	}
 
-    if (hostapd_ioctl(drv, param, blen))
-    {
-        ret = -1;
-    }
+	freqs = params->freqs;
+	if (freqs) {
+		for (i = 0; i < ARRAY_SIZE(param->u.scan_req.freqs); i++, freqs++) {
+			if (!*freqs)
+				break;
+			param->u.scan_req.freqs[i] = *freqs;
+		}
+	}
 
-    os_free(buf);
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
 
-    return ret;
+	os_free(buf);
+
+	return ret;
 }
+
 
 struct wpa_scan_results *wpa_driver_get_scan_results2(void *priv)
 {
@@ -1647,14 +1669,12 @@ int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)
     param = (struct prism2_hostapd_param *)buf;
     param->cmd = PRISM2_HOSTAPD_ASSOC_REQ;
     param->vif_idx = drv->vif_index;
-	if(params->auth_alg & WPA_AUTH_ALG_OPEN)
-	{
+	if (params->auth_alg & WPA_AUTH_ALG_OPEN)
 		param->u.assoc_req.auth_alg = HOSTAP_AUTH_OPEN;
-	}
-	else
-	{
+	else if (params->auth_alg & WPA_AUTH_ALG_SHARED)
 		param->u.assoc_req.auth_alg = HOSTAP_AUTH_SHARED;
-	}
+	else if (params->auth_alg & WPA_AUTH_ALG_SAE)
+		param->u.assoc_req.auth_alg = HOSTAP_AUTH_SAE;
     os_memcpy(param->u.assoc_req.bssid, params->bssid, ETH_ALEN);
     param->u.assoc_req.ssid_len = params->ssid_len;
     os_memcpy(param->u.assoc_req.ssid, params->ssid, param->u.assoc_req.ssid_len);
@@ -1972,6 +1992,34 @@ int wpa_driver_deauthenticate(void *priv, const u8 *addr, u16 reason_code)
     return ret;
 }
 
+#ifdef CONFIG_SAE_EXTERNAL
+int wpa_driver_send_external_auth_status(void *priv,
+		struct external_auth *params)
+{
+	struct hostap_driver_data *drv = priv;
+	struct prism2_hostapd_param *param;
+	u8 *buf;
+	size_t blen;
+	int ret = 0;
+
+	blen = sizeof(*param);
+	buf = os_zalloc(blen);
+	if (buf == NULL)
+		return -1;
+
+	param = (struct prism2_hostapd_param *)buf;
+	param->cmd = PRISM2_HOSTAPD_EXTERNAL_AUTH_STATUS;
+	param->vif_idx = drv->vif_index;
+	param->u.external_auth_status.status = params->status;
+	if (hostapd_ioctl(drv, param, blen))
+		ret = -1;
+
+	os_free(buf);
+
+	return ret;
+}
+#endif
+
 const struct wpa_driver_ops wpa_driver_hostap_ops =
 {
     .name = "hostap_beken",
@@ -2018,5 +2066,8 @@ const struct wpa_driver_ops wpa_driver_hostap_ops =
     .get_mac_addr = wpa_driver_get_mac,
     .get_capa = wpa_driver_get_capa,
     .set_operstate = wpa_driver_set_operstate,
+#ifdef CONFIG_SAE_EXTERNAL
+    .send_external_auth_status  = wpa_driver_send_external_auth_status,
+#endif
 };
 

@@ -23,16 +23,11 @@
 #include "ap/ap_drv_ops.h"
 #include "common/eapol_common.h"
 #include "signal.h"
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "wpa_ctrl.h"
 #endif
+#include "main_none.h"
 
-beken_thread_t  hostapd_thread_handle = NULL;
-extern beken_thread_t wpas_thread_handle;
-uint32_t  hostapd_stack_size = 4000;
-beken_semaphore_t hostapd_sema = NULL;
-beken_semaphore_t wpa_hostapd_sema = NULL;
-void *wpa_hostapd_param = NULL;
 beken_queue_t wpah_queue = NULL;
 static struct hapd_global s_hapd_global;
 struct hapd_interfaces g_hapd_interfaces;
@@ -41,13 +36,13 @@ char *bss_iface = "wlan0";
 
 extern int ap_channel_switch(struct hostapd_iface *ap_iface, int new_freq);
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 struct hapd_interfaces *hostapd_ctrl_get_interfaces()
 {
 	return &g_hapd_interfaces;
 }
 #endif
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 int hostap_interfaces_is_valid(void)
 {
 	return ((g_hapd_interfaces.iface) && (0 < g_hapd_interfaces.count));
@@ -158,7 +153,7 @@ struct hostapd_config *hostapd_config_read(const char *fname)
 	return conf;
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 static int hostapd_config_parse_key_mgmt(int line, const char *value)
 {
 	int val = 0, last;
@@ -260,6 +255,7 @@ static int hostapd_config_read_wep(struct hostapd_wep_keys *wep, int keyidx, cha
 	return 0;
 }
 
+__maybe_unused static int hostapd_parse_chanlist(struct hostapd_config *conf, char *val);
 static int hostapd_parse_chanlist(struct hostapd_config *conf, char *val)
 {
 	char *pos;
@@ -607,7 +603,7 @@ int hostapd_set_iface(struct hostapd_config *conf,
 
 	return 0;
 }
-#endif /* CFG_NEW_SUPP */
+#endif /* CFG_WPA_CTRL_IFACE */
 
 /**
  * hostapd_driver_init - Preparate driver interface
@@ -819,6 +815,7 @@ static int hostapd_global_run(struct hapd_interfaces *ifaces, int daemonize,
 	return 0;
 }
 
+__maybe_unused static const char * hostapd_msg_ifname_cb(void *ctx);
 static const char * hostapd_msg_ifname_cb(void *ctx)
 {
 	struct hostapd_data *hapd = ctx;
@@ -832,9 +829,21 @@ static void hostapd_periodic(void *eloop_ctx, void *timeout_ctx)
 {
 }
 
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+static bool s_hapd_init_completed = false;
+bool hostapd_is_init_completed(void)
+{
+	return s_hapd_init_completed;
+}
+#endif
+
 int hostapd_main_exit(void)
 {
 	size_t i;
+
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	s_hapd_init_completed = false;
+#endif
 
 	if (0 == g_hapd_interfaces.count)
 		return 0;
@@ -899,17 +908,15 @@ int hostapd_main_entry(int argc, char *argv[])
 #ifdef CONFIG_DPP
 	struct dpp_global_config dpp_conf;
 #endif /* CONFIG_DPP */
-	//char *ap_iface_buf = CFG_AP_IFACE_CONFIG;	//"bss_config= wlan0"
 
-	//ap_iface_buf = os_zalloc(strlen(CFG_AP_IFACE_CONFIG) + 2);
-	//if (0 == ap_iface_buf)
-	//	return -1;
-
-	//os_memcpy(ap_iface_buf, CFG_AP_IFACE_CONFIG,(strlen(CFG_AP_IFACE_CONFIG) + 1));
 	if (os_program_init()) {
 		//os_free(ap_iface_buf);
 		return -1;
 	}
+
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	s_hapd_init_completed = false;
+#endif
 
 	os_memset(&g_hapd_interfaces, 0, sizeof(g_hapd_interfaces));
 	g_hapd_interfaces.reload_config  = hostapd_reload_config;
@@ -1014,16 +1021,11 @@ int hostapd_main_entry(int argc, char *argv[])
 			goto out;
 	}
 
-	//hostapd_global_ctrl_iface_init(&interfaces);
-#if 0//def NOT_USED
-	hostapd_add_iface(&g_hapd_interfaces, ap_iface_buf);	//ap_iface_buf: "bss_config= wlan0"
-#endif
-
 	ret = 0;
 
-	//os_free(ap_iface_buf);
-	//ap_iface_buf = NULL;
-
+#if HOSTAP_THREAD_SAFE_WORKAROUND
+	s_hapd_init_completed = true;
+#endif
 	return ret;
 
 out:
@@ -1047,7 +1049,7 @@ out:
 	dpp_global_deinit(g_hapd_interfaces.dpp);
 #endif /* CONFIG_DPP */
 
-#if (!CFG_NEW_SUPP)
+#if (!CFG_WPA_CTRL_IFACE)
 	eloop_signals_remove_signal(SIGCSA);
 #endif
 	eloop_cancel_timeout(hostapd_periodic, &g_hapd_interfaces, NULL);
@@ -1069,6 +1071,7 @@ out:
 }
 
 
+__maybe_unused static void hostapd_thread_main( void *arg );
 static void hostapd_thread_main( void *arg )
 {
 	int daemonize = 0;
@@ -1081,14 +1084,14 @@ static void hostapd_thread_main( void *arg )
 
 int hostapd_channel_switch(int new_freq)
 {
-#if CFG_NEW_SUPP
-	return wpa_ctrl_request_async(WPA_CTRL_CMD_AP_CHAN_SWITCH, &new_freq);
+#if CFG_WPA_CTRL_IFACE
+	return wpa_ctrl_request_async(WPA_CTRL_CMD_AP_CHAN_SWITCH, (void *)new_freq);
 #else
     return ap_channel_switch(g_hapd_interfaces.iface[0], new_freq);
 #endif
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 int wpa_hostapd_queue_command(wpah_msg_t *msg)
 {
 	int ret = -1;
@@ -1113,7 +1116,7 @@ uint32_t wpa_hostapd_queue_poll(uint32_t param)
 	if (NULL == wpah_queue)
 		goto poll_exit;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	msg.cmd = WPA_CTRL_CMD_SOCKET;;
 #endif
 	msg.argu = (u32)param;

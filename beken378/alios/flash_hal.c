@@ -81,7 +81,7 @@ OSStatus bk_flash_write(bk_partition_t inPartition, volatile uint32_t off_set, u
     ASSERT(DD_HANDLE_UNVALID != flash_hdl);
 
     GLOBAL_INT_DISABLE();
-    ddev_write(flash_hdl, inBuffer, inBufferLength, start_addr);
+    ddev_write(flash_hdl, (char*)inBuffer, inBufferLength, start_addr);
     GLOBAL_INT_RESTORE();
 
     return kNoErr;
@@ -104,7 +104,7 @@ OSStatus bk_flash_read(bk_partition_t inPartition, volatile uint32_t off_set, ui
     ASSERT(DD_HANDLE_UNVALID != flash_hdl);
 
     GLOBAL_INT_DISABLE();
-    ddev_read(flash_hdl, outBuffer, inBufferLength, start_addr);
+    ddev_read(flash_hdl, (char*)outBuffer, inBufferLength, start_addr);
     GLOBAL_INT_RESTORE();
 
     return kNoErr;

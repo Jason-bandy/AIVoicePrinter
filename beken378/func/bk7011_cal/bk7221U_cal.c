@@ -2564,6 +2564,7 @@ extern void manual_cal_11b_2_ble(void);
 INT32 bk7011_cal_auto_tx_power(void)
 {
     extern UINT32 g_dif_g_n40;
+    extern UINT32 g_dif_g_n20;
 
     // tx sinewave setting
     BK7011RCBEKEN.REG0x4C->bits.TESTPATTERN = 1;
@@ -2616,7 +2617,7 @@ INT32 bk7011_cal_auto_tx_power(void)
     BK7011TRX.REG0xC->bits.dgainbuf30 = 6;
     CAL_WR_TRXREGS(0xC);
 
-    UINT32 channel, rate, pwr_idx, tssi_thred;
+    UINT32 channel, rate, pwr_idx, tssi_thred, pwr_idx_a;
     
     rate = EVM_DEFUALT_RATE;
     tssi_thred = gtx_tssi_thred_g;
@@ -2627,20 +2628,26 @@ INT32 bk7011_cal_auto_tx_power(void)
     channel = 1;
     pwr_idx = bk7011_do_atuo_tx_cal(channel, rate, tssi_thred, tssi_offset);
     manual_cal_save_txpwr(rate, channel, pwr_idx);
-    pwr_idx = (pwr_idx > g_dif_g_n40) ? (pwr_idx - g_dif_g_n40) : 0;
-    manual_cal_save_txpwr(135, 3, pwr_idx);
+    pwr_idx_a = (pwr_idx > g_dif_g_n20) ? (pwr_idx - g_dif_g_n20) : 0;
+    manual_cal_save_txpwr(127, 1, pwr_idx_a);
+    pwr_idx_a = (pwr_idx > g_dif_g_n40) ? (pwr_idx - g_dif_g_n40) : 0;
+    manual_cal_save_txpwr(135, 3, pwr_idx_a);
 
     channel = 7;
     pwr_idx = bk7011_do_atuo_tx_cal(channel, rate, tssi_thred, tssi_offset);
     manual_cal_save_txpwr(rate, channel, pwr_idx);
-    pwr_idx = (pwr_idx > g_dif_g_n40) ? (pwr_idx - g_dif_g_n40) : 0;
-    manual_cal_save_txpwr(135, 7, pwr_idx);
+    pwr_idx_a = (pwr_idx > g_dif_g_n20) ? (pwr_idx - g_dif_g_n20) : 0;
+    manual_cal_save_txpwr(127, 7, pwr_idx_a);
+    pwr_idx_a = (pwr_idx > g_dif_g_n40) ? (pwr_idx - g_dif_g_n40) : 0;
+    manual_cal_save_txpwr(135, 7, pwr_idx_a);
     
     channel = 13;
     pwr_idx = bk7011_do_atuo_tx_cal(channel, rate, tssi_thred, tssi_offset);
     manual_cal_save_txpwr(rate, channel, pwr_idx);
-    pwr_idx = (pwr_idx > g_dif_g_n40) ? (pwr_idx - g_dif_g_n40) : 0;
-    manual_cal_save_txpwr(135, 11, pwr_idx);
+    pwr_idx_a = (pwr_idx > g_dif_g_n20) ? (pwr_idx - g_dif_g_n20) : 0;
+    manual_cal_save_txpwr(127, 13, pwr_idx_a);
+    pwr_idx_a = (pwr_idx > g_dif_g_n40) ? (pwr_idx - g_dif_g_n40) : 0;
+    manual_cal_save_txpwr(135, 11, pwr_idx_a);
     bk7011_do_atuo_tx_cal_print("end 11g: tssi_thred:%d\r\n", tssi_thred);
 
 
@@ -3881,7 +3888,7 @@ void bk7011_rx_cal_en(void)
 INT32 bk7011_cal_rx_dc(void)
 {
     INT32 index = 0;
-    INT32 i, j, k, t, curr, value;
+    INT32 i, j, k, curr, value;
     UINT32 rx_dc_gain_tab_temp[8];
     UINT32 rx_dc_gain_tab_temp1[8];
 
@@ -4078,9 +4085,9 @@ INT32 bk7011_cal_rx_iq(INT32 *val)
     INT32 gold_index = 0;
     INT32 i, curr, value, value1, value2;
 
-    do 
+    do
     {
-        int ret_i, tx_ifilter, ret_q, tx_qfilter;
+        int ret_i, ret_q;
 
         if(manual_cal_need_load_cmtag_from_flash() == 0)
         {

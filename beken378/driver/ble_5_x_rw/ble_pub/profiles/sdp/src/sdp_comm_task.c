@@ -102,6 +102,8 @@ static int sdp_read_info_req_handler(kernel_msg_id_t const msgid,
 		if(sdp_env != NULL)
 		{
 			prf_read_char_send(&(sdp_env->prf_env), conhdl,handle, handle, handle);
+		}else{
+			bk_printf("[%s]sdp_env == NULL\r\n",__FUNCTION__);
 		}
 	}
 	else if(SDPC_OPERATE_UUID == param->type)
@@ -268,7 +270,9 @@ static int sdp_write_value_info_req_handler(kernel_msg_id_t const msgid,
 		}
 		else
 		{
-			bk_printf("param operation or val_prop error =  0x%02x,0x%02x\r\n",operation,val_prop);
+			uint8_t con_idx = BLE_APP_INITING_GET_INDEX(KERNEL_IDX_GET(src_id));
+			bk_printf("param operation or val_prop error(conidx:%d) =  0x%02x,0x%02x\r\n",con_idx,operation,val_prop);
+			app_ble_next_operation(con_idx,ERR_ATTC_WRITE);
 			return (msg_status);
 		}
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
@@ -278,8 +282,11 @@ static int sdp_write_value_info_req_handler(kernel_msg_id_t const msgid,
 	}
 	else
 	{
-		bk_printf("param unvalid handle =  0x%02x\r\n",param->handle);
+		uint8_t con_idx = BLE_APP_INITING_GET_INDEX(KERNEL_IDX_GET(src_id));
+		bk_printf("param unvalid handle(conidx:%d) =  0x%02x\r\n",con_idx,param->handle);
+		app_ble_next_operation(con_idx,ERR_ATTC_WRITE_UNREGISTER);
 	}
+
 	return (msg_status);
 }
 

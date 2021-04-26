@@ -21,6 +21,8 @@ static DD_OPERATIONS i2c2_op =
     i2c2_ctrl
 };
 
+__maybe_unused static void i2c2_set_slave_addr(UINT32 addr);
+__maybe_unused static void i2c2_clk_source_set_26M(void);
 static volatile I2C2_MSG_ST *gi2c2 ;
 
 static void i2c2_set_idle_cr(UINT32 idle_cr)
@@ -255,15 +257,13 @@ static void i2c2_send_start(void)
 	cfg_data |= (int_mode << 6);
 	cfg_data |= I2C2_SMBUS_STA;
 	
-	REG_WRITE(REG_I2C2_STA, cfg_data);	
+	REG_WRITE(REG_I2C2_STA, cfg_data);
 }
 
 static void i2c2_get_message(I2C2_MSG_ST *i2c2_config)
 {
-	UINT32 reg;
-
 	gi2c2 = i2c2_config;
-	
+
     I2C2_PRT("gi2c2.WkMode = 0x%x\r\n",   gi2c2->WkMode);
     I2C2_PRT("gi2c2.SalveID= 0x%x\r\n",   gi2c2->Slave_addr);
     I2C2_PRT("gi2c2.SendAddr = 0x%x\r\n", gi2c2->SendAddr);

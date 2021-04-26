@@ -16,18 +16,19 @@
 
 static int init(void)
 {
-    /* do nothing now */
+	/* do nothing now */
+	return RT_EOK;
 }
 
 static int read(long offset, uint8_t *buf, size_t size)
 {
-    flash_read((unsigned char *)buf, (unsigned long)size, beken_onchip_flash.addr + offset);
+    flash_read((char *)buf, (unsigned long)size, beken_onchip_flash.addr + offset);
     return size;
 }
 
 static int write(long offset, const uint8_t *buf, size_t size)
 {
-    flash_write((unsigned char *)buf, (unsigned long)size, beken_onchip_flash.addr + offset);
+    flash_write((char *)buf, (unsigned long)size, beken_onchip_flash.addr + offset);
 
     return size;
 }

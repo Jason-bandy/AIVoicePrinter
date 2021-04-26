@@ -135,6 +135,7 @@ static u8 * hostapd_eid_erp_info(struct hostapd_data *hapd, u8 *eid)
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static u8 * hostapd_eid_pwr_constraint(struct hostapd_data *hapd, u8 *eid)
 {
 	u8 *pos = eid;
@@ -203,6 +204,7 @@ static u8 * hostapd_eid_pwr_constraint(struct hostapd_data *hapd, u8 *eid)
 
 	return pos;
 }
+#endif
 
 
 static u8 * hostapd_eid_country_add(u8 *pos, u8 *end, int chan_spacing,
@@ -938,6 +940,7 @@ void handle_probe_req(struct hostapd_data *hapd,
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static u8 * hostapd_probe_resp_offloads(struct hostapd_data *hapd,
 					size_t *resp_len)
 {
@@ -974,6 +977,7 @@ static u8 * hostapd_probe_resp_offloads(struct hostapd_data *hapd,
 	/* Generate a Probe Response template for the non-P2P case */
 	return hostapd_gen_probe_resp(hapd, NULL, 0, resp_len);
 }
+#endif
 
 #endif /* NEED_AP_MLME */
 

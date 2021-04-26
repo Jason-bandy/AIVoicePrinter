@@ -6,6 +6,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include "rtos_pub.h"
 
 #define PUB_SD		  1
 
@@ -30,15 +31,6 @@ static void mqtt_client_notice_discon(mqtt_client_session* cs)
 	{
 		cs->offline_callback(cs,MQTT_OFFLINE_EV);
 	}
-}
-
-static void mqtt_client_notice_net_discon(mqtt_client_session* cs)
-{
-	cs->net_is_connected = 0;
-	if (cs->offline_callback)
-    {
-        cs->offline_callback(cs,MQTT_NET_DISCONNECT_EV);
-    }
 }
 
 static int mqtt_send_packet(mqtt_client_session* cs, int length, unsigned int timeout)
@@ -75,7 +67,6 @@ static int mqtt_client_send_disconnect_packet(mqtt_client_session* cs)
 {
 	int rc = PAHO_FAILURE;
 	int len = 0;
-	unsigned int wait_time = cs->command_timeout_ms;
 
 	len = MQTTSerialize_disconnect(cs->buf, cs->buf_size);
     if (len > 0)
@@ -539,7 +530,6 @@ exit:
 void mqtt_core_handler(void)
 {
     int res;
-    unsigned int tick_now;
     fd_set readset;
     struct timeval timeout;
 	struct mqtt_client_session *cs = NULL;
@@ -935,7 +925,7 @@ int mqtt_net_connect(mqtt_client_session* cs,char *host,int port)
 {
 	if( !cs->net_is_connected )
 	{
-		cs->netport.net_api->mqtt_net_connect(&cs->netport,host,port,0);
+		cs->netport.net_api->mqtt_net_connect((tmqtt_client_netport *)&cs->netport, (unsigned char*)host,port,0);
 		TMQTT_LOG("netport.socket:%d\r\n",cs->netport.socket);
 		if(cs->netport.socket >= 0)
 		{

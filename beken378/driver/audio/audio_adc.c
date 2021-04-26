@@ -479,11 +479,10 @@ static UINT32 audio_adc_close(void)
 static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     int fill_size;
-    UINT8 *read, *write;
 
     if(aud_adc.status != AUD_ADC_STA_PLAYING)
         return 0;
-    if(aud_adc.mode & AUD_ADC_MODE_DMA_BIT) 
+    if(aud_adc.mode & AUD_ADC_MODE_DMA_BIT)
     {
         #if CFG_GENERAL_DMA
         RB_DMA_WR_PTR rb;
@@ -491,19 +490,19 @@ static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag)
         fill_size = rb_get_fill_size_dma_write(rb);
         if(fill_size > count)
             fill_size = count;
-        rb_read_dma_write(rb, user_buf, fill_size, 1);
+        rb_read_dma_write(rb, (UINT8*)user_buf, fill_size, 1);
         #endif
-    } 
-    else 
+    }
+    else
     {
         RB_PTR rb;
-        
+
         rb = &aud_adc.u.rb;
         fill_size = rb_get_fill_size(rb);
         if(fill_size > count)
             fill_size = count;
-            
-        rb_read(rb, user_buf, fill_size, 1);
+
+        rb_read(rb, (UINT8*)user_buf, fill_size, 1);
     }
 
     return fill_size;
@@ -512,7 +511,6 @@ static UINT32 audio_adc_read(char *user_buf, UINT32 count, UINT32 op_flag)
 static UINT32 audio_adc_get_fill_buf_size(void)
 {
     int free_size;
-    UINT8 *read, *write;
 
     if(aud_adc.status != AUD_ADC_STA_PLAYING)
         return 0;

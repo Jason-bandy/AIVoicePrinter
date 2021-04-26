@@ -200,6 +200,7 @@ static int ieee802_11_parse_vendor_specific(const u8 *pos, size_t elen,
 }
 
 
+#if defined(CONFIG_FULL_SUPPLICANT) || defined(CONFIG_FULL_HOSTAPD)
 static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 				      struct ieee802_11_elems *elems,
 				      int show_errors)
@@ -304,6 +305,7 @@ static int ieee802_11_parse_extension(const u8 *pos, size_t elen,
 
 	return 0;
 }
+#endif
 
 
 /**

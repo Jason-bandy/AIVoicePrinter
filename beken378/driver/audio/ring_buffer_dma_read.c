@@ -11,10 +11,10 @@
 #define RWP_SAFE_INTERVAL           (4)
 
 #define RB_DMA_RD_MEMCPY                   os_memcpy
-#define RB_DMA_RD_INT_DECLARATION()        
-#define RB_DMA_RD_INT_DISABLE()            
+#define RB_DMA_RD_INT_DECLARATION()
+#define RB_DMA_RD_INT_DISABLE()
 #define RB_DMA_RD_INT_RESTORE()
-#define RB_DMA_RD_PRT                      //os_printf                   
+#define RB_DMA_RD_PRT(...)
 
 void rb_init_dma_read(RB_DMA_RD_PTR rb, UINT8 *addr, UINT32 capacity, UINT32 ch)
 {

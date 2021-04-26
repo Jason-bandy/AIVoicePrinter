@@ -118,9 +118,8 @@ void ps_timer02_restore(void)
 
 UINT32 ps_timer2_get(void)
 {
-    UINT32 reg;
-
 #if (CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)
+    UINT32 reg;
     reg = REG_READ(TIMER0_2_READ_CTL);
     reg &= ~(TIMER0_2_READ_INDEX_MASK << TIMER0_2_READ_INDEX_POSI);
     reg |= (TIMER0_2_READ_INDEX_2 << TIMER0_2_READ_INDEX_POSI);
@@ -135,6 +134,8 @@ UINT32 ps_timer2_get(void)
     while(REG_READ(TIMER0_2_READ_CTL) & TIMER0_2_READ_OP_BIT);
     reg = REG_READ(TIMER0_2_READ_VALUE);
     return (reg/26000);
+#else
+	return 0;
 #endif
 
 }

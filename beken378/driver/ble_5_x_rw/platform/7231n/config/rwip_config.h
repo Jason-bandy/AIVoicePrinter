@@ -38,21 +38,21 @@
 #include "user_config.h"
 #include "sys_config.h"
 
-#ifndef CFG_BLE_MASTER_ROLE_NUM
-///config ble master role number
-#define CFG_BLE_MASTER_ROLE_NUM                   0
+#ifndef CFG_BLE_ADV_NUM
+/// adv number
+#define CFG_BLE_ADV_NUM			1
 #endif
-#ifndef CFG_BLE_SLAVE_ADV_NUM
-///adv number
-#define CFG_BLE_SLAVE_ADV_NUM                     1
+#ifndef CFG_BLE_SCAN_NUM
+/// scan number
+#define CFG_BLE_SCAN_NUM		1
 #endif
-#ifndef CFG_BLE_SLAVE_ROLE_CONN_NUM
+#ifndef CFG_BLE_INIT_NUM
 ///slave role connect number
-#define CFG_BLE_SLAVE_ROLE_CONN_NUM               1
+#define CFG_BLE_INIT_NUM		0
 #endif
-#ifndef CFG_BLE_SCAN_ROLE_NUM
+#ifndef CFG_BLE_CONN_NUM
 ///enable ble scan
-#define CFG_BLE_SCAN_ROLE_NUM                     1
+#define CFG_BLE_CONN_NUM		1
 #endif
 
 /*
@@ -81,7 +81,11 @@
 // 		<3=> CENTRAL
 // 		<4=> ALLROLES
 //    <i> Select Role
-#define CFG_ROLE 4
+#if ((CFG_BLE_SCAN_NUM) || (CFG_BLE_INIT_NUM))
+#define CFG_ROLE	4
+#else
+#define CFG_ROLE	2
+#endif
 
 #if ( CFG_ROLE == 0)
   #define CFG_BROADCASTER
@@ -103,10 +107,10 @@
   #define CFG_ALLROLES
 #endif
 
-#if defined(CFG_BLE_MASTER_ROLE_NUM)
-#define CFG_INIT_ENABLE       CFG_BLE_MASTER_ROLE_NUM
+#if (CFG_BLE_INIT_NUM)
+#define CFG_INIT_ENABLE		1
 #else
-#define CFG_INIT_ENABLE       1
+#define CFG_INIT_ENABLE		0
 #endif
 
 //   <e> CFG_EMB
@@ -218,13 +222,7 @@
 
 //	 <o> CFG_CON <1-10>
 //   <i> CFG MAX CONNECT NUM (1 -- 10)
-#if ( defined(CFG_BLE_MASTER_ROLE_NUM) && CFG_BLE_MASTER_ROLE_NUM )
-#define CFG_CON			CFG_BLE_SLAVE_ROLE_CONN_NUM + CFG_BLE_MASTER_ROLE_NUM
-#elif ( defined(CFG_BLE_SLAVE_ROLE_CONN_NUM) && CFG_BLE_SLAVE_ROLE_CONN_NUM )
-#define CFG_CON			CFG_BLE_SLAVE_ROLE_CONN_NUM
-#else
-#define CFG_CON			2
-#endif
+#define CFG_CON			CFG_BLE_CONN_NUM
 
 #if ( CFG_CON >= 10 )
 #error "CFG_CON >= 10"
@@ -238,20 +236,10 @@
 
 //	 <o> CFG_ACT <1-10>
 //   <i> CFG NUMBER OF ACTIVITIES IN BLE SIMULTANEOUS (1 -- 10)
-#if ( defined(CFG_BLE_MASTER_ROLE_NUM) && CFG_BLE_MASTER_ROLE_NUM )
-#define CFG_ACT			CFG_BLE_SLAVE_ADV_NUM + CFG_BLE_SCAN_ROLE_NUM + CFG_BLE_MASTER_ROLE_NUM
-#elif ( defined(CFG_BLE_SLAVE_ROLE_CONN_NUM) && CFG_BLE_SLAVE_ROLE_CONN_NUM )
-#define CFG_ACT			CFG_BLE_SLAVE_ADV_NUM + CFG_BLE_SCAN_ROLE_NUM
-#else
-#define CFG_ACT			3
-#endif
-
-#if CFG_CON >= CFG_ACT
-#define CFG_ACT			CFG_CON + 1
-#endif
+#define CFG_ACT			CFG_BLE_ADV_NUM + CFG_BLE_SCAN_NUM + CFG_BLE_INIT_NUM + CFG_BLE_CONN_NUM
 
 #if (CFG_ACT >= 10)
-#error "CFG_CON >= 10"
+#error "CFG_ACT >= 10"
 #elif (CFG_ACT == 0)
 #error "CFG_ACT == 0"
 #endif
@@ -689,7 +677,7 @@
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0
 #else // RIPPLE
 #define BLE_PHY_1MBPS_SUPPORT                       1
-#define BLE_PHY_2MBPS_SUPPORT                       0
+#define BLE_PHY_2MBPS_SUPPORT                       1
 #define BLE_PHY_CODED_SUPPORT                       1
 #define BLE_STABLE_MOD_IDX_TX_SUPPORT               0
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0

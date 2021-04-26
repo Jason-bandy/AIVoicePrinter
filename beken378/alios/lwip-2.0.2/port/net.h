@@ -1,6 +1,8 @@
 #ifndef _NET_H_
 #define _NET_H_
 
+#include "lwip_netif_address.h"
+
 extern void uap_ip_down(void);
 extern void uap_ip_start(void);
 extern void sta_ip_down(void);

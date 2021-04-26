@@ -84,20 +84,21 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
     char *lan_buf = RT_NULL;
     uint16_t lan_buf_len;
     struct pbuf *q = RT_NULL;
+	err_t lwip_ret = ERR_OK;
 
-    DEBUG_PRINTF("recv %d byte from(%s , %d)\n", p->tot_len, ipaddr_ntoa(recv_addr), port);
+    //DEBUG_PRINTF("recv %d byte from(%s , %d)\n", p->tot_len, ipaddr_ntoa(recv_addr), port);
 
     lan_buf_len = (p->tot_len > AIRKISS_LAN_BUF_LEN)?(p->tot_len):AIRKISS_LAN_BUF_LEN;
     lan_buf_len += 4;
 
     if(p->tot_len == p->len)
     {
-        DEBUG_PRINTF("same tot_len&len, use payload for airkiss_lan_recv!\n");
+        //DEBUG_PRINTF("same tot_len&len, use payload for airkiss_lan_recv!\n");
         ret = airkiss_lan_recv(p->payload, p->tot_len, &ak_conf);
     }
     else
     {
-        DEBUG_PRINTF("diff tot_len&len, use malloc for airkiss_lan_recv!\n");
+        //DEBUG_PRINTF("diff tot_len&len, use malloc for airkiss_lan_recv!\n");
         lan_buf = rt_malloc(lan_buf_len);
         if(lan_buf)
         {
@@ -110,7 +111,7 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
     {
         case AIRKISS_LAN_SSDP_REQ:
         {
-            DEBUG_PRINTF("AIRKISS_LAN_SSDP_REQ!\n");
+            //DEBUG_PRINTF("AIRKISS_LAN_SSDP_REQ!\n");
         
             if(!lan_buf)
             {
@@ -131,23 +132,23 @@ static void airkiss_lan_handler(void *arg, struct udp_pcb *pcb, struct pbuf *p, 
                 goto _exit;
             }
 
-            DEBUG_PRINTF("alloc pbuf for send! %d\n", lan_buf_len);
+            //DEBUG_PRINTF("alloc pbuf for send! %d\n", lan_buf_len);
             q = pbuf_alloc(PBUF_TRANSPORT, lan_buf_len, PBUF_RAM);
             if (q)
             {
                 pbuf_take(q, lan_buf, lan_buf_len);
-                packret = udp_sendto(pcb, q, recv_addr, port);
-                DEBUG_PRINTF("pack %d byte to(%s , %d)\n", lan_buf_len, ipaddr_ntoa(recv_addr), port);
+                lwip_ret = udp_sendto(pcb, q, recv_addr, port);
+                //DEBUG_PRINTF("pack %d byte to(%s , %d)\n", lan_buf_len, ipaddr_ntoa(recv_addr), port);
             }
             else
             {
                 DEBUG_PRINTF("no memory for send alloc!\n");
-                packret = ERR_MEM;
+                lwip_ret = ERR_MEM;
             }
 
-            if (packret != ERR_OK)
+            if (lwip_ret != ERR_OK)
             {
-                DEBUG_PRINTF("LAN UDP Send err! %d:%d\n", packret, lan_buf_len);
+                DEBUG_PRINTF("LAN UDP Send err! %d:%d\n", lwip_ret, lan_buf_len);
             }
         }
         break;

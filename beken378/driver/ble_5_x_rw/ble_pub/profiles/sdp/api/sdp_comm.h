@@ -16,6 +16,7 @@
 #include "prf_utils.h"
 #include "sdp_comm_task.h"
 #include "gattc_task.h"
+#include "ble_api_5_x.h"
 
 ///#define BLE_NB_PROFILES_ADD_MAX ( BLE_NB_PROFILES )
 #define BLE_NB_PROFILES_ADD_MAX ( 20 )

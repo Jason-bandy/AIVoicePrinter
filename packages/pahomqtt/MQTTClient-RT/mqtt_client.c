@@ -417,8 +417,8 @@ static int send_packet(mqtt_client *c, void *buf, int length)
 {
   int total = 0;                  // how many bytes we've sent
   int bytesleft = length;         // how many we have left to send
-  int rc;
-  
+  int rc = 0;
+
 #ifdef MQTT_USING_TLS
   if (c->tls_session) {
     while(total < length) {

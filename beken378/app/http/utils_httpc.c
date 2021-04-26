@@ -1,7 +1,6 @@
 /*
  * Copyright (C) 2015-2017 Alibaba Group Holding Limited
  */
-
 #include <string.h>
 #include <stddef.h>
 #include "include.h"
@@ -9,11 +8,14 @@
 #include "lite-log.h"
 #include "utils_httpc.h"
 #include "uart_pub.h"
-#include "flash_pub.h"
 #include "mem_pub.h"
 #include "str_pub.h"
 
+#if HTTP_WR_TO_FLASH
+#include "flash_pub.h"
+#endif
 
+#if CFG_SUPPORT_OTA_HTTP
 #define HTTPCLIENT_MIN(x,y) (((x)<(y))?(x):(y))
 #define HTTPCLIENT_MAX(x,y) (((x)>(y))?(x):(y))
 
@@ -29,7 +31,7 @@
 
 extern void flash_protection_op(UINT8 mode,PROTECT_TYPE type);
 
-#if CFG_SUPPORT_OTA_HTTP
+#if CFG_SUPPORT_OTA_TFTP
 #define HTTP_FLASH_WR_BUF_MAX WR_BUF_MAX
 #else
 #define HTTP_FLASH_WR_BUF_MAX   1024
@@ -39,10 +41,9 @@ extern void flash_protection_op(UINT8 mode,PROTECT_TYPE type);
 HTTP_DATA_ST bk_http = {
     .http_total = 0,
     .do_data = 0,
-#if HTTP_WR_TO_FLASH   
+#if HTTP_WR_TO_FLASH
     .wr_buf = NULL,
     .wr_last_len = 0,
-    .flash_address = HTTP_FLASH_ADDR,
     .wr_tmp_buf = NULL,
 #endif
 };
@@ -424,136 +425,112 @@ int httpclient_recv(httpclient_t *client, char *buf, int min_len, int max_len, i
         return ERROR_HTTP_CONN;
     }
     log_info("%u bytes has been read", *p_read_len);
+	
     return 0;
-
-
 }
 
-
 #if HTTP_WR_TO_FLASH
-
-void http_flash_wr ( UINT8 *src, unsigned len)
+void http_flash_wr(UINT8 *src, unsigned len)
 {
-    UINT32 param , or_crc;
-    UINT32 param1;
-    GLOBAL_INT_DECLARATION();
+	UINT32 param;
+	GLOBAL_INT_DECLARATION();
 
-    if(bk_http_ptr->flash_address % 0x1000 == 0)
-    {
-        param = bk_http_ptr->flash_address;
-        GLOBAL_INT_DISABLE();
-        ddev_control(bk_http_ptr->flash_hdl, CMD_FLASH_ERASE_SECTOR, (void *)&param);
-        GLOBAL_INT_RESTORE();
-    }
+	if (bk_http_ptr->flash_address % 0x1000 == 0) {
+		param = bk_http_ptr->flash_address;
+		GLOBAL_INT_DISABLE();
+		ddev_control(bk_http_ptr->flash_hdl, CMD_FLASH_ERASE_SECTOR, (void *)&param);
+		GLOBAL_INT_RESTORE();
+	}
 
-    if((u32)bk_http_ptr->flash_address >= 0x200000 || (u32)bk_http_ptr->flash_address < 0x27000)
-    {
-        os_printf ("err_addr:%x \r\n", bk_http_ptr->flash_address);
-        return;
-    }
+	if (((u32)bk_http_ptr->flash_address >= bk_http_ptr->pt->partition_start_addr)
+		&& (((u32)bk_http_ptr->flash_address + len) < (bk_http_ptr->pt->partition_start_addr + bk_http_ptr->pt->partition_length))) {
+		GLOBAL_INT_DISABLE();
+		ddev_write(bk_http_ptr->flash_hdl, (char *)src, len, (u32)bk_http_ptr->flash_address);
+		GLOBAL_INT_RESTORE();
+		if (bk_http_ptr->wr_tmp_buf) {
+			GLOBAL_INT_DISABLE();
+			ddev_read(bk_http_ptr->flash_hdl, (char *)bk_http_ptr->wr_tmp_buf, len, (u32)bk_http_ptr->flash_address);
+			GLOBAL_INT_RESTORE();
+			if (!os_memcmp(src, bk_http_ptr->wr_tmp_buf, len)) {
+			} else
+				os_printf("wr flash write err\n");
+		}
 
-    if((u32)bk_http_ptr->flash_address < 0x400000)
-    {
-    
-
-        GLOBAL_INT_DISABLE();
-        ddev_write(bk_http_ptr->flash_hdl, src, len, (u32)bk_http_ptr->flash_address);
-        GLOBAL_INT_RESTORE();
-        if(bk_http_ptr->wr_tmp_buf)
-        {
-            GLOBAL_INT_DISABLE();
-            ddev_read(bk_http_ptr->flash_hdl, bk_http_ptr->wr_tmp_buf, len , (u32)bk_http_ptr->flash_address);
-            GLOBAL_INT_RESTORE();
-            if(!os_memcmp(src , bk_http_ptr->wr_tmp_buf, len ))
-            {
-            }
-            else
-            {
-                os_printf ("wr flash write err\n");
-            }
-        }
-        
-        bk_http_ptr->flash_address += len;
-        //os_printf("ad %x.\r\n",bk_http_ptr->flash_address);
-    }
+		bk_http_ptr->flash_address += len;
+		//os_printf("ad %x.\r\n",bk_http_ptr->flash_address);
+	}
 
 }
 
 
 void http_flash_init(void)
 {
-    UINT32 status;
-    bk_http_ptr->wr_buf = NULL;
-    bk_http_ptr->wr_tmp_buf = NULL;
+	UINT32 status;
+	bk_http_ptr->wr_buf = NULL;
+	bk_http_ptr->wr_tmp_buf = NULL;
 
-    if(!bk_http_ptr->wr_buf)
-        {
-        bk_http_ptr->wr_buf = os_malloc(HTTP_FLASH_WR_BUF_MAX * sizeof(char));
-        if(! bk_http_ptr->wr_buf)
-            {
-                os_printf("wr_buf malloc err\r\n");        
-        }
-    }
+	if (!bk_http_ptr->wr_buf) {
+		bk_http_ptr->wr_buf = os_malloc(HTTP_FLASH_WR_BUF_MAX * sizeof(char));
+		if (! bk_http_ptr->wr_buf)
+			os_printf("wr_buf malloc err\r\n");
+	}
 
-    if(!bk_http_ptr->wr_tmp_buf)
-        {
-        bk_http_ptr->wr_tmp_buf = os_malloc(HTTP_FLASH_WR_BUF_MAX * sizeof(char));
-        if(! bk_http_ptr->wr_tmp_buf)
-            {
-                os_printf("wr_tmp_buf malloc err\r\n");        
-        }
-    }
+	if (!bk_http_ptr->wr_tmp_buf) {
+		bk_http_ptr->wr_tmp_buf = os_malloc(HTTP_FLASH_WR_BUF_MAX * sizeof(char));
+		if (! bk_http_ptr->wr_tmp_buf)
+			os_printf("wr_tmp_buf malloc err\r\n");
+	}
 
-    bk_http_ptr->flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
-    ASSERT(DD_HANDLE_UNVALID != bk_http_ptr->flash_hdl);
-    
-    bk_http_ptr->wr_last_len = 0;
-    ota_wr_block = 0;
-    bk_http_ptr->flash_address = 0xff000;
-    flash_protection_op(FLASH_XTX_16M_SR_WRITE_ENABLE, FLASH_PROTECT_NONE);
+	bk_http_ptr->pt = bk_flash_get_info(BK_PARTITION_OTA);
+	bk_http_ptr->flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
+	ASSERT(DD_HANDLE_UNVALID != bk_http_ptr->flash_hdl);
 
+	bk_http_ptr->wr_last_len = 0;
+	ota_wr_block = 0;
+	bk_http_ptr->flash_address = bk_http_ptr->pt->partition_start_addr;
+
+	bk_flash_enable_security(FLASH_PROTECT_NONE);
+	os_printf("ota write to 0x%x\r\n", bk_http_ptr->flash_address);
 }
 
 void http_flash_deinit(void)
 {
-    os_free(bk_http_ptr->wr_buf);
-    os_free(bk_http_ptr->wr_tmp_buf);
-    bk_http_ptr->wr_buf = NULL;
-    bk_http_ptr->wr_tmp_buf = NULL;
-    bk_http_ptr->wr_last_len = 0; 
-    ota_wr_block = 0;
-    ddev_close(bk_http_ptr->flash_hdl);
-    flash_protection_op(FLASH_XTX_16M_SR_WRITE_ENABLE, FLASH_UNPROTECT_LAST_BLOCK);
+	os_free(bk_http_ptr->wr_buf);
+	os_free(bk_http_ptr->wr_tmp_buf);
+	os_memset(bk_http_ptr, 0, sizeof(HTTP_DATA_ST));
+
+	ota_wr_block = 0;
+	ddev_close(bk_http_ptr->flash_hdl);
+
+	bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
+	os_printf("write over\r\n");
 }
 
 void http_wr_to_flash(char *page, UINT32 len)
 {
-    UINT8 *tmp;
-    UINT32 w_l = 0,i=0;
-    
-    i =0;
-    tmp = (UINT8 *)page;
-    while(i < len )
-    {
-        w_l = min(len - i, HTTP_FLASH_WR_BUF_MAX-bk_http_ptr->wr_last_len);
-        os_memcpy(bk_http_ptr->wr_buf+bk_http_ptr->wr_last_len,tmp+i,w_l);
-        i+=w_l;
-        bk_http_ptr->wr_last_len+=w_l;
-        if(bk_http_ptr->wr_last_len>=HTTP_FLASH_WR_BUF_MAX)
-        {
-            os_printf (".");
-            #if CFG_SUPPORT_OTA_HTTP //support bk ota format
-            store_block(ota_wr_block, bk_http_ptr->wr_buf, HTTP_FLASH_WR_BUF_MAX);
-            ota_wr_block++;   
-            #else                    //direct wrtie to flash
-            http_flash_wr(bk_http_ptr->wr_buf, HTTP_FLASH_WR_BUF_MAX);
-            #endif
-            bk_http_ptr->wr_last_len = 0;
-        }
-    }
+	UINT8 *tmp;
+	UINT32 w_l = 0, i = 0;
+
+	i = 0;
+	tmp = (UINT8 *)page;
+	while (i < len) {
+		w_l = min(len - i, HTTP_FLASH_WR_BUF_MAX - bk_http_ptr->wr_last_len);
+		os_memcpy(bk_http_ptr->wr_buf + bk_http_ptr->wr_last_len, tmp + i, w_l);
+		i += w_l;
+		bk_http_ptr->wr_last_len += w_l;
+		if (bk_http_ptr->wr_last_len >= HTTP_FLASH_WR_BUF_MAX) {
+			os_printf(".");
+#if CFG_SUPPORT_OTA_TFTP//support bk ota format
+			store_block(ota_wr_block, bk_http_ptr->wr_buf, HTTP_FLASH_WR_BUF_MAX);
+			ota_wr_block++;
+#else                    //direct wrtie to flash
+			http_flash_wr(bk_http_ptr->wr_buf, HTTP_FLASH_WR_BUF_MAX);
+#endif
+			bk_http_ptr->wr_last_len = 0;
+		}
+	}
 }
 #endif
-
 
 void http_data_process(char *buf, UINT32 len)
 {
@@ -561,7 +538,6 @@ void http_data_process(char *buf, UINT32 len)
     http_wr_to_flash(buf,len);
     #else
     os_printf("d");
-    //os_printf("len:%d\r\n",len);
     #endif
 }
 
@@ -743,8 +719,8 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
             len -= 2;
         } else {
             log_debug("no more (content-length)");
-#if HTTP_WR_TO_FLASH     
-            #if CFG_SUPPORT_OTA_HTTP //support bk ota format
+#if HTTP_WR_TO_FLASH
+            #if CFG_SUPPORT_OTA_TFTP//support bk ota format
             store_block(ota_wr_block, bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
             #else                    //direct wrtie to flash
             http_flash_wr(bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
@@ -761,126 +737,117 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
 }
 
 int httpclient_response_parse(httpclient_t *client, char *data, int len, uint32_t timeout_ms,
-                              httpclient_data_t *client_data)
+							  httpclient_data_t *client_data)
 {
-    int crlf_pos;
-    iotx_time_t timer;
+	int crlf_pos;
+	iotx_time_t timer;
 
-    iotx_time_init(&timer);
-    utils_time_countdown_ms(&timer, timeout_ms);
+	iotx_time_init(&timer);
+	utils_time_countdown_ms(&timer, timeout_ms);
 
-    client_data->response_content_len = -1;
+	client_data->response_content_len = -1;
 
-    char *crlf_ptr = os_strstr(data, "\r\n");
-    if (crlf_ptr == NULL) {
-        log_err("\r\n not found");
-        return ERROR_HTTP_UNRESOLVED_DNS;
-    }
+	char *crlf_ptr = os_strstr(data, "\r\n");
+	if (crlf_ptr == NULL) {
+		log_err("\r\n not found");
+		return ERROR_HTTP_UNRESOLVED_DNS;
+	}
 
-    crlf_pos = crlf_ptr - data;
-    data[crlf_pos] = '\0';
+	crlf_pos = crlf_ptr - data;
+	data[crlf_pos] = '\0';
 
-    /* Parse HTTP response */
-    if (sscanf(data, "HTTP/%*d.%*d %d %*[^\r\n]", &(client->response_code)) != 1) {
-        /* Cannot match string, error */
-        log_err("Not a correct HTTP answer : %s\n", data);
-        return ERROR_HTTP_UNRESOLVED_DNS;
-    }
+	/* Parse HTTP response */
+	if (sscanf(data, "HTTP/%*d.%*d %d %*[^\r\n]", &(client->response_code)) != 1) {
+		/* Cannot match string, error */
+		log_err("Not a correct HTTP answer : %s\n", data);
+		return ERROR_HTTP_UNRESOLVED_DNS;
+	}
 
-    if ((client->response_code < 200) || (client->response_code >= 400)) {
-        /* Did not return a 2xx code; TODO fetch headers/(&data?) anyway and implement a mean of writing/reading headers */
-        log_warning("Response code %d", client->response_code);
-    }
+	if ((client->response_code < 200) || (client->response_code >= 400)) {
+		/* Did not return a 2xx code; TODO fetch headers/(&data?) anyway and implement a mean of writing/reading headers */
+		log_warning("Response code %d", client->response_code);
+	}
 
-    log_debug("Reading headers%s", data);
+	log_debug("Reading headers%s", data);
 
-    os_memmove(data, &data[crlf_pos + 2], len - (crlf_pos + 2) + 1); /* Be sure to move NULL-terminating char as well */
-    len -= (crlf_pos + 2);
+	os_memmove(data, &data[crlf_pos + 2], len - (crlf_pos + 2) + 1); /* Be sure to move NULL-terminating char as well */
+	len -= (crlf_pos + 2);
 
-    client_data->is_chunked = false;
+	client_data->is_chunked = false;
 
-    /* Now get headers */
-    while (true) {
-        char key[32];
-        char value[32];
-        int n;
+	/* Now get headers */
+	while (true) {
+		char key[32];
+		char value[32];
+		int n;
 
-        key[31] = '\0';
-        value[31] = '\0';
+		key[31] = '\0';
+		value[31] = '\0';
 
-        crlf_ptr = os_strstr(data, "\r\n");
-        if (crlf_ptr == NULL) {
-            if (len < HTTPCLIENT_CHUNK_SIZE - 1) {
-                int new_trf_len, ret;
-                ret = httpclient_recv(client, data + len, 1, HTTPCLIENT_CHUNK_SIZE - len - 1, &new_trf_len, iotx_time_left(&timer));
-                len += new_trf_len;
-                data[len] = '\0';
-                log_debug("Read %d chars; In buf: [%s]", new_trf_len, data);
-                if (ret == ERROR_HTTP_CONN) {
-                    return ret;
-                } else {
-                    continue;
-                }
-            } else {
-                log_debug("header len > chunksize");
-                return ERROR_HTTP;
-            }
-        }
+		crlf_ptr = os_strstr(data, "\r\n");
+		if (crlf_ptr == NULL) {
+			if (len < HTTPCLIENT_CHUNK_SIZE - 1) {
+				int new_trf_len, ret;
+				ret = httpclient_recv(client, data + len, 1, HTTPCLIENT_CHUNK_SIZE - len - 1, &new_trf_len, iotx_time_left(&timer));
+				len += new_trf_len;
+				data[len] = '\0';
+				log_debug("Read %d chars; In buf: [%s]", new_trf_len, data);
+				if (ret == ERROR_HTTP_CONN)
+					return ret;
+				else
+					continue;
+			} else {
+				log_debug("header len > chunksize");
+				return ERROR_HTTP;
+			}
+		}
 
-        crlf_pos = crlf_ptr - data;
-        if (crlf_pos == 0) {
-            /* End of headers */
-            os_memmove(data, &data[2], len - 2 + 1); /* Be sure to move NULL-terminating char as well */
-            len -= 2;
-            break;
-        }
+		crlf_pos = crlf_ptr - data;
+		if (crlf_pos == 0) {
+			/* End of headers */
+			os_memmove(data, &data[2], len - 2 + 1); /* Be sure to move NULL-terminating char as well */
+			len -= 2;
+			break;
+		}
 
-        data[crlf_pos] = '\0';
+		data[crlf_pos] = '\0';
 
-        n = sscanf(data, "%31[^:]: %31[^\r\n]", key, value);
-        if (n == 2) {
-            log_debug("Read header : %s: %s", key, value);
-            if (!os_strcmp(key, "Content-Length")) {
-                sscanf(value, "%d", &(client_data->response_content_len));
-                client_data->retrieve_len = client_data->response_content_len;
-            } else if (!os_strcmp(key, "Transfer-Encoding")) {
-                if (!os_strcmp(value, "Chunked") || !os_strcmp(value, "chunked")) {
-                    client_data->is_chunked = true;
-                    client_data->response_content_len = 0;
-                    client_data->retrieve_len = 0;
-                }
-            }
-            os_memmove(data, &data[crlf_pos + 2], len - (crlf_pos + 2) + 1); /* Be sure to move NULL-terminating char as well */
-            len -= (crlf_pos + 2);
+		n = sscanf(data, "%31[^:]: %31[^\r\n]", key, value);
+		if (n == 2) {
+			log_debug("Read header : %s: %s", key, value);
+			if (!os_strcmp(key, "Content-Length")) {
+				sscanf(value, "%d", &(client_data->response_content_len));
+				client_data->retrieve_len = client_data->response_content_len;
+			} else if (!os_strcmp(key, "Transfer-Encoding")) {
+				if (!os_strcmp(value, "Chunked") || !os_strcmp(value, "chunked")) {
+					client_data->is_chunked = true;
+					client_data->response_content_len = 0;
+					client_data->retrieve_len = 0;
+				}
+			}
+			os_memmove(data, &data[crlf_pos + 2], len - (crlf_pos + 2) + 1); /* Be sure to move NULL-terminating char as well */
+			len -= (crlf_pos + 2);
 
-        } else {
-            log_err("Could not parse header");
-            return ERROR_HTTP;
-        }
-    }
+		} else {
+			log_err("Could not parse header");
+			return ERROR_HTTP;
+		}
+	}
 
-    if(client->response_code != 200)
-        {
-        os_printf("Could not found\r\n");
-        return MQTT_SUB_INFO_NOT_FOUND_ERROR;
-    }
+	if (client->response_code != 200) {
+		os_printf("Could not found\r\n");
+		return MQTT_SUB_INFO_NOT_FOUND_ERROR;
+	}
 
-    return httpclient_retrieve_content(client, data, len, iotx_time_left(&timer), client_data);
+	return httpclient_retrieve_content(client, data, len, iotx_time_left(&timer), client_data);
 }
+
 
 iotx_err_t httpclient_connect(httpclient_t *client)
 {
-    int ret = ERROR_HTTP_CONN;
-
     client->net.handle = 0;
 
-    ret = httpclient_conn(client);
-    //    if (0 == ret)
-    //    {
-    //        client->remote_port = HTTP_PORT;
-    //    }
-
-    return ret;
+    return httpclient_conn(client);
 }
 
 iotx_err_t httpclient_send_request(httpclient_t *client, const char *url, int method, httpclient_data_t *client_data)
@@ -987,6 +954,7 @@ int httpclient_common(httpclient_t *client, const char *url, int port, const cha
         ret = httpclient_recv_response(client, iotx_time_left(&timer), client_data);
         if (ret < 0) {
             log_err("httpclient_recv_response is error,ret = %d", ret);
+            http_flash_deinit();
             httpclient_close(client);
             return ret;
         }
@@ -1015,4 +983,4 @@ iotx_err_t iotx_post(
 {
     return httpclient_common(client, url, port, ca_crt, HTTPCLIENT_POST, timeout_ms, client_data);
 }
-
+#endif

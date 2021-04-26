@@ -315,7 +315,7 @@ void wpas_notify_scan_results(struct wpa_supplicant *wpa_s, int scan_id)
 	/* notify the old DBus API */
 	wpa_supplicant_dbus_notify_scan_results(wpa_s);
 #endif
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	notify(wlan_evt_notifer, WLAN_EVENT_SCAN_RESULTS, scan_id);
 #endif
 	wpas_wps_notify_scan_results(wpa_s);

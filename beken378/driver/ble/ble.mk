@@ -4,6 +4,11 @@ $(NAME)_TYPE := kernel
 
 -include $(SOURCE_ROOT)/platform/mcu/$(HOST_MCU_FAMILY)/.config
 
+WPA_VERSION := wpa_supplicant-2.9
+ifeq ($(CFG_USE_WPA_29),0)
+WPA_VERSION := hostapd-2.5
+endif
+
 $(NAME)_INCLUDES := ../../app/standalone-ap \
 					../../app/standalone-station \
 					../../driver/sdio \
@@ -82,6 +87,15 @@ $(NAME)_INCLUDES += . \
 					beken_ble_sdk/mesh/include \
 					beken_ble_sdk/mesh/src/dbg \
 					beken_ble_sdk/mesh/src/models/include 
+
+$(NAME)_INCLUDES += ../../func/$(WPA_VERSION)/src \
+					../../func/$(WPA_VERSION)/src/ap \
+					../../func/$(WPA_VERSION)/src/utils \
+					../../func/$(WPA_VERSION)/src/common \
+					../../func/$(WPA_VERSION)/src/drivers \
+					../../func/$(WPA_VERSION)/bk_patch \
+					../../func/$(WPA_VERSION)/hostapd \
+					../../func/$(WPA_VERSION)/wpa_supplicant
 
 #ble lib
 $(NAME)_SOURCES +=  beken_ble_sdk/controller/src/ea/ea.c \

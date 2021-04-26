@@ -54,6 +54,12 @@ typedef struct cfg80211_auth_params
 	uint8_t sae_data[0];
 } AUTH_PARAM_T;
 
+typedef struct cfg80211_external_auth_params
+{
+    uint32_t vif_idx;
+    uint16_t status;
+} EXTERNAL_AUTH_PARAM_T;
+
 typedef struct cfg80211_associate_params {
 	uint32_t flags;
 	uint32_t vif_idx;
@@ -73,6 +79,7 @@ typedef struct cfg80211_scan_params
     uint8_t vif_idx;
     struct mac_ssid ssids[SCAN_SSID_MAX];
     struct mac_addr bssid;
+	int freqs[14];	//FIXME: 5G
 } SCAN_PARAM_T;
 
 typedef struct cfg80211_fast_scan_params
@@ -250,7 +257,10 @@ extern int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm);
 extern int rw_msg_send_tim_update(u8 vif_idx, u16 aid, u8 tx_status);
 extern int rw_msg_send_apm_stop_req(u8 vif_index);
 extern int rw_msg_set_power(u8 vif_idx, u8 power);
-int rw_msg_send_sm_auth_req(AUTH_PARAM_T *auth_param);
+extern int rw_msg_send_sm_auth_req(AUTH_PARAM_T *auth_param);
+extern int rw_msg_send_sm_external_auth_status(EXTERNAL_AUTH_PARAM_T *auth_param);
+extern int rw_msg_send_sm_set_operstate_req(SET_OPERATE_PARAM_T *param);
+
 
 
 

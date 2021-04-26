@@ -20,7 +20,7 @@
 #include "error.h"
 #include "rtos_pub.h"
 #include "rw_pub.h"
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "wpa_ctrl.h"
 #include "ctrl_iface.h"
 #endif
@@ -594,7 +594,7 @@ void eloop_remove_sta_added_signals(void)
     eloop_signals_remove_signal(SIGTERM);
     eloop_signals_remove_signal(SIGHUP);
     eloop_signals_remove_signal(SIGSCAN);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
     eloop_signals_remove_signal(SIGSCAN_START);
 #endif
     eloop_signals_remove_signal(SIGASSOC);
@@ -739,7 +739,7 @@ void eloop_run(void)
 			}
 		}
 		if (msg_received) {
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 			if (msg.cmd == WPA_CTRL_CMD_SOCKET)
 				eloop_handler_sock_event(msg.argu);
 			else if (msg.cmd >= WPA_CTRL_CMD_RW_EVT_START)

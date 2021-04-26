@@ -2,13 +2,16 @@
 #include <finsh.h>
 #include "common.h"
 #include "param_config.h"
+#include "ble_pub.h"
 
 #if (CFG_SUPPORT_BLE)
 
+#include "ble.h"
 #if (CFG_BLE_VERSION == BLE_VERSION_5_x)
 #include "app_ble.h"
 #include "ble_api_5_x.h"
 #else
+#include "application.h"
 #include "ble_api.h"
 #endif
 
@@ -213,6 +216,7 @@ static void ble_command_usage(void)
     bk_printf("ble dut            - dut test\n");
 }
 
+__maybe_unused static void ble_get_info_handler(void);
 static void ble_get_info_handler(void)
 {
     UINT8 *ble_mac;
@@ -271,8 +275,6 @@ static void ble_advertise(void)
 
 static void ble(int argc, char **argv)
 {
-    ble_adv_param_t adv_param;
-
     if ((argc < 2) || (os_strcmp(argv[1], "help") == 0))
     {
         ble_command_usage();
@@ -311,9 +313,9 @@ static void ble(int argc, char **argv)
         }
 
         len = os_strlen(argv[4]);
-        if(len % 2 != 0)
+        if((len % 2 != 0) || (len > 40))
         {
-            bk_printf("ERROR\r\n");
+            bk_printf("notify buffer len error\r\n");
             return ;
         }
         hexstr2bin(argv[4], write_buffer, len / 2);
@@ -340,9 +342,9 @@ static void ble(int argc, char **argv)
         }
 
         len = os_strlen(argv[4]);
-        if(len % 2 != 0)
+        if((len % 2 != 0) || (len > 40))
         {
-            bk_printf("ERROR\r\n");
+            bk_printf("indicate buffer len error\r\n");
             return ;
         }
         hexstr2bin(argv[4], write_buffer, len / 2);

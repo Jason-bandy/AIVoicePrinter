@@ -213,7 +213,7 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 #if (CFG_SUPPORT_ALIOS)
 int aos_mcu_ps_timer_start ( UINT32 tm_us )
 {
-	UINT32 sleep_ms, param;
+	UINT32 sleep_ms;
 
 	if ( mcu_ps_info.mcu_ps_on == 1
 	     && ( peri_busy_count_get() == 0 )
@@ -348,7 +348,6 @@ void mcu_init_timer3 ( void )
 
 void mcu_ps_init ( void )
 {
-	UINT32 reg;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -390,10 +389,8 @@ static UINT64 last_tsf = 0;
 extern UINT32 use_cal_net;
 void mcu_ps_bcn_callback ( uint8_t *data, int len, wifi_link_info_t *info )
 {
-	int i;
 	struct bcn_frame *bcn = ( struct bcn_frame * ) data;
 	UINT64 tsf_start_peer = bcn->tsf;
-	UINT32 bcn_int = ( bcn->bcnint << 10 );
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -489,7 +486,7 @@ UINT32 mcu_ps_tsf_cal ( UINT64 tsf )
 	UINT32 fclk, tmp2, tmp4;
 #endif
 	UINT64 machw, tmp1, tmp3;
-	INT32 past_tick, loss;
+	INT32 loss;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -574,7 +571,6 @@ UINT32 mcu_ps_machw_init ( void )
 #else
 	UINT32 fclk;
 #endif
-	UINT32 machw;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );

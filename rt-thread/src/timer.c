@@ -34,6 +34,7 @@
 
 #include <rtthread.h>
 #include <rthw.h>
+#include "rtos_pub.h"
 
 /* hard timer list */
 static rt_list_t rt_timer_list[RT_TIMER_SKIP_LIST_LEVEL];
@@ -566,7 +567,6 @@ void rt_soft_timer_check(void)
     rt_tick_t current_tick;
     rt_list_t *n;
     struct rt_timer *t;
-    struct rt_timer *t_next;
 
     RT_DEBUG_LOG(RT_DEBUG_TIMER, ("software timer check enter\n"));
 

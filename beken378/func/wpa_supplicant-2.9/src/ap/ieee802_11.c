@@ -1425,10 +1425,10 @@ static void handle_auth(struct hostapd_data *hapd,
 			const struct ieee80211_mgmt *mgmt, size_t len,
 			int rssi, int from_queue)
 {
-	u16 auth_alg, auth_transaction, status_code;
+	u16 auth_alg, auth_transaction, status_code = 0;
 	u16 resp = WLAN_STATUS_SUCCESS;
 	struct sta_info *sta = NULL;
-	int res, reply_res;
+	int res = 0, reply_res;
 	u16 fc;
 	const u8 *challenge = NULL;
 #ifdef CONFIG_HOSTAPD_ACL
@@ -1442,6 +1442,8 @@ static void handle_auth(struct hostapd_data *hapd,
 	char *radius_cui = NULL;
 	u16 seq_ctrl;
 
+	__maybe_unused_var(res);
+	__maybe_unused_var(status_code);
 	if (len < IEEE80211_HDRLEN + sizeof(mgmt->u.auth)) {
 		wpa_printf(MSG_INFO, "handle_auth - too short payload (len=%lu)",
 			   (unsigned long) len);
@@ -3883,6 +3885,7 @@ fail:
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static void hostapd_set_wds_encryption(struct hostapd_data *hapd,
 				       struct sta_info *sta,
 				       char *ifname_wds)
@@ -3905,7 +3908,7 @@ static void hostapd_set_wds_encryption(struct hostapd_data *hapd,
 		}
 	}
 }
-
+#endif
 
 static void handle_assoc_cb(struct hostapd_data *hapd,
 			    const struct ieee80211_mgmt *mgmt,
@@ -4106,6 +4109,7 @@ static void handle_disassoc_cb(struct hostapd_data *hapd,
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static void handle_action_cb(struct hostapd_data *hapd,
 			     const struct ieee80211_mgmt *mgmt,
 			     size_t len, int ok)
@@ -4168,6 +4172,7 @@ static void handle_action_cb(struct hostapd_data *hapd,
 		hostapd_rrm_beacon_req_tx_status(hapd, mgmt, len, ok);
 #endif
 }
+#endif
 
 
 /**

@@ -25,10 +25,8 @@
 #include "ieee802_1x.h"
 
 
-static void ieee802_1x_finished(struct hostapd_data *hapd,
-				struct sta_info *sta, int success,
-				int remediation);
-
+__maybe_unused static void ieee802_1x_set_port_authorized(void *ctx, void *sta_ctx,
+					   int authorized);
 
 void ieee802_1x_set_sta_authorized(struct hostapd_data *hapd,
 				   struct sta_info *sta, int authorized)

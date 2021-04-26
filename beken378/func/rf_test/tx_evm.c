@@ -24,6 +24,8 @@
 #include "ke_event.h"
 
 #include "arm_arch.h"
+#include "rtos_pub.h"
+#include "bk7011_cal_pub.h"
 
 #if CFG_TX_EVM_TEST
 #define TX_2_4_G_CHANNEL_NUM            (14)

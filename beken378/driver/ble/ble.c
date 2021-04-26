@@ -20,6 +20,7 @@
 #include "bk7011_cal_pub.h"
 #include "flash_pub.h"
 #include "error.h"
+#include "application.h"
 
 #define BLE_MSG_QUEUE_COUNT          (20)
 
@@ -61,6 +62,10 @@ extern void sctrl_modem_core_reset(void);
 extern void delay(INT32 num);
 extern void rw_main(void);
 extern void appm_update_param(struct gapc_conn_param *conn_param);
+extern UINT32 flash_read(char *user_buf, UINT32 count, UINT32 address);
+extern UINT32 flash_write(char *user_buf, UINT32 count, UINT32 address);
+extern UINT32 flash_ctrl(UINT32 cmd, void *parm);
+
 
 void ble_intc_set(uint32_t enable)
 {
@@ -160,15 +165,17 @@ void ble_switch_rf_to_wifi(void)
 		GLOBAL_INT_RESTORE();
 		return;
 	}
-    if (ble_switch_old_state != HW_IDLE && nxmac_current_state_getf() == HW_IDLE)
-    {
-        if(ke_state_get(TASK_MM) == MM_ACTIVE)
-        {
-            nxmac_next_state_setf(ble_switch_old_state);
-            while (nxmac_current_state_getf() != ble_switch_old_state);
-        }
-    }
 
+	if (ble_switch_old_state != HW_IDLE && nxmac_current_state_getf() == HW_IDLE){
+		if(ke_state_get(TASK_MM) == MM_ACTIVE){
+			nxmac_next_state_setf(ble_switch_old_state);
+			while (nxmac_current_state_getf() != ble_switch_old_state);
+		}
+		ble_switch_old_state = HW_IDLE;
+	}
+	else if(nxmac_current_state_getf() == HW_ACTIVE){
+		ble_switch_old_state = HW_IDLE;
+	}
 
 	if (!power_save_if_rf_sleep())
 	{
@@ -177,97 +184,59 @@ void ble_switch_rf_to_wifi(void)
     #endif
 	}
 	ble_is_revert_all = 0;
-    GLOBAL_INT_RESTORE();
 
-    //Re-enable MAC interrupts
+	//Re-enable MAC interrupts
     nxmac_enable_master_gen_int_en_setf(1);
     nxmac_enable_master_tx_rx_int_en_setf(1);
-
+    GLOBAL_INT_RESTORE();
     //PS_DEBUG_RF_UP_TRIGER;
 }
 
-uint8 ble_delegate_ps_restore_mac = 0;
-static void ble_switch_rf_exit(void)
+void ble_used_rf_end(void)
 {
 #if CFG_USE_STA_PS
 	int flag = 0;
 #endif
 	GLOBAL_INT_DECLARATION();
 
-    GLOBAL_INT_DISABLE();
-	if (ble_is_revert_all)
-	{
-		bk_printf("ble_is_revert_all\r\n");
-		if (ble_switch_old_state != HW_IDLE && nxmac_current_state_getf() == HW_IDLE)
-		{
-			if(ke_state_get(TASK_MM) == MM_ACTIVE)
-			{
+	GLOBAL_INT_DISABLE();
+
+	if(ble_is_revert_all && (ble_switch_mac_sleeped == 0)){
+		if (ble_switch_old_state != HW_IDLE && nxmac_current_state_getf() == HW_IDLE){
+			if(ke_state_get(TASK_MM) == MM_ACTIVE){
 				nxmac_next_state_setf(ble_switch_old_state);
 				while (nxmac_current_state_getf() != ble_switch_old_state);
 			}
+			ble_switch_old_state = HW_IDLE;
+		}
+		else if(nxmac_current_state_getf() == HW_ACTIVE){
+			ble_switch_old_state = HW_IDLE;
 		}
 
-		if (!power_save_if_rf_sleep())
-		{
+		if (!power_save_if_rf_sleep()){
 		#if CFG_USE_STA_PS
-		    //power_save_rf_ps_wkup_semlist_set();
-		    flag = 1;
+			///power_save_rf_ps_wkup_semlist_set();
+			flag = 1;
 		#endif
 		}
-
 		//Re-enable MAC interrupts
 		nxmac_enable_master_gen_int_en_setf(1);
 		nxmac_enable_master_tx_rx_int_en_setf(1);
-		ble_delegate_ps_restore_mac = 0;
+
 		ble_is_revert_all = 0;
 	}
 	GLOBAL_INT_RESTORE();
+
 #if CFG_USE_STA_PS
-	if(flag)
-	{
+	if(flag){
 		power_save_rf_ps_wkup_semlist_set();
 	}
 #endif
 }
 
-void ble_delegate_ps_restore_mac_flag_clear(void)
-{
-	GLOBAL_INT_DECLARATION();
-
-	GLOBAL_INT_DISABLE();
-	if((ble_delegate_ps_restore_mac) && (ble_active)
-		&& (kernel_state_get(TASK_BLE_APP) > APPM_READY) 
-		&& (ble_is_revert_all != 0))
-	{
-		ble_delegate_ps_restore_mac = 0;
-	}
-	GLOBAL_INT_RESTORE();
-}
-
-void ble_stop_delegate_restore_mac_state(int flag)
-{
-	GLOBAL_INT_DECLARATION();
-
-    GLOBAL_INT_DISABLE();
-	if((ble_is_revert_all)
-		&& (((kernel_state_get(TASK_BLE_APP) == APPM_READY)||(ble_active == 0))&&(!flag)))
-	{
-		ble_delegate_ps_restore_mac = 1;
-	}
-	GLOBAL_INT_RESTORE();
-}
-
 void ps_recover_ble_switch_mac_status(void)
 {
-	if( ble_is_revert_all )
-	{
-		ble_stop_delegate_restore_mac_state(0);
-	}
-
-	if(ble_delegate_ps_restore_mac)
-	{
-		ble_switch_rf_exit();
-	}
+	ble_used_rf_end();
 }
 
 
@@ -333,18 +302,21 @@ void ble_switch_rf_to_ble(void)
 
     ble_switch_skip_cnt = 0;
 
-    ble_switch_old_state = nxmac_current_state_getf();
+    ///ble_switch_old_state = nxmac_current_state_getf();
+	uint8_t mac_cur_state = nxmac_current_state_getf();
 
     reg = RF_HOLD_BY_BLE_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
     //after swtich ble check if need start rf
 
     // Ask HW to go to IDLE
-    if (ble_switch_old_state == HW_ACTIVE)
+    ///if (ble_switch_old_state == HW_ACTIVE)
+	if (mac_cur_state == HW_ACTIVE)
     {
         uint32_t i_tmp = 0, y_tmp = 0;
         uint32_t v_tmp;
-        
+
+        ble_switch_old_state = mac_cur_state;
         // Ask HW to go to IDLE
         if (nxmac_current_state_getf() != HW_IDLE)
         {
@@ -387,9 +359,9 @@ void ble_switch_rf_to_ble(void)
             ble_switch_clear_mac_interrupts();
         }
     }
-    else
-        ble_switch_old_state = HW_IDLE;
-
+    else{
+		///ble_switch_old_state = HW_IDLE;
+    }
     sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_SET, NULL);
 
     rwnx_cal_ble_set_rfconfig();
@@ -787,18 +759,17 @@ void ble_set_read_cb(bk_ble_read_cb_t func)
 
 uint8_t ble_flash_read(uint8_t flash_space, uint32_t address, uint32_t len, uint8_t *buffer, void (*callback)(void))
 {
-	 flash_read(buffer, len, address);
+	 flash_read((char*)buffer, len, address);
 	 return 0;
 }
 
 uint8_t ble_flash_write(uint8_t flash_space, uint32_t address, uint32_t len, uint8_t *buffer, void (*callback)(void))
 {
-	 flash_write(buffer, len, address);
+	 flash_write((char*)buffer, len, address);
 	 return 0;
 }
 
 
-#define SECTOR_SIZE  (1024)
 uint8_t ble_flash_erase(uint8_t flash_type, uint32_t address, uint32_t len, void (*callback)(void))
 {
     flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);

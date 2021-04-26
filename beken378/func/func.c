@@ -7,6 +7,10 @@
 #include "param_config.h"
 #include "saradc_pub.h"
 #include "sys_ctrl_pub.h"
+#include "drv_model_pub.h"
+#include "ate_app.h"
+#include "BkDriverWdg.h"
+#include "sys_config.h"
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
@@ -37,6 +41,9 @@
 #if CFG_EASY_FLASH && (!CFG_SUPPORT_RTT)
 #include "easyflash.h"
 #include "bk_ef.h"
+#endif
+#if (!CFG_SUPPORT_RTT)
+#include "BkDriverFlash.h"
 #endif
 
 extern void rwnx_cal_initial_calibration(void);
@@ -134,10 +141,17 @@ UINT32 func_init_extended(void)
 	#endif
 #endif
 
-#ifdef BEKEN_START_WDT
-	bk_wdg_initialize(10000);
-    bk_wdg_reload();
+#if (CFG_OS_FREERTOS)
+#if CFG_INT_WDG_ENABLED
+	FUNC_PRT("int watchdog enabled, period=%u\r\n", CFG_INT_WDG_PERIOD_MS);
+	bk_wdg_initialize(CFG_INT_WDG_PERIOD_MS);
+        bk_wdg_reload();
+#endif //CFG_INT_WDG_ENABLED
+
+#if CFG_TASK_WDG_ENABLED
+	FUNC_PRT("task watchdog enabled, period=%u\r\n", CFG_TASK_WDG_PERIOD_MS);
 #endif
+#endif //CFG_OS_FREERTOS
 
     FUNC_PRT("[FUNC]func_init_extended OVER!!!\r\n\r\n");
     os_printf("start_type:%d\r\n",bk_misc_get_start_type());

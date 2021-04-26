@@ -132,6 +132,7 @@ static void audio_dac_set_enable_bit(UINT32 enable)
     REG_WRITE(reg_addr, reg_val);
 }
 
+#if AUD_USE_EXT_PA
 static UINT32 audio_dac_is_enable_bit(void)
 {
     UINT32 reg_addr = AUDIO_CONFIG;
@@ -141,6 +142,7 @@ static UINT32 audio_dac_is_enable_bit(void)
 
     return reg_val ? 1 : 0;
 }
+#endif
 
 static void audio_dac_set_int_enable_bit(UINT32 enable)
 {
@@ -442,18 +444,6 @@ static void audio_dac_close_analog_regs(void)
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_CLOSE_DAC_ANALOG, NULL);
 }
 
-static void audio_dac_set_analog_mute(UINT32 enable)
-{
-    UINT32 val = 0;
-    
-    if (enable)
-        val = AUDIO_DAC_ANALOG_MUTE;
-    else
-        val = AUDIO_DAC_ANALOG_UNMUTE;
-
-    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_AUD_DAC_MUTE, &val);
-}
-
 #if AUD_USE_EXT_PA
 static void audio_dac_init_mute_pin(UINT32 pin)
 {
@@ -633,18 +623,18 @@ static UINT32 audio_dac_close(void)
 
 static UINT32 audio_dac_write(char *user_buf, UINT32 count, UINT32 op_flag)
 {
-    int free_size;
-    UINT8 *read, *write;
+	int free_size;
 
-    if(aud_dac.status == AUD_DAC_STA_CLOSED)
-        return 0;
-    if(aud_dac.dma_mode) 
-    {
-        #if CFG_GENERAL_DMA
-        RB_DMA_RD_PTR rb;
+	if(aud_dac.status == AUD_DAC_STA_CLOSED) {
+		return 0;
+	}
 
-        rb = &aud_dac.u.rb_dma_rd;
-        free_size = rb_get_free_size_dma_read(rb);
+	if(aud_dac.dma_mode) {
+		#if CFG_GENERAL_DMA
+		RB_DMA_RD_PTR rb;
+
+		rb = &aud_dac.u.rb_dma_rd;
+		free_size = rb_get_free_size_dma_read(rb);
 
 		//os_printf("0:%d-%d-%d\r\n",free_size, aud_dac.need_write_len, count);
 		if(free_size >= aud_dac.buf_len - 4)
@@ -669,48 +659,45 @@ static UINT32 audio_dac_write(char *user_buf, UINT32 count, UINT32 op_flag)
                 #endif
     		}
 			return 0;
-        }
-		
-        free_size = count;
-        rb_write_dma_read(rb, user_buf, free_size, 1);
-
-		if(aud_dac.status == AUD_DAC_STA_OPENED) 
-        {
-			aud_dac.need_write_len = free_size;		
 		}
-        #endif
-    } 
-    else 
-    {
-        RB_PTR rb;
-        
-        rb = &aud_dac.u.rb;
-        free_size = rb_get_free_size(rb);
-        if(free_size > count)
-            free_size = count;
-        rb_write(rb, user_buf, free_size, 1);
-    }
 
-    return free_size;
+		free_size = count;
+		rb_write_dma_read(rb, (UINT8*)user_buf, free_size, 1);
+
+		if(aud_dac.status == AUD_DAC_STA_OPENED) {
+			aud_dac.need_write_len = free_size;
+		}
+		#endif
+	} else {
+		RB_PTR rb;
+
+		rb = &aud_dac.u.rb;
+		free_size = rb_get_free_size(rb);
+		if(free_size > count) {
+			free_size = count;
+		}
+		rb_write(rb, (UINT8*)user_buf, free_size, 1);
+	}
+
+	return free_size;
 }
 
 static UINT32 audio_dac_get_free_buf_size(void)
 {
     int free_size;
-    UINT8 *read, *write;
 
     if(aud_dac.status != AUD_DAC_STA_PLAYING)
         return 0;
 
-    if(aud_dac.dma_mode) 
+    if(aud_dac.dma_mode)
     {
         #if CFG_GENERAL_DMA
         RB_DMA_RD_PTR rb;
         rb = &aud_dac.u.rb_dma_rd;
         free_size = rb_get_free_size_dma_read(rb);
         #endif
-    } 
-    else 
+    }
+    else
     {
         RB_PTR rb;
         rb = &aud_dac.u.rb;

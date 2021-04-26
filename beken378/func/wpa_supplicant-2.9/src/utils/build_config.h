@@ -276,11 +276,25 @@
 #define CONFIG_ECC
 #define CONFIG_SAE_SMALL_STACK
 
+#if CFG_SME
+#define CONFIG_SME
+#endif
+
 /* enable softap SAE */
 #if CFG_SOFTAP_WPA3
 #define CONFIG_SAE_AP
 #define CONFIG_IEEE80211W_AP
 #endif /* CFG_SOFTAP_WPA3 */
+
+#ifndef CONFIG_SME
+#define CONFIG_SAE_EXTERNAL
+#endif
+#endif
+
+#if CFG_WPA_CTRL_IFACE
+#define HOSTAP_THREAD_SAFE_WORKAROUND 0
+#else
+#define HOSTAP_THREAD_SAFE_WORKAROUND 1
 #endif
 
 #endif /* BUILD_CONFIG_H */

@@ -464,6 +464,8 @@ extern void phy_enable_lsig_intr(void);
 extern uint8_t phy_open_cca(void);
 extern uint8_t phy_close_cca(void);
 extern uint8_t phy_show_cca(void);
+extern void phy_wakeup_rf_reinit(void);
+extern void phy_wakeup_wifi_reinit(void);
 
 /// @}
 #endif /* PHY_TRIDENT_H_ */

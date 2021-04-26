@@ -2,10 +2,14 @@
 #include <board.h>
 #include "drv_psram.h"
 #include "qspi_pub.h"
+#include "mem_pub.h"
 
 #if (CFG_SOC_NAME != SOC_BK7231N)
 #define RT_HW_PSRAM_BEGIN (void*)(0x3000000)
 #define RT_HW_PSRAM_END   (void*)(0x3000000 + 8 *1024 * 1024)
+
+extern OSStatus bk_qspi_dcache_initialize(qspi_dcache_drv_desc *qspi_config);
+extern OSStatus bk_qspi_start(void);
 
 struct rt_memheap _psram_heap;
 static struct rt_memheap *psram_heap = &_psram_heap;
@@ -28,13 +32,12 @@ void psram_free(void *ptr)
 void *psram_calloc(unsigned int n, unsigned int size)
 {
     void* ptr = NULL;
-    
+
     ptr = psram_malloc(n * size);
-    if (ptr)
-    {
-        memset(ptr, 0, n * size);
+    if (ptr) {
+        os_memset(ptr, 0, n * size);
     }
-    
+
     return ptr;
 }
 

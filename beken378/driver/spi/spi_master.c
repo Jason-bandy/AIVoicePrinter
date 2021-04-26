@@ -218,7 +218,7 @@ static void bk_spi_configure(UINT32 rate,UINT32 mode)
     param = 1;
     sddev_control(SPI_DEV_NAME, CMD_SPI_SET_MSTEN, (void *)&param);
     param = 3;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSID, (void *)&param);
+    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSMD, (void *)&param);
     param = 0;
     sddev_control(SPI_DEV_NAME, CMD_SPI_INIT_MSTEN, (void *)&param);
 
@@ -277,7 +277,7 @@ int bk_spi_master_xfer(struct spi_message *msg)
 
         /* take CS */
         param = 0x2;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSID, (void *)&param);
+        sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSMD, (void *)&param);
 
         /* enabel tx & rx interrupt */
         param = 1;
@@ -298,7 +298,7 @@ int bk_spi_master_xfer(struct spi_message *msg)
 
         /* release CS */
         param = 0x3;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSID, (void *)&param);
+        sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSMD, (void *)&param);
 
         /* initial spi_dev with zero*/
         GLOBAL_INT_DISABLE();

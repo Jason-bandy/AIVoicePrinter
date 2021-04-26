@@ -85,6 +85,17 @@ OSStatus bk_timer_initialize_us(uint8_t timer_id, uint32_t time_us, void *callba
     return kNoErr;
 }
 
+UINT32 bk_get_timer_cnt(uint8_t timer_id)
+{
+    timer_param_t param;
+
+    param.channel = timer_id;
+
+    sddev_control(TIMER_DEV_NAME, CMD_TIMER_READ_CNT, &param);
+
+    return param.period;
+}
+
 /**@brief stop timer
  *
  * @note  user can user timer0 timer1 timer2 timer4 timer5

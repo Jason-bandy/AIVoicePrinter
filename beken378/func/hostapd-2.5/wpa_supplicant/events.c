@@ -517,7 +517,7 @@ static int wpa_supplicant_ssid_bss_match(struct wpa_supplicant *wpa_s,
 			break;
 		}
 
-//#if !CFG_NEW_SUPP
+//#if !CFG_WPA_CTRL_IFACE
 		wpa_config_set_wpa(ssid, &ie);
 //#endif
 
@@ -1184,7 +1184,7 @@ struct wpa_bss * wpa_supplicant_pick_network(struct wpa_supplicant *wpa_s,
 
 	ssid = *selected_ssid;
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if (selected && ssid && ssid->mem_only_psk && !ssid->psk_set &&
 	    !ssid->passphrase && !ssid->ext_psk) {
 		const char *field_name, *txt = NULL;
@@ -2379,7 +2379,7 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 			" reason=%d%s",
 			MAC2STR(bssid), reason_code,
 			locally_generated ? " locally_generated=1" : "");
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		notify(wlan_evt_notifer, WLAN_EVENT_DISCONNECTED, reason_code);
 #endif
 	}
@@ -2450,7 +2450,7 @@ static void wpa_supplicant_event_disassoc_finish(struct wpa_supplicant *wpa_s,
 	if (could_be_psk_mismatch(wpa_s, reason_code, locally_generated)) {
 		wpa_msg(wpa_s, MSG_INFO, "WPA: 4-Way Handshake failed - "
 			"pre-shared key may be incorrect");
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		notify(wlan_evt_notifer, WLAN_EVENT_4WAY_HANDSHAKE_FAILED, 0);
 #endif
 		if (wpas_p2p_4way_hs_failed(wpa_s) > 0)

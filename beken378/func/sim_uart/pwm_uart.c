@@ -27,8 +27,10 @@ LOCAL volatile unsigned char uart_io_sim_rx_firt_start_bit = 0;
 #endif
 #endif
 
+#ifdef INCLUDE_TX_MODE
 #if defined INTERRUPT_METHOD
 LOCAL unsigned char *p_uart_io_sim_tx_buf = NULL;
+#endif
 #endif
 
 #ifdef INCLUDE_TX_MODE

@@ -153,7 +153,7 @@ enum wpah_flags {
 typedef struct wpah_msg_st {
 	uint32_t argu;
 	
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	uint16_t cmd;
 	uint16_t flags;
 	int      *result;	/* @out */

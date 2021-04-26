@@ -163,6 +163,17 @@ OSStatus rtos_create_thread( beken_thread_t* thread, uint8_t priority, const cha
   */
 OSStatus rtos_delete_thread( beken_thread_t* thread );
 
+/** @brief    Checks if a thread is the current thread
+  *
+  * @Details  Checks if a specified thread is the currently running thread
+  *
+  * @param    thread : the handle of the other thread against which the current thread 
+  *                    will be compared
+  *
+  * @return   true   : specified thread is the current thread
+  * @return   false  : specified thread is not currently running
+  */
+BOOL rtos_is_current_thread(beken_thread_t *thread);
 
 
 /** @brief    Suspend a thread
@@ -542,6 +553,8 @@ OSStatus rtos_reload_timer( beken_timer_t* timer );
 OSStatus rtos_deinit_timer( beken_timer_t* timer );
 
 BOOL rtos_is_timer_running( beken_timer_t* timer );
+
+void rtos_deinit_free_beken_timer(rt_timer_t t);
 
 
 /**

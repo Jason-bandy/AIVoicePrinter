@@ -760,7 +760,6 @@ void net_wlan_add_netif(void *mac)
 {
     VIF_INF_PTR vif_entry = NULL;
     struct interface *wlan_if = NULL;
-    err_t err;
     u8 vif_idx;
     u8 *b = (u8 *)mac;
 
@@ -809,7 +808,6 @@ void net_wlan_add_netif(void *mac)
 
 void net_wlan_remove_netif(void *mac)
 {
-    err_t err;
     u8 vif_idx;
     VIF_INF_PTR vif_entry = NULL;
     struct netif *netif = NULL;

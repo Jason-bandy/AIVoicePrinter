@@ -18,25 +18,19 @@ int dhcp_server_start(void *intrfc_handle)
 
 	dhcp_d("DHCP server start request \r\n");
 
-    dhcp_enable_nack_dns_server();
-    
-	if (dhcpd_running || dhcp_server_init(intrfc_handle))
-	{
+	dhcp_enable_nack_dns_server();
+
+	if (dhcpd_running || dhcp_server_init(intrfc_handle)) {
 		return -1;
 	}
 
-	ret = rtos_create_thread(&dhcpd_thread, 
-                 BEKEN_APPLICATION_PRIORITY, 
-                 "dhcp-server", 
-				(beken_thread_function_t)dhcp_server,
-                #if !OSMALLOC_STATISTICAL
-                1024, 
-                #else 
-				1024*2, 
-                #endif
-				0);
-	if (ret) 
-	{
+	ret = rtos_create_thread(&dhcpd_thread,
+		BEKEN_APPLICATION_PRIORITY,
+		"dhcp-server",
+		(beken_thread_function_t)dhcp_server,
+		DHCP_SERVER_TASK_STACK_SIZE,
+		0);
+	if (ret) {
 		dhcp_free_allocations();
 		return -1;
 	}

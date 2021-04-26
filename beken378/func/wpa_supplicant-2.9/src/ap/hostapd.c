@@ -161,6 +161,7 @@ static void hostapd_clear_old(struct hostapd_iface *iface)
 }
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static int hostapd_iface_conf_changed(struct hostapd_config *newconf,
 				      struct hostapd_config *oldconf)
 {
@@ -177,6 +178,7 @@ static int hostapd_iface_conf_changed(struct hostapd_config *newconf,
 
 	return 0;
 }
+#endif
 
 
 int hostapd_reload_config(struct hostapd_iface *iface)
@@ -188,7 +190,7 @@ int hostapd_reload_config(struct hostapd_iface *iface)
 	struct hostapd_config *newconf, *oldconf;
 	size_t j;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	if (hostapd_csa_in_progress(iface)) {
 		return -2;
 	}

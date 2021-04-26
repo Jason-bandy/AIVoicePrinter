@@ -84,6 +84,12 @@
 #define CFG_MFP				1
 #endif
 
+#if CFG_SME
+#define NX_HOST_SME			1
+#else
+#define NX_HOST_SME			0
+#endif
+
 // The CFG_xxx macros should be added on the compilation command line
 // by the SCons scripts. Because it has been not implemented yet, any
 // undefined option fall back on the default behavior.
@@ -510,11 +516,13 @@
 
 #define BK_NX_RC                    1
 #define BK_NX_CHAN                  1
+/* BK macro in IP */
+#define BK_NX_CONNECTION_MONITOR    1
 
 extern int rwnx_get_noht_rssi_thresold(void) __attribute__ ((weak));
 extern UINT32 rwnx_setting_for_single_rate(UINT32 att_value) __attribute__ ((weak));
 extern INT32 rwnx_printf_fun(const char *fmt, ...) __attribute__ ((weak));
-                                                        
+
 #endif // _RWNX_CONFIG_H_
 // eof
 

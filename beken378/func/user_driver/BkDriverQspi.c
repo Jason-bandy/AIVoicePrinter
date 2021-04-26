@@ -81,20 +81,12 @@ OSStatus bk_qspi_dcache_initialize(qspi_dcache_drv_desc *qspi_config)
 
 OSStatus bk_qspi_start(void)
 {
-	UINT32 ret;
-
-	ret = sddev_control(QSPI_DEV_NAME, QSPI_DCACHE_CMD_OPEN,  NULL);
-	
-    return kNoErr;
+	return sddev_control(QSPI_DEV_NAME, QSPI_DCACHE_CMD_OPEN,  NULL);
 }
 
 OSStatus bk_qspi_stop(void)
 {
-	UINT32 ret;
-
-	ret = sddev_control(QSPI_DEV_NAME, QSPI_DCACHE_CMD_CLOSE,  NULL);
-	
-    return kNoErr;
+	return sddev_control(QSPI_DEV_NAME, QSPI_DCACHE_CMD_CLOSE,  NULL);
 }
 
 // eof

@@ -29,7 +29,14 @@
 #include "param_config.h"
 #include "mcu_ps_pub.h"
 #include "sys_ctrl_pub.h"
+#include "drv_model_pub.h"
 
+__maybe_unused static int wpa_supplicant_start_sched_scan(struct wpa_supplicant *wpa_s,
+				struct wpa_driver_scan_params *params);
+__maybe_unused static struct wpa_driver_scan_filter *
+wpa_supplicant_build_filter_ssids(struct wpa_config *conf, size_t *num_ssids);
+__maybe_unused static void wpa_scan_set_relative_rssi_params(struct wpa_supplicant *wpa_s,
+				  struct wpa_driver_scan_params *params);
 #if 0
 static void wpa_supplicant_gen_assoc_event(struct wpa_supplicant *wpa_s)
 {
@@ -707,7 +714,7 @@ static int wpa_set_ssids_from_scan_req(struct wpa_supplicant *wpa_s,
 	}
 
 	params->num_ssids = wpa_s->num_ssids_from_scan_req;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->num_ssids_from_scan_req = 0;
 #endif
 	return 1;
@@ -717,12 +724,15 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 {
 	struct wpa_supplicant *wpa_s = eloop_ctx;
 	struct wpa_ssid *ssid;
-	int ret, p2p_in_prog;
+	int ret;
 	struct wpabuf *extra_ie = NULL;
 	struct wpa_driver_scan_params params;
 	struct wpa_driver_scan_params *scan_params;
 	size_t max_ssids;
 	int connect_without_scan = 0;
+#ifdef CONFIG_P2P
+	int p2p_in_prog;
+#endif
 
 	os_printf("wpa_supplicant_scan\n");
 	wpa_s->ignore_post_flush_scan_res = 0;
@@ -780,7 +790,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 		}
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(g_sta_param_ptr->fast_connect_set) {
 		connect_without_scan = 1;
 		ssid = wpa_s->conf->ssid;
@@ -824,7 +834,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 #endif
 	wpa_s->last_scan_req = wpa_s->scan_req;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->scan_req = NORMAL_SCAN_REQ;
 #endif
 	if (connect_without_scan) {
@@ -1021,7 +1031,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 
 	if (ssid && max_ssids == 1) {
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		/*
 		 * If the driver is limited to 1 SSID at a time interleave
 		 * wildcard SSID scans with specific SSID scans to avoid
@@ -1040,7 +1050,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 			wpa_dbg(wpa_s, MSG_DEBUG,
 				"Starting AP scan for specific SSID: %s",
 				wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		}
 #endif
 	} else if (ssid) {
@@ -1067,7 +1077,7 @@ ssid_list_set:
 	wpa_supplicant_optimize_freqs(wpa_s, &params);
 	extra_ie = wpa_supplicant_extra_ies(wpa_s);
 
-#ifdef CONFIG_FULL_SUPPLICANT
+#if 1//def CONFIG_FULL_SUPPLICANT
 	if (wpa_s->last_scan_req == MANUAL_SCAN_REQ &&
 	    wpa_s->manual_scan_only_new) {
 		wpa_printf(MSG_DEBUG,
@@ -1097,6 +1107,7 @@ ssid_list_set:
 		os_free(wpa_s->next_scan_freqs);
 	wpa_s->next_scan_freqs = NULL;
 #endif /* CONFIG_FULL_SUPPLICANT */
+
 	wpa_setband_scan_freqs(wpa_s, &params);
 
 #ifdef CONFIG_FULL_SUPPLICANT
@@ -1371,6 +1382,11 @@ wpa_scan_set_relative_rssi_params(struct wpa_supplicant *wpa_s,
  */
 int wpa_supplicant_req_sched_scan(struct wpa_supplicant *wpa_s)
 {
+	if (!wpa_s->sched_scan_supported)
+		return -1;
+
+	return 0;
+#if 0
 	struct wpa_driver_scan_params params;
 	struct wpa_driver_scan_params *scan_params;
 	enum wpa_states prev_state;
@@ -1382,10 +1398,6 @@ int wpa_supplicant_req_sched_scan(struct wpa_supplicant *wpa_s)
 	int need_ssids;
 	struct sched_scan_plan scan_plan;
 
-	if (!wpa_s->sched_scan_supported)
-		return -1;
-
-#if 0
 	if (wpa_s->max_sched_scan_ssids > WPAS_MAX_SCAN_SSIDS)
 		max_sched_scan_ssids = WPAS_MAX_SCAN_SSIDS;
 	else
@@ -1669,7 +1681,6 @@ scan:
 		wpa_s->prev_sched_ssid = NULL;
 
 #endif
-	return 0;
 }
 
 

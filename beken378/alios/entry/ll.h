@@ -18,6 +18,10 @@
 
 extern uint32_t platform_is_in_interrupt_context( void );
 extern uint32_t platform_is_in_fiq_context( void );
+extern uint32_t portDISABLE_FIQ(void);
+extern void portENABLE_FIQ(void);
+extern uint32_t portDISABLE_IRQ(void);
+extern uint32_t portENABLE_IRQ(void);
 
 #ifndef GLOBAL_INT_START
 #define GLOBAL_INT_START               portENABLE_INTERRUPTS

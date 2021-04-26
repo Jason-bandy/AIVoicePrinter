@@ -321,30 +321,30 @@ static volatile int select_cb_ctr;
 #if SOCK_API_SYNC
 #define SOCK_DEBUG(level, ...) \
 		if (level > 2) printf(__VA_ARGS__);
-	
+
 #define SOCK_INIT_CLOSING_SIG(sock) do { \
 		(sock)->closing = 0; \
 		SOCK_DEBUG(1, "SOCK_INIT_CLOSING_SIG:[%d]\n", (sock)->closing); \
 	} while (0)
-	
+
 #define SOC_DEINIT_SYNC(sock) do { \
 		sys_mutex_free(&(sock)->mutex_recv); \
 		sys_mutex_free(&(sock)->mutex_send); \
 		SOCK_DEBUG(1, "SOC_DEINIT_SYNC OK!\n"); \
 	} while (0)
-	
+
 #define SOCK_START_CLOSING(sock) do { \
 		(sock)->closing = 1; \
 		SOCK_DEBUG(1, "SOCK_START_CLOSING:[%d]\n", (sock)->closing); \
 	} while (0)
-	
+
 #define SOCK_CHECK_NOT_CLOSING(sock) do { \
 		if ((sock)->closing) { \
 			SOCK_DEBUG(1, "SOCK_CHECK_NOT_CLOSING:[%d]\n", (sock)->closing); \
 			return -1; \
 		} \
 	} while (0)
-	
+
 #define SOCK_WAIT() do { \
 		extern void sys_arch_msleep(int ms); \
 		sys_arch_msleep(50); \
@@ -396,6 +396,8 @@ static volatile int select_cb_ctr;
 	SOCK_DEBUG(1, "SOCK_WAIT_TO_BE_IDLE\n"); \
 } while (0);
 
+extern err_t sys_mutex_trylock(sys_mutex_t *pxMutex);
+
 static int sock_wait_to_be_idle(struct lwip_sock *sock)
 {
 	int recving = 1, sending = 1;
@@ -403,8 +405,8 @@ static int sock_wait_to_be_idle(struct lwip_sock *sock)
 
 	/* wait for 500ms */
 	while (count--) {
-		if (recving) {	
-			LWIP_DEBUGF(SOCKETS_DEBUG, ("sock_wait_to_be_idle: free recv semphore.\n"));		
+		if (recving) {
+			LWIP_DEBUGF(SOCKETS_DEBUG, ("sock_wait_to_be_idle: free recv semphore.\n"));
 			if (!sys_mutex_trylock(&sock->mutex_recv)) recving = 0;
 			else sys_mbox_trypost(&sock->conn->recvmbox, NULL);
 		}
@@ -412,7 +414,7 @@ static int sock_wait_to_be_idle(struct lwip_sock *sock)
 		if (sending) {
 			if (!sys_mutex_trylock(&sock->mutex_send)) sending = 0;
 			else {
-				LWIP_DEBUGF(SOCKETS_DEBUG, ("sock_wait_to_be_idle: free send semphore.\n"));		
+				LWIP_DEBUGF(SOCKETS_DEBUG, ("sock_wait_to_be_idle: free send semphore.\n"));
 			    	if (sys_sem_valid(&(sock->conn->op_completed))) {
 	                           sock->conn->current_msg->err = ERR_OK;
 	                           sock->conn->current_msg = NULL;

@@ -9,6 +9,8 @@
 #include "uart_pub.h"
 #include "sys_ctrl_pub.h"
 #include "mcu_ps_pub.h"
+#include "mem_pub.h"
+#include "ate_app.h"
 
 static const flash_config_t flash_config[] =
 {
@@ -74,6 +76,7 @@ static void flash_set_clk(UINT8 clk_conf)
     REG_WRITE(REG_FLASH_CONF, value);
 }
 
+__maybe_unused static void flash_enable_cpu_data_wr(void);
 static void flash_enable_cpu_data_wr(void)
 {
     UINT32 value;
@@ -693,7 +696,7 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
 
         reg = REG_READ(REG_FLASH_CONF);
         reg &= ~(FLASH_CLK_CONF_MASK << FLASH_CLK_CONF_POSI);
-        reg = reg | (5 << FLASH_CLK_CONF_POSI); /*dco--9*/
+        reg = reg | (5 << FLASH_CLK_CONF_POSI);
         REG_WRITE(REG_FLASH_CONF, reg);
         break;
 
@@ -702,10 +705,12 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
         
         reg = REG_READ(REG_FLASH_CONF);
         reg &= ~(FLASH_CLK_CONF_MASK << FLASH_CLK_CONF_POSI);
-        reg = reg | (9 << FLASH_CLK_CONF_POSI);
+        if (get_ate_mode_state()) {
+            reg = reg | (0xB << FLASH_CLK_CONF_POSI);
+        } else {
+            reg = reg | (9 << FLASH_CLK_CONF_POSI);
+        }
         REG_WRITE(REG_FLASH_CONF, reg);
-
-        REG_WRITE(REG_FLASH_DATA_FLASH_SW, *((volatile UINT32 *)0x20000));
         break;
 
     case CMD_FLASH_WRITE_ENABLE:
@@ -782,7 +787,6 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
     if(4 == flash_current_config->line_mode)
     {        
         flash_set_line_mode(LINE_MODE_FOUR);
-        //os_printf("change line mode 4\r\n");
     }
 
     peri_busy_count_dec();

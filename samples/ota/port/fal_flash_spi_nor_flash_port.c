@@ -45,12 +45,9 @@ static int read(long offset, uint8_t *buf, size_t size)
 static int write(long offset, const uint8_t *buf, size_t size)
 {
 	spi_flash_unprotect();
-	
-	spi_flash_write(offset,size,buf);
-	
+	spi_flash_write(offset,size, (uint8_t*)buf);
 	LOG_D("***write");
-	
-    return size;
+	return size;
 }
 
 #ifndef NOR_FLASH_DEV_NAME

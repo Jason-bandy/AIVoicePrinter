@@ -144,6 +144,11 @@ typedef struct rt_wlan_scan_result
     struct rt_wlan_info *ap_table;
 } rt_wlan_scan_result_t;
 
+struct rt_wifi_scan_param {
+	struct rt_wlan_scan_result **scan_result;
+	struct rt_wlan_info *wifi_info;
+};
+
 struct rt_wlan_device;
 typedef void (*rt_wlan_event_handler)(struct rt_wlan_device *device, rt_wlan_event_t event, void *user_data);
 typedef void (*rt_wlan_monitor_callback_t)(uint8_t *data, int len, void *user_data);

@@ -123,6 +123,7 @@ void rt_hw_board_init(void)
  */
 void rt_hw_cpu_reset(void)
 {
+    void bk_reboot(void);
     bk_reboot();
 
     while (1);
@@ -161,7 +162,7 @@ void rt_hw_wdg_start(int argc, char **argv)
     rt_device_control(device, RT_DEVICE_CTRL_WDT_SET_TIMEOUT, &time);
     rt_device_control(device, RT_DEVICE_CTRL_WDT_START, RT_NULL);
 
-    g_wdg_context.threshold_in_tick = time * 1 / 2;
+    g_wdg_context.threshold_in_tick = 500;
     g_wdg_context.consumed_in_tick = 0;
     g_wdg_context.last_fresh_in_tick = rt_tick_get();
     rt_kprintf("%s time=%d threshold=%d\n", __FUNCTION__, time, g_wdg_context.threshold_in_tick);
@@ -188,7 +189,6 @@ void rt_hw_wdg_refresh(void)
 
     if (WDG_STATUS_WATCH == g_wdg_context.wdg_flag)
     {
-        rt_kprintf("refresh watch dog\n");
         rt_device_control(device, RT_DEVICE_CTRL_WDT_KEEPALIVE, RT_NULL);
     }
     g_wdg_context.consumed_in_tick = 0;

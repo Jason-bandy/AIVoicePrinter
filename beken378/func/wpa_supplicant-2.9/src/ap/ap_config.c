@@ -17,6 +17,7 @@
 #include "ap_config.h"
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static void hostapd_config_free_vlan(struct hostapd_bss_config *bss)
 {
 	struct hostapd_vlan *vlan, *prev;
@@ -31,6 +32,7 @@ static void hostapd_config_free_vlan(struct hostapd_bss_config *bss)
 
 	bss->vlan = NULL;
 }
+#endif
 
 
 #ifndef DEFAULT_WPA_DISABLE_EAPOL_KEY_RETRIES

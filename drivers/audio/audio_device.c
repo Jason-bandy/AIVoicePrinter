@@ -50,9 +50,9 @@ void pcm_fade_handle(void *buffer,int size)
 {
 	int i,j;
 	long tmp;
-	int adj_size,adj_step;
+	int adj_size;
 	short *ptr2 = (short*)buffer;
-	
+
 	size = size >> 1;
 	adj_size = size >> MAX_FADE_STEP_SFT;
 
@@ -67,7 +67,7 @@ void pcm_fade_handle(void *buffer,int size)
 			for(i=0;i<size;i++)
 				ptr2[i] = 0;
 
-			printf("======fade out fill zero:%d====\r\n",size);
+			rt_kprintf("======fade out fill zero:%d====\r\n",size);
 			return;
 		}
 	}
@@ -134,14 +134,13 @@ static rt_err_t audio_device_write_done(struct rt_device *device, void *ptr)
 
 void audio_device_write(void *buffer, int size)
 {
-	signed short *buf;
-	int j, tmp_sample;
-	int len = size >> 1;
-
     if (_audio_device->snd && size != 0)
     {
 
 #if (USE_L_R_SINGLE_CHANNEL)
+		signed short *buf;
+		int j, tmp_sample;
+		int len = size >> 1;
 		buf = (signed short *)buffer;
 		for(j=0; j < len; j+=2)
 		{

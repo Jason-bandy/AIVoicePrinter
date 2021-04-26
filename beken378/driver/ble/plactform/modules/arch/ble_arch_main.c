@@ -40,6 +40,10 @@
 #include "rwapp_config.h"
 #include "sys_ctrl_pub.h"
 #include "arch.h"
+#include "drv_model_pub.h"
+#include "drv_model.h"
+#include "param_config.h"
+#include "sys_ctrl.h"
 
 /**
  ****************************************************************************************
@@ -63,13 +67,6 @@
  * STRUCTURE DEFINITIONS
  ****************************************************************************************
  */
-
-/// Description of unloaded RAM area content
-struct unloaded_area_tag
-{
-    // status error
-    uint32_t error;
-};
 
 
 /*
@@ -266,9 +263,7 @@ void rw_main(void)
 
 	//*((volatile unsigned long *)(0x0802800 + 0x19 * 4)) = 0x40;
 	//*((volatile unsigned long *)(0x0802800 + 0x1C * 4)) = 0x40;
-	
-#if CFG_USE_BLE_PS	
-	uint8_t sleep_type = 0;
+#if CFG_USE_BLE_PS
     sctrl_ble_ps_init();
     ble_ps_enable_set();
 #endif
@@ -383,7 +378,6 @@ ble_main_exit:
         UINT32 reg = RF_HOLD_BY_BLE_BIT;
         sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
         ble_switch_rf_to_wifi();
-		ble_stop_delegate_restore_mac_state(1);
         #endif
         ble_deep_sleep = 0;
         ble_first_sleep = 1;

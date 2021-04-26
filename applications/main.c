@@ -48,6 +48,8 @@ extern int player_system_init(void);
 extern void user_main( beken_thread_arg_t args );
 
 extern int rt_hw_flash_disk_readonly_init(const char *name, uint32_t base, uint32_t sector_size, uint32_t capacity);
+extern void rt_hw_wdg_start(int argc, char **argv);
+extern int bk_wlan_dtim_rf_ps_mode_enable(void );
 
 int main(int argc, char **argv)
 {
@@ -96,6 +98,11 @@ int main(int argc, char **argv)
 
     wlan_app_init();
 #if  defined(PKG_USING_PLAYER)
+    extern int player_codec_helixmp3_register(void);
+    extern int player_codec_beken_aac_register(void);
+    extern int player_codec_beken_m4a_register(void);
+    extern int player_codec_opencore_amr_register(void);
+
     player_codec_helixmp3_register(); 
     player_codec_beken_aac_register(); 
     player_codec_beken_m4a_register(); 
@@ -106,9 +113,6 @@ int main(int argc, char **argv)
     app_manage_init();
 #endif
 	rt_hw_wdg_start(0,NULL);
-#if CFG_USE_STA_PS
-	bk_wlan_dtim_rf_ps_mode_enable();
-#endif
 
     return 0;
 }

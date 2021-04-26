@@ -132,6 +132,7 @@ ble_err_t appm_create_initing(uint8_t con_idx,unsigned short con_interval,
 	if (BLE_APP_MASTER_GET_IDX_STATE(con_idx) == APP_INIT_STATE_IDLE)
 	{
 		// And the next expected operation code for the command completed event
+		app_ble_env.connections[con_idx].conhdl = USED_CONN_HDL;
 		app_ble_env.connections[con_idx].con_interval = (con_interval) ? con_interval : APP_CONN_INTV;
 		app_ble_env.connections[con_idx].con_latency = (con_latency) ? con_latency : APP_CONN_LATENCY;
 		app_ble_env.connections[con_idx].sup_to = (sup_to) ? sup_to : APP_CONN_SUP_TO;
@@ -140,7 +141,7 @@ ble_err_t appm_create_initing(uint8_t con_idx,unsigned short con_interval,
 		app_ble_env.connections[con_idx].u.master.conn_dev_to = APP_CONN_DRV_TO;
 		app_ble_env.connections[con_idx].conn_op_mask = 1 << BLE_OP_CREATE_INIT_POS;
 		app_ble_env.connections[con_idx].conn_op_cb = NULL;
-		app_ble_env.connections[con_idx].conhdl = USED_CONN_HDL;
+		app_ble_env.connections[con_idx].con_interval += (con_idx * APP_CONN_IND_DELT_TIME);
 	#if APP_INIT_REUSE_ACTV_IDX
 		unsigned char unused_init_actv = appm_get_stop_init_actv_idx();
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)

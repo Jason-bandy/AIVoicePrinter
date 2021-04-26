@@ -20,43 +20,42 @@
 #define THD_LWIP_PRIORITY                          4
 #define THD_INIT_PRIORITY                          4
 #define THD_RECONNECT_PRIORITY                     4
-#define THD_MEDIA_PRIORITY						   4
+#define THD_MEDIA_PRIORITY                         4
 #define THD_WPAS_PRIORITY                          5
 #define THD_EXTENDED_APP_PRIORITY                  5
 #define THD_HOSTAPD_PRIORITY                       5
-#define THDD_KEY_SCAN_PRIORITY					   7
+#define THDD_KEY_SCAN_PRIORITY                     7
 
 /*section 2-----function macro config-----*/
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
-#define CFG_ROLE_LAUNCH                            1
-#define CFG_USE_WPA_29							   1
-#define CFG_NEW_SUPP							   0
+#define CFG_ROLE_LAUNCH                            0
+#define CFG_USE_WPA_29                             1
+#define CFG_WPA_CTRL_IFACE                         1
 #define CFG_RWNX_QOS_MSDU                          1
-
+#define CFG_WLAN_FAST_CONNECT                      0
 /* PMF */
-#define CFG_IEEE80211W							   0
-#if CFG_NEW_SUPP
+#define CFG_IEEE80211W                             0
+#if CFG_WPA_CTRL_IFACE
 #undef CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 #endif
-#define CFG_WPA3								   0
+#define CFG_WPA3                                   0
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
-#define CFG_USE_WPA_29							   1
+#define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
-#define CFG_IEEE80211W							   1
-/* if WPA3 is enabled, define CONFIG_SME */
-#define CONFIG_SME								   1
+#define CFG_IEEE80211W                             1
+#define CFG_SME                                    0
 #endif
-//#define CFG_MESH								   0
-#define CFG_WFA_CERT							   0
+//#define CFG_MESH                                 0
+#define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             0
 #define CFG_AP_SUPPORT_HT_IE                       0
-#define CFG_SUPPORT_BSSID_CONNECT				   0
+#define CFG_SUPPORT_BSSID_CONNECT                  0
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
@@ -166,10 +165,14 @@
 #define CFG_USE_SDCARD_HOST                        0
 
 /*section 20 ----- support mp3 decoder*/
-#define CONFIG_APP_MP3PLAYER 			           0
+#define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_SUPPORT_OTA_HTTP                       0
+#else
+#define CFG_SUPPORT_OTA_HTTP                       1
+#endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
 /*section 22 ----- support adc calibrate*/
@@ -202,6 +205,23 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
+#define CFG_BLE_ADV_NUM				1
+#define CFG_BLE_SCAN_NUM			1
+
+// 0 mean do not support ble master
+#define CFG_BLE_INIT_NUM			0
+
+#define CFG_BLE_CONN_NUM			1
+
+#if (CFG_BLE_ADV_NUM == 0)
+#error "ADV NUM should not be 0"
+#endif
+
+#if (CFG_BLE_CONN_NUM == 0)
+#error "CONN NUM should not be 0"
+#endif
+
+
 #define CFG_SUPPOET_BSSID_CONNECT                  0
 
 #define CFG_XTAL_FREQUENCE_40M                     40000000 //40MHz
@@ -216,19 +236,10 @@
 #undef  CFG_JTAG_ENABLE
 #define CFG_JTAG_ENABLE                            0
 #undef  CFG_ROLE_LAUNCH
-#define CFG_ROLE_LAUNCH							   0
+#define CFG_ROLE_LAUNCH                            0
 #undef  CFG_USE_MCU_PS
 #define CFG_USE_MCU_PS                             RHINO_CONFIG_CPU_PWR_MGMT
 #endif
-
-
-///config ble master role number
-#define CFG_BLE_MASTER_ROLE_NUM                   0
-///adv number
-#define CFG_BLE_SLAVE_ADV_NUM                     1
-///slave role connect number
-#define CFG_BLE_SLAVE_ROLE_CONN_NUM               1
-
 
 #define LWIP_DEFAULT_MEM_POLICY                   1
 #define LWIP_REDUCE_THE_PLAN                      2
@@ -239,5 +250,26 @@
 #define CFG_LWIP_MEM_POLICY                       LWIP_REDUCE_THE_PLAN
 #endif
 
+
+/* watchdog, freertos only */
+#define CFG_INT_WDG_ENABLED                        1
+#define CFG_INT_WDG_PERIOD_MS                      10000
+#define CFG_TASK_WDG_ENABLED                       1
+#define CFG_TASK_WDG_PERIOD_MS                     60000
+
+/*section 29 -----  peripheral interface open  */
+#define CFG_USE_I2C1                                0
+#define CFG_USE_I2C2                                1
+
+#define CFG_USE_SPI_MASTER                         1
+#define CFG_USE_SPI_SLAVE                          1
+#define CFG_USE_SPI_DMA                            1
+
+/*section 30 ----- peripheral interface test case */
+#define CFG_PERIPHERAL_TEST							0
+#define CFG_SUPPORT_SPI_TEST                        0
+
+
+#define AT_SERVICE_CFG                             0
 
 #endif // _SYS_CONFIG_H_

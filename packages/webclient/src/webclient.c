@@ -32,6 +32,9 @@
 #include <lwip/sockets.h>
 #endif /* RT_USING_SAL */
 
+#include "sys/socket.h"
+#include "netdb.h"
+
 #define DBG_ENABLE
 #define DBG_SECTION_NAME               "web"
 #ifdef WEBCLIENT_DEBUG
@@ -762,12 +765,12 @@ int webclient_handle_response(struct webclient_session *session)
         rc = webclient_read_line(session, mime_buffer, session->header->size - session->header->length);
         if (rc < 0)
             break;
-        mime_ptr = webclient_header_fields_get(session, "Set-Cookie:");
+        mime_ptr = (char*)webclient_header_fields_get(session, "Set-Cookie:");
         if (mime_ptr != RT_NULL)
-        {   
+        {
             session->Cookie = web_strdup(mime_ptr);
         }
-    
+
         /* End of headers is a blank line.  exit. */
         if (rc == 0)
             break;

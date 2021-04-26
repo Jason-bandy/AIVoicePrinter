@@ -15,6 +15,7 @@
 #include "qspi_pub.h"
 #include "BkDriverQspi.h"
 #include "test_config.h"
+#include "drv_wdt.h"
 
 
 //#define QSPI_TEST
@@ -648,19 +649,16 @@ void mem_bus_test(uint32_t address, uint32_t size, int test_mode,int rw_way)
 void test_bus_mem(int argc, char **argv)
 {
     psram_init(0,2);//NOTE:should set according to the actual situation! here default set as 1 line;3.3v
-    extern void rt_hw_wdg_stop(void);
     rt_hw_wdg_stop();
-    
+
     if (argc == 4) {
         mem_bus_test(0x03000000, atoi(argv[3]) * 1024, atoi(argv[1]), atoi(argv[2]));
-    
     } else {
         rt_kprintf("ex:test_bus_mem x1 x2 x3\r\n");
         rt_kprintf(" x1 is rw size (0:8 bit 1:16 bit 2:32bit) x2 is rw_way (0:rw 1:write only 2:read only ); x3 is checksize\r\n");
     }
 
-    extern void rt_hw_wdg_start(int argc, char **argv);
-    rt_hw_wdg_start(0,NULL); 
+    rt_hw_wdg_start(0,NULL);
 }
 MSH_CMD_EXPORT(test_bus_mem, test_bus_mem);
 

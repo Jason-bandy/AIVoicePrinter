@@ -20,6 +20,8 @@
 #include "wpa_auth.h"
 #include "ap_drv_ops.h"
 
+__maybe_unused static int add_buf(struct wpabuf **dst, const struct wpabuf *src);
+__maybe_unused static int add_buf_data(struct wpabuf **dst, const u8 *data, size_t len);
 
 u32 hostapd_sta_flags_to_drv(u32 flags)
 {
@@ -49,7 +51,6 @@ static int add_buf(struct wpabuf **dst, const struct wpabuf *src)
 	wpabuf_put_buf(*dst, src);
 	return 0;
 }
-
 
 static int add_buf_data(struct wpabuf **dst, const u8 *data, size_t len)
 {

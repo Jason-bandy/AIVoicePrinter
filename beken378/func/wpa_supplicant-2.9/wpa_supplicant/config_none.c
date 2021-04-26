@@ -37,6 +37,7 @@ static void wpa_config_ht_cap_by_sec(int sec)
 }
 #endif
 
+#if !CFG_WPA_CTRL_IFACE
 static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 {
 	int errors = 0;
@@ -62,6 +63,7 @@ static int wpa_config_validate_network(struct wpa_ssid *ssid, int line)
 
 	return errors;
 }
+#endif
 
 static int set_wpa_psk(struct wpa_ssid *ssid)
 {
@@ -82,12 +84,12 @@ static int set_wpa_psk(struct wpa_ssid *ssid)
 					   g_sta_param_ptr->key);
 			errors++;
 		}
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		ssid->passphrase = NULL;
 #endif
 		ssid->psk_set = 1;
 	} else {
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		str_clear_free(ssid->passphrase);
 		ssid->passphrase = dup_binstr(g_sta_param_ptr->key, g_sta_param_ptr->key_len);
 		ssid->psk_set = 0;
@@ -152,6 +154,7 @@ static int cipher2security(struct wpa_ie_data *ie)
 	}
 }
 
+#if !CFG_WPA_CTRL_IFACE
 static int security2cipher(struct wpa_ie_data *ie, int security)
 {
 	os_memset(ie, 0, sizeof(*ie));
@@ -203,6 +206,7 @@ static int security2cipher(struct wpa_ie_data *ie, int security)
 
 	return 0;
 }
+#endif
 
 int wpa_config_set_none(struct wpa_ssid *ssid)
 {
@@ -210,6 +214,10 @@ int wpa_config_set_none(struct wpa_ssid *ssid)
 	ssid->mem_only_psk = 0;
 	ssid->auth_alg = 0;
 	g_sta_param_ptr->cipher_suite = BK_SECURITY_TYPE_NONE;
+#if CFG_WPA_CTRL_IFACE
+	ssid->wep_key[0][0] = 0;
+	ssid->wep_key_len[0] = 0;
+#endif
 
 	return 0;
 }
@@ -232,19 +240,25 @@ int wpa_config_set_wpa(struct wpa_ssid *ssid, struct wpa_ie_data *ie)
 {
 	int ret;
 
-	ssid->group_cipher = ie->group_cipher;
-	ssid->pairwise_cipher = ie->pairwise_cipher;
-	ssid->key_mgmt = ie->key_mgmt;
-	ssid->proto = ie->proto;
+	if (0 == (ssid->group_cipher & ie->group_cipher))
+		ssid->group_cipher = ie->group_cipher;
+	if (0 == (ssid->pairwise_cipher & ie->pairwise_cipher))
+		ssid->pairwise_cipher = ie->pairwise_cipher;
+	if (0 == (ssid->key_mgmt & ie->key_mgmt))
+		ssid->key_mgmt = ie->key_mgmt;
+	if (0 == (ssid->proto & ie->proto))
+		ssid->proto = ie->proto;
 	ssid->auth_alg = 0;	// let supplicant choose automatically.
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if ((ssid->psk_set) || (ssid->passphrase != NULL))
 		return 0;
 #else
-	if (ssid->psk_set)
+	if (ssid->psk_set) {
+		g_sta_param_ptr->cipher_suite = cipher2security(ie);
 		return 0;
-#endif /* CFG_NEW_SUPP */
+	}
+#endif /* CFG_WPA_CTRL_IFACE */
 
 	ret = set_wpa_psk(ssid);
 	if (!ret) {
@@ -252,7 +266,7 @@ int wpa_config_set_wpa(struct wpa_ssid *ssid, struct wpa_ie_data *ie)
 		#if CFG_IEEE80211N
 		wpa_config_ht_cap_by_sec(g_sta_param_ptr->cipher_suite);
 		#endif
-		
+
 		if (ssid->passphrase && (ssid->psk_set == 0)) {
 			wpa_config_update_psk(ssid);
 			ssid->psk_set = 1;
@@ -267,8 +281,10 @@ int wpa_config_set_wpa(struct wpa_ssid *ssid, struct wpa_ie_data *ie)
 static struct wpa_ssid *wpa_config_read_network(int *line, int id)
 {
 	struct wpa_ssid *ssid;
+#if !CFG_WPA_CTRL_IFACE
 	struct wpa_ie_data ie;
 	int errors = 0;
+#endif
 
 	ssid = os_zalloc(sizeof(*ssid));
 	if (ssid == NULL)
@@ -279,7 +295,7 @@ static struct wpa_ssid *wpa_config_read_network(int *line, int id)
 
 	wpa_config_set_network_defaults(ssid);
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	ssid->ssid = (uint8_t*)dup_binstr(g_sta_param_ptr->ssid.array, g_sta_param_ptr->ssid.length);
 	ssid->ssid_len = g_sta_param_ptr->ssid.length;
 	ssid->key_mgmt = 0;
@@ -318,7 +334,7 @@ static struct wpa_ssid *wpa_config_read_network(int *line, int id)
 		wpa_config_free_ssid(ssid);
 		ssid = NULL;
 	}
-#else /* CFG_NEW_SUPP */
+#else /* CFG_WPA_CTRL_IFACE */
 	ssid->disabled = 1;		/* disable scan @ wpa_supplicant_driver_init */
 #ifdef CONFIG_IEEE80211W
 	ssid->ieee80211w = MGMT_FRAME_PROTECTION_OPTIONAL;
@@ -372,7 +388,7 @@ struct wpa_config *wpa_config_read(const char *name, struct wpa_config *cfgp)
 
 	config->ssid = head;
 	wpa_config_debug_dump_networks(config);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	config->auth_dur = 3;
 	//config->pmf = MGMT_FRAME_PROTECTION_OPTIONAL;
 #endif

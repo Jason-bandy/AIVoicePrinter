@@ -1,4 +1,5 @@
 #include "include.h"
+#include "doubly_list.h"
 #include "rw_msdu.h"
 #include "rw_pub.h"
 #include "str_pub.h"
@@ -22,6 +23,7 @@
 
 void ethernetif_input(int iface, struct pbuf *p);
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag);
+extern int bmsg_ps_handler_rf_ps_mode_real_wakeup(void);
 
 LIST_HEAD_DEFINE(msdu_rx_list);
 
@@ -202,6 +204,7 @@ MSDU_NODE_T *rwm_tx_node_alloc(UINT32 len)
     UINT8 *buff_ptr;
     MSDU_NODE_T *node_ptr = 0;
 #if (CFG_SUPPORT_RTT) && (CFG_SOC_NAME == SOC_BK7221U)
+    extern void *dtcm_malloc(size_t size);
     node_ptr = (MSDU_NODE_T *)dtcm_malloc(sizeof(MSDU_NODE_T)
                                         + CFG_MSDU_RESV_HEAD_LEN
                                         + len
@@ -670,11 +673,6 @@ int sta_11n_nss(uint8_t *mcs_set)
 
 int qos_need_enabled(struct sta_info_tag *sta)
 {
-	int i;
-	struct mac_rateset *rate_set;
-	int rate_22mbps_found = 0;
-	int nss = 0;
-
 	if (!sta)
 		return 0;
 	if (!(sta->info.capa_flags & STA_QOS_CAPA))
@@ -717,7 +715,7 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
 		sta = &sta_info_tab[vif->u.sta.ap_id];
 		if (qos_need_enabled(sta)) {
 			int i;
-			tid = classify8021d(eth_hdr_ptr);
+			tid = classify8021d((UINT8 *)eth_hdr_ptr);
 			/* check admission ctrl */
 			for (i = mac_tid2ac[tid]; i >= 0; i--)
 				if (!(vif->bss_info.edca_param.acm & BIT(i)))
@@ -1144,13 +1142,10 @@ void rwn_mgmt_show_vif_peer_sta_list(UINT8 role)
 UINT8 rwn_mgmt_if_ap_stas_empty()
 {
     struct vif_info_tag *vif = (VIF_INF_PTR)rwm_mgmt_is_vif_first_used();
-    struct sta_info_tag *sta;
-    UINT8 num = 0;
     UINT8 role = VIF_AP;
         
     while(vif) {
-        if ( vif->type == role) { 
-            sta = (struct sta_info_tag *)co_list_pick(&vif->sta_list);
+        if ( vif->type == role) {
             if(co_list_is_empty(&vif->sta_list))
                 {
                 return 1;

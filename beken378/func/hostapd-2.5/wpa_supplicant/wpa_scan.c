@@ -603,7 +603,7 @@ static int wpa_set_ssids_from_scan_req(struct wpa_supplicant *wpa_s,
 	}
 
 	params->num_ssids = wpa_s->num_ssids_from_scan_req;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->num_ssids_from_scan_req = 0;
 #endif
 	return 1;
@@ -653,7 +653,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	ssid = NULL;
 	if (wpa_s->scan_req != MANUAL_SCAN_REQ &&
 	    (wpa_s->connect_without_scan 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		|| wpa_s->fast_connect
 #endif
 		)) {
@@ -664,7 +664,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 		}
 	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 	if(g_sta_param_ptr->fast_connect_set) {
 		connect_without_scan = 1;
 		ssid = wpa_s->conf->ssid;
@@ -687,7 +687,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 		max_ssids = WPAS_MAX_SCAN_SSIDS;
 
 	wpa_s->last_scan_req = wpa_s->scan_req;
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wpa_s->scan_req = NORMAL_SCAN_REQ;
 #endif
 	if (connect_without_scan) {
@@ -818,7 +818,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 
 	if (ssid && max_ssids == 1) {
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		/*
 		 * If the driver is limited to 1 SSID at a time interleave
 		 * wildcard SSID scans with specific SSID scans to avoid
@@ -837,7 +837,7 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 			wpa_dbg(wpa_s, MSG_DEBUG,
 				"Starting AP scan for specific SSID: %s",
 				wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 		}
 #endif
 	} else if (ssid) {

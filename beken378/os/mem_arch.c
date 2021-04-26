@@ -4,6 +4,7 @@
 
 #include "sys_rtos.h"
 #include "uart_pub.h"
+#include "mem_pub.h"
 
 INT32 os_memcmp(const void *s1, const void *s2, UINT32 n)
 {

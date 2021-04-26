@@ -434,6 +434,7 @@ static struct wpa_bss * wpa_bss_add(struct wpa_supplicant *wpa_s,
 	struct wpa_bss *bss;
 	char extra[50];
 
+	__maybe_unused_var(extra);
 	bss = os_zalloc(sizeof(*bss) + res->ie_len + res->beacon_ie_len);
 	if (bss == NULL)
 		return NULL;

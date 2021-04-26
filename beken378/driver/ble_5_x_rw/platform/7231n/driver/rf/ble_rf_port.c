@@ -119,6 +119,7 @@ void ble_switch_clear_mac_interrupts(void)
 }
 #endif
 
+extern UINT32 txl_cntrl_pck_get(void );
 void ble_switch_rf_to_ble(void)
 {
 	uint32_t reg;
@@ -290,9 +291,9 @@ void ble_release_rf_by_isr(void)
 	}
 }
 
+#ifdef BLE_CHOOSE_WIFI_IDLE
 static void ble_switch_rf_exit(void)
 {
-#ifdef BLE_CHOOSE_WIFI_IDLE
 	GLOBAL_INT_DECLARATION();
 
     GLOBAL_INT_DISABLE();
@@ -314,8 +315,8 @@ static void ble_switch_rf_exit(void)
 	GLOBAL_INT_RESTORE();
 	power_save_rf_ps_wkup_semlist_set();
 
-#endif
 }
+#endif
 
 void ble_delegate_ps_restore_mac_flag_clear(void)
 {

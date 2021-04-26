@@ -237,6 +237,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_ip -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_ble -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231u --buildlib=beken_usb -j8")
             DoSystemCall("scons --beken=bk7231u --buildlib=beken_sensor -j8")
         elif GetOption('beken') == 'bk7236':
             DoSystemCall("scons --beken=bk7236 --buildlib=beken_ip -j8")
@@ -269,6 +270,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_ip -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_ble -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7231u --cleanlib=beken_usb -j8")
             DoSystemCall("scons --beken=bk7231u --cleanlib=beken_sensor -j8")
         elif GetOption('beken') == 'bk7236':
             DoSystemCall("scons --beken=bk7236 --cleanlib=beken_ip -j8")

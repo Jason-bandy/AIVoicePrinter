@@ -21,6 +21,10 @@
 #include "error.h"
 #include "start_type_pub.h"
 
+#if CFG_SUPPORT_BLE
+#include "ble_pub.h"
+#endif
+
 volatile static PS_MODE_STATUS    bk_ps_mode = PS_NO_PS_MODE;
 static UINT32 last_wk_tick = 0;
 UINT32 last_rw_time = 0;
@@ -306,7 +310,7 @@ UINT8 power_save_clr_all_vif_prevent_sleep ( UINT32 prevent_bit )
 
 	return 0;
 }
-#if	CFG_BLE_VERSION == BLE_VERSION_4_2
+#if CFG_SUPPORT_BLE
 extern void ps_recover_ble_switch_mac_status(void);
 #endif
 void power_save_wakeup ( void )
@@ -321,7 +325,7 @@ void power_save_wakeup ( void )
 
 #if CFG_USE_STA_PS
 	sctrl_sta_rf_wakeup();
-#if CFG_USE_BLE_PS
+#if CFG_SUPPORT_BLE
 	rf_wifi_used_set();
 #endif
 	reg = REG_READ ( ICU_ARM_WAKEUP_EN );
@@ -343,7 +347,8 @@ void power_save_wakeup ( void )
 	PS_DEBUG_UP_TRIGER;
 	ASSERT ( !ps_lock );
 	ps_lock ++;
-#if	(CFG_BLE_VERSION == BLE_VERSION_4_2)
+
+#if CFG_SUPPORT_BLE
 	ps_recover_ble_switch_mac_status();
 #endif
 }
@@ -678,6 +683,10 @@ int power_save_dtim_disable_handler ( void )
 	rwnxl_set_nxmac_timer_value();
 	power_save_dtim_ps_exit();
 
+#if CFG_SUPPORT_BLE
+	rf_wifi_used_clr();
+#endif
+
 	if ( power_save_wkup_event_get() & NEED_REBOOT_BIT ) {
 		sddev_control ( WDT_DEV_NAME, WCMD_POWER_DOWN, NULL );
 		os_printf ( "pswdt reboot\r\n" );
@@ -690,7 +699,7 @@ int power_save_dtim_disable_handler ( void )
 
 	GLOBAL_INT_RESTORE();
 	os_printf ( "exit dtim ps!\r\n" );
-#if	CFG_BLE_VERSION == BLE_VERSION_4_2
+#if CFG_SUPPORT_BLE
 	ps_recover_ble_switch_mac_status();
 #endif
 	return 0;
@@ -924,7 +933,7 @@ void power_save_keep_timer_real_handler(void)
 	GLOBAL_INT_DECLARATION();
 	power_save_keep_timer_stop();
 	PS_DEBUG_PWM_TRIGER;
-#if CFG_USE_BLE_PS
+#if CFG_SUPPORT_BLE
 	rf_wifi_used_clr();
 #endif
 	GLOBAL_INT_DISABLE();
@@ -1052,7 +1061,7 @@ void power_save_beacon_state_set ( PS_STA_BEACON_STATE state )
 void power_save_beacon_state_update ( void )
 {
 	PS_DEBUG_RX_TRIGER;
-#if CFG_USE_BLE_PS
+#if CFG_SUPPORT_BLE
 	rf_wifi_used_clr();
 #endif
 
@@ -1326,9 +1335,9 @@ UINT8 power_save_if_rf_sleep ( void )
 
 UINT32 power_save_time_to_sleep ( void )
 {
-	UINT32 tm;
 	INT32 less;
 #if CFG_USE_STA_PS
+	UINT32 tm;
 
 	if ( bk_ps_info.ps_dtim_count == 0 ) {
 		tm = bk_ps_info.ps_dtim_period * bk_ps_info.ps_dtim_multi * bk_ps_info.ps_beacon_int;

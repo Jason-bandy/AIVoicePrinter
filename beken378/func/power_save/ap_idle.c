@@ -11,7 +11,6 @@
 #include "ap_idle_pub.h"
 
 
-static beken_timer_t ps_ap_bcn_timer = {0};
 UINT32 ps_fake_global_ap_count = 0;
 UINT32 ap_ps_enabled = 0;
 UINT32 ap_rf_off = 0;
@@ -19,6 +18,8 @@ UINT32 ps_fake_pause_shot = 0;
 
 
 #if CFG_USE_AP_IDLE
+static beken_timer_t ps_ap_bcn_timer = {0};
+
 //switch ap rf on/off
 UINT32 ap_bcn_timer_pause_one_shot_get ( void );
 void ap_bcn_timer_pause_one_shot_set ( UINT32 value );

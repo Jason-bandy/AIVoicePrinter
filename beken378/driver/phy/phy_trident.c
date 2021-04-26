@@ -40,6 +40,7 @@
 #include "uart_pub.h"
 #include "intc_pub.h"
 #include "power_save_pub.h"
+#include "bk7011_cal_pub.h"
 
 /*
  * STRUCTURES
@@ -1900,7 +1901,8 @@ static void phy_agc_init(void)
     // ADC sat thd
     agc_rwnxagcsat_set(0x08393537);
 #elif (SOC_BK7231N == CFG_SOC_NAME)
-    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, 0x806);  // Enable AGC OPT
+    /* qunshan20210325 change from 0x806 to 0x506,aim to increase RSSI +3 */
+    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, 0x506);  // Enable AGC OPT
     agc_rwnxagcevtsat_set(0x05044804);
     agc_rwnxagcevtdet_set(0x3D401008);
     agc_rwnxagcevtdis_set(0x3955B00B);
@@ -2462,6 +2464,10 @@ uint8_t check_large_singal_status(void)
     return large_singal_status;
 }
 
+void update_large_singal_status(uint8_t status)
+{
+    large_singal_status = status;
+}
 
 int large_signal_cnt;
 int small_signal_cnt;
@@ -2482,12 +2488,12 @@ void phy_large_signal_support(int8_t rssi)
         rssi += 15;
     }
 
-    if (rssi >= -20)
+    if (rssi >= -25)
     {
         large_signal_cnt ++;
         small_signal_cnt = 0;
     }
-    else if (rssi <= -40)
+    else if (rssi <= -35)
     {
         large_signal_cnt = 0;
         small_signal_cnt ++;
@@ -2853,6 +2859,9 @@ void phy_wakeup_rf_reinit(void)
     // recover trx setting
     rwnx_cal_recover_rf_setting();
 
+    //MODEM - contains AGC?
+    phy_mdm_init(0);
+
     // recover channel setting
     phy_set_channel(phy_env_sleep.band, phy_env_sleep.chnl_type, phy_env_sleep.chnl_prim20_freq,
                         phy_env_sleep.chnl_center1_freq, phy_env_sleep.chnl_center2_freq, PHY_PRIM);
@@ -2861,9 +2870,6 @@ void phy_wakeup_rf_reinit(void)
 
 void phy_wakeup_wifi_reinit(void)
 {
-    //MODEM - contains AGC?
-    phy_mdm_init(0);
-
     //AGC - separate or in MDM?
     phy_agc_init();
 

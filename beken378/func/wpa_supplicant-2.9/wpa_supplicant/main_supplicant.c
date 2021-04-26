@@ -21,12 +21,15 @@
 #if CFG_SUPPORT_BSSID_CONNECT
 #include "param_config.h"
 #endif
-#if CFG_NEW_SUPP
-#include "notifier.h"
+#if CFG_WPA_CTRL_IFACE
+#include "notifier_pub.h"
 #include "wlan_ui_pub.h"
+#include "bss.h"
 #endif
 #include "net.h"
 #include "common/wpa_psk_cache.h"
+#include "rw_msg_rx.h"
+#include "wlan_ui_pub.h"
 
 /* if SQRTMOD_USE_MOD_EXP is not enabled, enlarge stack size to 15K */
 #define WPAS_STACK_SZ	4096
@@ -66,7 +69,41 @@ int wpa_get_psk(char *psk)
     return 0;
 }
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
+void wlan_store_fci(struct wpa_supplicant *wpa_s)
+{
+#if CFG_WLAN_FAST_CONNECT
+	struct wlan_fast_connect_info fci;
+	char temp[4];
+	int i;
+	unsigned char *psk;
+
+	if (unlikely(!wpa_s || !wpa_s->current_ssid || !wpa_s->current_bss))
+		return;
+
+	os_memset(&fci, 0, sizeof(fci));
+	os_memcpy(fci.ssid, wpa_s->current_ssid->ssid, wpa_s->current_ssid->ssid_len);
+	os_memcpy(fci.bssid, wpa_s->current_bss->bssid, ETH_ALEN);
+	ieee80211_freq_to_chan(wpa_s->current_bss->freq, &fci.channel);
+	os_strcpy(fci.pwd, wpa_s->current_ssid->passphrase);
+
+	if (wpa_s->current_ssid && wpa_s->current_ssid->psk_set) {
+		psk = wpa_s->current_ssid->psk;
+		for (i = 0; i < PMK_LEN; i++) {
+			sprintf(temp, "%02x", psk[i]);
+			strcat(fci.psk, temp);
+		}
+	}
+
+	/* XXX: security not set */
+	//print_hex_dump("fci: ", &fci, sizeof(fci));
+	wpa_hexdump(MSG_DEBUG, "fci", &fci, sizeof(fci));
+
+	wlan_write_fast_connect_info(&fci);
+#endif
+}
+
+
 // XXX: put it wpas task? may be move to sys event task
 void wlan_internal_notify_func(void *ctx, int event, int extra)
 {
@@ -75,6 +112,7 @@ void wlan_internal_notify_func(void *ctx, int event, int extra)
 	case WLAN_EVENT_CONNECTED:
 		os_printf("WLAN_EVENT_CONNECTED\n");
 		sta_ip_start();
+		wlan_store_fci(wpa_s);
 		break;
 	case WLAN_EVENT_DISCONNECTED:
 		os_printf("WLAN_EVENT_DISCONNECTED\n");
@@ -82,18 +120,19 @@ void wlan_internal_notify_func(void *ctx, int event, int extra)
 		wpa_s->conf->ssid->mem_only_psk = 1; // set mem_only_psk, let wpas_network_disabled return false
 		break;
 	case WLAN_EVENT_SCAN_RESULTS:
-		os_printf("WLAN_EVENT_SCAN_RESULTS\n");
+		//os_printf("WLAN_EVENT_SCAN_RESULTS\n");
 		break;
 	}
 }
 #endif
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 #include "param_config.h"
 extern sta_param_t *g_sta_param_ptr;
 #define WLAN_STA_DISABLE_FLAG      (0x01U)
 #define WLAN_AP_DISABLE_FLAG       (0x02U)
 unsigned char  wlan_sta_ap_disable_flag = 0;
+extern void mhdr_scanu_reg_cb_clean(FUNC_2PARAM_PTR ind_cb, void *ctxt);
 void wlan_sta_disable_eloop_signal_handler(int sig, void *signal_ctx)
 {
 	int flag = 0;
@@ -103,13 +142,17 @@ void wlan_sta_disable_eloop_signal_handler(int sig, void *signal_ctx)
 	if(wlan_sta_ap_disable_flag&WLAN_STA_DISABLE_FLAG)
 	{
 		flag |= WLAN_STA_DISABLE_FLAG;
+		mhdr_deassoc_evt_cb(NULL,NULL);
+		mhdr_deauth_evt_cb(NULL,NULL);
+		mhdr_assoc_cfm_cb(NULL,NULL);
+		mhdr_scanu_reg_cb_clean(NULL,(void *)SIGSCAN);
 	}
 	if(wlan_sta_ap_disable_flag&WLAN_AP_DISABLE_FLAG)
 	{
 		flag |= WLAN_AP_DISABLE_FLAG;
 	}
 	GLOBAL_INT_RESTORE();
-	
+
 	if(flag & WLAN_STA_DISABLE_FLAG)
 	{
 		net_wlan_remove_netif(&g_sta_param_ptr->own_mac);
@@ -135,7 +178,7 @@ int wlan_sta_disable(void)
 	unsigned int delay_total = 0;
 	int flag = 0;
 	GLOBAL_INT_DECLARATION();
-	
+
 	bk_printf("%s\r\n",__FUNCTION__);
 	if(wpa_global_ptr && wpas_ifaces)
 	{
@@ -205,7 +248,7 @@ int supplicant_main_exit(void)
 	if (wpa_global_ptr == NULL)
 		return 0;
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wlan_unregister_notifier(wlan_internal_notify_func, wpa_suppliant_ctrl_get_wpas());
 #endif
 
@@ -282,7 +325,7 @@ int supplicant_main_entry(char *oob_ssid)
 		}
 
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 #if CFG_SUPPORT_BSSID_CONNECT
 		if ((NULL == oob_ssid || 0 == os_strlen(oob_ssid))
 			&& !is_zero_ether_addr(g_sta_param_ptr->fast_connect.bssid)
@@ -332,7 +375,7 @@ int supplicant_main_entry(char *oob_ssid)
 		wpa_supplicant_deinit(wpa_global_ptr);
 	} else {
 		// Add event notifier chain
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 		wlan_register_notifier(wlan_internal_notify_func, wpa_s);
 #endif
 		wpa_supplicant_run(wpa_global_ptr);

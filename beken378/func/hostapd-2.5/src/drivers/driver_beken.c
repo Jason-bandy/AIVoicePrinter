@@ -1518,7 +1518,7 @@ int wpa_driver_scan2(void *priv, struct wpa_driver_scan_params *params)
         return -1;
 
 	eloop_register_signal(SIGSCAN, wpa_driver_scan_sig_handler, drv->wpa_s);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	eloop_register_signal(SIGSCAN_START, wpa_driver_scan_start_sig_handler, drv->wpa_s);
 #endif
 
@@ -1667,7 +1667,7 @@ int wpa_driver_associate(void *priv, struct wpa_driver_associate_params *params)
     param->u.assoc_req.proto = params->wpa_proto;
     param->u.assoc_req.ie_len = params->wpa_ie_len;
     os_memcpy((u8 *)param->u.assoc_req.ie_buf, params->wpa_ie, param->u.assoc_req.ie_len);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	param->u.assoc_req.freq = params->freq.freq;
 #endif
 	param->u.assoc_req.bcn_len = params->bcn_len;

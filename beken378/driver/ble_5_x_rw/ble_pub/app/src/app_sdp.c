@@ -111,10 +111,13 @@ uint8_t app_sdp_add_element_srv(uint8_t conidx,struct gattc_sdp_svc_ind const *i
 
 
 #define APPM_ERROR_NO_ERROR    0
-#define APPM_ERROR_STATE      -1
+#define APPM_ERROR_STATE       (0xFF)
 
 uint8_t appc_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t data_len,uint8_t *data)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 	bk_printf("[%s]state = %x,",__func__,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))));
 	bk_printf("conidx:%d,handle = 0x%04x\r\n",conidx,handle);
@@ -162,6 +165,9 @@ uint8_t appc_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t data
 
 uint8_t appc_write_service_ntf_cfg_req(uint8_t conidx,uint16_t handle,uint16_t ntf_cfg,uint16_t seq_num)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 	bk_printf("[%s]state = %x,",__func__,kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,conidx)));
 	bk_printf("conidx:%d,handle = 0x%04x,ntf_cfg = 0x%x\r\n",conidx,handle,ntf_cfg);
@@ -201,6 +207,9 @@ uint8_t appc_write_service_ntf_cfg_req(uint8_t conidx,uint16_t handle,uint16_t n
 
 uint8_t appm_read_service_data_by_uuid_req(uint8_t conidx,uint8_t uuid_len,uint8_t* uuid)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 	bk_printf("[%s]\r\n",__func__);
 #endif
@@ -208,7 +217,7 @@ uint8_t appm_read_service_data_by_uuid_req(uint8_t conidx,uint8_t uuid_len,uint8
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 	struct prf_sdp_db_env *sdp_db_env;
 
-	sdp_db_env = sdp_profiles_sdp_db_env_from_uuid(conhdl,uuid,uuid_len);
+	sdp_db_env = sdp_profiles_sdp_db_env_from_uuid(conhdl,uuid_len,uuid);
 
 	if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED) && sdp_db_env)
 	{
@@ -238,17 +247,20 @@ uint8_t appm_read_service_data_by_uuid_req(uint8_t conidx,uint8_t uuid_len,uint8
 
 uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
+
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
-	struct prf_sdp_db_env *sdp_db_env;
+	struct prf_sdp_db_env *sdp_db_env = NULL;
 
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 	bk_printf("[%s]conidx:%d,conhdl:%d,handle:0x%x,status:0x%x\r\n",__func__,conidx,conhdl,handle,KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx)));
 #endif
 	sdp_db_env = sdp_profiles_sdp_db_env(conhdl,handle);
-	bk_printf("[%s]sdp_db_env:%p;prf_idx:%d,state:%x\r\n",__func__,sdp_db_env,sdp_db_env->prf_idx,(KERNEL_BUILD_ID((TASK_BLE_ID_SDP+sdp_db_env->prf_idx),0)));
 
-	if((kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED)
+	if( (kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))) == APPC_SERVICE_CONNECTED)
 		&& (sdp_db_env != NULL))
 	{
 		struct sdp_read_info_req *req = KERNEL_MSG_ALLOC(SDP_READ_INFO_REQ,
@@ -259,7 +271,7 @@ uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 		req->handle = handle;
 		req->info = SDPC_CHAR_VAL;
 		req->type = SDPC_OPERATE_HANDLE;
-		bk_printf("[%s]send SDP_READ_INFO_REQ\r\n",__func__);
+
 		// Send the message
 		kernel_msg_send(req);
 	}
@@ -267,7 +279,7 @@ uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 	{
 		ret = APPM_ERROR_STATE;
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
-		bk_printf("kernel_state_get(TASK_BLE_APP) = %x,sdp_db_env:%p\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))),sdp_db_env);
+		bk_printf("kernel_state_get(TASK_BLE_APP) = %x,sdp_db_env:%x\r\n",kernel_state_get(KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx))),sdp_db_env);
 		#endif
 	}
 
@@ -276,6 +288,9 @@ uint8_t appm_read_service_data_by_handle_req(uint8_t conidx,uint16_t handle)
 
 uint8_t appm_read_service_ntf_ind_cfg_by_handle_req(uint8_t conidx,uint16_t handle)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 	struct prf_sdp_db_env *sdp_db_env;
@@ -310,6 +325,9 @@ uint8_t appm_read_service_ntf_ind_cfg_by_handle_req(uint8_t conidx,uint16_t hand
 
 uint8_t appm_read_service_userDesc_by_handle_req(uint8_t conidx,uint16_t handle)
 {
+	if(BLE_CONNECTION_MAX <= conidx){
+		return APPM_ERROR_STATE;
+	}
 	uint8_t ret = APPM_ERROR_NO_ERROR;
 	uint8_t conhdl = app_ble_env.connections[conidx].conhdl;
 	struct prf_sdp_db_env *sdp_db_env;

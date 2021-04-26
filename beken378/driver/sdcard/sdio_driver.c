@@ -398,8 +398,6 @@ SDIO_Error sdcard_wait_write_end(void)
 int wait_Receive_Data(void)
 {
     uint32 ret = SD_ERR_LONG_TIME_NO_RESPONS, status = 0;
-    uint32 timeoutcnt = 0;
-    //extern UINT32 bk_rtos_get_time(void);
     uint32 start_tm = rtos_get_time();
     while (1)
     {

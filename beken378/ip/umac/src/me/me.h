@@ -69,7 +69,7 @@ struct me_env_tag
     uint16_t tx_lft;
     /// Flag indicating whether HT is supported
     bool ht_supported;
-	
+
 #if NX_VHT
     /// VHT capabilities of the device
     struct mac_vhtcapability vht_cap;
@@ -214,7 +214,7 @@ void me_init(void);
  */
 struct scan_chan_tag *me_freq_to_chan_ptr(uint8_t band, uint16_t freq);
 
-uint8_t me_mgmt_tx(struct me_mgmt_tx_req *param);
+uint8_t me_mgmt_tx(struct me_mgmt_tx_req *param, uint8_t sta_id);
 
 /// @}
 

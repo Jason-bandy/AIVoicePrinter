@@ -53,6 +53,7 @@ extern void fclk_reset_count(void);
 extern void fclk_init(void);
 extern UINT32 fclk_from_sec_to_tick(UINT32 sec);
 extern UINT32 fclk_cal_endvalue(UINT32 mode);
+BK_HW_TIMER_INDEX fclk_get_tick_id(void);;
 
 #endif // _FAKE_CLOCK_PUB_H_
 // eof

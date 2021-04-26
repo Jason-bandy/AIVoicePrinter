@@ -480,6 +480,8 @@ uint8_t rxu_cntrl_get_pm(void);
  */
 void rxu_cntrl_evt(int dummy);
 
+uint32_t rx_mgmt_filter(uint16_t framectrl, void *payload, uint16_t length);
+
 
 /// @}
 

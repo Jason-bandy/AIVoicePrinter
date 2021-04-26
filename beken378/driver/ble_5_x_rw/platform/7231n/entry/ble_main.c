@@ -34,11 +34,14 @@
 #include "BK3633_RegList.h"
 #include "param_config.h"
 #include "common_utils.h"
+#include "ate_app.h"
 
 beken_queue_t ble_msg_que = NULL;
 beken_thread_t ble_thread_handle = NULL;
 uint8_t ble_system_mode;
 uint8_t tx_pwr_idx;
+
+extern void intc_service_change_handler(UINT8 int_num, FUNCPTR isr);
 
 enum {
 	DUT_IDLE,
@@ -180,13 +183,12 @@ void ble_exit(void)
 
 void ble_send_msg(UINT32 data)
 {
-	OSStatus ret;
 	BLE_MSG_T msg;
 
-    if (ble_msg_que) {
-    	msg.data = data;    	
-    	ret = rtos_push_to_queue(&ble_msg_que, &msg, BEKEN_NO_WAIT);
-    }
+	if (ble_msg_que) {
+		msg.data = data;
+		rtos_push_to_queue(&ble_msg_que, &msg, BEKEN_NO_WAIT);
+	}
 }
 
 extern int bk7011_reduce_vdddig_for_rx(int reduce);

@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include "utils/includes.h"
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "utils/common.h"
 #include "utils/eloop.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "wpa_supplicant_i.h"
 #include "wpa_ctrl.h"
 #include "mem_pub.h"
@@ -20,30 +20,31 @@
 #include "uart_pub.h"
 #include "wlan_ui_pub.h"
 #include "mm_bcn.h"
-#include "hostapd.h"
+#include "ap/hostapd.h"
 #include "ctrl_iface.h"
 #include "sa_station.h"
 #include "rxu_task.h"
 #include "wpa_psk_cache.h"
-#include "notifier.h"
+#include "notifier_pub.h"
 #include "ap.h"
 #include "net.h"
-#ifdef CONFIG_SME
 #include "sm_task.h"
-#endif
 
 extern beken_thread_t wpas_thread_handle;
+
+__maybe_unused static char * wpa_supplicant_wps_ie_txt(struct wpa_supplicant *wpa_s,
+			char *pos, char *end, const struct wpa_bss *bss);
 
 int __wpa_ctrl_request(wpa_ctrl_cmd_t cmd, void *data, int wait, uint16_t flags)
 {
 	wpah_msg_t msg = {0};
 	int result = -1;
-	
+
 	msg.cmd = cmd;
 	msg.argu = (uint32_t)data;
 	msg.sema = 0;
 	msg.flags = flags;
-	
+
 	if(wait)
 		msg.result = &result;
 	else
@@ -61,12 +62,12 @@ int __wpa_ctrl_request(wpa_ctrl_cmd_t cmd, void *data, int wait, uint16_t flags)
 
 		if (wait)
 			rtos_get_semaphore(&msg.sema, BEKEN_WAIT_FOREVER);	// XXX: forever?
-			
+
 out:
 		if (wait)
 			rtos_deinit_semaphore(&msg.sema);
 	}
-	
+
 	return result;
 }
 
@@ -107,10 +108,9 @@ int wpa_ctrl_event_copy(int event, void *data, int len)
 }
 
 static int wpa_supplicant_ctrl_iface_select_network(
-	struct wpa_supplicant *wpa_s, int id)
+	struct wpa_supplicant *wpa_s, int id, int chan)
 {
 	struct wpa_ssid *ssid;
-	char *pos;
 
 	/* cmd: "<network id>" or "any" */
 	if (id == -1) {
@@ -129,6 +129,16 @@ static int wpa_supplicant_ctrl_iface_select_network(
 			wpa_printf(MSG_DEBUG, "CTRL_IFACE: Cannot use "
 				   "SELECT_NETWORK with persistent P2P group");
 			return -1;
+		}
+	}
+
+	if (chan) {
+		int *freqs = (int *)os_zalloc(sizeof(int) * 2);	// zero terminated
+		if (freqs) {
+			os_free(wpa_s->select_network_scan_freqs);
+
+			freqs[0] = rw_ieee80211_get_centre_frequency(chan);
+			wpa_s->select_network_scan_freqs = freqs;
 		}
 	}
 
@@ -178,6 +188,7 @@ static int wpa_supplicant_ctrl_iface_select_network(
 	return 0;
 }
 
+#if ORIGINAL
 static char * wpa_supplicant_cipher_txt(char *pos, char *end, int cipher)
 {
 	int ret;
@@ -283,6 +294,7 @@ static char * wpa_supplicant_ie_txt(char *pos, char *end, const char *proto,
 
 	return pos;
 }
+#endif
 
 #ifdef CONFIG_WPS
 static char * wpa_supplicant_wps_ie_txt_buf(struct wpa_supplicant *wpa_s,
@@ -444,9 +456,7 @@ int wpa_supplicant_ctrl_iface_scan_results(
 int wpa_supplicant_ctrl_iface_scan_results(
 	struct wpa_supplicant *wpa_s, ScanResult_adv *results)
 {
-	char *pos, *end;
 	struct wpa_bss *bss;
-	int ret;
 	int bss_num = 0;
 	int index = 0;
 
@@ -477,21 +487,24 @@ int wpa_supplicant_ctrl_iface_scan_results(
 }
 #endif
 
-static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, char *params)
+static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, wlan_sta_scan_param_t *params)
 {
-	char *pos;
 	unsigned int manual_scan_passive = 0;
 	unsigned int manual_scan_use_id = 1;
 	unsigned int manual_scan_only_new = 0;
-	unsigned int scan_only = 0;
+	unsigned int scan_only = 1;
 	unsigned int scan_id_count = 0;
 	int scan_id[MAX_SCAN_ID];
 	void (*scan_res_handler)(struct wpa_supplicant *wpa_s,
 				 struct wpa_scan_results *scan_res);
 	int *manual_scan_freqs = NULL;
-	struct wpa_ssid_value *ssid = NULL, *ns;
+	struct wpa_ssid_value *ssid = NULL;
 	unsigned int ssid_count = 0;
 	int ret = 0;
+#ifdef CONFIG_FULL_SUPPLICANT
+	struct wpa_ssid_value *ns;
+	char *pos;
+#endif
 
 	if (wpa_s->wpa_state == WPA_INTERFACE_DISABLED) {
 		return -1;
@@ -604,12 +617,33 @@ static int wpas_ctrl_scan(struct wpa_supplicant *wpa_s, char *params)
 		}
 	}
 #else
-	/* do wildcard scan */
-	ssid_count = 1;
-	ssid = os_calloc(1, sizeof(*ssid));
-	if (!ssid) {
-		ret = -1;
-		goto done;
+	if (params) {
+		ssid_count = params->num_ssids;
+		ssid = os_realloc_array(ssid, ssid_count, sizeof(struct wpa_ssid_value));
+		if (ssid == NULL) {
+			ret = -1;
+			goto done;
+		}
+
+		/* set scan ssid */
+		for (int i = 0; i < ssid_count; i++) {
+			os_memcpy(ssid[i].ssid, params->ssids[i].ssid, params->ssids[i].ssid_len);
+			ssid[i].ssid_len = params->ssids[i].ssid_len;
+#if CFG_SUPPORT_BSSID_CONNECT
+			os_memset(ssid[i].bssid, 0xFF, ETH_ALEN);
+#endif
+			wpa_hexdump_ascii(MSG_DEBUG, "scan SSID",
+					  ssid[i].ssid,
+					  ssid[i].ssid_len);
+		}
+	} else {
+		/* do wildcard scan */
+		ssid_count = 1;
+		ssid = os_calloc(1, sizeof(*ssid));
+		if (!ssid) {
+			ret = -1;
+			goto done;
+		}
 	}
 #endif
 
@@ -980,12 +1014,12 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 		res = -1;
 		CHECK_WPA_S();
 
-		res = wpa_supplicant_ctrl_iface_select_network(wpa_s, 0/*(int)msg->param*/);
+		res = wpa_supplicant_ctrl_iface_select_network(wpa_s, 0/*(int)msg->param*/, (int)msg->argu);
 	}	break;
 
 	case WPA_CTRL_CMD_STA_SCAN:
 		CHECK_WPA_S();
-		res = wpas_ctrl_scan(wpa_s, NULL);
+		res = wpas_ctrl_scan(wpa_s, (wlan_sta_scan_param_t *)msg->argu);
 		break;
 	case WPA_CTRL_CMD_STA_SCAN_INTERVAL:
 		CHECK_WPA_S();
@@ -1061,6 +1095,7 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 		break;
 	case WPA_CTRL_CMD_STA_BSS_FLUSH:
 		CHECK_WPA_S();
+		wpa_bss_flush(wpa_s);
 		break;
 	case WPA_CTRL_CMD_STA_BSS_SIZE_GET:
 		CHECK_WPA_S();
@@ -1112,7 +1147,6 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 		// try to add a new hostapd_iface if not exist
 		if (!interfaces->count) {
 			char bss_config[] = "bss_config=phy0:dummy.conf";
-			char add_iface_buf[] = "wlan0 dummy.conf";	// <iface_name> <config_name>
 			res = hostapd_add_iface(interfaces, bss_config);
 			if (res)
 				break;
@@ -1133,7 +1167,7 @@ int wpa_supplicant_ctrl_iface_receive(wpah_msg_t *msg)
 	}	break;
 
 	case WPA_CTRL_CMD_AP_DISABLE: {
-		int ret, flag, empty;
+		int flag, empty;
 
 		uap_ip_down();
 		net_wlan_remove_netif(&g_ap_param_ptr->bssid);
@@ -1245,6 +1279,26 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 #endif
 	}	break;
 
+#ifdef CONFIG_SAE_EXTERNAL
+	case WPA_CTRL_EVENT_EXTERNAL_AUTH_IND: {
+		struct sm_external_auth_required_ind *ind = (struct sm_external_auth_required_ind *)msg->argu;
+
+		if (ind) {
+			union wpa_event_data data;
+
+			os_memset(&data, 0, sizeof(data));
+
+			data.external_auth.ssid = ind->ssid.array;
+			data.external_auth.ssid_len = ind->ssid.length;
+			data.external_auth.bssid = (u8 *)&ind->bssid;
+			data.external_auth.key_mgmt_suite = ind->akm;
+
+			wpa_supplicant_event_sta(wpa_s, EVENT_EXTERNAL_AUTH, &data);
+		}
+	}	break;
+#endif
+
+
 	case WPA_CTRL_EVENT_ASSOC_IND: {
 #ifdef CONFIG_SME
     	struct sm_assoc_indication *ind = (struct sm_assoc_indication *)msg->argu;
@@ -1253,8 +1307,6 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 			if (ind->status_code == 0) {
 				/* success */
 				wpa_supplicant_event_sta(wpa_s, EVENT_ASSOC, NULL);
-
-				bk_wlan_ap_csa_coexist_mode(NULL, 0);
 			} else {
 				union wpa_event_data data;
 
@@ -1267,6 +1319,25 @@ int wpa_supplicant_handle_events(wpah_msg_t *msg)
 			os_printf("%s %d: null\n", __func__, __LINE__);
 		}
 #endif
+	}	break;
+
+	case WPA_CTRL_EVENT_CONNECT_IND: {
+	    struct sm_connect_ind *ind = (struct sm_connect_ind *)msg->argu;
+
+		if (ind) {
+			if (ind->status_code == 0) {
+				/* success, Association completed */
+				wpa_supplicant_event_sta(wpa_s, EVENT_ASSOC, NULL);
+			} else {
+				union wpa_event_data data;
+
+				os_memset(&data, 0, sizeof(data));
+				data.assoc_reject.status_code = ind->status_code;
+				data.assoc_reject.timed_out = 0; /* 0: Unspecified, Drop PMKSA Cache */
+
+				wpa_supplicant_event_sta(wpa_s, EVENT_ASSOC_REJECT, &data);
+			}
+		}
 	}	break;
 
 	case WPA_CTRL_EVENT_MGMT_IND: {
@@ -1307,5 +1378,5 @@ exit:
 	return 0;
 }
 
-#endif //CFG_NEW_SUPP
+#endif //CFG_WPA_CTRL_IFACE
 

@@ -23,7 +23,7 @@
 #define EXIT_MSG		              "exit"
 
 #define NUM_BUFFERS		              1
-#define MAX_COMMANDS	              64
+#define MAX_COMMANDS	              128
 #define INBUF_SIZE                    128
 #define OUTBUF_SIZE                   2048
 
@@ -65,7 +65,7 @@ struct cli_st
 
 #define CLI_ARGS char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 
-#define is_print(c)           ((u8_t)c >= 0x20 && (u8_t)c <= 0x7f)
+#define is_print(c)           ((uint8_t)c >= 0x20 && (uint8_t)c <= 0x7f)
 
 /** Register a CLI command
  *

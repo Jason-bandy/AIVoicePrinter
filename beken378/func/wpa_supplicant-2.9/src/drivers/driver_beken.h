@@ -654,6 +654,7 @@ enum {
 	PRISM2_HOSTAPD_REG_AUTH_CALLBACK,
 	PRISM2_HOSTAPD_SET_OPER_STATE,
 #endif
+	PRISM2_HOSTAPD_EXTERNAL_AUTH_STATUS,
 
 };
 
@@ -668,6 +669,7 @@ enum {
 #define HOSTAP_CRYPT_ALG_NAME_LEN 16
 #define HOSTAP_AUTH_OPEN    0
 #define HOSTAP_AUTH_SHARED  1
+#define HOSTAP_AUTH_SAE		3
 
 struct prism2_hostapd_param {
 	u32 cmd;
@@ -767,6 +769,7 @@ struct prism2_hostapd_param {
 #endif
 			}ssids[SCAN_SSID_MAX];
 			u8 ssids_num;
+			int freqs[14];		//FIXME: 5G
 		} scan_req;
 
 		struct wpa_scan_results *scan_rst;
@@ -832,6 +835,11 @@ struct prism2_hostapd_param {
 		struct {
 			int state;
 		} oper_state;
+
+		struct {
+			u16 status;
+		} external_auth_status;
+
 	} u;
 };
 

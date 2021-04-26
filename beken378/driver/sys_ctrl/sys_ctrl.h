@@ -562,6 +562,10 @@ UINT32    int_enable_cfg;
 *******************************************************************************/
 extern UINT32 sctrl_ctrl(UINT32 cmd, void *parm);
 extern void sctrl_sub_reset(void);
+
+#if CFG_USE_BLE_PS
+void sctrl_ble_ps_init(void);
+#endif
 #endif // _SCTRL_H_
 // eof
 

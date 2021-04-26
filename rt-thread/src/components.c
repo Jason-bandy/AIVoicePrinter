@@ -200,6 +200,7 @@ void main_thread_entry(void *parameter)
 #endif
 }
 
+extern void rt_hw_wdg_stop(void);
 void rt_application_init(void)
 {
     rt_thread_t tid;

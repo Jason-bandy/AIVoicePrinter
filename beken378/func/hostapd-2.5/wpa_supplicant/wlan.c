@@ -1,9 +1,9 @@
 #include "includes.h"
 
 #include "wpa_ctrl.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "wlan_ui_pub.h"
-#include "notifier.h"
+#include "notifier_pub.h"
 
 #define WLAN_CHECK_ARG	0
 

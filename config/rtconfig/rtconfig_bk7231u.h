@@ -261,9 +261,6 @@
 
 /* Network Utilities */
 //#define PKG_NETUTILS_IPERF
-#ifdef PKG_NETUTILS_IPERF
-#define CFG_LWIP_MEM_POLICY                       LWIP_DEFAULT_MEM_POLICY
-#endif
 
 /* RT-Thread Senior Membership Packages */
 

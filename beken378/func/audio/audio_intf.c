@@ -66,8 +66,10 @@ UINT8 *audio_read;
 #define DAC_TIMER_INTVAL           (15)
 beken_timer_t audio_dac_fill_timer;
 
+__maybe_unused static void audio_intf_dac_timer_handler(void *data);
+
 static void audio_intf_dac_timer_poll(void)
-{   
+{
 #if 0    
     UINT32 free_len;
     UINT32 left = (QQQG + sizeof(QQQG)) - audio_read;
@@ -474,16 +476,13 @@ UINT32 audio_intf_init(void)
 
 void audio_intf_uninit(void)
 {
-    int ret;
-    
-    if((audio_handle) && (audio_msg_que))
-    {
-    	audio_intf_send_msg(AUD_INTF_EXIT);
-        
-        // wait untill task exit
-        while(audio_handle)
-            rtos_delay_milliseconds(100);     
-    }
+	if((audio_handle) && (audio_msg_que)) {
+		audio_intf_send_msg(AUD_INTF_EXIT);
+		// wait untill task exit
+		while(audio_handle) {
+			rtos_delay_milliseconds(100);
+		}
+	}
 }
 
 void audio_intf_send_msg(u32 new_msg)
@@ -491,15 +490,14 @@ void audio_intf_send_msg(u32 new_msg)
 	OSStatus ret;
 	AUDIO_MSG_T msg;
 
-    if(audio_msg_que) {
-    	msg.audio_msg = new_msg;
-    	
-    	ret = rtos_push_to_queue(&audio_msg_que, &msg, BEKEN_NO_WAIT);
-    	if(kNoErr != ret)
-    	{
-    		os_printf("audio_intf_send_msg failed\r\n");
-    	}
-    }
+	if(audio_msg_que) {
+		msg.audio_msg = new_msg;
+
+		ret = rtos_push_to_queue(&audio_msg_que, &msg, BEKEN_NO_WAIT);
+		if(kNoErr != ret) {
+			os_printf("audio_intf_send_msg failed\r\n");
+		}
+	}
 }
 
 

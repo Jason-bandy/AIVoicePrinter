@@ -49,6 +49,7 @@ struct hostapd_acl_query_data {
 	struct hostapd_acl_query_data *next;
 };
 
+__maybe_unused static void hostapd_acl_query_free(struct hostapd_acl_query_data *query);
 
 #ifndef CONFIG_NO_RADIUS
 static void hostapd_acl_cache_free_entry(struct hostapd_cached_radius_acl *e)

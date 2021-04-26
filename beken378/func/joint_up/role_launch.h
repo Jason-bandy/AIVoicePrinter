@@ -227,5 +227,6 @@ extern void rl_status_reset_private_state(unsigned int st);
 extern void rl_status_set_private_state(unsigned int st);
 extern void rl_status_set_st_state(unsigned int st);
 extern void rl_status_reset_st_state(unsigned int st);
-#endif //_ROLE_LAUNCH_H_ 
+extern void rl_sta_adv_register_cache_station(LAUNCH_REQ *lreq);
+#endif //_ROLE_LAUNCH_H_
 

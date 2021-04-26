@@ -383,6 +383,12 @@ typedef u64 __bitwise le64;
 #endif /* __GNUC__ */
 #endif /* __must_check */
 
+#ifndef __maybe_unused_var
+#define __maybe_unused_var(_var) do {\
+        (void)(_var);\
+} while(0)
+#endif
+
 #define SSID_MAX_LEN 32
 
 struct wpa_ssid_value {

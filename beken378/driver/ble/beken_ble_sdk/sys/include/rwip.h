@@ -476,7 +476,11 @@ extern const struct rwip_eif_api *rwip_eif_get(uint8_t type);
 void rwip_assert_err(const char *file, int line, int param0, int param1);
 #endif //RW_DEBUG
 
+#ifdef WIFI_BLE_COEXIST
+void ble_rwip_ps_dump(void);
+#endif
 
+void em_map_check(void);
 ///@} ROOT
 
 #endif // _RWIP_H_

@@ -98,8 +98,8 @@ static void i2c1_set_freq_div(UINT32 div)
 {
     UINT32 reg_addr = REG_I2C1_CONFIG;
     UINT32 reg_val = REG_READ(reg_addr);
-    
-    reg_val = (reg_val & ~(I2C1_FREQ_DIV_MASK << I2C1_FREQ_DIV_POSI)) 
+
+    reg_val = (reg_val & ~(I2C1_FREQ_DIV_MASK << I2C1_FREQ_DIV_POSI))
         | ((div & I2C1_FREQ_DIV_MASK) << I2C1_FREQ_DIV_POSI);
     REG_WRITE(reg_addr, reg_val);
 }
@@ -205,7 +205,8 @@ static void i2c1_isr(void)
     work_mode = (gi2c1.TxMode & 0x01) ? 0x00 : 0x01;
 
     i2c1_config &= (~I2C1_STA);
-	I2C1_PRT("1: gi2c1.AddrFlag=0x%x\r\n", gi2c1.AddrFlag);
+    i2c1_config &= (~I2C1_STO);
+    I2C1_PRT("1: gi2c1.AddrFlag=0x%x\r\n", gi2c1.AddrFlag);
     switch (work_mode)
     {
         case 0x00:      // master write
@@ -214,9 +215,10 @@ static void i2c1_isr(void)
             {
                 i2c1_config |= I2C1_STO;        // send stop
                 gi2c1.TransDone = 1;
+                gi2c1.ErrorNO = 1;
                 break;
             }
-			I2C1_PRT("2: gi2c1.AddrFlag=0x%x\r\n", gi2c1.AddrFlag);
+            I2C1_PRT("2: gi2c1.AddrFlag=0x%x\r\n", gi2c1.AddrFlag);
 
             if (gi2c1.AddrFlag & 0x10)      // all address bytes has been tx, now tx data
             {
@@ -236,19 +238,19 @@ static void i2c1_isr(void)
 
             if ((gi2c1.AddrFlag & 0x08) == 0)
             {
-				if(gi2c1.AddrWidth == ADDR_WIDTH_8)
-				{
-	                REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr&0xFF));
-                gi2c1.AddrFlag |= 0x13;
+                if(gi2c1.AddrWidth == ADDR_WIDTH_8)
+                {
+                    REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr&0xFF));
+                    gi2c1.AddrFlag |= 0x13;
+                }
+                else if(gi2c1.AddrWidth == ADDR_WIDTH_16)
+                {
+                    REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr>>8));
+                    gi2c1.AddrFlag |= 0x08;
+                }
             }
-				else if(gi2c1.AddrWidth == ADDR_WIDTH_16)
-				{
-	                REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr>>8));
-	                gi2c1.AddrFlag |= 0x08;
-				}
-            }
-			else
-			{
+            else
+            {
                 REG_WRITE(REG_I2C1_DAT, (gi2c1.RegAddr&0xFF));
                 gi2c1.AddrFlag |= 0x10;
             }
@@ -328,7 +330,7 @@ static void i2c1_isr(void)
         default:        // by gwf
             break;
     }
-    
+
     REG_WRITE(REG_I2C1_CONFIG, i2c1_config & (~I2C1_SI));
 }
 
@@ -393,6 +395,7 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     UINT32 reg;
     I2C_OP_PTR i2c_op;
+    GLOBAL_INT_DECLARATION();
 
     i2c_op = (I2C_OP_PTR)op_flag;
 
@@ -410,11 +413,12 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
         return 0;
     }
 
+    GLOBAL_INT_DISABLE();
     // write cycle, write the subaddr to device
     gi2c1.TxMode = 0;
     gi2c1.RegAddr = i2c_op->op_addr;
     gi2c1.RemainNum = count;
-    gi2c1.pData = user_buf;
+    gi2c1.pData = (UINT8 *)user_buf;
     gi2c1.SalveID = i2c_op->salve_id;
     gi2c1.AddrFlag = 0;
     gi2c1.TransDone = 0;
@@ -431,10 +435,13 @@ static UINT32 i2c1_read(char *user_buf, UINT32 count, UINT32 op_flag)
     reg = REG_READ(REG_I2C1_CONFIG);
     reg |= I2C1_STA;// Set STA
     REG_WRITE(REG_I2C1_CONFIG, reg);
+    GLOBAL_INT_RESTORE();
 
     while(gi2c1.TransDone == 0);
 
+    GLOBAL_INT_DISABLE();
     gi2c1.TransDone = 0;
+    GLOBAL_INT_RESTORE();
 
     return gi2c1.ErrorNO;
 }
@@ -443,6 +450,7 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     UINT32 reg;
     I2C_OP_PTR i2c_op;
+    GLOBAL_INT_DECLARATION();
 
     i2c_op = (I2C_OP_PTR)op_flag;
 
@@ -460,6 +468,7 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
         return 0;
     }
 
+    GLOBAL_INT_DISABLE();
     gi2c1.TxMode = 1;
     gi2c1.RegAddr = i2c_op->op_addr;
     gi2c1.RemainNum = count;
@@ -468,7 +477,7 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
     gi2c1.AddrFlag = 0;
     gi2c1.TransDone = 0;
     gi2c1.ErrorNO = 0;
-	gi2c1.AddrWidth = i2c_op->addr_width;
+    gi2c1.AddrWidth = i2c_op->addr_width;
 
     reg = REG_READ(REG_I2C1_CONFIG);
     reg |= I2C1_TX_MODE | I2C1_ENSMB;// Set TXMODE | ENSMB
@@ -480,10 +489,13 @@ static UINT32 i2c1_write(char *user_buf, UINT32 count, UINT32 op_flag)
     reg = REG_READ(REG_I2C1_CONFIG);
     reg |= I2C1_STA;// Set STA
     REG_WRITE(REG_I2C1_CONFIG, reg);
+    GLOBAL_INT_RESTORE();
 
     while(gi2c1.TransDone == 0);
 
+    GLOBAL_INT_DISABLE();
     gi2c1.TransDone = 0;
+	GLOBAL_INT_RESTORE();
 
     return gi2c1.ErrorNO;
 }
@@ -505,10 +517,10 @@ static UINT32 i2c1_ctrl(UINT32 cmd, void *param)
         break;
     case I2C1_CMD_SET_SMBUS_ACK_TX:
         i2c1_set_smbus_ack_tx(*((UINT32 *)param));
-        break;      
+        break;
     case I2C1_CMD_SET_SMBUS_TX_MODE:
         i2c1_set_smbus_tx_mode(*((UINT32 *)param));
-        break;        
+        break;
     case I2C1_CMD_SET_FREQ_DIV:
         i2c1_set_freq_div(*((UINT32 *)param));
         break;
@@ -520,18 +532,18 @@ static UINT32 i2c1_ctrl(UINT32 cmd, void *param)
         break;
     case I2C1_CMD_GET_ACK_RX:
         ret = i2c1_get_ack_rx();
-        break;      
+        break;
     case I2C1_CMD_GET_ACK_REQ:
         ret = i2c1_get_ack_req();
-        break; 
+        break;
     case I2C1_CMD_GET_SMBUS_BUSY:
         ret = i2c1_get_smbus_busy();
         break;
-        
+
     default:
         break;
     }
-    
+
     return ret;
 }
 

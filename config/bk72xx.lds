@@ -189,6 +189,7 @@ SECTIONS
     .bss ALIGN(8):
     {
         _bss_start = .;
+        *boot_handlers.o(.bss .bss.* .scommon .sbss .dynbss COMMON)
         *(.bss .bss.*)
         *(.scommon)
         *(.sbss)

@@ -8,6 +8,7 @@
 #include "str_pub.h"
 #include "mem_pub.h"
 
+#if CFG_SUPPORT_OTA_HTTP
 
 #define LITE_HEXDUMP_DRAWLINE(start_mark, len, end_mark)    \
     do { \
@@ -254,4 +255,4 @@ void LITE_rich_hexdump(const char *f, const int l,
 }
 
 #endif  /* defined(LITE_LOG_ENABLED) */
-
+#endif

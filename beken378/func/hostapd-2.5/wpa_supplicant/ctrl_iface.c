@@ -1,10 +1,10 @@
 #include <stdint.h>
 #include "utils/includes.h"
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "utils/common.h"
 #include "utils/eloop.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "wpa_supplicant_i.h"
 #include "wpa_ctrl.h"
 #include "mem_pub.h"
@@ -25,7 +25,7 @@
 #include "sa_station.h"
 #include "rxu_task.h"
 #include "wpa_psk_cache.h"
-#include "notifier.h"
+#include "notifier_pub.h"
 #ifdef CONFIG_SME
 #include "sm_task.h"
 #endif
@@ -1294,5 +1294,5 @@ exit:
 	return 0;
 }
 
-#endif //CFG_NEW_SUPP
+#endif //CFG_WPA_CTRL_IFACE
 

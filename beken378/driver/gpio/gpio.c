@@ -200,7 +200,7 @@ static void gpio_enable_second_function(UINT32 func_mode)
     UINT32 pmask = 0;
     UINT32 end_index = 0;
     UINT32 start_index = 0;
-    UINT32 config_pull_up = 0;
+    UINT32 config_mode = GMODE_SECOND_FUNC;
 
 #if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME) || (SOC_BK7231N == CFG_SOC_NAME))
     UINT32 regist = 0, shift = 0;
@@ -212,14 +212,14 @@ static void gpio_enable_second_function(UINT32 func_mode)
         start_index = 0;
         end_index = 1;
         pmode = PERIAL_MODE_1;
-        config_pull_up = 1;
+        config_mode = GMODE_SECOND_FUNC_PULL_UP;
         break;
 
     case GFUNC_MODE_I2C2:
         start_index = 0;
         end_index = 1;
-		config_pull_up = 1;
         pmode = PERIAL_MODE_2;
+		config_mode = GMODE_SECOND_FUNC_PULL_UP;
         break;
 
     case GFUNC_MODE_I2S:
@@ -229,15 +229,29 @@ static void gpio_enable_second_function(UINT32 func_mode)
         break;
 
     case GFUNC_MODE_ADC1:
+#if (SOC_BK7231N == CFG_SOC_NAME)
+        start_index = 26;
+        end_index = 26;
+        pmode = PERIAL_MODE_1;
+        config_mode = GMODE_SET_HIGH_IMPENDANCE;
+#else
         start_index = 4;
         end_index = 4;
         pmode = PERIAL_MODE_2;
+#endif
         break;
 
     case GFUNC_MODE_ADC2:
+#if (SOC_BK7231N == CFG_SOC_NAME)
+        start_index = 24;
+        end_index = 24;
+        pmode = PERIAL_MODE_3;
+        config_mode = GMODE_SET_HIGH_IMPENDANCE;
+#else
         start_index = 5;
         end_index = 5;
         pmode = PERIAL_MODE_2;
+#endif
         break;
 
     case GFUNC_MODE_CLK13M:
@@ -292,7 +306,7 @@ static void gpio_enable_second_function(UINT32 func_mode)
         start_index = 10;
         end_index = 13;
         pmode = PERIAL_MODE_1;
-        config_pull_up = 1;
+        config_mode = GMODE_SECOND_FUNC_PULL_UP;
         break;
 
     case GFUNC_MODE_SD_DMA:
@@ -316,7 +330,7 @@ static void gpio_enable_second_function(UINT32 func_mode)
         start_index = 14;
         end_index = 19;
         pmode = PERIAL_MODE_1;
-		config_pull_up = 1;
+		config_mode = GMODE_SECOND_FUNC_PULL_UP;
         modul_select = GPIO_SD_HOST_MODULE;
         pmask = GPIO_SD_MODULE_MASK;
         break;
@@ -363,6 +377,7 @@ static void gpio_enable_second_function(UINT32 func_mode)
         start_index = 20;
         end_index = 21;
         pmode = PERIAL_MODE_1;
+        config_mode = GMODE_SECOND_FUNC_PULL_UP;
         break;
 
     case GFUNC_MODE_JTAG:
@@ -391,23 +406,44 @@ static void gpio_enable_second_function(UINT32 func_mode)
         break;
 
     case GFUNC_MODE_ADC4:
+#if (SOC_BK7231N == CFG_SOC_NAME)
+        start_index = 28;
+        end_index = 28;
+        pmode = PERIAL_MODE_2;
+        config_mode = GMODE_SET_HIGH_IMPENDANCE;
+#else
         start_index = 3;
         end_index = 3;
         pmode = PERIAL_MODE_2;
-        break; 
+#endif
+        break;
 
     case GFUNC_MODE_ADC5:
+#if (SOC_BK7231N == CFG_SOC_NAME)
+        start_index = 22;
+        end_index = 22;
+        pmode = PERIAL_MODE_1;
+        config_mode = GMODE_SET_HIGH_IMPENDANCE;
+#else
         start_index = 2;
         end_index = 2;
         pmode = PERIAL_MODE_2;
+#endif
         break;
 
     case GFUNC_MODE_ADC6:
+#if (SOC_BK7231N == CFG_SOC_NAME)
+        start_index = 21;
+        end_index = 21;
+        pmode = PERIAL_MODE_1;
+        config_mode = GMODE_SET_HIGH_IMPENDANCE;
+#else
         start_index = 12;
         end_index = 12;
         pmode = PERIAL_MODE_2;
-        break;   
-        
+#endif
+        break;
+
    case GFUNC_MODE_ADC7:
         start_index = 13;
         end_index = 13;
@@ -418,7 +454,7 @@ static void gpio_enable_second_function(UINT32 func_mode)
         start_index = 34;
         end_index = 39;
         pmode = PERIAL_MODE_2;
-        config_pull_up = 1;
+        config_mode = GMODE_SECOND_FUNC_PULL_UP;
         modul_select = GPIO_SD1_HOST_MODULE;
         pmask = GPIO_SD_MODULE_MASK;
         break;
@@ -443,9 +479,9 @@ static void gpio_enable_second_function(UINT32 func_mode)
         start_index = 16;
         end_index = 17;
         pmode = PERIAL_MODE_3;
-		config_pull_up = 1;
-        break;   
-		
+		config_mode = GMODE_SECOND_FUNC_PULL_UP;
+        break;
+
 	case GFUNC_MODE_QSPI_4LINE:
         start_index = 18;
         end_index = 19;
@@ -524,11 +560,8 @@ static void gpio_enable_second_function(UINT32 func_mode)
         }
         REG_WRITE(REG_GPIO_FUNC_CFG, reg);
         #endif // (CFG_SOC_NAME != SOC_BK7231)
-			
-	if(config_pull_up == 0)
-	    gpio_config(i, GMODE_SECOND_FUNC);
-	else
-	    gpio_config(i, GMODE_SECOND_FUNC_PULL_UP);
+
+	    gpio_config(i, config_mode);
     }
 
 

@@ -239,6 +239,7 @@ void audio_adc_set_dma(UINT32 enable)
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
 }
 
+__maybe_unused static void audio_adc_eixt_dma(void);
 static void audio_adc_eixt_dma(void)
 {
     GDMA_CFG_ST en_cfg;
@@ -269,6 +270,7 @@ void audio_adc_disable_linein(void)
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_DISALBLE_ADC_LINE_IN, NULL);
 }
 
+__maybe_unused static void audio_adc_init_linein_detect_pin(UINT32 pin);
 static void audio_adc_init_linein_detect_pin(UINT32 pin)
 {
     UINT32 param;
@@ -277,11 +279,6 @@ static void audio_adc_init_linein_detect_pin(UINT32 pin)
 
     param = GPIO_CFG_PARAM(pin, GMODE_INPUT_PULLUP);
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-}
-
-static void audio_adc_linein_detect(void)
-{
-    // TODO:
 }
 
 void audio_adc_set_volume(UINT32 volume)

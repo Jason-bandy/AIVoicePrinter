@@ -8,6 +8,7 @@
 #include <rtthread.h>
 #include "bk_timer_pub.h"
 #include "power_save_pub.h"
+#include "bk_timer.h"
 
 #if CFG_USE_MCU_PS
 #include "mcu_ps_pub.h"
@@ -19,8 +20,11 @@ static UINT32 second_countdown = FCLK_SECOND;
 static BK_HW_TIMER_INDEX fclk_id = BK_PWM_TIMER_ID0;
 
 extern void mcu_ps_increase_clr(void);
+#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7271)
 static CAL_TICK_T cal_tick_save;
+#endif
 UINT32 use_cal_net = 0;
+__maybe_unused static UINT32 fclk_freertos_update_tick(UINT32 tick);
 
 static void fclk_hdl(UINT8 param)
 {
@@ -77,9 +81,9 @@ UINT32 rtt_update_tick(UINT32 tick)
         rt_tick_set(rt_tick_get() + tick);
         /* check system timer */
         rt_timer_check();
-        
         rt_exit_critical();
     }
+	return 0;
 }
 #endif
 
@@ -133,12 +137,11 @@ extern int increase_tick;
 UINT32 timer_cal_tick(void)
 {
     UINT32 fclk, tmp2;
-    UINT32 machw;
+    UINT32 machw = 0;
     INT32 lost;
     GLOBAL_INT_DECLARATION();
 
     GLOBAL_INT_DISABLE();
-    
     fclk = BK_TICKS_TO_MS(fclk_get_tick());
     cal_tick_save.tmp1 += ONE_CAL_TIME;
 
@@ -175,11 +178,6 @@ UINT32 timer_cal_tick(void)
 #if CFG_USE_MCU_PS
     mcu_ps_machw_init();
 #endif
-    GLOBAL_INT_RESTORE();
-    return 0 ;
-
-CAL_RESET:
-    timer_cal_init();
     GLOBAL_INT_RESTORE();
     return 0 ;
 }
@@ -222,7 +220,6 @@ void cal_timer_deset(void)
 
     #if (CFG_SOC_NAME == SOC_BK7231)
     #else
-    timer_param_t param;
     timer_channel = CAL_TIMER_ID;
     ret = sddev_control(TIMER_DEV_NAME, CMD_TIMER_UNIT_DISABLE, &timer_channel);
     ASSERT(BK_TIMER_SUCCESS == ret);
@@ -341,8 +338,6 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
 
 void os_clk_init(void)
 {
-    UINT32 ret;
-
     #if (CFG_SOC_NAME == SOC_BK7231)
     fclk_timer_hw_init(BK_PWM_TIMER_ID0);
     #else

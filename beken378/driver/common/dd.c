@@ -123,6 +123,11 @@ static DD_INIT_S dd_init_tbl[] =
 #endif
     {SPI_DEV_NAME,          spi_init,                   spi_exit},
 
+#if (CFG_SOC_NAME == SOC_BK7271)
+    {SPI2_DEV_NAME,         spi2_init,                  spi2_exit},
+    {SPI3_DEV_NAME,         spi3_init,                  spi3_exit},
+#endif
+
 #if CFG_USE_FFT
     {FFT_DEV_NAME,          fft_init,                   fft_exit},
 #endif

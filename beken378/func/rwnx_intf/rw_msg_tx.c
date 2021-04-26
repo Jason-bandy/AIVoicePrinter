@@ -31,8 +31,10 @@
 
 #include "error.h"
 #include "mcu_ps_pub.h"
+#include "power_save_pub.h"
 
 extern int bmsg_ioctl_sender(void *arg);
+extern void wpa_handler_signal(void *arg, u8 vif_idx);
 
 int rw_msg_send(const void *msg_params, uint16_t reqid, void *cfm)
 {
@@ -571,47 +573,60 @@ int rw_msg_send_key_del(u8 hw_key_idx)
 
 int rw_msg_send_scanu_req(SCAN_PARAM_T *scan_param)
 {
-    int i;
-    struct scanu_start_req *req;
+	int i;
+	struct scanu_start_req *req;
 
 #if CFG_ROLE_LAUNCH
-	if(rl_pre_sta_set_status(RL_STATUS_STA_SCANNING))
-	{
+	if (rl_pre_sta_set_status(RL_STATUS_STA_SCANNING)) {
 		rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER);
 
 		return -1;
 	}
 #endif
 
-    /* Build the SCANU_START_REQ message */
-    req = ke_msg_alloc(SCANU_START_REQ, TASK_SCANU, TASK_API,
-                       sizeof(struct scanu_start_req));
-    if (!req)
-        return -1;
+	/* Build the SCANU_START_REQ message */
+	req = ke_msg_alloc(SCANU_START_REQ, TASK_SCANU, TASK_API,
+					   sizeof(struct scanu_start_req));
+	if (!req)
+		return -1;
 
-    /* Set parameters */
-    req->vif_idx = scan_param->vif_idx;
-    req->no_cck = 0;
+	/* Set parameters */
+	req->vif_idx = scan_param->vif_idx;
+	req->no_cck = 0;
 
-    rw_ieee80211_init_scan_chan(req);
+	int *freqs = scan_param->freqs;
+	if (!freqs[0]) {
+		/* no specified freq, set to all freqs supported */
+		rw_ieee80211_init_scan_chan(req);
+	} else {
+		/* specified freqs: XXX 5g band */
+		for (i = 0; i < ARRAY_SIZE(scan_param->freqs); i++, freqs++) {
+			if (!*freqs)
+				break;
+			req->chan[i].band = IEEE80211_BAND_2GHZ;
+			req->chan[i].flags = 0;
+			req->chan[i].freq = *freqs;
+		}
+		req->chan_cnt = i;
+		//os_printf("Using specified freqs\n");
+	}
 
-    os_memcpy(&req->bssid, &scan_param->bssid, sizeof(req->bssid));
-    req->ssid_cnt = scan_param->num_ssids;
-    for(i = 0; i < req->ssid_cnt; i++)
-    {
-        req->ssid[i].length = scan_param->ssids[i].length;
-        os_memcpy(req->ssid[i].array, scan_param->ssids[i].array, req->ssid[i].length);
-    }
+	os_memcpy(&req->bssid, &scan_param->bssid, sizeof(req->bssid));
+	req->ssid_cnt = scan_param->num_ssids;
+	for (i = 0; i < req->ssid_cnt; i++) {
+		req->ssid[i].length = scan_param->ssids[i].length;
+		os_memcpy(req->ssid[i].array, scan_param->ssids[i].array, req->ssid[i].length);
+	}
 
-    req->add_ies = 0;
-    req->add_ie_len = 0;
+	req->add_ies = 0;
+	req->add_ie_len = 0;
 
-#if CFG_NEW_SUPP
-	wpa_handler_signal(SIGSCAN_START, scan_param->vif_idx);
+#if CFG_WPA_CTRL_IFACE
+	wpa_handler_signal((void *)SIGSCAN_START, scan_param->vif_idx);
 #endif
 
-    /* Send the SCANU_START_REQ message to LMAC FW */
-    return rw_msg_send(req, SCANU_START_CFM, NULL);
+	/* Send the SCANU_START_REQ message to LMAC FW */
+	return rw_msg_send(req, SCANU_START_CFM, NULL);
 }
 
 int rw_msg_send_scanu_fast_req(FAST_SCAN_PARAM_T *fscan_param)
@@ -886,7 +901,6 @@ int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm)
 int rw_msg_send_sm_connect_req( CONNECT_PARAM_T *sme, void *cfm)
 {
     struct sm_connect_req *req;
-	unsigned int bcn_len_more_than = 0;
 
     /* Build the SM_CONNECT_REQ message */
     req = ke_msg_alloc(SM_CONNECT_REQ, TASK_SM, TASK_API,
@@ -918,6 +932,25 @@ int rw_msg_send_sm_connect_req( CONNECT_PARAM_T *sme, void *cfm)
     return rw_msg_send(req, SM_CONNECT_CFM, cfm);
 }
 #endif /* CONFIG_SME */
+
+#ifdef CONFIG_SAE_EXTERNAL
+int rw_msg_send_sm_external_auth_status(EXTERNAL_AUTH_PARAM_T *auth_param)
+{
+    struct sm_external_auth_required_rsp *req;
+
+    /* Build the SM_CONNECT_REQ message */
+    req = ke_msg_alloc(SM_EXTERNAL_AUTH_REQUIRED_RSP, TASK_SM, TASK_API,
+                       sizeof(struct sm_external_auth_required_rsp));
+    if (!req)
+        return -1;
+
+	req->vif_idx = auth_param->vif_idx;
+	req->status = auth_param->status;
+	
+    /* Send the SM_CONNECT_REQ message to LMAC FW */
+    return rw_msg_send(req, 0/*DUMMY*/, NULL);
+}
+#endif
 
 int rw_msg_send_tim_update(u8 vif_idx, u16 aid, u8 tx_status)
 {

@@ -65,6 +65,7 @@ typedef enum
 {
     BK_PARTITION_BOOTLOADER = 0,
     BK_PARTITION_APPLICATION,
+    BK_PARTITION_OTA,
     BK_PARTITION_RF_FIRMWARE,
     BK_PARTITION_NET_PARAM,
     BK_PARTITION_USR_CONFIG,
@@ -188,6 +189,9 @@ OSStatus bk_flash_enable_security(PROTECT_TYPE type );
  */
 OSStatus BkFlashDisableSecurity( bk_partition_t partition, uint32_t off_set, uint32_t size );
 #endif
+
+
+int hal_flash_init(void);
 
 
 /** @} */

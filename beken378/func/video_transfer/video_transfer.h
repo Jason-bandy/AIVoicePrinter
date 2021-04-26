@@ -1,13 +1,17 @@
 #ifndef __VIDEO_TRANS_H__
 #define __VIDEO_TRANS_H__
 
-typedef enum {
+typedef enum
+{
     QVGA_320_240    = 0,
     VGA_640_480,
+    VGA_800_600,
+    VGA_1280_720,
     PPI_MAX
 } PPI_TYPE; // Pixel per inch
 
-typedef enum {
+typedef enum
+{
     TYPE_5FPS            = 0,
     TYPE_10FPS,
     TYPE_20FPS,
@@ -25,13 +29,15 @@ typedef enum {
 #define CMPARAM_SET_FPS(p, x)   (p = ((p & ~(FPS_MASK << FPS_POSI)) | ((x & FPS_MASK) << FPS_POSI)))
 #define CMPARAM_GET_FPS(p)      ((p >> FPS_POSI) & FPS_MASK)
 
-typedef enum {
+typedef enum
+{
     TVIDEO_OPEN_NONE         = 0LU,
-    TVIDEO_OPEN_SCCB,    
+    TVIDEO_OPEN_SCCB,
     TVIDEO_OPEN_SPIDMA,
 } TVIDEO_OPEN_TYPE;
 
-typedef enum {
+typedef enum
+{
     TVIDEO_SND_NONE         = 0LU,
     TVIDEO_SND_UDP,
     TVIDEO_SND_TCP,
@@ -42,9 +48,9 @@ typedef enum {
 typedef struct tvideo_desc
 {
     UINT8 *rxbuf;
-    
+
     void (*node_full_handler)(void *curptr, UINT32 newlen, UINT32 is_eof, UINT32 frame_len);
-    void (*data_end_handler)(void);   
+    void (*data_end_handler)(void);
 
     UINT16 rxbuf_len;
     UINT16 rx_read_len;
@@ -54,17 +60,17 @@ typedef struct tvideo_desc
 
 typedef struct tvideo_hdr_param
 {
-    UINT8* ptk_ptr;
+    UINT8 *ptk_ptr;
     UINT32 ptklen;
     UINT32 frame_id;
     UINT32 is_eof;
     UINT32 frame_len;
-}TV_HDR_PARAM_ST, *TV_HDR_PARAM_PTR;
+} TV_HDR_PARAM_ST, *TV_HDR_PARAM_PTR;
 
-typedef void (*tvideo_add_pkt_header)(TV_HDR_PARAM_PTR param); 
+typedef void (*tvideo_add_pkt_header)(TV_HDR_PARAM_PTR param);
 typedef int (*video_transfer_send_func)(UINT8 *data, UINT32 len);
-typedef void (*video_transfer_start_cb)(void); 
-typedef void (*video_transfer_end_cb)(void); 
+typedef void (*video_transfer_start_cb)(void);
+typedef void (*video_transfer_end_cb)(void);
 
 typedef struct tvideo_setup_desc
 {
@@ -73,7 +79,7 @@ typedef struct tvideo_setup_desc
     video_transfer_send_func send_func;
     video_transfer_start_cb start_cb;
     video_transfer_start_cb end_cb;
-    
+
     UINT32 pkt_header_size;
     tvideo_add_pkt_header add_pkt_header;
 } TVIDEO_SETUP_DESC_ST, *TVIDEO_SETUP_DESC_PTR;
@@ -84,8 +90,8 @@ int video_transfer_init(TVIDEO_SETUP_DESC_PTR setup_cfg);
 int video_transfer_deinit(void);
 UINT32 video_transfer_set_video_param(UINT32 ppi, UINT32 fps);
 
-int video_buffer_open (void);
-int video_buffer_close (void);
+int video_buffer_open(void);
+int video_buffer_close(void);
 UINT32 video_buffer_read_frame(UINT8 *buf, UINT32 buf_len);
 #endif
 

@@ -1452,4 +1452,8 @@ typedef struct
 *******************************************************************************/
 #endif // (CFG_SOC_NAME != SOC_BK7231)
 
+void rwnx_cal_en_rx_filter_offset(void);
+void rwnx_cal_set_bw_i2v(int enable);
+void rwnx_cal_dis_rx_filter_offset(void);
+
 #endif // _BK7231U_CAL_H_

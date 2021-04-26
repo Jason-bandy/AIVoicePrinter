@@ -11,6 +11,9 @@ endif
 
 $(NAME)_INCLUDES := app/standalone-ap \
 					app/standalone-station \
+					app/video_work \
+					app/net_work \
+					app/http \
 					driver/sdio \
 					driver/uart \
 					driver/sys_ctrl \
@@ -25,6 +28,7 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					driver/rw_pub \
 					driver/icu \
 					driver/i2c \
+					driver/jpeg \
 					driver/calendar \
 					func/sdio_intf \
 					func/power_save \
@@ -34,6 +38,7 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					func/ethernet_intf \
 					func/rwnx_intf \
 					func/rf_test \
+					func/rf_use \
 					func/camera_intf \
 					func/video_transfer \
 					func/user_driver \
@@ -73,6 +78,16 @@ $(NAME)_SOURCES :=  app/app.c \
 					app/config/param_config.c \
 					app/standalone-ap/sa_ap.c \
 					app/standalone-station/sa_station.c \
+					app/video_work/video_transfer_tcp.c \
+					app/video_work/video_transfer_udp.c \
+					app/video_work/video_buffer.c \
+					app/net_work/video_demo_main.c \
+					app/net_work/video_demo_station.c \
+					app/net_work/video_demo_softap.c \
+					app/http/utils_httpc.c \
+					app/http/utils_net.c \
+					app/http/utils_timer.c \
+					app/http/lite-log.c \
 					driver/common/dd.c \
 					driver/common/drv_model.c \
 					driver/dma/dma.c \
@@ -82,12 +97,13 @@ $(NAME)_SOURCES :=  app/app.c \
 					driver/gpio/gpio.c \
 					driver/i2c/i2c1.c \
 					driver/i2c/i2c2.c \
+					driver/jpeg/jpeg_encoder.c \
 					driver/icu/icu.c \
 					driver/irda/irda.c \
 					driver/macphy_bypass/mac_phy_bypass.c \
 					driver/phy/phy_trident.c \
 					driver/pwm/pwm.c \
-					driver/pwm/pwm_new.c \
+					driver/pwm/pwm_bk7231n.c \
 					driver/pwm/bk_timer.c \
 					driver/pwm/mcu_ps_timer.c \
 					driver/saradc/saradc.c \
@@ -146,7 +162,6 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/lwip_intf/dhcpd/dhcp-server.c \
 					func/camera_intf/camera_intf.c \
 					func/video_transfer/video_transfer.c \
-					func/video_transfer/video_buffer.c \
 					func/rf_use/arbitrate.c \
 					func/ble_wifi_exchange/ble_wifi_port.c
 
@@ -246,6 +261,7 @@ $(NAME)_SOURCES +=  func/$(WPA_VERSION)/src/crypto/crypto_ali.c \
 					alios/lwip-2.0.2/port/ethernetif.c \
 					alios/lwip-2.0.2/port/net.c \
 					alios/lwip-2.0.2/apps/ping/ping.c \
+					alios/lwip-2.0.2/apps/iperf/iperf.c \
 					alios/os/mem_arch.c \
 					alios/os/str_arch.c \
 					alios/flash_hal.c \

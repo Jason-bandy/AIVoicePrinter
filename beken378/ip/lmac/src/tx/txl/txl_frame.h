@@ -296,11 +296,13 @@ uint8_t txl_frame_send_null_frame(uint8_t sta_idx, cfm_func_ptr cfm, void *env, 
  */
 uint8_t txl_frame_send_qosnull_frame(uint8_t sta_idx, uint16_t qos, cfm_func_ptr cfm, void *env);
 
+void txl_frame_acked_handle(struct txdesc *txdesc);
+
 #if (TDLS_ENABLE)
 /**
  ****************************************************************************************
  * @brief Builds a TDLS Channel Switch Request frame.
- * 
+ *
  * Once the TDLS Channel Switch Request frame has been transmitted, the confirmation
  * function is called.
  *

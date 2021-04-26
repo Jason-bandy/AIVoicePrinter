@@ -28,6 +28,8 @@ int hostapd_main_exit(void);
 int hostapd_main_entry(int argc, char *argv[]);
 struct wpa_supplicant *wpa_suppliant_ctrl_get_wpas();
 struct hapd_interfaces *hostapd_ctrl_get_interfaces();
+bool hostapd_is_init_completed(void);
+uint32_t wpa_hostapd_queue_poll(uint32_t param);
 #endif // _MAIN_NONE_H_
 // eof
 

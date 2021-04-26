@@ -7,14 +7,24 @@ typedef void (*FUNCPTR)(void);
 typedef void (*FUNC_1PARAM_PTR)(void *ctxt);
 typedef void (*FUNC_2PARAM_PTR)(void *arg, uint8_t vif_idx);
 
+#ifndef MAX
 #define MAX(x, y)                  (((x) > (y)) ? (x) : (y))
+#endif
+
+#ifndef MIN
 #define MIN(x, y)                  (((x) < (y)) ? (x) : (y))
+#endif
+
+#ifndef max
 #define max(x, y)                  (((x) > (y)) ? (x) : (y))
+#endif
+
+#ifndef min
 #define min(x, y)                  (((x) < (y)) ? (x) : (y))
+#endif
 
 extern void bk_printf(const char *fmt, ...);
 #define as_printf (bk_printf("%s:%d\r\n",__FUNCTION__,__LINE__))
-
 
 #if (0 == CFG_RELEASE_FIRMWARE)
 #define ASSERT_EQ(a, b)                             \

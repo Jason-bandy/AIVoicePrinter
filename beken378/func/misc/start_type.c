@@ -6,6 +6,7 @@
 
 #include "sys_rtos.h"
 #include "arm_arch.h"
+#include "sys_ctrl.h"
 #include "sys_ctrl_pub.h"
 
 #include "start_type_pub.h"

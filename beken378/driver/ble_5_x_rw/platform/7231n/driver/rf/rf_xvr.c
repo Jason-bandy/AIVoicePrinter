@@ -106,15 +106,6 @@
  * GLOBAL VARIABLE DEFINITIONS
  *****************************************************************************************
  **/
-//// IP ????
-// PLL Lock Table
-static uint8_t RFPLL_LOCK_TABLE[RPL_RFPLL_TBL_SIZE];
-
-// PLL VCOFC table
-static uint8_t RFPLL_VCOFC_TABLE[RPL_RFPLL_TBL_SIZE];
-
-// PLL ICP table
-static uint8_t RFPLL_ICP_TABLE[RPL_RFPLL_TBL_SIZE];
 
 // Power table
 static const int8_t RF_RPL_TX_PW_CONV_TBL[RPL_PWR_TBL_SIZE] = {
@@ -126,18 +117,6 @@ static const int8_t RF_RPL_TX_PW_CONV_TBL[RPL_PWR_TBL_SIZE] = {
         [5] = -8,
         [6] = -5,
         [7] = -2};
-// Gain table
-static const uint8_t RF_RPL_RX_GAIN_TBL[RPL_GAIN_TBL_SIZE] = {
-        [0] = 43,
-        [1] = 37,
-        [2] = 31,
-        [3] = 25,
-        [4] = 19,
-        [5] = 13,
-        [6] = 7,
-        [7] = 1};
-////IP ????
-
 
 extern uint8_t system_mode;
 
@@ -549,7 +528,7 @@ void rf_init(struct rwip_rf_api *api)
 	ble_radiotxrxtim1_pack(/*uint8_t rfrxtmda1*/ 0x00,
 						   /*uint8_t rxpathdly1*/	   0x04,
 						   /*uint8_t txpathdly1*/	   0x04);
-	ble_radiotxrxtim1_set(0x00000404);
+	ble_radiotxrxtim1_set(0x00000C04);
 	//uart_printf("BLE_RADIOTXRXTIM1 addr:0x%08x,val:0x%08x\r\n",BLE_RADIOTXRXTIM1_ADDR,ble_radiotxrxtim1_get());
 
 

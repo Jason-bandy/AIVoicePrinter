@@ -53,7 +53,6 @@ void wpa_dbg(void *ctx, int level, const char *fmt, ...)
 	va_list ap;
 	char *buf;
 	int buflen;
-	int len;
 
 	if (level >= wpa_debug_level) {
 		va_start(ap, fmt);
@@ -68,7 +67,7 @@ void wpa_dbg(void *ctx, int level, const char *fmt, ...)
 		}
 		va_start(ap, fmt);
 
-		len = vsnprintf(buf, buflen, fmt, ap);
+		vsnprintf(buf, buflen, fmt, ap);
 		va_end(ap);
 		bk_send_string(uart_print_port, buf);
 		os_free(buf);

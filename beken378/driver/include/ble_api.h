@@ -13,7 +13,16 @@
 #define GAP_BD_ADDR_LEN       (6)
 /// Maximal length of the Device Name value
 #define APP_DEVICE_NAME_MAX_LEN      (18)
-#define KEY_LEN 16
+
+//TODO - rename KEY_LEN in future release since it's
+//already defined in common_bt.h
+#ifdef KEY_LEN
+	#if KEY_LEN != 16
+	#error "KEY_LEN is redefined with a different value!!!"
+	#endif
+#else 
+	#define KEY_LEN 16
+#endif
 
 #define ABIT(n) (1 << n)
 

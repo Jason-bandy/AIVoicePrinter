@@ -1,4 +1,5 @@
 #include "include.h"
+#include "sys_config.h"
 
 #if CFG_UART_DEBUG
 #include "udebug.h"

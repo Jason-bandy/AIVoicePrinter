@@ -121,17 +121,18 @@
 //#include "wlan.h"
 #include "sys_config.h"
 #include "common.h"
-#include "wlan_defs.h"
+#include "wlan_defs_pub.h"
 #include "uart_pub.h"
 #include "wlan_ui_pub.h"
 #include "param_config.h"
 #include "ieee802_11_demo.h"
 #include "net.h"
 #include "dragonfly.h"
+#include "defs.h"
 
 #define CMD_WLAN_MAX_BSS_CNT	50
 
-#if (CFG_WFA_CERT || CFG_NEW_SUPP)
+#if (CFG_WFA_CERT || CFG_WPA_CTRL_IFACE)
 /* parse all argument vectors from a command string, return argument count */
 static int cmd_parse_argv(char *cmd, char *argv[], int size)
 {
@@ -164,6 +165,7 @@ static int cmd_parse_argv(char *cmd, char *argv[], int size)
 	return argc;
 }
 
+#if CFG_WPA3
 /* parse all argument vectors from a command string, return argument count */
 static int cmd_parse_array_int(char *cmd, int *array, int size)
 {
@@ -191,6 +193,7 @@ static int cmd_parse_array_int(char *cmd, int *array, int size)
 
 	return argc;
 }
+#endif
 
 /* wpas parse */
 
@@ -689,7 +692,6 @@ int cmd_wlan_sta_exec(char *cmd)
 		/* default value for WFA certification */
 
 		network_InitTypeDef_st wNetConfig;
-		int len;
 		char *oob_ssid = "Wi-Fi";
 		char *connect_key = "12345678";
 
@@ -742,7 +744,7 @@ int cmd_wlan_sta_exec(char *cmd)
 		ret = wlan_sta_bss_flush(age);
 	} else if (os_strcmp(cmd, "connect") == 0) {
 
-		ret = wlan_sta_connect();
+		ret = wlan_sta_connect(0);
 		ip_address_set(BK_STATION, DHCP_CLIENT, NULL, NULL, NULL, NULL);
 
 	} else if (os_strcmp(cmd, "disconnect") == 0) {

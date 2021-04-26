@@ -39,7 +39,7 @@ static int conv_utf8_for_gb2312(unsigned char *pin, unsigned char *pout)
 
 unsigned char *conv_utf8(unsigned char *input)
 {
-    int len, i;
+    int len;
     unsigned char *ptr, *out_bak, *out;
 
     len = strlen((char*)input);

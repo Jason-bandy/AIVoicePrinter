@@ -268,7 +268,7 @@ uint16_t me_build_associate_req(uint32_t frame,
                                 uint8_t vif_idx,
                                 uint32_t *ie_addr,
                                 uint16_t *ie_len,
-#ifdef CONFIG_SME
+#if NX_HOST_SME
                                 struct sm_assoc_req const *con_par
 #else
                                 struct sm_connect_req const *con_par

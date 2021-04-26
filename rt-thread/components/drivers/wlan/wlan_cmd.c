@@ -17,25 +17,18 @@
  *  You should have received a copy of the GNU General Public License along
  *  with this program; if not, write to the Free Software Foundation, Inc.,
  *  51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
- *
- * Change Logs:
- * Date           Author       Notes
- * 2016-03-12     Bernard      first version
  */
-
 #include <rtthread.h>
 #include <wlan_dev.h>
-
 #include <finsh.h>
-
 #include <lwip/dhcp.h>
 #include "wlan_cmd.h"
+#include "wlan_ui_pub.h"
 
 #ifdef LWIP_USING_DHCPD
 #include <dhcp_server.h>
 #endif
 
-struct rt_wlan_info info;
 static char wifi_ssid[32]    = {0};
 static char wifi_key[32]     = {0};
 static int network_mode      = WIFI_STATION;
@@ -283,8 +276,9 @@ int wifi_softap_setup_netif(struct netif *netif)
 
 int wifi_default(void)
 {
-    int result = 0;
-    struct rt_wlan_device *wlan;
+	int result = 0;
+	struct rt_wlan_device *wlan;
+	struct rt_wlan_info info;
 
 #ifdef RT_USING_DFS
 #ifdef PKG_USING_CJSON
@@ -333,7 +327,8 @@ int wifi_default(void)
         }
     }
 
-    return result;
+	rt_wlan_info_deinit(&info);
+	return result;
 }
 
 static void wifi_usage(void)
@@ -353,202 +348,178 @@ static void wifi_usage(void)
 
 int wifi(int argc, char **argv)
 {
-    struct rt_wlan_device *wlan;
+	struct rt_wlan_info info = {0};
+	struct rt_wlan_device *wlan;
 
-    if (argc == 1)
-    {
-        wifi_default();
-        return 0;
-    }
+	if (argc == 1) {
+		wifi_default();
+		return 0;
+	}
 
-    if (strcmp(argv[1], "help") == 0)
-    {
-        wifi_usage();
-        return 0;
-    }
+	if (strcmp(argv[1], "help") == 0) {
+		wifi_usage();
+		return 0;
+	}
 
-    if (strcmp(argv[1], "cfg") == 0)
-    {
-        /* configure wifi setting */
-        memset(wifi_ssid, 0x0, sizeof(wifi_ssid));
-        rt_strncpy(wifi_ssid, argv[2], sizeof(wifi_ssid) - 1);
+	if (strcmp(argv[1], "cfg") == 0) {
+		/* configure wifi setting */
+		memset(wifi_ssid, 0x0, sizeof(wifi_ssid));
+		rt_strncpy(wifi_ssid, argv[2], sizeof(wifi_ssid) - 1);
 
-        memset(wifi_key, 0x0, sizeof(wifi_key));
-        rt_strncpy(wifi_key, argv[3], sizeof(wifi_key) - 1);
+		memset(wifi_key, 0x0, sizeof(wifi_key));
+		rt_strncpy(wifi_key, argv[3], sizeof(wifi_key) - 1);
 
-        network_mode = WIFI_STATION;
+		network_mode = WIFI_STATION;
 
 #ifdef RT_USING_DFS
 #ifdef PKG_USING_CJSON
-        wifi_save_cfg(WIFI_SETTING_FN);
+		wifi_save_cfg(WIFI_SETTING_FN);
 #endif
 #endif
+		return 0;
+	}
 
-        return 0;
-    }
+	/* get wlan device */
+	wlan = (struct rt_wlan_device *)rt_device_find(argv[1]);
+	if (!wlan) {
+		rt_kprintf("no wlan:%s device\n", argv[1]);
+		return 0;
+	}
 
-    /* get wlan device */
-    wlan = (struct rt_wlan_device *)rt_device_find(argv[1]);
-    if (!wlan)
-    {
-        rt_kprintf("no wlan:%s device\n", argv[1]);
-        return 0;
-    }
+	if (argc < 3) {
+		wifi_usage();
+		return 0;
+	}
 
-    if (argc < 3)
-    {
-        wifi_usage();
-        return 0;
-    }
+	if (strcmp(argv[2], "join") == 0) {
+		rt_wlan_init(wlan, WIFI_STATION);
+		network_mode = WIFI_STATION;
 
-    if (strcmp(argv[2], "join") == 0)
-    {
-        rt_wlan_init(wlan, WIFI_STATION);
-        network_mode = WIFI_STATION;
-
-        /* TODO: use easy-join to replace */
-        rt_wlan_info_init(&info, WIFI_STATION, SECURITY_WPA2_MIXED_PSK, argv[3]);
-        rt_wlan_connect(wlan, &info, argv[4]);
-        rt_wlan_info_deinit(&info);
-    }
-    else if (strcmp(argv[2], "bjoin") == 0)
-    {
-        rt_wlan_init(wlan, WIFI_STATION);
-        network_mode = WIFI_STATION;
-
-        /* TODO: use easy-join to replace */
-        rt_wlan_info_init(&info, WIFI_STATION, SECURITY_WPA2_MIXED_PSK, NULL);
-        hexstr2bin(argv[3], info.bssid, sizeof(info.bssid));
-        rt_wlan_connect(wlan, &info, argv[4]);
-        rt_wlan_info_deinit(&info);
-    }
-    else if (strcmp(argv[2], "up") == 0)
-    {
-        /* the key was saved in wlan device */
-        rt_wlan_up(wlan, RT_NULL, wlan->key);
-    }
-    else if (strcmp(argv[2], "down") == 0)
-    {
-        rt_wlan_disconnect(wlan);
-        rt_wlan_info_deinit(&info);
-    }
-    else if (strcmp(argv[2], "scan") == 0)
-    {
-        struct rt_wlan_scan_result *scan_result = RT_NULL;
-
-        rt_wlan_init(wlan, WIFI_STATION);
-        if (argc > 3)
-        {
-            rt_wlan_info_init(&info, WIFI_STATION, SECURITY_UNKNOWN, argv[3]);
-
-            rt_wlan_scan(wlan, &info, &scan_result);
-        }
-        else
-        {
-            rt_wlan_scan(wlan, RT_NULL, &scan_result);
-        }
-        if (scan_result)
-        {
-            int index, num;
-
-            num = scan_result->ap_num;
-            rt_kprintf("             SSID                      MAC            rssi   chn    Mbps\n");
-            rt_kprintf("------------------------------- -----------------     ----   ---    ----\n");
-            for (index = 0; index < num; index ++)
-            {
-                rt_kprintf("%-32.32s", scan_result->ap_table[index].ssid);
-                rt_kprintf("%02x:%02x:%02x:%02x:%02x:%02x     ", 
-                    scan_result->ap_table[index].bssid[0],
-                    scan_result->ap_table[index].bssid[1],
-                    scan_result->ap_table[index].bssid[2],
-                    scan_result->ap_table[index].bssid[3],
-                    scan_result->ap_table[index].bssid[4],
-                    scan_result->ap_table[index].bssid[5]
-                );
-                rt_kprintf("%4d    ", scan_result->ap_table[index].rssi);
-                rt_kprintf("%2d    ", scan_result->ap_table[index].channel);
-                rt_kprintf("%d\n", scan_result->ap_table[index].datarate / 1000000);
-            }
-        }
-        rt_wlan_release_scan_result(&scan_result);
-    }
-    else if (strcmp(argv[2], "rssi") == 0)
-    {
-        int rssi;
-
-        rssi = rt_wlan_get_rssi(wlan);
-        rt_kprintf("rssi=%d\n", rssi);
-    }
-    else if (strcmp(argv[2], "ap") == 0)
-    {
-        rt_err_t result = RT_EOK;
-
-        if (argc == 4)
-        {
-            // open soft-AP
-            rt_wlan_info_init(&info, WIFI_AP, SECURITY_OPEN, argv[3]);
-            info.channel = 11;
-
-            result = rt_wlan_init(wlan, WIFI_AP);
-            /* start soft ap */
-            result = rt_wlan_softap(wlan, &info, NULL);
-            if (result == RT_EOK)
-            {
-                network_mode = WIFI_AP;
-            }
-        }
-        else if (argc == 5)
-        {
-            // WPA2 with password
-            rt_wlan_info_init(&info, WIFI_AP, SECURITY_WPA2_AES_PSK, argv[3]);
-            info.channel = 11;
-
-            result = rt_wlan_init(wlan, WIFI_AP);
-            /* start soft ap */
-            result = rt_wlan_softap(wlan, &info, argv[4]);
-            if (result == RT_EOK)
-            {
-                network_mode = WIFI_AP;
-            }
-        }
-        else
-        {
-            wifi_usage();
-        }
-
-        if (result != RT_EOK)
-        {
-            rt_kprintf("wifi start failed! result=%d\n", result);
-        }
+		/* TODO: use easy-join to replace */
+		rt_wlan_info_init(&info, WIFI_STATION, SECURITY_WPA2_MIXED_PSK, argv[3]);
+		rt_wlan_connect(wlan, &info, argv[4]);
 		rt_wlan_info_deinit(&info);
-    }
-    else if (strcmp(argv[2], "status") == 0)
-    {
-        int rssi;
+	} else if (strcmp(argv[2], "bjoin") == 0) {
+		rt_wlan_init(wlan, WIFI_STATION);
+		network_mode = WIFI_STATION;
 
-        if (netif_is_link_up(wlan->parent.netif))
-        {
-            rssi = rt_wlan_get_rssi(wlan);
+		/* TODO: use easy-join to replace */
+		rt_wlan_info_init(&info, WIFI_STATION, SECURITY_WPA2_MIXED_PSK, NULL);
+		hexstr2bin(argv[3], info.bssid, sizeof(info.bssid));
+		rt_wlan_connect(wlan, &info, argv[4]);
+		rt_wlan_info_deinit(&info);
+	} else if (strcmp(argv[2], "up") == 0) {
+		/* the key was saved in wlan device */
+		rt_wlan_up(wlan, RT_NULL, wlan->key);
+	} else if (strcmp(argv[2], "down") == 0)
+		rt_wlan_disconnect(wlan);
+	else if (strcmp(argv[2], "scan") == 0) {
+		struct rt_wlan_scan_result *scan_result = RT_NULL;
 
-            rt_kprintf("Wi-Fi AP: %-.32s\n", wlan->info->ssid);
-            rt_kprintf("MAC Addr: %02x:%02x:%02x:%02x:%02x:%02x\n", wlan->info->bssid[0],
-                       wlan->info->bssid[1],
-                       wlan->info->bssid[2],
-                       wlan->info->bssid[3],
-                       wlan->info->bssid[4],
-                       wlan->info->bssid[5]);
-            rt_kprintf(" Channel: %d\n", wlan->info->channel);
-            rt_kprintf("DataRate: %dMbps\n", wlan->info->datarate / 1000000);
-            rt_kprintf("    RSSI: %d\n", rssi);
-        }
-        else
-        {
-            rt_kprintf("wifi disconnected!\n");
-        }
+		rt_wlan_init(wlan, WIFI_STATION);
+		if (argc > 3) {
+			rt_wlan_info_init(&info, WIFI_STATION, SECURITY_UNKNOWN, argv[3]);
 
-        return 0;
-    }
+			rt_wlan_scan(wlan, &info, &scan_result);
+		} else
+			rt_wlan_scan(wlan, RT_NULL, &scan_result);
+		if (scan_result) {
+			int index, num;
 
-    return 0;
+			num = scan_result->ap_num;
+
+			rt_kprintf("             SSID                      MAC            rssi   chn    Mbps\n");
+			rt_kprintf("------------------------------- -----------------     ----   ---    ----\n");
+			for (index = 0; index < num; index ++) {
+				rt_kprintf("%-32.32s", scan_result->ap_table[index].ssid);
+				rt_kprintf("%02x:%02x:%02x:%02x:%02x:%02x     ",
+						   scan_result->ap_table[index].bssid[0],
+						   scan_result->ap_table[index].bssid[1],
+						   scan_result->ap_table[index].bssid[2],
+						   scan_result->ap_table[index].bssid[3],
+						   scan_result->ap_table[index].bssid[4],
+						   scan_result->ap_table[index].bssid[5]
+						  );
+				rt_kprintf("%4d    ", (int8_t)scan_result->ap_table[index].rssi);
+				rt_kprintf("%2d    ", scan_result->ap_table[index].channel);
+				rt_kprintf("%d\n", scan_result->ap_table[index].datarate / 1000000);
+			}
+		}
+		rt_wlan_release_scan_result(&scan_result);
+		rt_wlan_info_deinit(&info);
+	} else if (strcmp(argv[2], "rssi") == 0) {
+		int rssi;
+
+		rssi = rt_wlan_get_rssi(wlan);
+		rt_kprintf("rssi=%d\n", rssi);
+	} else if (strcmp(argv[2], "ap") == 0) {
+		rt_err_t result = RT_EOK;
+
+		if (argc == 4) {
+			// open soft-AP
+			rt_wlan_info_init(&info, WIFI_AP, SECURITY_OPEN, argv[3]);
+			info.channel = 11;
+
+			result = rt_wlan_init(wlan, WIFI_AP);
+			/* start soft ap */
+			result = rt_wlan_softap(wlan, &info, NULL);
+			if (result == RT_EOK)
+				network_mode = WIFI_AP;
+		} else if (argc == 5) {
+			// WPA2 with password
+			rt_wlan_info_init(&info, WIFI_AP, SECURITY_WPA2_AES_PSK, argv[3]);
+			info.channel = 11;
+
+			result = rt_wlan_init(wlan, WIFI_AP);
+			/* start soft ap */
+			result = rt_wlan_softap(wlan, &info, argv[4]);
+			if (result == RT_EOK)
+				network_mode = WIFI_AP;
+		} else
+			wifi_usage();
+
+		if (result != RT_EOK)
+			rt_kprintf("wifi start failed! result=%d\n", result);
+		rt_wlan_info_deinit(&info);
+	} else if (strcmp(argv[2], "status") == 0) {
+		int rssi;
+		rt_wlan_mode_t mode;
+
+		if (netif_is_link_up(wlan->parent.netif)) {
+			LinkStatusTypeDef linkStatus = {0};
+
+			mode = wlan->info->mode;
+			if (WIFI_STATION == mode) {
+				rt_kprintf("get wifi_sta status\n");
+				bk_wlan_get_link_status(&linkStatus);
+				wlan->info->channel = linkStatus.channel;
+				bk_wifi_get_station_mac_address((char *)wlan->info->bssid);
+			} else if (WIFI_AP == mode) {
+				rt_kprintf("get wifi_ap status\n");
+				wlan->info->channel = bk_wlan_ap_get_channel_config();
+				bk_wifi_get_softap_mac_address((char *)wlan->info->bssid);
+			} else
+				rt_kprintf("wlan->info->mode =%d\n", wlan->info->mode);
+
+			rssi = rt_wlan_get_rssi(wlan);
+
+			rt_kprintf("Wi-Fi AP: %-.32s\n", wlan->info->ssid);
+			rt_kprintf("MAC Addr: %02x:%02x:%02x:%02x:%02x:%02x\n", wlan->info->bssid[0],
+					   wlan->info->bssid[1],
+					   wlan->info->bssid[2],
+					   wlan->info->bssid[3],
+					   wlan->info->bssid[4],
+					   wlan->info->bssid[5]);
+			rt_kprintf(" Channel: %d\n", wlan->info->channel);
+			rt_kprintf("DataRate: %dMbps\n", wlan->info->datarate / 1000000);
+			rt_kprintf("    RSSI: %d\n", rssi);
+		} else
+			rt_kprintf("wifi disconnected!\n");
+
+		return 0;
+	}
+
+	return 0;
 }
+
 MSH_CMD_EXPORT(wifi, wifi command);

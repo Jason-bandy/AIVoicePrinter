@@ -42,6 +42,7 @@ struct bk_spi_slave_dev
     beken_mutex_t mutex;
 };
 
+__maybe_unused static UINT32 bk_spi_slave_get_rx_fifo(void);
 static struct bk_spi_slave_dev *spi_slave_dev;
 
 static UINT32 bk_spi_slave_get_rx_fifo(void)
@@ -87,7 +88,7 @@ static void bk_spi_slave_spi_rx_callback(int is_rx_end, void *param)
         if (rx_fifo->put_index == rx_fifo->get_index)
         {
             rx_fifo->get_index += 1;
-            rx_fifo->is_full = TRUE;
+            rx_fifo->is_full = true;
             if (rx_fifo->get_index >= SPI_SLAVE_RX_FIFO_LEN) 
                 rx_fifo->get_index = 0;
         }
@@ -128,7 +129,7 @@ static int bk_spi_slave_get_rx_data(UINT8 *rx_buf, int len)
         GLOBAL_INT_DISABLE();
 
         if ((rx_fifo->get_index == rx_fifo->put_index) 
-            && (rx_fifo->is_full == FALSE))
+            && (rx_fifo->is_full == false))
         {
             GLOBAL_INT_RESTORE();
             break;
@@ -139,9 +140,9 @@ static int bk_spi_slave_get_rx_data(UINT8 *rx_buf, int len)
         if (rx_fifo->get_index >= SPI_SLAVE_RX_FIFO_LEN) 
             rx_fifo->get_index = 0;
 
-        if (rx_fifo->is_full == TRUE)
+        if (rx_fifo->is_full == true)
         {
-            rx_fifo->is_full = FALSE;
+            rx_fifo->is_full = false;
         }
 
         GLOBAL_INT_RESTORE();
@@ -255,7 +256,7 @@ static void bk_spi_slave_configure(UINT32 rate, UINT32 mode)
     param = 0;
     sddev_control(SPI_DEV_NAME, CMD_SPI_SET_MSTEN, (void *)&param);
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSID, (void *)&param);
+    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSMD, (void *)&param);
     param = 0;
     sddev_control(SPI_DEV_NAME, CMD_SPI_INIT_MSTEN, (void *)&param);
 

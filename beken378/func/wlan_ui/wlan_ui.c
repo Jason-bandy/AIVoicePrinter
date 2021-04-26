@@ -23,22 +23,33 @@
 #include "rwnx.h"
 #include "net.h"
 #include "mm_bcn.h"
-#include "phy_trident.h"
+#include "mm_task.h"
 #include "mcu_ps_pub.h"
 #include "manual_ps_pub.h"
 #include "gpio_pub.h"
 #include "phy_trident.h"
+#include "rw_msg_rx.h"
+#include "app.h"
 #include "wdt_pub.h"
 #include "start_type_pub.h"
 #include "wpa_psk_cache.h"
-#if CFG_NEW_SUPP
-#include "../wpa_supplicant/wlan_defs.h"
+#if CFG_WPA_CTRL_IFACE
+#include "wlan_defs_pub.h"
 #include "wpa_ctrl.h"
+#include "flash_pub.h"
 #endif
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
 #endif
+
+#if CFG_SUPPORT_OTA_HTTP
+#include "utils_httpc.h"
+#endif
+
+#include "target_util_pub.h"
+#include "wlan_ui_pub.h"
+
 
 monitor_cb_t g_monitor_cb = 0;
 unsigned char g_monitor_is_not_filter = 0;
@@ -56,6 +67,10 @@ FUNC_1PARAM_PTR connection_status_cb = 0;
 static monitor_cb_t g_mgnt_cb = 0;
 
 
+extern void phy_enable_lsig_intr(void);
+extern void phy_disable_lsig_intr(void);
+
+#if !CFG_IEEE80211AX
 static void rwnx_remove_added_interface(void)
 {
     int ret;
@@ -97,6 +112,7 @@ ERR_RETURN:
         os_free(apm_cfm);
     }
 }
+#endif
 
 void bk_wlan_connection_loss(void)
 {
@@ -304,7 +320,7 @@ void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy)
     frequency = bk_wlan_sta_get_frequency();
     if(frequency)
     {
-        os_printf("\r\nhostapd_channel_switch\r\n");
+        os_printf("hostapd_channel_switch\n");
 #if CFG_ROLE_LAUNCH
         if(!fl_get_pre_sta_cancel_status())
 #endif
@@ -321,10 +337,8 @@ void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy)
 
 void bk_wlan_reg_csa_cb_coexist_mode(void)
 {
-#if !CFG_NEW_SUPP
     /* the callback routine will be invoked at the timepoint of associating at station mode*/
     mhdr_connect_user_cb(bk_wlan_ap_csa_coexist_mode, 0);
-#endif
 }
 
 void bk_wlan_phy_open_cca(void)
@@ -346,17 +360,16 @@ void bk_wlan_phy_show_cca(void)
 
 void bk_reboot(void)
 {
-    FUNCPTR reboot = 0;
     UINT32 wdt_val = 5;
 
     os_printf("bk_reboot\r\n");
 
     bk_misc_update_set_type(RESET_SOURCE_REBOOT);
-    
+
     GLOBAL_INT_DECLARATION();
 
     GLOBAL_INT_DISABLE();
-      
+
     sddev_control(WDT_DEV_NAME, WCMD_POWER_DOWN, NULL);
     os_printf("wdt reboot\r\n");
 #if (CFG_SOC_NAME == SOC_BK7231N)
@@ -389,7 +402,13 @@ void bk_wlan_ap_init(network_InitTypeDef_st *inNetworkInitPara)
     }
 
     bk_wlan_ap_set_channel_config(bk_wlan_ap_get_default_channel());
-
+	#if CFG_SUPPORT_RTT
+	if(inNetworkInitPara->reserved[0])
+	{
+		bk_wlan_ap_set_channel_config(inNetworkInitPara->reserved[0]);
+	}
+	#endif
+	
     if(!g_wlan_general_param)
     {
         g_wlan_general_param = (general_param_t *)os_zalloc(sizeof(general_param_t));
@@ -452,7 +471,7 @@ OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitParaAP)
     bk_wlan_dtim_rf_ps_disable_send_msg();
 #endif
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
     int ret, flag ,empty;
     GLOBAL_INT_DECLARATION();
 
@@ -496,7 +515,7 @@ OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitParaAP)
     uap_ip_start();
 
     sm_build_broadcast_deauthenticate();
-#else /* CFG_NEW_SUPP */
+#else /* CFG_WPA_CTRL_IFACE */
 	/* stop lwip netif */
 	uap_ip_down();
 
@@ -597,13 +616,73 @@ void bk_wlan_sta_init(network_InitTypeDef_st *inNetworkInitPara)
     bk_wlan_register_bcn_cb(wlan_ui_bcn_callback);
 }
 
+#if CFG_WPA_CTRL_IFACE && CFG_WLAN_FAST_CONNECT
+
+#define BSSID_INFO_ADDR            0x1e2000 /*reserve 4k for bssid info*/
+
+void wlan_read_fast_connect_info(struct wlan_fast_connect_info *fci)
+{
+	uint32_t status, addr;
+	DD_HANDLE flash_hdl;
+
+	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
+	addr = BSSID_INFO_ADDR;
+	ddev_read(flash_hdl, (char *)fci, sizeof(*fci), addr);
+	ddev_close(flash_hdl);
+}
+
+void wlan_write_fast_connect_info(struct wlan_fast_connect_info *fci)
+{
+	uint32_t status, addr;
+	struct wlan_fast_connect_info pre_fci;
+	uint8_t protect_flag, protect_param;
+	DD_HANDLE flash_hdl;
+
+	/* obtain the previous bssid info*/
+	wlan_read_fast_connect_info(&pre_fci);
+
+	/* if different, save the latest information about fast connection*/
+	if (!os_memcmp(&pre_fci, fci, sizeof(*fci)))
+		goto wr_exit;
+
+	/* write flash and save the information about fast connection*/
+	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
+
+	ddev_control(flash_hdl, CMD_FLASH_GET_PROTECT, &protect_flag);
+	protect_param = FLASH_PROTECT_NONE;
+	ddev_control(flash_hdl, CMD_FLASH_SET_PROTECT, (void *)&protect_param);
+
+	addr = BSSID_INFO_ADDR;
+	ddev_control(flash_hdl, CMD_FLASH_ERASE_SECTOR, (void *)&addr);
+
+	ddev_write(flash_hdl, fci, sizeof(*fci), addr);
+
+	ddev_control(flash_hdl, CMD_FLASH_SET_PROTECT, (void *)&protect_flag);
+	ddev_close(flash_hdl);
+
+	bk_printf("writed fci to flash\n");
+
+wr_exit:
+	return;
+}
+#endif
+
 OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 {
-#if CFG_NEW_SUPP
+	size_t psk_len = 0;
+	u8 *psk = 0;
+
+#if CFG_WPA_CTRL_IFACE
+#if CFG_WLAN_FAST_CONNECT
+	struct wlan_fast_connect_info fci;
+	int ssid_len, req_ssid_len;
+#endif
+	int chan = 0;
+
 	/* diconnect previous connection if may */
 	sta_ip_down();	// XXX: WLAN_DISCONNECT_EVENT may handle this
 	wlan_sta_disconnect();
-#else /* !CFG_NEW_SUPP */
+#else /* !CFG_WPA_CTRL_IFACE */
 #if CFG_ROLE_LAUNCH
 	rl_status_set_st_state(RL_ST_STATUS_RESTART_ST);
 #endif
@@ -620,23 +699,62 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 
     bk_wlan_sta_init(inNetworkInitPara);
 
-	/* 
+#if CFG_WPA_CTRL_IFACE && CFG_WLAN_FAST_CONNECT
+	wlan_read_fast_connect_info(&fci);
+
+	ssid_len = os_strlen(fci.ssid);
+	if(ssid_len > SSID_MAX_LEN)
+		ssid_len = SSID_MAX_LEN;
+
+	req_ssid_len = os_strlen(inNetworkInitPara->wifi_ssid);
+	if(req_ssid_len > SSID_MAX_LEN)
+		req_ssid_len = SSID_MAX_LEN;
+
+#if 0
+	print_hex_dump("fci: ", &fci, sizeof(fci));
+	bk_printf("  ssid: |%s|\n", fci.ssid);
+	bk_printf("  bssid: %pM\n", fci.bssid);
+	bk_printf("  chan: %d\n", fci.channel);
+	bk_printf("  desire ssid: |%s|\n", inNetworkInitPara->wifi_ssid);
+#endif
+
+	if (ssid_len == req_ssid_len &&
+		os_memcmp(inNetworkInitPara->wifi_ssid, fci.ssid, ssid_len) == 0 &&
+		os_strcmp(inNetworkInitPara->wifi_key, fci.pwd) == 0) {
+		chan = fci.channel;
+		psk = fci.psk;
+		psk_len = PMK_LEN * 2;
+
+		bk_printf("fast_connect\n");
+#if 0
+		bk_printf("  chan: %d\n", chan);
+		bk_printf("  PMK: %s\n", psk);
+#endif
+		if (os_strlen(psk) == 0) {
+			// no psk info, calcuate pmk
+			psk = 0;
+			psk_len = 0;
+		}
+	}
+#endif
+
+	/*
 	 * let wpa_psk_cal thread to caculate psk.
 	 * XXX: If you know psk value, fill last two parameters of `wpa_psk_request()'.
 	 */
 	wpa_psk_request(g_sta_param_ptr->ssid.array, g_sta_param_ptr->ssid.length,
-			(char*)g_sta_param_ptr->key, NULL, 0);
+			(char*)g_sta_param_ptr->key, psk, psk_len);
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	/* enable wpa_supplicant */
 	wlan_sta_enable();
 
 	/* set network parameters: ssid, passphase */
-	wlan_sta_set(inNetworkInitPara->wifi_ssid, os_strlen(inNetworkInitPara->wifi_ssid), inNetworkInitPara->wifi_key);
+	wlan_sta_set((uint8_t *)inNetworkInitPara->wifi_ssid, os_strlen(inNetworkInitPara->wifi_ssid), (uint8_t *)inNetworkInitPara->wifi_key);
 
 	/* connect to AP */
-	wlan_sta_connect();
-#else /* !CFG_NEW_SUPP */
+	wlan_sta_connect(chan);
+#else /* !CFG_WPA_CTRL_IFACE */
     supplicant_main_entry(inNetworkInitPara->wifi_ssid);
     net_wlan_add_netif(&g_sta_param_ptr->own_mac);
 #endif
@@ -694,7 +812,9 @@ OSStatus bk_wlan_start(network_InitTypeDef_st *inNetworkInitPara)
 
 void bk_wlan_start_scan(void)
 {
+#if !CFG_WPA_CTRL_IFACE
     SCAN_PARAM_T scan_param = {0};
+#endif
 
 #if CFG_USE_STA_PS
     bk_wlan_dtim_rf_ps_disable_send_msg();
@@ -717,10 +837,10 @@ void bk_wlan_start_scan(void)
 
     bk_wlan_sta_init(0);
 
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 	wlan_sta_enable();
 	wlan_sta_scan_once();
-#else /* !CFG_NEW_SUPP */
+#else /* !CFG_WPA_CTRL_IFACE */
     os_memset(&scan_param.bssid, 0xff, ETH_ALEN);
 	scan_param.vif_idx = INVALID_VIF_IDX;
 	scan_param.num_ssids = 1;
@@ -740,46 +860,62 @@ unsigned char bk_wlan_get_scan_ap_result_numbers(void)
     return sr_get_scan_number();
 }
 
-int bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table,unsigned char get_scanu_num)
+int bk_wlan_get_scan_ap_result(SCAN_RST_ITEM_PTR scan_rst_table, unsigned char get_scanu_num)
 {
-    struct scanu_rst_upload *scan_rst;
-    unsigned char scanu_num = 0,i;
+	struct scanu_rst_upload *scan_rst;
+	unsigned char scanu_num = 0, i;
 	GLOBAL_INT_DECLARATION();
-	
+
 	GLOBAL_INT_DISABLE();
 
-    scan_rst = sr_get_scan_results();
-    if(scan_rst)
-    {
-        scanu_num = (scan_rst->scanu_num) > get_scanu_num ? (get_scanu_num):(scan_rst->scanu_num);
+	scan_rst = sr_get_scan_results();
+	if (scan_rst) {
+		scanu_num = (scan_rst->scanu_num) > get_scanu_num ? (get_scanu_num) : (scan_rst->scanu_num);
 
-        for(i = 0;i<scanu_num;i++)
-        {
-            scan_rst_table[i] = *(scan_rst->res[i]);
-        }
-    }
+		for (i = 0; i < scanu_num; i++)
+			scan_rst_table[i] = *(scan_rst->res[i]);
+	}
 	GLOBAL_INT_RESTORE();
 
-    sr_release_scan_results(scan_rst);
+	sr_release_scan_results(scan_rst);
 	return scanu_num;
 }
 
 void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num)
 {
-    SCAN_PARAM_T scan_param = {0};
+#if !CFG_WPA_CTRL_IFACE
+	SCAN_PARAM_T scan_param = {0};
 
-    bk_wlan_sta_init(0);
+	bk_wlan_sta_init(0);
 
-    os_memset(&scan_param.bssid, 0xff, ETH_ALEN);
+	os_memset(&scan_param.bssid, 0xff, ETH_ALEN);
 	scan_param.vif_idx = INVALID_VIF_IDX;
-    scan_param.num_ssids = ssid_num;
-    for (int i = 0 ; i < ssid_num ; i++ )
-    {
-        scan_param.ssids[i].length = MIN(SSID_MAX_LEN, os_strlen((char*)ssid_ary[i]));
-        os_memcpy(scan_param.ssids[i].array, ssid_ary[i], scan_param.ssids[i].length);
-    }
+	scan_param.num_ssids = ssid_num;
+	for (int i = 0 ; i < ssid_num ; i++) {
+		scan_param.ssids[i].length = MIN(SSID_MAX_LEN, os_strlen((char *)ssid_ary[i]));
+		os_memcpy(scan_param.ssids[i].array, ssid_ary[i], scan_param.ssids[i].length);
+	}
 
-    rw_msg_send_scanu_req(&scan_param);
+	rw_msg_send_scanu_req(&scan_param);
+#else /* CFG_WPA_CTRL_IFACE */
+	wlan_sta_scan_param_t scan_param = {0};
+
+	/* init hw */
+	bk_wlan_sta_init(0);
+
+	/* enable wpa_supplicant */
+	wlan_sta_enable();
+
+	/* set scan ssid list */
+	scan_param.num_ssids = MIN(ssid_num, WLAN_SCAN_SSID_MAX);
+	for (int i = 0 ; i < scan_param.num_ssids ; i++) {
+		scan_param.ssids[i].ssid_len = MIN(WLAN_SSID_MAX_LEN, os_strlen((char *)ssid_ary[i]));
+		os_memcpy(scan_param.ssids[i].ssid, ssid_ary[i], scan_param.ssids[i].ssid_len);
+	}
+
+	/* start scan */
+	wlan_sta_scan(&scan_param);
+#endif /* CFG_WPA_CTRL_IFACE */
 }
 
 void bk_wlan_sta_init_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
@@ -919,13 +1055,12 @@ void bk_wlan_sta_adv_param_2_sta(network_InitTypeDef_adv_st *sta_adv,network_Ini
 
 OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 {
-    if(bk_wlan_is_monitor_mode())
-    {
-        os_printf("airkiss is not finish yet, stop airkiss or waiting it finish!\r\n");
-        return 0;
-    }
+	if (bk_wlan_is_monitor_mode()) {
+		os_printf("airkiss is not finish yet, stop airkiss or waiting it finish!\r\n");
+		return 0;
+	}
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 #if CFG_ROLE_LAUNCH
 	rl_status_set_private_state(RL_PRIV_STATUS_STA_ADV_RDY);
 #endif
@@ -933,12 +1068,10 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 	rl_status_set_st_state(RL_ST_STATUS_RESTART_ST);
 #endif
 
-    bk_wlan_stop(BK_STATION);
+	bk_wlan_stop(BK_STATION);
 #if CFG_ROLE_LAUNCH
-    if(rl_pre_sta_set_status(RL_STATUS_STA_INITING))
-    {
-        return -1;
-    }
+	if (rl_pre_sta_set_status(RL_STATUS_STA_INITING))
+		return -1;
 
 	rl_status_reset_st_state(RL_ST_STATUS_RESTART_HOLD | RL_ST_STATUS_RESTART_ST);
 	rl_status_set_private_state(RL_PRIV_STATUS_STA_ADV);
@@ -946,36 +1079,36 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 	LAUNCH_REQ lreq;
 
 	lreq.req_type = LAUNCH_REQ_STA;
-	bk_wlan_sta_adv_param_2_sta(inNetworkInitParaAdv,&lreq.descr);
+	bk_wlan_sta_adv_param_2_sta(inNetworkInitParaAdv, &lreq.descr);
 
 	rl_sta_adv_register_cache_station(&lreq);
 #endif
 
-    bk_wlan_sta_init_adv(inNetworkInitParaAdv);
+	bk_wlan_sta_init_adv(inNetworkInitParaAdv);
 
-	/* 
+	/*
 	 * let wpa_psk_cal thread to caculate psk.
 	 * XXX: If you know psk value, fill last two parameters of `wpa_psk_request()'.
 	 */
 	wpa_psk_request(g_sta_param_ptr->ssid.array, g_sta_param_ptr->ssid.length,
-			(char*)(g_sta_param_ptr->key), NULL, 0);
+					(char *)(g_sta_param_ptr->key), NULL, 0);
 
-    supplicant_main_entry(inNetworkInitParaAdv->ap_info.ssid);
+	supplicant_main_entry(inNetworkInitParaAdv->ap_info.ssid);
 
-    net_wlan_add_netif(&g_sta_param_ptr->own_mac);
+	net_wlan_add_netif(&g_sta_param_ptr->own_mac);
 
 
-#else /* CFG_NEW_SUPP */
+#else /* CFG_WPA_CTRL_IFACE */
 	wlan_sta_config_t config;
 
-    bk_wlan_sta_init_adv(inNetworkInitParaAdv);
+	bk_wlan_sta_init_adv(inNetworkInitParaAdv);
 
-	/* 
+	/*
 	 * let wpa_psk_cal thread to caculate psk.
 	 * XXX: If you know psk value, fill last two parameters of `wpa_psk_request()'.
 	 */
 	wpa_psk_request(g_sta_param_ptr->ssid.array, g_sta_param_ptr->ssid.length,
-			g_sta_param_ptr->key, NULL, 0);
+					(char*)g_sta_param_ptr->key, NULL, 0);
 
 	/* disconnect previous connected network */
 	wlan_sta_disconnect();
@@ -984,8 +1117,8 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 	wlan_sta_enable();
 
 	/* set network parameters: ssid, passphase */
-	wlan_sta_set(inNetworkInitParaAdv->ap_info.ssid, os_strlen(inNetworkInitParaAdv->ap_info.ssid),
-			inNetworkInitParaAdv->key);
+	wlan_sta_set((uint8_t*)inNetworkInitParaAdv->ap_info.ssid, os_strlen(inNetworkInitParaAdv->ap_info.ssid),
+				 (uint8_t*)inNetworkInitParaAdv->key);
 
 	/* set fast connect bssid */
 	os_memset(&config, 0, sizeof(config));
@@ -1000,18 +1133,18 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 	wpa_ctrl_request(WPA_CTRL_CMD_STA_SET, &config);
 
 	/* connect to AP */
-	wlan_sta_connect();
+	wlan_sta_connect(g_sta_param_ptr->fast_connect_set ? g_sta_param_ptr->fast_connect.chann : 0);
 
 #endif
-    ip_address_set(BK_STATION, inNetworkInitParaAdv->dhcp_mode,
-                   inNetworkInitParaAdv->local_ip_addr,
-                   inNetworkInitParaAdv->net_mask,
-                   inNetworkInitParaAdv->gateway_ip_addr,
-                   inNetworkInitParaAdv->dns_server_ip_addr);
+	ip_address_set(BK_STATION, inNetworkInitParaAdv->dhcp_mode,
+				   inNetworkInitParaAdv->local_ip_addr,
+				   inNetworkInitParaAdv->net_mask,
+				   inNetworkInitParaAdv->gateway_ip_addr,
+				   inNetworkInitParaAdv->dns_server_ip_addr);
 
-
-    return 0;
+	return 0;
 }
+
 
 OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
 {
@@ -1027,7 +1160,7 @@ OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
     bk_wlan_dtim_rf_ps_disable_send_msg();
 #endif
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
     bk_wlan_stop(BK_SOFT_AP);
 
 #if CFG_ROLE_LAUNCH
@@ -1057,7 +1190,7 @@ OSStatus bk_wlan_start_ap_adv(network_InitTypeDef_ap_st *inNetworkInitParaAP)
     uap_ip_start();
 
     sm_build_broadcast_deauthenticate();
-#else	/* CFG_NEW_SUPP */
+#else	/* CFG_WPA_CTRL_IFACE */
 	/* stop lwip netif */
 	uap_ip_down();
 
@@ -1088,7 +1221,7 @@ int bk_wlan_stop_scan(void)
 {
 	struct scan_cancel_cfm cfm = {0};
 	int ret = -1;
-	
+
 	os_printf("%s\r\n",__FUNCTION__);
 	ret = rw_msg_send_scan_cancel_req(&cfm);
 	if(ret == 0){
@@ -1128,7 +1261,7 @@ int bk_wlan_stop(char mode)
 	    sm_build_broadcast_deauthenticate();
         mm_hw_ap_disable();
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 #if 0
         uap_ip_down();
         net_wlan_remove_netif(&g_ap_param_ptr->bssid);
@@ -1169,14 +1302,14 @@ int bk_wlan_stop(char mode)
 		rl_pre_sta_clear_cancel();
 #endif
 
-#if !CFG_NEW_SUPP
+#if !CFG_WPA_CTRL_IFACE
 #if 0
         net_wlan_remove_netif(&g_sta_param_ptr->own_mac);
         supplicant_main_exit();
         wpa_hostapd_release_scan_rst();
 #else
-		wlan_sta_disable();
 		bk_wlan_stop_scan();
+		wlan_sta_disable();
 #endif
 #else
 		wlan_sta_disable();	/* same but call in wpas task */
@@ -1300,14 +1433,14 @@ OSStatus bk_wlan_get_link_status(LinkStatusTypeDef *outStatus)
 		goto get_exit;
 	}
 
-	outStatus->conn_state = mhdr_get_station_status();	
+	outStatus->conn_state = mhdr_get_station_status();
 	vif_idx = rwm_mgmt_vif_mac2idx((void *)&g_sta_param_ptr->own_mac);
 	if(INVALID_VIF_IDX == vif_idx)
 	{
 		ret = kGeneralErr;
 		goto get_exit;
 	}
-    
+
 	cfm = os_malloc(sizeof(struct sm_get_bss_info_cfm));
 	if(!cfm)
 	{
@@ -1325,7 +1458,7 @@ OSStatus bk_wlan_get_link_status(LinkStatusTypeDef *outStatus)
 	outStatus->wifi_strength = cfm->rssi;
 	outStatus->channel = rw_ieee80211_get_chan_id(cfm->freq);
 	outStatus->security = g_sta_param_ptr->cipher_suite;
-    
+
 	os_memcpy(outStatus->bssid, cfm->bssid, 6);
 	ssid_len = MIN(SSID_MAX_LEN, os_strlen((char*)(cfm->ssid)));
 	os_memcpy(outStatus->ssid, cfm->ssid, ssid_len);
@@ -1690,7 +1823,7 @@ void bk_enter_deep_sleep(UINT32 gpio_index_map,
 	case PS_DEEP_WAKEUP_RTC:
 		deep_sleep_param.wake_up_way = PS_DEEP_WAKEUP_RTC;
 		break;
-		
+
 	case PS_DEEP_WAKEUP_USB:
 		deep_sleep_param.wake_up_way = PS_DEEP_WAKEUP_USB;
 		break;
@@ -2085,6 +2218,49 @@ monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void)
     return g_mgnt_cb;
 }
 
+#if CFG_SUPPORT_OTA_HTTP
+int http_ota_download(const char *uri)
+{
+    int ret;
+    httpclient_t httpclient;
+    httpclient_data_t httpclient_data;
+    char http_content[HTTP_RESP_CONTENT_LEN];
+
+    os_memset(&httpclient, 0, sizeof(httpclient_t));
+    os_memset(&httpclient_data, 0, sizeof(httpclient_data));
+    os_memset(&http_content, 0, sizeof(HTTP_RESP_CONTENT_LEN));
+    httpclient.header = "Accept: text/xml,text/html,\r\n";
+    httpclient_data.response_buf = http_content;
+    httpclient_data.response_content_len = HTTP_RESP_CONTENT_LEN;
+    ret = httpclient_common(&httpclient,
+                            uri,
+                            80,/*port*/
+                            NULL,
+                            HTTPCLIENT_GET,
+                            20000,
+                            &httpclient_data);
+
+    if (0 != ret) {
+        os_printf("request epoch time from remote server failed.");
+    } else {
+        os_printf("sucess.\r\n");
+        bk_reboot();
+    }
+
+    return ret;
+}
+#endif
+
+void bk_wifi_get_station_mac_address(char *mac)
+{
+	wifi_get_mac_address((char *)mac, CONFIG_ROLE_STA);
+}
+
+void bk_wifi_get_softap_mac_address(char *mac)
+{
+	wifi_get_mac_address((char *)mac, CONFIG_ROLE_AP);
+}
+
 #if (CFG_SUPPORT_ALIOS)
 /**********************for alios*******************************/
 
@@ -2117,7 +2293,7 @@ OSStatus bk_wlan_get_bssid_info(apinfo_adv_t *ap, uint8_t **key, int *key_len)
 	bk_wlan_get_link_status(&link_stat);
 	ap->channel = link_stat.channel;
 	os_memcpy(ap->bssid, link_stat.bssid, 6);
-	os_strcpy(ap->ssid, link_stat.ssid);
+	os_strcpy((char*)ap->ssid, (char*)link_stat.ssid);
 
 	*key = g_sta_param_ptr->key;
 	*key_len = g_sta_param_ptr->key_len;

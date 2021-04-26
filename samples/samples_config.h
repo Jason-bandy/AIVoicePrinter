@@ -33,9 +33,6 @@
 /* web net sample */
 //#define WEBNET_SAMPLE
 
-/* video_transfer demo */
-//#define APP_DEMO_VIDEO_TRANSFER     1
-
 #ifdef XIAOYA_OS
 #define VOICE_CONFIG_TEST
 #define WANTONG_TEST

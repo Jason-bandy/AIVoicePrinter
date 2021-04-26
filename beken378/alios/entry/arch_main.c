@@ -28,13 +28,6 @@ void print_exception_addr(unsigned int pc, unsigned int lr, unsigned int sp)
 beken_mutex_t stdio_tx_mutex;
 
 extern void hw_start_hal(void);
-
-static void init_app_thread( void *arg )
-{
-	rtos_init_mutex( &stdio_tx_mutex );
-	application_start();
-}
-
 extern void fclk_init(void);
 extern void test_case_task_start(void);
 

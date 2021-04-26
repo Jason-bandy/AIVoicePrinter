@@ -20,7 +20,7 @@
 #include "error.h"
 #include "rtos_pub.h"
 #include "rw_pub.h"
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 #include "wpa_ctrl.h"
 #include "ctrl_iface.h"
 #endif
@@ -64,6 +64,9 @@ static int eloop_sock_table_add_sock(struct eloop_sock_table *table,
 			       sizeof(struct eloop_sock));
 	if (tmp == NULL) {
 		eloop_trace_sock_add_ref(table);
+		table->table = NULL;
+		table->count = 0;
+		os_printf("add sock: oom");
 		return -1;
 	}
 
@@ -448,7 +451,6 @@ static void eloop_process_pending_signals(void)
 		return;
 	}
 	eloop.signaled = 0;
-	sig_count = eloop.signal_count;
 
 	if (eloop.pending_terminate) {
 #ifndef CONFIG_NATIVE_WINDOWS
@@ -456,10 +458,11 @@ static void eloop_process_pending_signals(void)
 #endif /* CONFIG_NATIVE_WINDOWS */
 		eloop.pending_terminate = 0;
 	}
-	GLOBAL_INT_RESTORE();
+
+_process_signals:
+	sig_count = eloop.signal_count;
 
 	for (i = 0; i < sig_count; i++) {
-		GLOBAL_INT_DISABLE();
 		if (eloop.signals[i].signaled) {
 			eloop.signals[i].signaled = 0;
 
@@ -467,13 +470,19 @@ static void eloop_process_pending_signals(void)
 			sig = eloop.signals[i].sig;
 			user_data = eloop.signals[i].user_data;
 			ASSERT(handler);
-			GLOBAL_INT_RESTORE();
 
-			handler(sig, user_data);
-		} else {
 			GLOBAL_INT_RESTORE();
+			handler(sig, user_data);
+			GLOBAL_INT_DISABLE();
+
+			if ( (sig_count != eloop.signal_count) || (eloop.signaled)) {
+				os_printf("restart sig process, signal number from %d to %d, signaled=%d\n",
+					sig_count, eloop.signal_count, eloop.signaled);
+				goto _process_signals;
+			}
 		}
 	}
+	GLOBAL_INT_RESTORE();
 }
 
 
@@ -491,7 +500,10 @@ int eloop_register_signal(int sig, eloop_signal_handler handler,
 	tmp = os_realloc_array(eloop.signals, eloop.signal_count + 1,
 			       sizeof(struct eloop_signal));
 	if (tmp == NULL) {
+		eloop.signal_count = 0;
+		eloop.signals = NULL;
 		GLOBAL_INT_RESTORE();
+		os_printf("reg sig: oom");
 		return -1;
 	}
 
@@ -555,7 +567,7 @@ void eloop_remove_sta_added_signals(void)
     eloop_signals_remove_signal(SIGTERM);
     eloop_signals_remove_signal(SIGHUP);
     eloop_signals_remove_signal(SIGSCAN);
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
     eloop_signals_remove_signal(SIGSCAN_START);
 #endif
     eloop_signals_remove_signal(SIGASSOC);
@@ -697,7 +709,7 @@ void eloop_run(void)
 			}
 		}
 		if (msg_received) {
-#if CFG_NEW_SUPP
+#if CFG_WPA_CTRL_IFACE
 			if (msg.cmd == WPA_CTRL_CMD_SOCKET)
 				eloop_handler_sock_event(msg.argu);
 			else if (msg.cmd >= WPA_CTRL_CMD_RW_EVT_START)

@@ -71,9 +71,9 @@
 #endif
 
 extern void bk7011_cal_pll(void);
-static void bk7011_cal_dcormod_save_base(INT32 mod);
-static void bk7011_cal_dcormod_do_fitting(void);
-static UINT8 bk7011_cal_dcormod_get(void);
+__maybe_unused static void bk7011_cal_dcormod_save_base(INT32 mod);
+__maybe_unused static void bk7011_cal_dcormod_do_fitting(void);
+__maybe_unused static UINT8 bk7011_cal_dcormod_get(void);
 void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 extern uint32_t get_ate_mode_state(void);
 extern UINT32 ble_in_dut_mode(void);
@@ -1178,6 +1178,7 @@ static UINT32 rwnx_cal_translate_tx_rate(UINT32 rate)
     return param;
 }
 
+__maybe_unused static UINT32 rwnx_cal_translate_tx_rate_for_n(UINT32 rate, UINT32 bandwidth);
 static UINT32 rwnx_cal_translate_tx_rate_for_n(UINT32 rate, UINT32 bandwidth)
 {
     UINT32 param;
@@ -1234,7 +1235,7 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
         return;
     }
 
-    if (1)//(test_mode == 0)
+    if (test_mode == 0)
     {
         ret = manual_cal_get_pwr_idx_shift(rate, bandwidth, &pwr_gain);
     }
@@ -2430,8 +2431,6 @@ static UINT8 bandgap_calm_in_efuse = 0xFF;
 static temperature_type last_temperature_type = TEMPERATURE_TYPE_UNKNOWN; /* uninitialized when power up */
 void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
 {
-    UINT32 param;
-
     if (new_temperature_type == last_temperature_type)
     {
         return;
@@ -2445,23 +2444,17 @@ void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
     bk_printf("temperature_type=%d\n", new_temperature_type);
     if (TEMPERATURE_TYPE_LOW == new_temperature_type)
     {
-        param = 5;
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x19;
     }
     else if (TEMPERATURE_TYPE_HIGH == new_temperature_type)
     {
-        param = 5;
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x2C;
     }
     else
     {
-        param = 4;
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x19;
     }
     CAL_WR_TRXREGS(0x4);
-    /* keep vdddig all the time */
-    //sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VDD_VALUE, &param);
-
     last_temperature_type = new_temperature_type;
 }
 
@@ -2484,33 +2477,34 @@ void manual_cal_load_bandgap_calm(void)
     bk_printf("bandgap_calm_in_efuse=0x%x\r\n", bandgap_calm_in_efuse);
     analog2 = sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_GET_ANALOG2, &analog2);
     old_bandgap_calm = (analog2 >> BANDGAP_CAL_MANUAL_POSI) & BANDGAP_CAL_MANUAL_MASK;
-    if (old_bandgap_calm != (uint32_t)bandgap_calm_in_efuse)
+    old_vddig = (int32_t)sctrl_ctrl(CMD_SCTRL_GET_VDD_VALUE, NULL);
+    new_bandgap_calm = (uint32_t)(bandgap_calm_in_efuse & 0x3F);
+    new_vddig = (int32_t)((bandgap_calm_in_efuse >> 6) & 0x3);
+    if (3 != new_vddig)
+    {
+        new_vddig += 4;
+    }
+    if ((old_bandgap_calm != new_bandgap_calm) || (old_vddig != new_vddig))
     {
         /* keep bandgap_calm in [0x10, 0x30) */
-        old_vddig = (int32_t)sctrl_ctrl(CMD_SCTRL_GET_VDD_VALUE, NULL);
-        new_bandgap_calm = (uint32_t)bandgap_calm_in_efuse;
-        if (new_bandgap_calm >= 0x30)
+        if ((new_bandgap_calm >= 0x30) && (new_vddig < VDDIG_MAX))
         {
-            new_vddig = old_vddig + 1;
+            new_vddig = new_vddig + 1;
             new_bandgap_calm = new_bandgap_calm - 0x20;
         }
-        else if (new_bandgap_calm < 0x10)
+        else if ((new_bandgap_calm < 0x10) && (new_vddig > VDDIG_MIN))
         {
-            new_vddig = old_vddig - 1;
+            new_vddig = new_vddig - 1;
             new_bandgap_calm = new_bandgap_calm + 0x20;
-        }
-        else
-        {
-            new_vddig = old_vddig;
         }
 
         if ((new_vddig < VDDIG_MIN) || (new_vddig > VDDIG_MAX))
         {
             new_vddig = old_vddig;
-            new_bandgap_calm = (uint32_t)bandgap_calm_in_efuse;
+            new_bandgap_calm = (uint32_t)old_bandgap_calm;
         }
 
-        bk_printf("[load]bandgap_calm=0x%x->0x%x,vddig=%d->%d\r\n", bandgap_calm_in_efuse, new_bandgap_calm, old_vddig, new_vddig);
+        bk_printf("[load]bandgap_calm=0x%x->0x%x,vddig=%d->%d\r\n", old_bandgap_calm, new_bandgap_calm, old_vddig, new_vddig);
 
         analog2 &= ~(BANDGAP_CAL_MANUAL_MASK << BANDGAP_CAL_MANUAL_POSI);
         analog2 |= (new_bandgap_calm << BANDGAP_CAL_MANUAL_POSI);
@@ -2783,8 +2777,10 @@ INT32 bk7011_cal_tx_output_power(INT32 tx_power_cal_mode)
     INT32 tssilow = 0;
     INT32 tssihigh = 0;
     INT32 index = 0;
-    INT16 high, low, tx_fre_gain;
+    INT16 high, low;
+#if DIFFERENCE_PIECES_CFG
     INT32 cnt = 0;
+#endif
     INT32 gav_tssi_temp = 0;
 
     bk7011_cal_saradc_runorstop(cali_saradc_desc, 1);
@@ -3445,7 +3441,6 @@ INT32 bk7011_cal_tx_dc_new(INT32 tx_dc_cal_mode)
     INT16 high, low;
     INT32 gold_index = 0;
     INT32 i_index, q_index;
-    INT32 srchcnt = 0;
     INT16 search_thrd = 64 * BK_TX_DAC_COEF;//128;//DC search range search_thrd=512 gtx_dc_n=3,    search_thrd=256 gtx_dc_n=2,    search_thrd=128 gtx_dc_n=1
     /*step 4*/
 
@@ -3566,7 +3561,6 @@ if (1) //fix default Q, calibrate I
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = high;
     detect_dc_high = bk7011_get_tx_dc();
     //Step 1 3~6 search;
-    srchcnt = 0;
 
     CAL_TIM_PRT("%d:(low=0x%x) detect_dc_low=%d,(high=0x%x) detect_dc_high=%d\n", __LINE__, low, detect_dc_low, high, detect_dc_high);
 
@@ -3624,7 +3618,6 @@ if (2) //fix calibrated I, calibrated Q
     }
 
     //20170330
-    srchcnt = 0;
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = i_index; //default
 
     BK7231N_RC_REG.REG0x4F->bits.TXQDCCOMP = low;
@@ -3699,7 +3692,6 @@ if (3) //fix calibrated Q, calibrated I again
 
     BK7231N_TRX_RAM.REG0x0.bits.tssiDC_gc = 3;//wyg
     CAL_WR_TRXREGS(0x0);
-    srchcnt = 0;
     BK7231N_RC_REG.REG0x4F->bits.TXQDCCOMP = q_index; // optimum
 
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = low;
@@ -3769,7 +3761,6 @@ if (4) //fix calibrated I, calibrated Q again
     }
 
     //20170330
-    srchcnt = 0;
     BK7231N_RC_REG.REG0x4F->bits.TXIDCCOMP = i_index; //default
 
     BK7231N_RC_REG.REG0x4F->bits.TXQDCCOMP = low;
@@ -3879,7 +3870,6 @@ if (4) //fix calibrated I, calibrated Q again
 #define TSSI_RD_TIMES		1//8
 static INT32 bk7011_get_tx_i_gain(void)
 {
-    int i;
     INT32 detector_i_gain_p, detector_i_gain_n, detector_i_gain;
 
     BK7231N_RC_REG.REG0x4C->bits.ICONSTANT = UNSIGNEDOFFSET10 + (gcali_result.const_iqcal_p+0x100);
@@ -4554,8 +4544,6 @@ INT32 bk7011_cal_tx_filter_corner()
     float tx_avg_ratio_high = 0.0;
     INT16 high, low;
     INT32 index = 0, gold_index = 0;
-    INT32 index1 = 0;
-    INT32 index2 = 0;
 ///    INT32 index3 = 0;
     BK7231N_TRX_RAM.REG0x6.bits.capcal_sel = 0;
     CAL_WR_TRXREGS(0x6);
@@ -4638,7 +4626,6 @@ INT32 bk7011_cal_tx_filter_corner()
     while((high - low) > 3);
     index = ((tx_avg_ratio_low < tx_avg_ratio_high) ? low : high);
 	gcali_result.gtx_ifilter_corner = index ;
-	index1=index;
     gold_index = index << 8;
 //    gtx_ifilter_corner = index;
 
@@ -4763,7 +4750,6 @@ INT32 bk7011_cal_tx_filter_corner()
     while((high - low) > 3);
     index = ((tx_avg_ratio_low < tx_avg_ratio_high) ? low : high);
 	  gcali_result.gtx_qfilter_corner = index ;
-	index2=index;
     gold_index += index;
 //    gtx_qfilter_corner = index;
     float_1 = 1100;

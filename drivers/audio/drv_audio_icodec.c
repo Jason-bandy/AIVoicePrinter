@@ -111,10 +111,8 @@ __exit:
 
 int rt_data_node_is_empty(struct rt_data_node_list *node_list)
 {
-    struct rt_data_node *node = RT_NULL;
-    rt_uint32_t read_index, write_index, next_index;
+    rt_uint32_t read_index, write_index;
     rt_base_t level;
-    rt_uint32_t result;
 
     level = rt_hw_interrupt_disable();
     read_index = node_list->read_index;
@@ -142,7 +140,6 @@ int rt_data_node_write(struct rt_data_node_list *node_list, void *buffer, rt_uin
     struct rt_data_node *node = RT_NULL;
     rt_uint32_t read_index, write_index, next_index;
     rt_base_t level;
-    rt_uint32_t result;
 
     level = rt_hw_interrupt_disable();
     read_index = node_list->read_index;
@@ -174,7 +171,7 @@ int rt_data_node_read(struct rt_data_node_list *node_list, void *buffer, rt_uint
 {
     struct rt_data_node *node = RT_NULL;
     rt_uint32_t read_index, write_index, next_index;
-    rt_int32_t remain_len, copy_size, read_len;
+    rt_int32_t remain_len, copy_size;
     rt_uint32_t read_offset, data_offset;
     rt_base_t level;
     rt_uint32_t result = size;
@@ -269,6 +266,7 @@ void rt_data_node_empty(struct rt_data_node_list *node_list)
 /**
  * RT-Thread Audio Driver Interface
  */
+__maybe_unused static void dac_speaker_enable(rt_uint32_t enable);
 static void dac_speaker_enable(rt_uint32_t enable)
 {
     UINT32 param;
@@ -351,7 +349,6 @@ static rt_err_t audio_codec_init(rt_device_t dev)
     return RT_EOK;
 }
 
-static void net_transmit_init(void);
 static rt_err_t audio_codec_open(rt_device_t dev, rt_uint16_t oflag)
 {
 #define AVOID_POP_NOISE 1
@@ -422,11 +419,9 @@ static rt_size_t audio_codec_write(rt_device_t dev, rt_off_t pos,
 
 static rt_err_t audio_codec_control(rt_device_t dev, int cmd, void *args)
 {
-    rt_err_t result = RT_EOK, stat;
     struct audio_codec_device *audio = RT_NULL;
 
     audio = (struct audio_codec_device *)dev;
-    stat = audio->stat;
 
     switch (cmd)
     {
@@ -491,7 +486,7 @@ static rt_err_t audio_codec_control(rt_device_t dev, int cmd, void *args)
 	}
 
     default:
-        result = RT_ERROR;
+	break;
     }
 
     return RT_EOK;
@@ -653,6 +648,7 @@ int dac_dma_init(struct audio_codec_device *audio)
     en_cfg.channel = AUDIO_DAC_DEF_DMA_CHANNEL;
     en_cfg.param = AUDIO_SEND_BUFFER_SIZE; // dma translen
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, &en_cfg);
+    return 0;
 }
 
 #ifdef RT_USING_DEVICE_OPS
@@ -666,6 +662,8 @@ static const struct rt_device_ops audio_icodec_ops =
     audio_codec_control
 };
 #endif /* RT_USING_DEVICE_OPS */
+
+extern void *sdram_malloc(unsigned long size);
 
 int rt_audio_codec_hw_init(void)
 {
@@ -740,8 +738,6 @@ INIT_DEVICE_EXPORT(rt_audio_codec_hw_init);
 #include "general_dma.h"
 int audio_dump(void)
 {
-    int val;
-    int i = 0;
     struct rt_data_node_list *node_list = _g_audio_codec.node_list;
 
     rt_kprintf("write index = %d \n", node_list->write_index);
@@ -749,6 +745,7 @@ int audio_dump(void)
     rt_kprintf("read offset = %d \n", node_list->data_offset);
     rt_kprintf("size = %d \n", node_list->size);
     rt_kprintf("audio->dma_irq_cnt = %d \n", _g_audio_codec.dma_irq_cnt);
+    return 0;
 }
 
 MSH_CMD_EXPORT(audio_dump, audio_dump);

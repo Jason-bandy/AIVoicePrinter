@@ -500,10 +500,8 @@ int bk_unconditional_normal_sleep ( UINT32 sleep_ms, char flag )
 #if CFG_USE_DEEP_PS
 void bk_enter_deep_sleep_mode ( PS_DEEP_CTRL_PARAM *deep_param )
 {
-	UINT32 param;
-	UINT32 i;
 	ASSERT ( deep_param != NULL );
-	
+
 	if ( ( deep_param->wake_up_way & PS_DEEP_WAKEUP_GPIO ) ) {
 		if ( deep_param->gpio_index_map ) {
 			os_printf ( "---enter deep sleep :wake up with gpio 0~31 ps: 0x%x 0x%x \r\n",

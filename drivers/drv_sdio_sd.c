@@ -54,10 +54,8 @@ static rt_err_t rt_sdcard_close(rt_device_t dev)
 //static uint32_t sdio_buffer[SD_DEFAULT_BLOCK_SIZE/sizeof(uint32_t)];
 static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_size_t size)
 {
-    rt_uint32_t result = RT_EOK;
-
     UINT32 start_blk_addr;
-    UINT8  read_blk_num, num;
+    UINT8  read_blk_num;
     UINT8* read_data_buf;
     rt_mutex_take(&sdcard_mutex, RT_WAITING_FOREVER);
     start_blk_addr = pos;
@@ -84,7 +82,6 @@ static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_
 		size = 0;
 	
  #endif
-exit:
     rt_mutex_release(&sdcard_mutex);
 
     return size;

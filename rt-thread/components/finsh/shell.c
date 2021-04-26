@@ -49,6 +49,7 @@
 #ifdef _WIN32
 #include <stdio.h> /* for putchar */
 #endif
+#include "rtt_ate_app.h"
 
 /* finsh thread */
 #ifndef RT_USING_HEAP

@@ -882,6 +882,7 @@ static void hostapd_notify_auth_ft_finish(void *ctx, const u8 *dst,
 #endif /* CONFIG_IEEE80211R_AP */
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static void hostapd_notif_auth(struct hostapd_data *hapd,
 			       struct auth_info *rx_auth)
 {
@@ -924,6 +925,7 @@ fail:
 	hostapd_sta_auth(hapd, rx_auth->peer, rx_auth->auth_transaction + 1,
 			 status, resp_ies, resp_ies_len);
 }
+#endif
 
 
 #ifndef NEED_AP_MLME
@@ -1144,6 +1146,7 @@ static void hostapd_mgmt_tx_cb(struct hostapd_data *hapd, const u8 *buf,
 #endif /* NEED_AP_MLME */
 
 
+#ifdef CONFIG_FULL_HOSTAPD
 static int hostapd_event_new_sta(struct hostapd_data *hapd, const u8 *addr)
 {
 	struct sta_info *sta = ap_get_sta(hapd, addr);
@@ -1164,7 +1167,7 @@ static int hostapd_event_new_sta(struct hostapd_data *hapd, const u8 *addr)
 
 	return 0;
 }
-
+#endif
 
 static void hostapd_event_eapol_rx(struct hostapd_data *hapd, const u8 *src,
 				   const u8 *data, size_t data_len)
@@ -1294,6 +1297,7 @@ void hostapd_event_get_survey(struct hostapd_iface *iface,
 
 #ifdef NEED_AP_MLME
 
+#ifdef CONFIG_FULL_HOSTAPD
 static void hostapd_event_iface_unavailable(struct hostapd_data *hapd)
 {
 	wpa_printf(MSG_DEBUG, "Interface %s is unavailable -- stopped",
@@ -1306,6 +1310,7 @@ static void hostapd_event_iface_unavailable(struct hostapd_data *hapd)
 						&hapd->cs_freq_params);
 	}
 }
+#endif
 
 #ifdef CONFIG_DFS
 static void hostapd_event_dfs_radar_detected(struct hostapd_data *hapd,

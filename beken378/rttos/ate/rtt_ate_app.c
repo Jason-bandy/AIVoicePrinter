@@ -17,7 +17,7 @@
 
 static int ate_status = 0;
 #else
-#define ATE_DBG
+#define ATE_DBG(...)
 #endif
 
 char ate_mode_state = 0;

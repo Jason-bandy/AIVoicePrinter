@@ -2,9 +2,17 @@
 #define __LWIPOPTS_H__
 
 #include <rtconfig.h>
+#include "sys_config.h" //definition in sys_config.h has higher priority than lwipopts.h
 
 #define LWIP_DEFAULT_MEM_POLICY                   1
 #define LWIP_REDUCE_THE_PLAN                      2
+
+#ifdef PKG_NETUTILS_IPERF
+#ifdef CFG_LWIP_MEM_POLICY
+#undef CFG_LWIP_MEM_POLICY
+#endif
+#define CFG_LWIP_MEM_POLICY                       LWIP_DEFAULT_MEM_POLICY
+#endif
 
 #ifndef CFG_LWIP_MEM_POLICY
 #define CFG_LWIP_MEM_POLICY                       LWIP_REDUCE_THE_PLAN

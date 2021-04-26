@@ -77,22 +77,21 @@ static void thread_queue_send_entry(void* parameter)
 
 int msg_queue_simple_init(void)
 {
+	OSStatus ret;
 
-    rt_uint8_t buf[MSG_SIZE];
-    rt_err_t result;
+	/* 初始化消息队列 */
+	ret = rtos_init_queue(&mq, "msg_queue", MSG_SIZE, MSG_NUM);
+	ASSERT(ret == kNoErr);
 
-    /* 初始化消息队列 */
-    result = rtos_init_queue(&mq, "msg_queue", MSG_SIZE, MSG_NUM);
-    if(result != kNoErr)
-    {
-        rt_kprintf("init rtos queue failed\n");
-    }
+	/* 创建recive线程 */
+	ret = rtos_create_thread(&queue_thread_revive, 24, "recv_thread", thread_queue_recive_entry, 1024, RT_NULL);
+	ASSERT(ret == kNoErr);
 
-    /* 创建recive线程 */
-    rtos_create_thread(&queue_thread_revive, 24, "recv_thread", thread_queue_recive_entry, 1024, RT_NULL);
+	/* 创建send线程 */
+	rtos_create_thread(&queue_thread_send, 25, "send_thread", thread_queue_send_entry, 1024, RT_NULL);
+	ASSERT(ret == kNoErr);
 
-    /* 创建send线程 */
-    rtos_create_thread(&queue_thread_send, 25, "send_thread", thread_queue_send_entry, 1024, RT_NULL);
+	return kNoErr;
 }
 
 // MSH_CMD_EXPORT(msg_queue_simple_init, msq queue simple);
@@ -110,8 +109,14 @@ static void one_shot_timeout(void* Larg, void* Rarg)
 
 int one_shot_time_simple_init(void)
 {
-    rtos_init_oneshot_timer(&one_shot, 10000, one_shot_timeout, RT_NULL, RT_NULL);
-    rtos_start_oneshot_timer(&one_shot);
+	OSStatus ret;
+	ret = rtos_init_oneshot_timer(&one_shot, 10000, one_shot_timeout, RT_NULL, RT_NULL);
+	ASSERT(ret == kNoErr);
+
+	ret = rtos_start_oneshot_timer(&one_shot);
+	ASSERT(ret == kNoErr);
+
+	return kNoErr;
 }
 
 // MSH_CMD_EXPORT(one_shot_time_simple_init, one shot time simple);

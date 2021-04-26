@@ -251,7 +251,6 @@ static SDIO_Error sdcard_mmc_cmd8_process(void)
 {
     int i;
     SDIO_CMD_S cmd;
-    uint32 response, reg;
     uint32 tmp;
     uint8 *tmpptr = (uint8 *)os_malloc(512);
     if(tmpptr == NULL)
@@ -615,6 +614,7 @@ static SDIO_Error sdcard_send_read_stop(void)
 	return Ret;
 }
 
+__maybe_unused static SDIO_Error sdcard_cmd17_process(uint32 addr);
 static SDIO_Error sdcard_cmd17_process(uint32 addr)
 {
     SDIO_CMD_S cmd;
@@ -840,7 +840,7 @@ sdcard_read_single_block(UINT8 *readbuff, UINT32 readaddr, UINT32 blocksize)
 {
     SDIO_CMD_S cmd;
     SDIO_Error ret;
-	UINT32 reg,sd_data0;
+	UINT32 sd_data0;
 
 #if (CFG_SD_HOST_INTF == SD1_HOST_INTF)
 	sd_data0 = 36;
@@ -1686,7 +1686,6 @@ void sdcard_exit(void)
 UINT32 sdcard_open(UINT32 op_flag)
 {
     UINT8 cnt;
-    UINT32 param, reg;
 
     os_printf("===sd card open:%d===\r\n",NoneedInitflag);
     cnt = 3;
@@ -1758,12 +1757,11 @@ UINT32 sdcard_write(char *user_buf, UINT32 count, UINT32 op_flag)
 {
     SDIO_Error err = SD_OK;
     UINT32 start_blk_addr;
-    UINT32 write_size;
 
     peri_busy_count_add();
     // check operate parameter
     start_blk_addr = op_flag;
-    err = sdcard_write_multi_block(user_buf,start_blk_addr,count);
+    err = sdcard_write_multi_block((UINT8*)user_buf,start_blk_addr,count);
     peri_busy_count_dec();
 
     return err;

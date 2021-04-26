@@ -8,35 +8,34 @@
 #include <rtthread.h>
 #include <rtdevice.h>
 #include "drv_psram.h"
+#include "drv_wdt.h"
 
 static void psram_mem_rw_test(uint32_t start_address, uint32_t size)
-{   
+{
     uint32_t i;
     uint8_t *p_uint8_t = NULL;
 
-
     extern void rt_hw_wdg_stop(void);
     rt_hw_wdg_stop();
-    
+
     p_uint8_t = (uint8_t *)start_address;
-    for (i = 0; i < size / sizeof(uint8_t); i++) 
+    for (i = 0; i < size / sizeof(uint8_t); i++)
     {
         *p_uint8_t++ = (uint8_t)i;
     }
 
     p_uint8_t = (uint8_t *)start_address;
-    for (i = 0; i < size / sizeof(uint8_t); i++) 
+    for (i = 0; i < size / sizeof(uint8_t); i++)
     {
-        if (*p_uint8_t != (uint8_t)i) 
+        if (*p_uint8_t != (uint8_t)i)
         {
             printf("rd:%x,wd:%x\r\n",(uint8_t)*p_uint8_t, (uint8_t)i);
             break;
         }
         p_uint8_t++;
-    }  
+    }
 
-    extern void rt_hw_wdg_start(int argc, char **argv);
-    rt_hw_wdg_start(0,NULL); 
+    rt_hw_wdg_start(0,NULL);
 }
 
 /*

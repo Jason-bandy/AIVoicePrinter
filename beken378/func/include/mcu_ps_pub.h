@@ -27,7 +27,6 @@ typedef struct  sctrl_mcu_ps {
 
 #define  PS_USE_UART_WAKE_ARM   1
 
-extern void vTaskStepTick ( const TickType_t  );
 extern void mcu_ps_init ( void );
 extern void mcu_ps_exit ( void );
 extern UINT32 mcu_power_save ( UINT32 );
@@ -55,6 +54,7 @@ extern UINT32 mcu_ps_machw_cal ( void );
 extern UINT32 mcu_ps_machw_reset ( void );
 extern UINT32 mcu_ps_machw_init ( void );
 extern UINT32 mcu_ps_is_on ( void );
+uint32 mcu_ps_need_pstick ( void );
 
 #define  PS_PWM_ID  FCLK_PWM_ID
 #if (PS_PWM_ID == PWM0)

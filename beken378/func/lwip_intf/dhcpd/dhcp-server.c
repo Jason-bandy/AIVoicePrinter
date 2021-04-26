@@ -8,9 +8,10 @@
 #include "str_pub.h"
 #include "mem_pub.h"
 #include "lwip/etharp.h"
+#include "lwip/sockets.h"
 
 #define os_mem_alloc os_malloc
-#define os_mem_free  os_free  
+#define os_mem_free  os_free
 #define SEND_RESPONSE(w,x,y,z)	send_response(w,x,y,z)
 
 #define DEFAULT_DHCP_ADDRESS_TIMEOUT	(60U*60U*1U) /* 1 hour */

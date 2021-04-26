@@ -11,6 +11,7 @@
 #include "rtos_pub.h"
 #include "paho_mqtt_udp.h"
 #include "fake_clock_pub.h"
+#include "str_pub.h"
 
 static beken_thread_t mqtt_udp_thd_tid = NULL;
 static uint16_t pub_port = 7000;
@@ -880,18 +881,19 @@ int paho_mqtt_start(MQTT_CLIENT_T *client)
 
 static int mqtt_local_send(MQTT_CLIENT_T *c, const void *data, int len)
 {
-    int send_len;
-    struct sockaddr_in server_addr = {0};
+	int send_len;
+	struct sockaddr_in server_addr = {0};
+	uint8_t *tmp;
 
-    server_addr.sin_family = AF_INET;
-    server_addr.sin_port = htons(c->pub_port);
-    server_addr.sin_addr = *((const struct in_addr *)&netif_default->ip_addr);
-    os_memset(&(server_addr.sin_zero), 0, sizeof(server_addr.sin_zero));
+	server_addr.sin_family = AF_INET;
+	server_addr.sin_port = htons(c->pub_port);
+	tmp = (uint8_t*)&netif_default->ip_addr;
+	server_addr.sin_addr = *((const struct in_addr *)tmp);
+	os_memset(&(server_addr.sin_zero), 0, sizeof(server_addr.sin_zero));
 
-    send_len = sendto(c->pub_sock, data, len, 
-						MSG_DONTWAIT,
-						(struct sockaddr *)&server_addr, 
-						sizeof(struct sockaddr));
+	send_len = sendto(c->pub_sock, data, len,
+			MSG_DONTWAIT, (struct sockaddr *)&server_addr, 
+			sizeof(struct sockaddr));
 
     return send_len;
 }
