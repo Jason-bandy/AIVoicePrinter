@@ -108,7 +108,7 @@ void rwm_tx_confirm(void *param)
 		{
             (*txdesc->host.callback)(txdesc->host.param);
 		}
-		
+
 		os_null_printf("flush_desc:0x%x\r\n", txdesc->host.msdu_node);
 
 		os_free(txdesc->host.msdu_node);
@@ -172,7 +172,11 @@ int rwm_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param)
 	txdesc_new->host.status_desc_addr = (UINT32)content_ptr;
 	txdesc_new->host.tid = 0xff;
 	txdesc_new->host.callback = (mgmt_tx_cb_t)cb;
+#if CFG_BK_AWARE
+	txdesc_new->host.param = txdesc_new;
+#else
 	txdesc_new->host.param = param;
+#endif
 	txdesc_new->host.msdu_node = (void *)node;
 
 	umac = &txdesc_new->umac;
@@ -646,7 +650,7 @@ void ieee80211_data_tx_cb(void *param)
 		os_printf("zero_node\r\n");
 		return;
 	}
-	
+
 	if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/) {
 		cb->result = RW_SUCCESS;
 	} else {
@@ -771,12 +775,12 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
     txdesc_new->host.staid            = node->sta_idx;
 	txdesc_new->host.msdu_node        = (void *)node;
 
-	if (node->sync) 
+	if (node->sync)
 	{
 		txdesc_new->host.callback		  = (mgmt_tx_cb_t)ieee80211_data_tx_cb;
 		txdesc_new->host.param			  = (void *)txdesc_new;
-	} 
-	else 
+	}
+	else
 	{
 		txdesc_new->host.callback = 0;
 	}
@@ -946,7 +950,7 @@ UINT8 rwm_mgmt_vif_mac2idx(void *mac)
     VIF_INF_PTR vif_entry = NULL;
     UINT8 vif_idx = INVALID_VIF_IDX;
     UINT32 i;
-	
+
     for(i = 0; i < NX_VIRT_DEV_MAX; i++)
     {
         vif_entry = &vif_info_tab[i];
@@ -1143,7 +1147,7 @@ UINT8 rwn_mgmt_if_ap_stas_empty()
 {
     struct vif_info_tag *vif = (VIF_INF_PTR)rwm_mgmt_is_vif_first_used();
     UINT8 role = VIF_AP;
-        
+
     while(vif) {
         if ( vif->type == role) {
             if(co_list_is_empty(&vif->sta_list))
@@ -1152,7 +1156,7 @@ UINT8 rwn_mgmt_if_ap_stas_empty()
             }
         }
         vif = (VIF_INF_PTR) rwm_mgmt_next(vif);
-    } 
+    }
     return 0;
 }
 

@@ -10,5 +10,6 @@
 #elif (CFG_SOC_NAME == SOC_BK7221U)
 #include "bk7221U_cal.h"
 #endif
-
 #endif // _BK7011_CAL_H_
+// eof
+

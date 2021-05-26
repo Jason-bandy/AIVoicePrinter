@@ -116,6 +116,10 @@ INCLUDES += -I./beken378/os/FreeRTOSv9.0.0
 INCLUDES += -I./beken378/func/utf8
 INCLUDES += -I./beken378/app/http
 
+ifeq ($(CFG_BK_AWARE),1)
+INCLUDES += -I./beken378/func/bk_aware
+endif
+
 ifeq ($(CFG_USE_SDCARD_HOST),1)
 INCLUDES += -I./beken378/driver/usb/src/msc
 INCLUDES += -I./beken378/func/fatfs
@@ -296,6 +300,7 @@ SRC_C += ./beken378/driver/pwm/pwm.c
 SRC_C += ./beken378/driver/pwm/pwm_bk7231n.c
 SRC_C += ./beken378/driver/pwm/mcu_ps_timer.c
 SRC_C += ./beken378/driver/pwm/bk_timer.c
+SRC_C += ./beken378/driver/pwm/pwm_mutex.c
 SRC_C += ./beken378/driver/qspi/qspi.c
 SRC_C += ./beken378/driver/rw_pub/rw_platf_pub.c
 SRC_C += ./beken378/driver/saradc/saradc.c
@@ -334,6 +339,10 @@ SRC_C += ./beken378/app/http/utils_httpc.c
 SRC_C += ./beken378/app/http/utils_net.c
 SRC_C += ./beken378/app/http/utils_timer.c
 SRC_C += ./beken378/app/http/lite-log.c
+
+ifeq ($(CFG_BK_AWARE),1)
+SRC_C += ./beken378/func/bk_aware/bk_aware.c
+endif
 
 SRC_WPA_C += ./beken378/func/hostapd_intf/hostapd_intf.c
 SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/bk_patch/ddrv.c
@@ -520,6 +529,7 @@ SRC_C += ./beken378/func/user_driver/BkDriverPwm.c
 SRC_C += ./beken378/func/user_driver/BkDriverUart.c
 SRC_C += ./beken378/func/user_driver/BkDriverWdg.c
 SRC_C += ./beken378/func/user_driver/BkDriverRng.c
+SRC_C += ./beken378/func/user_driver/BkDriverTimer.c
 SRC_C += ./beken378/func/wlan_ui/wlan_cli.c
 SRC_C += ./beken378/func/wlan_ui/bk_peripheral_test.c
 # utf8

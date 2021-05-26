@@ -28,7 +28,7 @@
 
 #include "include.h"
 #include "rtos_pub.h"
-#include "rtos_error.h"
+#include "drv_model_pub.h"
 #include "bk_timer_pub.h"
 
 /**@brief Initialises a timer and start
@@ -91,7 +91,9 @@ UINT32 bk_get_timer_cnt(uint8_t timer_id)
 
     param.channel = timer_id;
 
-    sddev_control(TIMER_DEV_NAME, CMD_TIMER_READ_CNT, &param);
+    if(sddev_control(TIMER_DEV_NAME, CMD_TIMER_READ_CNT, &param) != BK_TIMER_SUCCESS){
+		return 0xFFFFFFFFU;
+    }
 
     return param.period;
 }
@@ -116,5 +118,25 @@ OSStatus bk_timer_stop(uint8_t timer_id)
     return kNoErr;
 }
 
+
+///////////////////
+#if BKDRIVERTIMRE_TEST_DEMO
+static void bk_timer_test_isr_cb(UINT8 arg)
+{
+	bk_printf("%s %d rtos-time: %d mS\r\n",__FUNCTION__,__LINE__,rtos_get_time());
+}
+
+void bk_timer_test_start(void)
+{
+	bk_timer_initialize(BKTIMER5,1000,bk_timer_test_isr_cb);
+}
+
+void user_main(void)
+{
+	bk_printf("%s %s\r\n",__FILE__,__FUNCTION__);
+	bk_timer_test_start();
+}
+
+#endif
 // eof
 

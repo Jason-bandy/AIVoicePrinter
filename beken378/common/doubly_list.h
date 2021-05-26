@@ -210,6 +210,32 @@ __INLINE void list_switch(struct list_head **list1,
 	for (pos = (head)->next, n = pos->next; pos != (head); \
 		pos = n, n = pos->next)
 
+#define prefetch(x) __builtin_prefetch(x)
+
+/**
+ * list_for_each_entry  -   iterate over list of given type
+ * @pos:    the type * to use as a loop counter.
+ * @head:   the head for your list.
+ * @member: the name of the list_struct within the struct.
+ */
+#define list_for_each_entry(pos, head, member)              \
+    for (pos = list_entry((head)->next, __typeof__(*pos), member);  \
+        prefetch(pos->member.next), &pos->member != (head);    \
+        pos = list_entry(pos->member.next, __typeof__(*pos), member))
+
+/**
+ * list_for_each_entry_safe - iterate over list of given type safe against removal of list entry
+ * @pos:    the type * to use as a loop counter.
+ * @n:      another type * to use as temporary storage
+ * @head:   the head for your list.
+ * @member: the name of the list_struct within the struct.
+ */
+#define list_for_each_entry_safe(pos, n, head, member)          \
+    for (pos = list_entry((head)->next, __typeof__(*pos), member),  \
+        n = list_entry(pos->member.next, __typeof__(*pos), member); \
+        &pos->member != (head);                    \
+        pos = n, n = list_entry(n->member.next, __typeof__(*n), member))
+
 /**
  * list_size
  * @head:	the head for your list.
@@ -217,7 +243,7 @@ __INLINE void list_switch(struct list_head **list1,
 __INLINE unsigned int list_size(struct list_head *list) {
 	unsigned int num_of_list=0;
 	struct list_head *n, *pos;
-        
+
 	list_for_each_safe(pos, n, list)
 		num_of_list++;
 

@@ -1298,9 +1298,8 @@ void wpa_supplicant_req_scan(struct wpa_supplicant *wpa_s, int sec, int usec)
 	int res;
 
 	os_printf("wpa_supplicant_req_scan\r\n");
-    mcu_prevent_set(MCU_PS_CONNECT);
 
-    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
+    UINT32 reg = RF_HOLD_BY_SCAN_BIT;
     sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
 
 	if (wpa_s->p2p_mgmt) {

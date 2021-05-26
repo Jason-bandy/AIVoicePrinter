@@ -402,6 +402,7 @@ void bk_wlan_ap_set_channel_config(uint8_t channel);
 uint8_t bk_wlan_ap_get_channel_config(void);
 uint32_t bk_wlan_ap_get_frequency(void);
 uint32_t bk_wlan_get_INT_status(void);
+int bk_wlan_send_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param);
 
 extern void bk_reboot(void);
 

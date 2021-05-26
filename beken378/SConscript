@@ -89,6 +89,7 @@ else:
 
 src += ["demo/ieee802_11_demo.c"]
 src += ["func/func.c"]
+src += ["func/bk_aware/bk_aware.c"]
 src += ["func/audio/audio_intf.c"]
 src += ["func/power_save/power_save.c"]
 src += ["func/power_save/mcu_ps.c"]
@@ -123,6 +124,7 @@ src += ["func/hostapd_intf/hostapd_intf.c"]
 
 src += ["func/user_driver/BkDriverPwm.c"]
 src += ["func/user_driver/BkDriverQspi.c"]
+src += ["func/user_driver/BkDriverRng.c"]
 src += ["func/usb/fusb.c"]
 src += ["func/usb_plug/usb_plug.c"]
 
@@ -342,6 +344,7 @@ path += [cwd + '/ip/umac/src/mfp']
 path += [cwd + '/func']
 path += [cwd + '/func/include']
 path += [cwd + '/func/rf_test']
+path += [cwd + '/func/bk_aware']
 path += [cwd + '/func/joint_up']
 path += [cwd + '/func/temp_detect']
 path += [cwd + '/func/user_driver']

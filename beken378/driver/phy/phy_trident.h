@@ -23,9 +23,11 @@
 #endif
 
  //BK,170206,solve input-power vs PER discontinuous issue.
-#define NEW_AGC_PARA  1
+#define NEW_AGC_PARA            1
  //BK,170206,solve large input-power 0% PER issue.
-#define RF_DOWN_ENABLE 0 
+#define RF_DOWN_ENABLE          0 
+
+#define RXVECT1_ARRAY_MAX       30
 
 /**
  ****************************************************************************************

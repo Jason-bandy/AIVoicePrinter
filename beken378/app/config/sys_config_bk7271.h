@@ -66,6 +66,8 @@
 #define CFG_EASY_FLASH                             1
 #define CFG_AP_SUPPORT_HT_IE                       0
 #define CFG_SUPPORT_BSSID_CONNECT                  0
+#define CFG_BK_AWARE                               0
+#define CFG_BK_AWARE_OUI                           "\xC8\x47\x8C"
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
@@ -335,8 +337,8 @@
 #define CFG_USE_I2C2                                0
 
 /*section 30 ----- peripheral interface test case */
-#define CFG_PERIPHERAL_TEST							1
-#define CFG_SUPPORT_SPI_TEST                        1
+#define CFG_PERIPHERAL_TEST							0
+#define CFG_SUPPORT_SPI_TEST                        0
 
 /* watchdog, freertos only */
 #define CFG_INT_WDG_ENABLED                        1

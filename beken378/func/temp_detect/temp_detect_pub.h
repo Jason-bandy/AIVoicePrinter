@@ -26,7 +26,6 @@
 #define ADC_TEMP_BUFFER_SIZE                        5
 #endif
 
-#if CFG_USE_TEMPERATURE_DETECT
 #define ADC_TMEP_DETECT_INTVAL                      (15)  // 15s  how many second
 #define ADC_TMEP_DETECT_INTVAL_INIT                 (1)   // 1s
 #define ADC_TMEP_XTAL_INIT                          (60)  // 60s
@@ -49,6 +48,7 @@
 /*******************************************************************************
 * Function Declarations
 *******************************************************************************/
+#if CFG_USE_TEMPERATURE_DETECT
 void temp_detect_change_configuration(UINT32 intval, UINT32 thre, UINT32 dist);
 UINT32 temp_detect_init(UINT32 init_val);
 UINT32 temp_detect_uninit(void);

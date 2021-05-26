@@ -3,17 +3,6 @@
 
 #if(CFG_SOC_NAME == SOC_BK7231N)
 
-#define SPI_DEBUG
-#ifdef SPI_DEBUG
-#define SPI_PRT      os_printf
-#define SPI_WARN     warning_prf
-#define SPI_FATAL    fatal_prf
-#else
-#define SPI_PRT      null_prf
-#define SPI_WARN     null_prf
-#define SPI_FATAL    null_prf
-#endif
-
 #define SPI_BASE							(0x00802700)
 
 #define SPI_CTRL							(SPI_BASE + 0 * 4)

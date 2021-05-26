@@ -277,7 +277,7 @@ OSStatus rtos_delay_milliseconds( uint32_t num_ms );
   */
 OSStatus rtos_init_semaphore( beken_semaphore_t* semaphore, int maxCount );
 OSStatus rtos_init_semaphore_ex( beken_semaphore_t* semaphore, const char *name, int maxCount, int initCount );
-
+OSStatus rtos_init_semaphore_adv(beken_semaphore_t* semaphore, int maxCount, int initCount);
 
 /** @brief    Set (post/put/increment) a semaphore
   *

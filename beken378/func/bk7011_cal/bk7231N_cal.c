@@ -76,7 +76,7 @@ __maybe_unused static void bk7011_cal_dcormod_do_fitting(void);
 __maybe_unused static UINT8 bk7011_cal_dcormod_get(void);
 void rwnx_set_tpc_txpwr_by_tmpdetect(INT16 shift_b, INT16 shift_g, INT16 shift_ble);
 extern uint32_t get_ate_mode_state(void);
-extern UINT32 ble_in_dut_mode(void);
+extern UINT32 gtest_mode;
 
 //static UINT8 pwr_nstep = 0;
 
@@ -1314,6 +1314,52 @@ void rwnx_cal_set_txpwr_by_rate(INT32 rate, UINT32 test_mode)
     }
 #endif
 }
+
+UINT32 rwnx_setting_for_single_rate(INT32 rate)
+{
+	// qunshan20210405 set filter like none-signal mode
+	if (!get_ate_mode_state())
+	{
+		return 0;
+	}
+    if (rate < 0)
+    {
+        // restore iq for 11g/11n
+        extern UINT32 g_lpf_cal_i;
+        extern UINT32 g_lpf_cal_q;
+        BK7231N_RC_REG.REG0x5A->bits.TXCALCAPI = g_lpf_cal_i;
+        BK7231N_RC_REG.REG0x5B->bits.TXCALCAPQ = g_lpf_cal_q;
+    }
+    else if ((gtest_mode) && ((rate <= 4) || (rate == 128)))
+    {
+        // just for 11b/11g_6Mbps/MCS0
+        BK7231N_RC_REG.REG0x5A->bits.TXCALCAPI = 0xff;
+        BK7231N_RC_REG.REG0x5B->bits.TXCALCAPQ = 0xff;
+    }
+    else if (rate <= 1)
+    {
+        // just for 11b_1Mbps/11b_2Mbps
+        BK7231N_RC_REG.REG0x5A->bits.TXCALCAPI = 0x7f;
+        BK7231N_RC_REG.REG0x5B->bits.TXCALCAPQ = 0xff;
+    }
+    else if (rate <= 3)
+    {
+        // just for 11b_5.5Mbps/11b_11Mbps
+        BK7231N_RC_REG.REG0x5A->bits.TXCALCAPI = 0xff;
+        BK7231N_RC_REG.REG0x5B->bits.TXCALCAPQ = 0xff;
+    }
+    else
+    {
+        // restore iq for 11g/11n
+        extern UINT32 g_lpf_cal_i;
+        extern UINT32 g_lpf_cal_q;
+        BK7231N_RC_REG.REG0x5A->bits.TXCALCAPI = g_lpf_cal_i;
+        BK7231N_RC_REG.REG0x5B->bits.TXCALCAPQ = g_lpf_cal_q;
+    }
+
+    return 0;
+}
+
 #define TERMINATION_MAC_TXRX()      *((volatile unsigned int *)0XC0010004) = (3 << 18)
 #define RECOVER_MAC_TXRX()          *((volatile unsigned int *)0XC0010004) = 0
 void ble_cal_set_txpwr(uint8_t idx)
@@ -1664,7 +1710,15 @@ void rwnx_cal_set_20M_setting(void)
     BK7231N_TRX_RAM.REG0x10.bits.lpftxbw = 0;
     CAL_WR_TRXREGS(0x10);
 
-    BK7231N_TRX_RAM.REG0xF.bits.clkdac_sel = 0;
+    // cunliang20210512 keep TRX_F<1>=1 to fix evm burst issue
+    if (get_ate_mode_state())
+    {
+        BK7231N_TRX_RAM.REG0xF.bits.clkdac_sel = 1;
+    }
+    else
+    {
+        BK7231N_TRX_RAM.REG0xF.bits.clkdac_sel = 0;
+    }
     BK7231N_TRX_RAM.REG0xF.bits.clkadc_sel = 0;
     CAL_WR_TRXREGS(0xF);
 }
@@ -2426,7 +2480,6 @@ void bk7011_cal_bias(void)
     return;
 }
 
-extern UINT32 gtest_mode;
 static UINT8 bandgap_calm_in_efuse = 0xFF;
 static temperature_type last_temperature_type = TEMPERATURE_TYPE_UNKNOWN; /* uninitialized when power up */
 void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
@@ -2436,6 +2489,7 @@ void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
         return;
     }
 
+    last_temperature_type = new_temperature_type;
     if (gtest_mode)
     {
         return;
@@ -2455,7 +2509,6 @@ void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type)
         BK7231N_TRX_RAM.REG0x4.bits.Itune_vco_spi = 0x19;
     }
     CAL_WR_TRXREGS(0x4);
-    last_temperature_type = new_temperature_type;
 }
 
 void manual_cal_load_bandgap_calm(void)
@@ -2518,54 +2571,11 @@ void manual_cal_load_bandgap_calm(void)
 
 void bk7011_cal_pll(void)
 {
-#if 1
-    //    uint32_t loop = 0, val;
+    BK7231N_TRX_RAM.REG0x10.bits.enrfpll = 1;
+    BK7231N_TRX_RAM.REG0x10.bits.endpll = 1;
+    CAL_WR_TRXREGS(0x10);
 
-    //    do
-    {
-#if 0
-
-#else
-
-        /*reg0x10 enrfpll = 1*/
-        BK7231N_TRX_RAM.REG0x10.bits.enrfpll = 1;
-        BK7231N_TRX_RAM.REG0x10.bits.endpll = 1;
-        CAL_WR_TRXREGS(0x10);
-
-        /*reg0x00 spitrig = 0->1->0*/
-/*        BK7231N_TRX_RAM.REG0x0->bits.spitrig = 0;
-        CAL_WR_TRXREGS(0x0);
-        BK7231N_TRX_RAM.REG0x0->bits.spitrig = 1;
-        CAL_WR_TRXREGS(0x0);
-        BK7231N_TRX_RAM.REG0x0->bits.spitrig = 0;
-        CAL_WR_TRXREGS(0x0);*/
-
-        /*reg0x05 spitrigger = 0->1->0*/
-//        BK7231N_TRX_RAM.REG0x5->bits.spitrigger = 0;
-//        BK7231N_TRX_RAM.REG0x5->bits.errdetspien = 0;
-//        CAL_WR_TRXREGS(0x5);
-
-//        BK7231N_TRX_RAM.REG0x5->bits.spitrigger = 1;
-//        CAL_WR_TRXREGS(0x5);
-//        BK7231N_TRX_RAM.REG0x5->bits.spitrigger = 0;
-//        CAL_WR_TRXREGS(0x5);
-//        BK7231N_TRX_RAM.REG0x5->bits.errdetspien = 1;
-//        CAL_WR_TRXREGS(0x5);
-        //BK7231N_TRX_RAM.REG0x3->bits.spi_trigger = 1;
-        //CAL_WR_TRXREGS(0x3);
-        //BK7231N_TRX_RAM.REG0x3->bits.spi_trigger = 0;
-        //CAL_WR_TRXREGS(0x3);
-        //BK7231N_TRX_RAM.REG0x3->bits.errdet_spien = 1;
-        //CAL_WR_TRXREGS(0x3);
-#endif
-
-        cpu_delay(DELAY1US * 10);
-
-    }
-
-//    BK7231N_TRX_RAM[5] = (BK7231N_TRX_RAM[5] & (~(0x3))) | (0x1); //7231 for pll unlock detection,7231u for doubler
-
-#endif
+    cpu_delay(DELAY1US * 10);
 }
 
 void bk7011_set_rfcali_mode(int mode)
@@ -3116,17 +3126,13 @@ INT32 bk7011_cal_tx_output_power(INT32 tx_power_cal_mode)
     gold_index = index << 8;
     cal_delay(6);
 
-    /* restore changed registers */
+    /* restore changed registers, 20210507: except REG0xC/REG0xD to avoid large signal */
     BK7231N_TRX_RAM.REG0x0.bits.TSSIsel = 0;
     BK7231N_TRX_RAM.REG0x0.bits.enIQcal = 1;
     BK7231N_TRX_RAM.REG0x0.bits.enPcal = 0;
-    BK7231N_TRX_RAM.REG0xC.value = TRX_REG_0XC_VAL;
-    BK7231N_TRX_RAM.REG0xD.value = TRX_REG_0XD_VAL;
     BK7231N_TRX_RAM.REG0xF.bits.tssi_cal_en = 0;
     BK7231N_RC_REG.REG0x43->bits.PRE_GAIN_2ND = 0x200;//
     CAL_WR_TRXREGS(0x0);
-    CAL_WR_TRXREGS(0xC);
-    CAL_WR_TRXREGS(0xD);
     BK7231N_RC_REG.REG0x1A->value = BK7231N_TRX_RAM.REG0xD.value;
     CAL_WR_TRXREGS(0xF);
 
@@ -4193,15 +4199,11 @@ INT32 bk7011_cal_tx_gain_imbalance(INT32 tx_gain_imb_cal_mode)
         CAL_PRT("gtx_q_gain_comp:0x%x\r\n", gcali_result.gtx_q_gain_comp);
     }
 
-    /* restore changed registers */
+    /* restore changed registers, 20210507 except REG0xC/REG0xD to avoid large signal */
     BK7231N_TRX_RAM.REG0x0.bits.tssiIQ_gc = 1;
-    BK7231N_TRX_RAM.REG0xC.value = TRX_REG_0XC_VAL;
-    BK7231N_TRX_RAM.REG0xD.value = TRX_REG_0XD_VAL;
     BK7231N_TRX_RAM.REG0xF.bits.tssi_cal_en = 0;
     BK7231N_RC_REG.REG0x43->bits.PRE_GAIN_2ND = 0x200;//
     CAL_WR_TRXREGS(0x0);
-    CAL_WR_TRXREGS(0xC);
-    CAL_WR_TRXREGS(0xD);
     BK7231N_RC_REG.REG0x1A->value = BK7231N_TRX_RAM.REG0xD.value;
     CAL_WR_TRXREGS(0xF);
 
@@ -4368,15 +4370,11 @@ INT32 bk7011_cal_tx_phase_imbalance(INT32 tx_phase_imb_cal_mode)
         gold_index = (gcali_result.gtx_phase_comp_loopback << 16) + gcali_result.gtx_phase_ty2_loopback;
 	}
 
-    /* restore changed registers */
+    /* restore changed registers, 20210507 except REG0xC/REG0xD to avoid large signal */
     BK7231N_TRX_RAM.REG0x0.bits.tssiIQ_gc = 1;
-    BK7231N_TRX_RAM.REG0xC.value = TRX_REG_0XC_VAL;
-    BK7231N_TRX_RAM.REG0xD.value = TRX_REG_0XD_VAL;
     BK7231N_TRX_RAM.REG0xF.bits.tssi_cal_en = 0;
 
     CAL_WR_TRXREGS(0x0);
-    CAL_WR_TRXREGS(0xC);
-    CAL_WR_TRXREGS(0xD);
     BK7231N_RC_REG.REG0x1A->value = BK7231N_TRX_RAM.REG0xD.value;
     CAL_WR_TRXREGS(0xF);
     BK7231N_RC_REG.REG0x43->bits.PRE_GAIN_2ND = 0x200;//
@@ -5825,7 +5823,8 @@ void calibration_main(void)
     CAL_WR_TRXREGS(0x5);
     delay100us(1);//delay 100us for RFPLL	
 
-    *goldval = bk7011_cal_tx_output_power(TX_WANTED_POWER_CAL);  // Actual Power cal.
+    //20210507 remove to avoid large signal
+    //*goldval = bk7011_cal_tx_output_power(TX_WANTED_POWER_CAL);  // Actual Power cal.
 
     bk7011_set_tx_after_cal();
     rwnx_tx_cal_save_cal_result();//by yiming 20170315
@@ -5900,6 +5899,10 @@ void calibration_main(void)
     CAL_WR_TRXREGS(0x0);
     BK7231N_TRX_RAM.REG0xA.bits.Dvncref=0x3;
     CAL_WR_TRXREGS(0xA);
+    BK7231N_TRX_RAM.REG0xC.value = TRX_REG_0XC_VAL;
+    CAL_WR_TRXREGS(0xC);
+    BK7231N_TRX_RAM.REG0xD.value = TRX_REG_0XD_VAL;
+    CAL_WR_TRXREGS(0xD);
 
 #if 0
     analog1 = sctrl_ctrl(CMD_SCTRL_GET_ANALOG1, NULL);
@@ -6039,24 +6042,39 @@ void bk7011_la_sample_print(UINT32 isrx)
 }
 
 void bk7011_max_rxsens_setting(void)
-{    
-	BK7231N_TRX_RAM.REG0x8.bits.isrxref10 = 3;    
+{
+	// cunliang20210407 keep signal/unsignal register the same, qunshan confirmed
+	if (get_ate_mode_state())
+	{
+		return;
+	}
+	BK7231N_TRX_RAM.REG0x8.bits.isrxref10 = 3;
 	BK7231N_TRX_RAM.REG0x8.bits.isrxlna30 = 15;
 	CAL_WR_TRXREGS(0x8);    
 }
 
 void bk7011_normal_rxsens_setting(void)
-{    
-	BK7231N_TRX_RAM.REG0x8.bits.isrxref10 = 2;    
+{
+	// cunliang20210407 keep signal/unsignal register the same, qunshan confirmed
+	if (get_ate_mode_state())
+	{
+		return;
+	}
+	BK7231N_TRX_RAM.REG0x8.bits.isrxref10 = 2;
 	BK7231N_TRX_RAM.REG0x8.bits.isrxlna30 = 7;
 	CAL_WR_TRXREGS(0x8);    
 }
 
 void bk7011_default_rxsens_setting(void)
-{    
-	BK7231N_TRX_RAM.REG0x8.bits.isrxref10 = 2;    
-	BK7231N_TRX_RAM.REG0x8.bits.isrxlna30 = 7;    
-	CAL_WR_TRXREGS(0x8);    
+{
+	// cunliang20210407 keep signal/unsignal register the same, qunshan confirmed
+	if (get_ate_mode_state())
+	{
+		return;
+	}
+	BK7231N_TRX_RAM.REG0x8.bits.isrxref10 = 2;
+	BK7231N_TRX_RAM.REG0x8.bits.isrxlna30 = 7;
+	CAL_WR_TRXREGS(0x8);
 }
 
 UINT8 gtx_dcorMod_tab[14] = {0};

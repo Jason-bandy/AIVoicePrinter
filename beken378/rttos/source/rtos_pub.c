@@ -84,6 +84,15 @@ OSStatus rtos_init_semaphore( beken_semaphore_t* semaphore, int maxCount )
     return (*semaphore != RT_NULL) ? kNoErr : kGeneralErr;
 }
 
+OSStatus rtos_init_semaphore_adv(beken_semaphore_t* semaphore, int maxCount, int initCount)
+{
+	*semaphore = rt_sem_create("rtos_sem", initCount, RT_IPC_FLAG_FIFO);
+	RTOS_DBG("rtos_init_semaphore_adv:%8x\n", *semaphore);
+	rtos_sem_cnt++;
+
+	return (*semaphore != RT_NULL) ? kNoErr : kGeneralErr;
+}
+
 OSStatus rtos_init_semaphore_ex( beken_semaphore_t* semaphore, const char *name, int maxCount, int initCount )
 {
     *semaphore = rt_sem_create(name, initCount,  RT_IPC_FLAG_FIFO);

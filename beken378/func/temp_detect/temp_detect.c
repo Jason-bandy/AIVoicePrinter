@@ -656,27 +656,39 @@ UINT32 temp_single_get_current_temperature(UINT32 *temp_value)
 {
     UINT32 ret;
     int result;
+    int retry_count = 3;
+
     *temp_value = 0;
 
-    if(tmp_single_semaphore == NULL) {
-        result = rtos_init_semaphore(&tmp_single_semaphore, 1);
-        ASSERT(kNoErr == result);
-    }
+    for (; retry_count > 0; retry_count--) {
+        if(tmp_single_semaphore == NULL) {
+            result = rtos_init_semaphore(&tmp_single_semaphore, 1);
+            ASSERT(kNoErr == result);
+        }
 
-    temp_single_get_enable();
+        ret = temp_single_get_enable();
+        if (SARADC_SUCCESS != ret)
+        {
+            continue;
+        }
 
-    ret = 1000; // 1s
-    result = rtos_get_semaphore(&tmp_single_semaphore, ret);
-    if(result == kNoErr) {
-        #if (CFG_SOC_NAME != SOC_BK7231)
-        *temp_value = tmp_single_desc.pData[0];
-        #else
-        *temp_value = tmp_single_desc.pData[4];
-        #endif
-        ret = 0;
-    }else {
-        TMP_DETECT_FATAL("temp_single timeout\r\n");
-        ret = 1;
+        ret = 1000; // 1s
+        result = rtos_get_semaphore(&tmp_single_semaphore, ret);
+        if(result == kNoErr) {
+            #if (CFG_SOC_NAME != SOC_BK7231)
+            *temp_value = tmp_single_desc.pData[0];
+            #else
+            *temp_value = tmp_single_desc.pData[4];
+            #endif
+            ret = 0;
+        }else {
+            TMP_DETECT_FATAL("temp_single timeout\r\n");
+            ret = 1;
+        }
+
+        if ((ADC_TEMP_VAL_MIN < *temp_value) && (*temp_value < ADC_TEMP_VAL_MAX)) {
+            break;
+        }
     }
 
     return ret;

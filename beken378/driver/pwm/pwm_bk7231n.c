@@ -282,7 +282,7 @@ bk_err_t pwm_unit_disable(UINT8 ucChannel)
 
 UINT32 pwm_capture_value_get(UINT8 ucChannel)
 {
-	UINT32 value;
+	UINT32 value, state;
 
 	if (ucChannel < 2) {
 		current_group = 0;
@@ -299,7 +299,14 @@ UINT32 pwm_capture_value_get(UINT8 ucChannel)
 	value |=  1 << current_channel;
 	REG_WRITE(REG_GROUP_PWM_CPU_ADDR(current_group), value);
 
-	PWM_LOGD(TAG,"channel: %x, REG_PWM_GROUP_CTRL= 0x%lx\r\n", current_channel, REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)));
+	state = REG_READ(REG_GROUP_PWM_CPU_ADDR(current_group));
+	while ((state & (1 << current_channel)) != 0)
+	{
+		PWM_PRT("current channel:%x", current_channel);
+		state = REG_READ(REG_GROUP_PWM_CPU_ADDR(current_group));
+	}
+
+	PWM_LOGD(TAG, "channel: %x, REG_PWM_GROUP_CTRL= 0x%lx\r\n", current_channel, REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)));
 
 	if (current_channel == 1) {
 		value = REG_READ(REG_GROUP_PWM1_RD_DATA_ADDR(current_group));
@@ -825,21 +832,23 @@ UINT32 pwm_ctrl(UINT32 cmd, void *param)
 void pwm_isr(void)
 {
 	int i;
-	UINT32 status;
-	status = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-
-	for (i = 0; i < 3; i++) {
-		if (status & PWM_GROUP_PWM_INT_STAT_MASK(i)) {
-			if (p_PWM_Int_Handler[i]) {
-				p_PWM_Int_Handler[i]((UINT8)i);
-				do {
-					REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), PWM_GROUP_PWM_INT_STAT_CLEAR(i));
-				} while (REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)) & PWM_GROUP_PWM_INT_STAT_MASK(i));
+	UINT32 status, group;
+	for (group = 0; group < 3; group++)
+	{
+		status = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+		for (i = 0; i < 2; i++) {
+			if (status & PWM_GROUP_PWM_INT_STAT_MASK(i)) {
+				if (p_PWM_Int_Handler[i + 2 * group]) {
+					p_PWM_Int_Handler[i + 2 * group]((UINT8)(i + 2 * group));
+					do {
+						REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), PWM_GROUP_PWM_INT_STAT_CLEAR(i));
+					} while (REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)) & PWM_GROUP_PWM_INT_STAT_MASK(i));
+				}
 			}
 		}
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), status);
 	}
-
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), status);
 }
+
 
 #endif

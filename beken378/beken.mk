@@ -110,9 +110,6 @@ $(NAME)_SOURCES :=  app/app.c \
 					driver/sdio/sdio.c \
 					driver/sdio/sdma.c \
 					driver/sdio/sutil.c \
-					driver/spi/spi.c \
-					driver/spi/spi_master.c \
-					driver/spi/spi_slave.c \
 					driver/spidma/spidma.c \
 					driver/sys_ctrl/sys_ctrl.c \
 					driver/uart/Retarget.c \
@@ -164,6 +161,18 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/video_transfer/video_transfer.c \
 					func/rf_use/arbitrate.c \
 					func/ble_wifi_exchange/ble_wifi_port.c
+
+ifeq ($(CFG_SOC_NAME), 2)
+$(NAME)_SOURCES +=  driver/spi/spi.c \
+					driver/spi/spi_master.c \
+					driver/spi/spi_slave.c
+endif
+ifeq ($(CFG_SOC_NAME), 5)
+$(NAME)_SOURCES +=  driver/spi/spi_bk7231n.c \
+					driver/spi/spi_master_bk7231n.c \
+					driver/spi/spi_slave_bk7231n.c
+endif
+
 
 $(NAME)_INCLUDES += func/$(WPA_VERSION)/src \
 					func/$(WPA_VERSION)/src/ap \

@@ -520,7 +520,13 @@
 #define BK_NX_CONNECTION_MONITOR    1
 
 extern int rwnx_get_noht_rssi_thresold(void) __attribute__ ((weak));
-extern UINT32 rwnx_setting_for_single_rate(UINT32 att_value) __attribute__ ((weak));
+/**
+ * hook for single rate by upper layer
+ * rate: < 0 not single rate
+ *       0,11 legacy rate refer to HW_RATE_E
+ *       128,159 HT rate MCS0, ...
+ */
+extern UINT32 rwnx_setting_for_single_rate(INT32 rate) __attribute__ ((weak));
 extern INT32 rwnx_printf_fun(const char *fmt, ...) __attribute__ ((weak));
 
 #endif // _RWNX_CONFIG_H_

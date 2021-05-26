@@ -61,7 +61,14 @@ struct phy_trd_cfg_tag
  */
 /// Global PHY driver environment.
 struct phy_env_tag phy_env[1];
+static uint8_t large_singal_status;
+int large_signal_cnt;
+int small_signal_cnt;
 
+#if (CFG_SOC_NAME == SOC_BK7231U)
+uint32_t g_pre_channel_freq = 0;
+extern void bk7011_cal_pll(void);
+#endif
 
 /*
  * FUNCTION DEFINITIONS
@@ -2328,8 +2335,6 @@ void rcbeken_reconfigure(void)
     rc_rc_en_setf(1);
 }
 
-#define RXVECT1_ARRAY_MAX       30
-
 void phy_unsupported_modulation_check(void)
 {
 	uint32_t rx_vect0;
@@ -2457,8 +2462,6 @@ void phy_disable_rx_switch(void)
     rc_trx_reg14_set(rege_val);
 }
 
-static uint8_t large_singal_status;
-
 uint8_t check_large_singal_status(void)
 {
     return large_singal_status;
@@ -2469,8 +2472,6 @@ void update_large_singal_status(uint8_t status)
     large_singal_status = status;
 }
 
-int large_signal_cnt;
-int small_signal_cnt;
 void phy_large_signal_support(int8_t rssi)
 {
     extern int large_signal_cnt;
@@ -2548,20 +2549,28 @@ extern void rwnx_cal_set_40M_setting(void);
 void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
                      uint16_t center1_freq, uint16_t center2_freq, uint8_t index)
 {
-    /*todo 11ac: when 2 radio transceivers on one path, careful how many writes go to both,
-            and when the two need separate SPi commands*/
-    uint8_t psel = 0;
-    uint32_t tmp;
+	/*todo 11ac: when 2 radio transceivers on one path, careful how many writes go to both,
+			and when the two need separate SPi commands*/
+	uint8_t psel = 0;
+	uint32_t tmp;
 
-    //if same channel is set just skip
-    if ((phy_env->band == band)
-            && (phy_env->chnl_type == type)
-            && (phy_env->chnl_prim20_freq == prim20_freq)
-            && (phy_env->chnl_center1_freq == center1_freq)
-            && (phy_env->chnl_center2_freq == center2_freq))
-    {
-        return;
-    }
+	#if (CFG_SOC_NAME == SOC_BK7231U)
+	if (center1_freq != g_pre_channel_freq)
+	{
+		g_pre_channel_freq = center1_freq;
+		bk7011_cal_pll();
+	}
+	#endif
+	
+	//if same channel is set just skip
+	if ((phy_env->band == band)
+		&& (phy_env->chnl_type == type)
+		&& (phy_env->chnl_prim20_freq == prim20_freq)
+		&& (phy_env->chnl_center1_freq == center1_freq)
+		&& (phy_env->chnl_center2_freq == center2_freq))
+	{
+		return;
+	}
 
     PHY_WPRT("phy_set_channel-->center1:%d center2:%d\r\n", center1_freq, center2_freq);
     //todo add check for band 5+type 80, 160 and 80+80

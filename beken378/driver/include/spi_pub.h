@@ -42,13 +42,15 @@ enum
 #define BK_SPI_DEBUG                1
 #include "uart_pub.h"
 #if BK_SPI_DEBUG
-#define BK_SPI_PRT               os_printf
+
+#define BK_SPI_PRT               warning_prf
+
 #define BK_SPI_WPRT              warning_prf
 #define BK_SPI_FATAL             fatal_prf
 #else
-#define BK_SPI_PRT               null_prf
-#define BK_SPI_WPRT              null_prf
-#define BK_SPIFATAL             null_prf
+#define BK_SPI_PRT		null_prf
+#define BK_SPI_WPRT		null_prf
+#define BK_SPIFATAL		null_prf
 #endif
 
 #define USE_SPI_GPIO_14_17          (0)
@@ -78,13 +80,36 @@ enum
 #define SPI_MODE_2       (SPI_CPOL | 0)              /* CPOL = 1, CPHA = 0 */
 #define SPI_MODE_3       (SPI_CPOL | SPI_CPHA)    /* CPOL = 1, CPHA = 1 */
 
+#define ENABLE			1
+#define DISABLE			0
+
 struct spi_message
 {
-    void *send_buf;
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+    UINT8 *send_buf;
     UINT32 send_len;
-    
-    void *recv_buf;
+
+    UINT8 *recv_buf;
     UINT32 recv_len;
+#else
+    UINT8*send_buf;
+    UINT32 send_len;
+
+    UINT8*recv_buf;
+    UINT32 recv_len;
+
+#endif
+};
+
+/**
+ * SPI configuration structure
+ */
+struct spi_configuration
+{
+    UINT8 mode;
+    UINT8 data_width;
+    UINT16 reserved;
+    UINT32 max_hz;
 };
 
 typedef void (*spi_callback)(int port, void *param);
@@ -124,27 +149,15 @@ int bk_spi_master_init(UINT32 rate,UINT32 mode);
 int bk_spi_master_xfer(struct spi_message *msg);
 int bk_spi_master_deinit(void);
 
-/*slave api*/
-int bk_spi_slave_init(UINT32 rate, UINT32 mode);
-int bk_spi_slave_xfer(struct spi_message *msg);
-int bk_spi_slave_deinit(void);
-
-
 #if CFG_USE_SPI_DMA
-int bk_spi_master_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
-int bk_spi_master_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
-int bk_spi_master_dma_recv(struct spi_message*spi_msg );
-int bk_spi_master_dma_send(struct spi_message*spi_msg );
+int bk_spi_slave_dma_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg);
+int bk_spi_slave_dma_transfer(struct spi_message*spi_msg );
+int bk_spi_dma_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg);
+int bk_spi_dma_transfer(UINT32 mode, struct spi_message *spi_msg);
+int bk_spi_slave_dma_send(struct spi_message *spi_msg);
+int bk_spi_slave_dma_tx_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg);
 
-int bk_spi_slave_dma_rx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
-int bk_spi_slave_dma_tx_init(UINT32 mode , UINT32 rate, struct spi_message*spi_msg );
-int bk_spi_slave_dma_send(struct spi_message*spi_msg );
-int bk_spi_slave_dma_recv(struct spi_message*spi_msg );
 
-void bk_master_dma_tx_disable(void);
-void bk_master_dma_rx_disable(void);
-void bk_slave_dma_tx_disable(void);
-void bk_slave_dma_rx_disable(void);
 #endif
 
 #endif //_SPI_PUB_H_

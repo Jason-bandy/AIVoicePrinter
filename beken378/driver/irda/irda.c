@@ -158,26 +158,23 @@ static void irda_set_int_mask(UINT8 int_en_bits)
 
 static void trng_active(UINT8 enable)
 {
-	UINT32 value;
-
-	value = REG_READ(TRNG_CTRL);
-	if(enable)
-	{
-		value |= TRNG_EN;
-	}
-	else
-	{
-		value &= ~TRNG_EN;
-	}
-    // close it for lowpower
-    // under normal sleep, this modeul cause "min curretn" 300uA more than shut down it
-    
-	//REG_WRITE(TRNG_CTRL, value);
 }
 
 static UINT32 trng_get_random(void)
 {
-	return REG_READ(TRNG_DATA);
+	UINT32 reg, value;
+
+	reg = REG_READ(TRNG_CTRL);
+	reg |= TRNG_EN;
+	REG_WRITE(TRNG_CTRL, reg);
+
+	value = REG_READ(TRNG_DATA);
+
+	reg = REG_READ(TRNG_CTRL);
+	reg &= ~TRNG_EN;
+	REG_WRITE(TRNG_CTRL, reg);
+
+	return value;
 }
 
 static UINT32 irda_ctrl(UINT32 cmd, void *param)

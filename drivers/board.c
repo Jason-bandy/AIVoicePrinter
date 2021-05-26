@@ -33,6 +33,8 @@
 #include "include.h"
 #include "func_pub.h"
 #include <string.h>
+#include "start_type_pub.h"
+
 
 enum wdg_status {
     WDG_STATUS_STOP,
@@ -96,6 +98,8 @@ void rt_hw_board_init(void)
 #endif
     rt_memheap_init(&tcm_heap, "TCM", RT_HW_TCM_BEGIN, RT_HW_TCM_END-RT_HW_TCM_BEGIN); 
 #endif
+
+	bk_misc_init_start_type();
 
     /* init hardware */
     driver_init();

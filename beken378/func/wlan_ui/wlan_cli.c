@@ -45,6 +45,9 @@
 #include "BkDriverTimer.h"
 #include "saradc_intf.h"
 #include "spi_pub.h"
+#if CFG_BK_AWARE
+#include "bk_aware.h"
+#endif
 
 #if (CFG_SUPPORT_BLE == 1)
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
@@ -904,7 +907,7 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 	if (oob_ssid)
     {
         unsigned char *oob_ssid_tp = conv_utf8((uint8_t*)oob_ssid);
-		
+
 		if (oob_ssid_tp)
 		{
 #if CFG_AIRKISS_TEST
@@ -913,7 +916,7 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 				return;
 			}
 #endif
-		
+
 			demo_sta_app_init((char *)oob_ssid_tp, connect_key);
 			os_free(oob_ssid_tp);
 		}
@@ -2160,6 +2163,9 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	uint8_t adv_data[31];
 	uint8_t actv_idx;
 
+	if (os_strcmp(argv[1], "dut") == 0) {
+		ble_dut_start();
+	}
 	if (os_strcmp(argv[1], "active") == 0) {
 		ble_set_notice_cb(ble_notice_cb);
 		bk_ble_init();
@@ -2401,18 +2407,18 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 static void wifi_sensor_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
 	int status;
-	
+
     if ( argc != 2 )
     {
         bk_printf("param error");
     }
 
-	
+
 	if (os_strcmp(argv[1], "start") == 0)
     {
 		bk_wifi_detect_movement_start();
     }
-	
+
 	if (os_strcmp(argv[1], "stop") == 0)
     {
 		bk_wifi_detect_movement_stop();
@@ -2425,12 +2431,12 @@ static void wifi_sensor_command(char *pcWriteBuffer, int xWriteBufferLen, int ar
 		if(status ==0)
 		{
 			bk_printf("detect something");
-		}		
+		}
 		else
 		{
 			bk_printf("detect nothing");
-		}	
-    }		
+		}
+    }
 }
 #endif
 
@@ -2553,6 +2559,23 @@ static void wifi_raw_tx_command(char *pcWriteBuffer, int xWriteBufferLen,
 }
 #endif
 
+#if CFG_BK_AWARE
+extern void bk_aware_demo_main(void);
+extern void bk_aware_demo_stop(void);
+
+static void bk_wifi_aware_command(char *pcWriteBuffer, int xWriteBufferLen,
+				int argc, char **argv)
+{
+	if (argc == 2 && os_strcmp(argv[1], "start") == 0) {
+		bk_aware_demo_main();
+	} else if (argc == 2 && os_strcmp(argv[1], "stop") == 0) {
+		bk_aware_demo_stop();
+	} else {
+		os_printf("Usage: bk_aware <start>|<stop>\n");
+	}
+}
+#endif
+
 static const struct cli_command built_ins[] =
 {
     {"help", NULL, help_command},
@@ -2652,6 +2675,9 @@ static const struct cli_command built_ins[] =
     {"wifi_mgmt_filter", "wifi_mgmt_filter <0/1/-1>", cmd_wifi_mgmt_filter},
 #if CFG_WIFI_RAW_TX_CMD
 	{"wifi_raw_tx", "wifi_raw_tx", wifi_raw_tx_command},
+#endif
+#if CFG_BK_AWARE
+	{"bk_aware", "bk_aware", bk_wifi_aware_command},
 #endif
 };
 
@@ -2866,22 +2892,22 @@ static void Deep_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int arg
 	PS_DEEP_CTRL_PARAM deep_sleep_param;
 
 	deep_sleep_param.wake_up_way			= 0;
-	
+
 	deep_sleep_param.gpio_index_map      	= os_strtoul(argv[1], NULL, 16);
-	deep_sleep_param.gpio_edge_map       	= os_strtoul(argv[2], NULL, 16);	
+	deep_sleep_param.gpio_edge_map       	= os_strtoul(argv[2], NULL, 16);
 	deep_sleep_param.gpio_last_index_map 	= os_strtoul(argv[3], NULL, 16);
 	deep_sleep_param.gpio_last_edge_map  	= os_strtoul(argv[4], NULL, 16);
 	deep_sleep_param.sleep_time     		= os_strtoul(argv[5], NULL, 16);
 	deep_sleep_param.wake_up_way     		= os_strtoul(argv[6], NULL, 16);
 	deep_sleep_param.gpio_stay_lo_map 	    = os_strtoul(argv[7], NULL, 16);
 	deep_sleep_param.gpio_stay_hi_map  	    = os_strtoul(argv[8], NULL, 16);
-            
+
 	if(argc == 9)
-	{		
-		os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n", 
-					deep_sleep_param.gpio_index_map, 
+	{
+		os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n",
+					deep_sleep_param.gpio_index_map,
 					deep_sleep_param.gpio_edge_map,
-					deep_sleep_param.gpio_last_index_map, 
+					deep_sleep_param.gpio_last_index_map,
 					deep_sleep_param.gpio_last_edge_map,
 					deep_sleep_param.sleep_time,
 					deep_sleep_param.wake_up_way);
@@ -2918,32 +2944,32 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         {
             goto IDLE_CMD_ERR;
         }
-    	
+
     	deep_sleep_param.gpio_index_map      	= os_strtoul(argv[2], NULL, 16);
     	deep_sleep_param.gpio_edge_map       	= os_strtoul(argv[3], NULL, 16);
     	deep_sleep_param.gpio_stay_lo_map 	    = os_strtoul(argv[4], NULL, 16);
-        
+
     	deep_sleep_param.gpio_last_index_map 	= os_strtoul(argv[5], NULL, 16);
     	deep_sleep_param.gpio_last_edge_map  	= os_strtoul(argv[6], NULL, 16);
         deep_sleep_param.gpio_stay_hi_map  	    = os_strtoul(argv[7], NULL, 16);
 
     	deep_sleep_param.sleep_time     		= os_strtoul(argv[8], NULL, 16);
     	deep_sleep_param.lpo_32k_src     		= os_strtoul(argv[9], NULL, 16);
-        
+
     	deep_sleep_param.wake_up_way     		= os_strtoul(argv[10], NULL, 16);
-	
-		os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n", 
-					deep_sleep_param.gpio_index_map, 
+
+		os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n",
+					deep_sleep_param.gpio_index_map,
 					deep_sleep_param.gpio_edge_map,
-					deep_sleep_param.gpio_last_index_map, 
+					deep_sleep_param.gpio_last_index_map,
 					deep_sleep_param.gpio_last_edge_map,
 					deep_sleep_param.sleep_time,
 					deep_sleep_param.wake_up_way);
-		os_printf("--- 0x%0X 0x%0X 0x%0X \r\n", 
-        			deep_sleep_param.gpio_stay_lo_map, 
+		os_printf("--- 0x%0X 0x%0X 0x%0X \r\n",
+        			deep_sleep_param.gpio_stay_lo_map,
         			deep_sleep_param.gpio_stay_hi_map,
         			deep_sleep_param.lpo_32k_src);
-		
+
 		bk_enter_deep_sleep_mode(&deep_sleep_param);
     }
 #endif
@@ -2983,7 +3009,7 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 				break;
         	}
         }
-        
+
         bk_printf("idle Sleep out\r\n");
     }
 #endif
@@ -3481,7 +3507,7 @@ static const struct cli_command user_clis[] =
     {"mac", "mac <mac>, Get mac/Set mac. <mac>: c89346000001", mac_command},
     {"ps", "ps [func] [param]", Ps_Command},
     {"deep_sleep", "deep_sleep [param]", Deep_Sleep_Command},
-    
+
 #ifdef TCP_CLIENT_DEMO
     {"tcp_cont", "tcp_cont [ip] [port]", tcp_make_connect_server_command},
 #endif

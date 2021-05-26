@@ -407,6 +407,8 @@ static int do_evm_implement(int argc, char *const argv[])
                         #if (CFG_SOC_NAME != SOC_BK7231)
                         manual_cal_save_cailmain_tx_tab_to_flash();
                         manual_cal_save_cailmain_rx_tab_to_flash();
+                        // g_xcali might mismatch with g_xtal, need reload from flash since iTest would send "txevm -g 7"
+                        manual_cal_load_xtal_tag_flash();
                         #endif
                     }
                     else if(op == TXEVM_E_CLR_OPT){

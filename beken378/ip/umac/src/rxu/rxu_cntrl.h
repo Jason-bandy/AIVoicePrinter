@@ -166,6 +166,14 @@ enum rxu_cntrl_defrag_status
     RXU_CNTRL_DEFRAG_MAX
 };
 
+enum _preserve_mgmt_
+{
+	PRESERVE_PROBE = 0,
+	PRESERVE_BEACON,
+	PRESERVE_PROBEL_BEACON,
+	PRESERVE_ACTION,
+	PRESERVE_ALL
+};
 
 /*
  * TYPE and STRUCT DEFINITIONS

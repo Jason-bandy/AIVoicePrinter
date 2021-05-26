@@ -59,6 +59,8 @@
 #define CFG_EASY_FLASH                             1
 #define CFG_AP_SUPPORT_HT_IE                       0
 #define CFG_SUPPORT_BSSID_CONNECT                  0
+#define CFG_BK_AWARE                               0
+#define CFG_BK_AWARE_OUI                           "\xC8\x47\x8C"
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1

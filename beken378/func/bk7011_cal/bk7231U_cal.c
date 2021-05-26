@@ -1818,25 +1818,13 @@ void bk7011_cal_pll(void)
 
 void bk7011_set_rfcali_mode(int mode)
 {
-    #if 0
-    if((mode != CALI_MODE_AUTO) && (mode != CALI_MODE_MANUAL))
-    {
-        os_printf("rfcali_mode 0/1\r\n");
-        return;
-    }
-    #endif
-        
     if(g_cali_mode != mode)
     {
         if(g_cali_mode == CALI_MODE_AUTO)
         {
-            // change from auto to mamual
-            //rwnx_cal_set_reg_mod_pa(8, 0xa);
         } 
         else
         {
-            // change from manual to auto
-            
         }
     }
 

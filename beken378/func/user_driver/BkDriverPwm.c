@@ -147,7 +147,7 @@ OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle
 
 static void pwm_cap_int_callback(UINT8 channel)
 {
-	PWM_LOGI(TAG, "pwm %d cap mode \r\n", channel);
+	PWM_LOGI(TAG, "pwm %d cap value:%d \r\n", channel, bk_pwm_get_capvalue(channel));
 }
 
 OSStatus bk_pwm_capture_initialize(bk_pwm_t pwm, UINT8 cap_mode)

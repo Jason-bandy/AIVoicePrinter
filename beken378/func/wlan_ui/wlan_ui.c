@@ -30,6 +30,7 @@
 #include "phy_trident.h"
 #include "rw_msg_rx.h"
 #include "app.h"
+#include "ate_app.h"
 #include "wdt_pub.h"
 #include "start_type_pub.h"
 #include "wpa_psk_cache.h"
@@ -47,6 +48,7 @@
 #include "utils_httpc.h"
 #endif
 
+#include "bk7011_cal_pub.h"
 #include "target_util_pub.h"
 #include "wlan_ui_pub.h"
 
@@ -65,7 +67,7 @@ uint8_t g_mesh_bssid[6];
 #endif
 FUNC_1PARAM_PTR connection_status_cb = 0;
 static monitor_cb_t g_mgnt_cb = 0;
-
+static uint8_t g_ap_channel = DEFAULT_CHANNEL_AP;
 
 extern void phy_enable_lsig_intr(void);
 extern void phy_disable_lsig_intr(void);
@@ -284,7 +286,6 @@ uint8_t bk_wlan_sta_get_channel(void)
     return channel;
 }
 
-uint8_t sys_channel = DEFAULT_CHANNEL_AP;
 uint8_t bk_wlan_ap_get_default_channel(void)
 {
     uint8_t channel;
@@ -293,10 +294,7 @@ uint8_t bk_wlan_ap_get_default_channel(void)
     channel = bk_wlan_sta_get_channel();
     if(0 == channel)
     {
-        if(sys_channel == DEFAULT_CHANNEL_AP)
-            channel = DEFAULT_CHANNEL_AP;
-        else
-            channel = sys_channel;
+        channel = g_ap_channel;
     }
 
     return channel;
@@ -304,7 +302,7 @@ uint8_t bk_wlan_ap_get_default_channel(void)
 
 void bk_wlan_ap_set_default_channel(uint8_t channel)
 {
-    sys_channel = channel;
+    g_ap_channel = channel;
 }
 
 void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy)
@@ -341,15 +339,31 @@ void bk_wlan_reg_csa_cb_coexist_mode(void)
     mhdr_connect_user_cb(bk_wlan_ap_csa_coexist_mode, 0);
 }
 
+void bk_wlan_user_set_rf_wakeup(void)
+{
+	UINT32 reg = RF_HOLD_BY_USER_BIT;
+	sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+}
+
+void bk_wlan_user_reset_rf_wakeup(void)
+{
+	UINT32 reg = RF_HOLD_BY_USER_BIT;
+	sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+}
+
 void bk_wlan_phy_open_cca(void)
 {
+	bk_wlan_user_set_rf_wakeup();
 	phy_open_cca();
+	bk_wlan_user_reset_rf_wakeup();
 	os_printf("bk_wlan cca opened\r\n");
 }
 
 void bk_wlan_phy_close_cca(void)
 {
+	bk_wlan_user_set_rf_wakeup();
 	phy_close_cca();
+	bk_wlan_user_reset_rf_wakeup();
 	os_printf("bk_wlan cca closed\r\n");
 }
 
@@ -401,13 +415,14 @@ void bk_wlan_ap_init(network_InitTypeDef_st *inNetworkInitPara)
         wifi_get_mac_address((char*)(&g_ap_param_ptr->bssid), CONFIG_ROLE_AP);
     }
 
-    bk_wlan_ap_set_channel_config(bk_wlan_ap_get_default_channel());
-	#if CFG_SUPPORT_RTT
+#if CFG_SUPPORT_RTT
 	if(inNetworkInitPara->reserved[0])
 	{
-		bk_wlan_ap_set_channel_config(inNetworkInitPara->reserved[0]);
+		bk_wlan_ap_set_default_channel(inNetworkInitPara->reserved[0]);
 	}
-	#endif
+#endif
+
+    bk_wlan_ap_set_channel_config(bk_wlan_ap_get_default_channel());
 	
     if(!g_wlan_general_param)
     {
@@ -697,6 +712,12 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
     wifi_station_status_event_notice(0,RW_EVT_STA_CONNECTING);
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+	if (get_ate_mode_state()) {
+		// cunliang20210407 set blk_standby_cfg with blk_txen_cfg like txevm, qunshan confirmed
+		rwnx_cal_en_extra_txpa();
+	}
+#endif
     bk_wlan_sta_init(inNetworkInitPara);
 
 #if CFG_WPA_CTRL_IFACE && CFG_WLAN_FAST_CONNECT
@@ -1101,6 +1122,12 @@ OSStatus bk_wlan_start_sta_adv(network_InitTypeDef_adv_st *inNetworkInitParaAdv)
 #else /* CFG_WPA_CTRL_IFACE */
 	wlan_sta_config_t config;
 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+	if (get_ate_mode_state()) {
+		// cunliang20210407 set blk_standby_cfg with blk_txen_cfg like txevm, qunshan confirmed
+		rwnx_cal_en_extra_txpa();
+	}
+#endif
 	bk_wlan_sta_init_adv(inNetworkInitParaAdv);
 
 	/*
@@ -1297,6 +1324,12 @@ int bk_wlan_stop(char mode)
         bk_wlan_dtim_rf_ps_disable_send_msg();
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+		if (get_ate_mode_state()) {
+			// cunliang20210407 recover blk_standby_cfg like txevm -e 0, qunshan confirmed
+			rwnx_cal_dis_extra_txpa();
+		}
+#endif
         sta_ip_down();
 #if CFG_ROLE_LAUNCH
 		rl_pre_sta_clear_cancel();

@@ -14,7 +14,7 @@
 #include "rtos_pub.h"
 #include "test_config.h"
 #include "gpio_pub.h"
-
+#define DEEP_SLEEP_TEST
 #ifdef DEEP_SLEEP_TEST
 
 
@@ -60,16 +60,18 @@ static void enter_deep_sleep_test(int argc,char *argv[])
 	deep_sleep_param.gpio_last_edge_map  	= htoi(argv[4]);
 	deep_sleep_param.sleep_time     		= htoi(argv[5]);
 	deep_sleep_param.wake_up_way     		= htoi(argv[6]);
+	deep_sleep_param.lpo_32k_src			= htoi(argv[7]);
 
-	if(argc == 7)
+	if(argc == 8)
 	{		
-		rt_kprintf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n", 
+		rt_kprintf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d %d\r\n", 
 					deep_sleep_param.gpio_index_map, 
 					deep_sleep_param.gpio_edge_map,
 					deep_sleep_param.gpio_last_index_map, 
 					deep_sleep_param.gpio_last_edge_map,
 					deep_sleep_param.sleep_time,
-					deep_sleep_param.wake_up_way);
+					deep_sleep_param.wake_up_way,
+					deep_sleep_param.lpo_32k_src);
 		
 		bk_enter_deep_sleep_mode(&deep_sleep_param);
 	}

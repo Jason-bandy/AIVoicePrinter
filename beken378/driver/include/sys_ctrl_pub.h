@@ -255,6 +255,7 @@ enum
 #endif
 
 /* CMD_RF_HOLD_BIT_SET/_CLR*/
+#define RF_HOLD_BY_USER_BIT                          (1 << 14)
 #define RF_HOLD_BY_BKREG_BIT                         (1 << 13)
 #define RF_HOLD_BY_ATE_BIT                           (1 << 12)
 #define RF_HOLD_BY_PHY_BIT                           (1 << 11)

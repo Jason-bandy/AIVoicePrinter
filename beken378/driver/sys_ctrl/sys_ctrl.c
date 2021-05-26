@@ -2216,6 +2216,64 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
     delay(5);
 }
 
+int bk_misc_wakeup_get_gpio_num(void)
+{
+	uint32_t gpio_0_31_status = 0;
+	#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+	uint32_t gpio_32_39_status = 0;
+	#endif
+	int wakeup_gpio_num = -1;
+
+	gpio_0_31_status = REG_READ(SCTRL_GPIO_WAKEUP_INT_STATUS);
+	#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+	gpio_32_39_status = REG_READ(SCTRL_GPIO_WAKEUP_INT_STATUS1);
+	#endif
+	REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS, gpio_0_31_status);//clear status
+	#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+	REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS1, gpio_32_39_status);//clear status
+	#endif
+
+	if((0 == gpio_0_31_status)
+	#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+	&& (0 == gpio_32_39_status)
+	#endif
+	)
+	{
+		wakeup_gpio_num = -1;
+		return wakeup_gpio_num;
+	}
+
+	if(gpio_0_31_status)
+	{
+		for(int i=0;i<32;i++)
+		{
+			if(gpio_0_31_status&0x01)
+			{
+				wakeup_gpio_num = i;
+				break;
+			}
+
+			gpio_0_31_status = gpio_0_31_status >> 1;
+		}
+	}
+	#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+	else if(gpio_32_39_status)
+	{
+		for(int i=32;i<40;i++)
+		{
+			if(gpio_32_39_status&0x01)
+			{
+				wakeup_gpio_num = i;
+				break;
+			}
+
+			gpio_32_39_status = gpio_32_39_status >> 1;
+		}
+	}
+	#endif
+
+	return wakeup_gpio_num;
+}
 
 RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void)
 {

@@ -32,6 +32,9 @@
 #pragma once
 #include "include.h"
 #include "rtos_pub.h"
+#include "bk_timer_pub.h"
+
+#define BKDRIVERTIMRE_TEST_DEMO           0
 
 /** @addtogroup BK_PLATFORM
   * @{
@@ -80,7 +83,7 @@ OSStatus bk_timer_initialize(uint8_t timer_id, uint32_t time_ms, void *callback)
  */
 OSStatus bk_timer_stop(uint8_t timer_id);
 
-
+extern UINT32 bk_get_timer_cnt(uint8_t timer_id);
 
 /** @} */
 /** @} */
