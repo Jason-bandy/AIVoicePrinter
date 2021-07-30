@@ -4,10 +4,7 @@ $(NAME)_TYPE := kernel
 
 -include $(SOURCE_ROOT)/platform/mcu/$(HOST_MCU_FAMILY)/.config
 
-WPA_VERSION := wpa_supplicant-2.9
-ifeq ($(CFG_USE_WPA_29),0)
-WPA_VERSION := hostapd-2.5
-endif
+WPA_VERSION := wpa_supplicant_2_9
 
 $(NAME)_INCLUDES := app/standalone-ap \
 					app/standalone-station \
@@ -30,6 +27,7 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					driver/i2c \
 					driver/jpeg \
 					driver/calendar \
+					driver/pwm \
 					func/sdio_intf \
 					func/power_save \
 					func/temp_detect \
@@ -42,6 +40,7 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					func/camera_intf \
 					func/video_transfer \
 					func/user_driver \
+					func/force_sleep \
 					func/ble_wifi_exchange
 
 $(NAME)_INCLUDES += ip/ke \
@@ -105,6 +104,7 @@ $(NAME)_SOURCES :=  app/app.c \
 					driver/pwm/pwm.c \
 					driver/pwm/pwm_bk7231n.c \
 					driver/pwm/bk_timer.c \
+					driver/pwm/bk_timer_extense.c \
 					driver/pwm/mcu_ps_timer.c \
 					driver/saradc/saradc.c \
 					driver/sdio/sdio.c \
@@ -118,19 +118,11 @@ $(NAME)_SOURCES :=  app/app.c \
 					driver/rw_pub/rw_platf_pub.c \
 					driver/intc/intc.c \
 					driver/calendar/calendar.c \
-					func/bk7011_cal/bk7231_cal.c \
-					func/bk7011_cal/bk7231U_cal.c \
-					func/bk7011_cal/bk7231N_cal.c \
-					func/bk7011_cal/bk7221U_cal.c \
-					func/bk7011_cal/manual_cal_bk7231.c \
-					func/bk7011_cal/manual_cal_bk7231U.c \
 					func/func.c \
 					func/hostapd_intf/hostapd_intf.c \
 					func/misc/fake_clock.c \
 					func/misc/target_util.c \
 					func/misc/start_type.c \
-					func/rf_test/rx_sensitivity.c \
-					func/rf_test/tx_evm.c \
 					func/rwnx_intf/rw_ieee80211.c \
 					func/rwnx_intf/rw_msdu.c \
 					func/rwnx_intf/rw_msg_rx.c \
@@ -142,13 +134,6 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/spidma_intf/spidma_intf.c \
 					func/temp_detect/temp_detect.c \
 					func/saradc_intf/saradc_intf.c \
-					func/uart_debug/cmd_evm.c \
-					func/uart_debug/cmd_help.c \
-					func/uart_debug/cmd_reg.c \
-					func/uart_debug/cmd_rx_sensitivity.c \
-					func/uart_debug/command_line.c \
-					func/uart_debug/command_table.c \
-					func/uart_debug/udebug.c \
 					func/power_save/power_save.c \
 					func/power_save/mcu_ps.c \
 					func/power_save/manual_ps.c \
@@ -159,7 +144,8 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/lwip_intf/dhcpd/dhcp-server.c \
 					func/camera_intf/camera_intf.c \
 					func/video_transfer/video_transfer.c \
-					func/rf_use/arbitrate.c \
+					func/force_sleep/force_mac_ps.c \
+					func/force_sleep/force_mcu_ps.c \
 					func/ble_wifi_exchange/ble_wifi_port.c
 
 ifeq ($(CFG_SOC_NAME), 2)
@@ -183,91 +169,7 @@ $(NAME)_INCLUDES += func/$(WPA_VERSION)/src \
 					func/$(WPA_VERSION)/hostapd \
 					func/$(WPA_VERSION)/wpa_supplicant
 
-$(NAME)_SOURCES +=  func/$(WPA_VERSION)/bk_patch/ddrv.c \
-					func/$(WPA_VERSION)/bk_patch/signal.c \
-					func/$(WPA_VERSION)/bk_patch/sk_intf.c \
-					func/$(WPA_VERSION)/bk_patch/fake_socket.c \
-					func/$(WPA_VERSION)/src/common/hw_features_common.c \
-					func/$(WPA_VERSION)/src/common/ieee802_11_common.c \
-					func/$(WPA_VERSION)/src/common/wpa_common.c \
-					func/$(WPA_VERSION)/src/common/notifier.c \
-					func/$(WPA_VERSION)/src/common/wpa_psk_cache.c \
-					func/$(WPA_VERSION)/src/crypto/aes-unwrap.c \
-					func/$(WPA_VERSION)/src/crypto/rc4.c \
-					func/$(WPA_VERSION)/src/crypto/sha1-pbkdf2.c \
-					func/$(WPA_VERSION)/src/crypto/sha1-prf.c \
-					func/$(WPA_VERSION)/src/crypto/tls_none.c \
-					func/$(WPA_VERSION)/src/crypto/aes-wrap.c \
-					func/$(WPA_VERSION)/src/drivers/driver_beken.c \
-					func/$(WPA_VERSION)/src/drivers/driver_common.c \
-					func/$(WPA_VERSION)/src/drivers/drivers.c \
-					func/$(WPA_VERSION)/src/l2_packet/l2_packet_none.c \
-					func/$(WPA_VERSION)/src/rsn_supp/pmksa_cache.c \
-					func/$(WPA_VERSION)/src/rsn_supp/wpa.c \
-					func/$(WPA_VERSION)/src/rsn_supp/wpa_ie.c \
-					func/$(WPA_VERSION)/src/utils/common.c \
-					func/$(WPA_VERSION)/src/utils/eloop.c \
-					func/$(WPA_VERSION)/src/utils/os_none.c \
-					func/$(WPA_VERSION)/src/utils/wpabuf.c \
-					func/$(WPA_VERSION)/src/utils/wpa_debug.c \
-					func/$(WPA_VERSION)/src/ap/ap_config.c \
-					func/$(WPA_VERSION)/src/ap/ap_drv_ops.c \
-					func/$(WPA_VERSION)/src/ap/ap_list.c \
-					func/$(WPA_VERSION)/src/ap/ap_mlme.c \
-					func/$(WPA_VERSION)/src/ap/beacon.c \
-					func/$(WPA_VERSION)/src/ap/drv_callbacks.c \
-					func/$(WPA_VERSION)/src/ap/hostapd.c \
-					func/$(WPA_VERSION)/src/ap/hw_features.c \
-					func/$(WPA_VERSION)/src/ap/ieee802_11.c \
-					func/$(WPA_VERSION)/src/ap/ieee802_11_auth.c \
-					func/$(WPA_VERSION)/src/ap/ieee802_11_ht.c \
-					func/$(WPA_VERSION)/src/ap/ieee802_11_shared.c \
-					func/$(WPA_VERSION)/src/ap/ieee802_1x.c \
-					func/$(WPA_VERSION)/src/ap/pmksa_cache_auth.c \
-					func/$(WPA_VERSION)/src/ap/sta_info.c \
-					func/$(WPA_VERSION)/src/ap/tkip_countermeasures.c \
-					func/$(WPA_VERSION)/src/ap/utils.c \
-					func/$(WPA_VERSION)/src/ap/wmm.c \
-					func/$(WPA_VERSION)/src/ap/wpa_auth.c \
-					func/$(WPA_VERSION)/src/ap/wpa_auth_glue.c \
-					func/$(WPA_VERSION)/src/ap/wpa_auth_ie.c \
-					func/$(WPA_VERSION)/hostapd/main_none.c \
-					func/$(WPA_VERSION)/wpa_supplicant/blacklist.c \
-					func/$(WPA_VERSION)/wpa_supplicant/bss.c \
-					func/$(WPA_VERSION)/wpa_supplicant/config.c \
-					func/$(WPA_VERSION)/wpa_supplicant/config_none.c \
-					func/$(WPA_VERSION)/wpa_supplicant/events.c \
-					func/$(WPA_VERSION)/wpa_supplicant/main_supplicant.c \
-					func/$(WPA_VERSION)/wpa_supplicant/notify.c \
-					func/$(WPA_VERSION)/wpa_supplicant/wmm_ac.c \
-					func/$(WPA_VERSION)/wpa_supplicant/wpa_scan.c \
-					func/$(WPA_VERSION)/wpa_supplicant/wpa_supplicant.c \
-					func/$(WPA_VERSION)/wpa_supplicant/wpas_glue.c \
-					func/$(WPA_VERSION)/wpa_supplicant/ctrl_iface.c \
-					func/$(WPA_VERSION)/wpa_supplicant/wlan.c \
-					func/$(WPA_VERSION)/wpa_supplicant/sme.c					
-
-ifneq ($(CFG_USE_WPA_29), 0)
-$(NAME)_SOURCES +=  func/$(WPA_VERSION)/wpa_supplicant/op_classes.c
-endif
-
-# for WPA3
-ifeq ($(CFG_WPA3), 1)
-$(NAME)_SOURCES +=  func/$(WPA_VERSION)/src/common/sae.c \
-					func/$(WPA_VERSION)/src/common/dragonfly.c \
-					func/$(WPA_VERSION)/src/crypto/aes-ctr.c \
-					func/$(WPA_VERSION)/src/crypto/aes-omac1.c \
-					func/$(WPA_VERSION)/src/crypto/aes-siv.c \
-					func/$(WPA_VERSION)/src/crypto/crypto_wolfssl.c \
-					func/$(WPA_VERSION)/src/crypto/dh_group5.c \
-					func/$(WPA_VERSION)/src/crypto/dh_groups.c \
-					func/$(WPA_VERSION)/src/crypto/sha256.c \
-					func/$(WPA_VERSION)/src/crypto/sha256-internal.c \
-					func/$(WPA_VERSION)/src/crypto/sha256-prf.c
-endif
-
-$(NAME)_SOURCES +=  func/$(WPA_VERSION)/src/crypto/crypto_ali.c \
-					alios/lwip-2.0.2/port/ethernetif.c \
+$(NAME)_SOURCES +=                      alios/lwip-2.0.2/port/ethernetif.c \
 					alios/lwip-2.0.2/port/net.c \
 					alios/lwip-2.0.2/apps/ping/ping.c \
 					alios/lwip-2.0.2/apps/iperf/iperf.c \

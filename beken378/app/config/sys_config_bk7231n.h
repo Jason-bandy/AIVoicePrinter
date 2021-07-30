@@ -47,9 +47,7 @@
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_SME                                    0
 #endif
-//#define CFG_MESH                                 0
 #define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
@@ -90,6 +88,10 @@
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
 #define CFG_IPERF_TEST                             0
+#if CFG_IPERF_TEST
+#define CFG_IPERF_TEST_ACCEL                       1
+#define CFG_IPERF_DONT_MALLOC_BUFFER               1
+#endif
 #define CFG_TCP_SERVER_TEST                        0
 #define CFG_AIRKISS_TEST                           0
 #define CFG_ENABLE_DEMO_TEST                       0
@@ -185,6 +187,10 @@
 
 /*section 24 ----- less memery in rwnx*/
 #define CFG_LESS_MEMERY_IN_RWNX                    0
+#if CFG_IPERF_TEST_ACCEL
+#undef CFG_LESS_MEMERY_IN_RWNX
+#define CFG_LESS_MEMERY_IN_RWNX                    0
+#endif
 
 /*section 25 ----- use audio*/
 #define CFG_USE_AUDIO                              0
@@ -273,5 +279,7 @@
 
 
 #define AT_SERVICE_CFG                             0
+
+#define CFG_USE_FORCE_LOWVOL_PS                    0
 
 #endif // _SYS_CONFIG_H_

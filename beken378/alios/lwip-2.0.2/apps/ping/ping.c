@@ -155,6 +155,11 @@ int ping(char* target_name, uint32_t times, uint32_t size)
     }
 
     memset(&hint, 0, sizeof(hint));
+    if (!sta_ip_is_start() && !uap_ip_is_start())
+    {
+        LWIP_DEBUGF( PING_DEBUG, ("ping: unknown host\n"));
+        return -1;
+    }
     /* convert URL to IP */
     if (lwip_getaddrinfo(target_name, NULL, &hint, &res) != 0)
     {

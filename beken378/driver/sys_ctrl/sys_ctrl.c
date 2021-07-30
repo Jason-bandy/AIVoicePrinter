@@ -54,6 +54,7 @@ static SCTRL_PS_SAVE_VALUES ps_saves[2];
 #if (CFG_USE_DEEP_PS && PS_SUPPORT_MANUAL_SLEEP)
 static UINT32 ps_block_value = 0;
 #endif
+UINT32 deep_sleep_gpio_floating_map = 0;
 
 static SCTRL_MCU_PS_INFO sctrl_mcu_ps_info =
 {
@@ -153,6 +154,12 @@ void sctrl_cali_dpll(UINT8 flag)
 void sctrl_dpll_isr(void)
 {
 #if (CFG_SOC_NAME == SOC_BK7231N)
+	if ((DEVICE_ID_BK7231N_P & DEVICE_ID_MASK) != (sctrl_ctrl(CMD_GET_DEVICE_ID, NULL) & DEVICE_ID_MASK))
+	{
+		os_printf("BIAS Cali\r\n");
+		bk7011_cal_bias();
+	}
+#elif (CFG_SOC_NAME == SOC_BK7236)
 	os_printf("BIAS Cali\r\n");
     bk7011_cal_bias();
 #endif
@@ -436,7 +443,16 @@ void sctrl_init(void)
 #if (CFG_SOC_NAME == SOC_BK7231)
     param = 0x24006000;
 #elif (CFG_SOC_NAME == SOC_BK7231N)
-    param = 0x500020E2;//0x400020E0; //wangjian20200822 0x40032030->0x48032030->0x48022032//wangjian20200903<17:16>=0//qunshan20201127<28:23>=20
+	if ((DEVICE_ID_BK7231N_P & DEVICE_ID_MASK) == (sctrl_ctrl(CMD_GET_DEVICE_ID, NULL) & DEVICE_ID_MASK))
+	{
+		param = 0x580020E2;//wangjian20210422<28:23>=30 as default for BK7231P
+	}
+	else
+	{
+		param = 0x500020E2;//0x400020E0; //wangjian20200822 0x40032030->0x48032030->0x48022032//wangjian20200903<17:16>=0//qunshan20201127<28:23>=20
+	}
+#elif (CFG_SOC_NAME == SOC_BK7236)
+	param = 0x500020E2;//0x400020E0; //wangjian20200822 0x40032030->0x48032030->0x48022032//wangjian20200903<17:16>=0//qunshan20201127<28:23>=20
 #elif (CFG_SOC_NAME == SOC_BK7271)
     param = 0x80208B00; //for 32k if enable BLK_BIT_ROSC32K
 #else
@@ -473,7 +489,9 @@ void sctrl_init(void)
     sctrl_sub_reset();
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
-    sctrl_fix_dpll_div();
+	if ((DEVICE_ID_BK7231N_P & DEVICE_ID_MASK) != (sctrl_ctrl(CMD_GET_DEVICE_ID, NULL) & DEVICE_ID_MASK)) {
+		sctrl_fix_dpll_div();
+	}
 #endif
 
 	/*sys ctrl clk gating, for rx dma dead*/
@@ -544,7 +562,7 @@ static void sctrl_rf_init(void)
 
 void ps_delay(volatile UINT16 times)
 {
-	UINT32	delay = times;
+	volatile UINT32	delay = times;
     while(delay--) ;
 }
 
@@ -805,28 +823,32 @@ UINT8 sctrl_if_rf_sleep(void)
 
 void sctrl_rf_ps_enable_set(void)
 {
-    GLOBAL_INT_DECLARATION();
-    GLOBAL_INT_DISABLE();
-    rf_sleepe_enable = 1;
-    GLOBAL_INT_RESTORE();
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+	rf_sleepe_enable = 1;
+	UINT32 reg = RF_HOLD_RF_SLEEP_BIT;
+	sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+	GLOBAL_INT_RESTORE();
 }
 
 void sctrl_rf_ps_enable_clear(void)
 {
-    GLOBAL_INT_DECLARATION();
-    GLOBAL_INT_DISABLE();
-    rf_sleepe_enable = 0;
-    GLOBAL_INT_RESTORE();
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+	rf_sleepe_enable = 0;
+	UINT32 reg = RF_HOLD_RF_SLEEP_BIT;
+	sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+	GLOBAL_INT_RESTORE();
 }
 
 int sctrl_rf_ps_enabled(void)
 {
-    uint32_t value = 0;
-    GLOBAL_INT_DECLARATION();
-    GLOBAL_INT_DISABLE();
-    value =  rf_sleepe_enable;
-    GLOBAL_INT_RESTORE();
-    return (value > 0) ? 1 : 0;
+	uint32_t value = 0;
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+	value =  rf_sleepe_enable;
+	GLOBAL_INT_RESTORE();
+	return (value > 0) ? 1 : 0;
 }
 
 int sctrl_rf_wakeup_enabled(void)
@@ -837,7 +859,7 @@ int sctrl_rf_wakeup_enabled(void)
 
 static void sctrl_rf_sleep(void)
 {
-    #if (!CFG_USE_PTA)
+	#if (!CFG_USE_PTA)
     if(sctrl_rf_ps_enabled() == 1)
     {
     UINT32 reg;
@@ -867,11 +889,11 @@ static void sctrl_rf_sleep(void)
 
 static void sctrl_rf_wakeup(void)
 {
-    #if (!CFG_USE_PTA)
+	#if (!CFG_USE_PTA)
     if(sctrl_rf_wakeup_enabled() == 1)
     {
 	    UINT32 reg;
-	    GLOBAL_INT_DECLARATION();
+ 	    GLOBAL_INT_DECLARATION();
 
 	    GLOBAL_INT_DISABLE();
 	    if(rf_sleeped == 1)
@@ -895,7 +917,9 @@ static void sctrl_rf_wakeup(void)
 			PS_DEBUG_UP_TRIGER;
 
 #if (CFG_SOC_NAME == SOC_BK7231N)
+		if ((DEVICE_ID_BK7231N_P & DEVICE_ID_MASK) != (sctrl_ctrl(CMD_GET_DEVICE_ID, NULL) & DEVICE_ID_MASK)) {
 			sctrl_fix_dpll_div();
+		}
 			phy_wakeup_rf_reinit();
 #endif
 
@@ -2060,7 +2084,13 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
             {
                 if( deep_param->gpio_edge_map & (0x01UL << i))      //0:high,1:low.
                 {
-                    param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLUP);
+                    if(sctrl_get_deep_sleep_gpio_floating_map() & (0x01UL << i))
+                    {
+                        param = GPIO_CFG_PARAM(i, GMODE_INPUT);
+                    } else {
+                        param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLUP);
+                    }
+
                     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
                     if(0x1 != (UINT32)gpio_ctrl( CMD_GPIO_INPUT, &i))
                     {   /*check gpio really input value,to correct wrong edge setting*/
@@ -2071,7 +2101,13 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
                 }
                 else
                 {
-                    param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLDOWN);
+                    if(sctrl_get_deep_sleep_gpio_floating_map() & (0x01UL << i))
+                    {
+                        param = GPIO_CFG_PARAM(i, GMODE_INPUT);
+                    } else {
+                        param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLDOWN);
+                    }
+
                     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
                     if(0x0 != (UINT32)gpio_ctrl( CMD_GPIO_INPUT, &i))
                     {   /*check gpio really input value,to correct wrong edge setting*/
@@ -2089,7 +2125,13 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
             {
                 if( deep_param->gpio_last_edge_map  & (0x01UL << i))
                 {
-                    param = GPIO_CFG_PARAM(i + BITS_INT, GMODE_INPUT_PULLUP);
+                    if(sctrl_get_deep_sleep_gpio_floating_map() & (0x01UL << i))
+                    {
+                        param = GPIO_CFG_PARAM(i + BITS_INT, GMODE_INPUT);
+                    } else {
+                        param = GPIO_CFG_PARAM(i + BITS_INT, GMODE_INPUT_PULLUP);
+                    }
+
                     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
                     reg = i + BITS_INT;
                     if(0x1 != (UINT32)gpio_ctrl( CMD_GPIO_INPUT, &reg))
@@ -2101,7 +2143,13 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
                 }
                 else
                 {
-                    param = GPIO_CFG_PARAM(i + BITS_INT, GMODE_INPUT_PULLDOWN);
+                    if(sctrl_get_deep_sleep_gpio_floating_map() & (0x01UL << i))
+                    {
+                        param = GPIO_CFG_PARAM(i + BITS_INT, GMODE_INPUT);
+                    } else {
+                        param = GPIO_CFG_PARAM(i + BITS_INT, GMODE_INPUT_PULLDOWN);
+                    }
+
                     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
                     reg = i + BITS_INT;
                     if(0x0 != (UINT32)gpio_ctrl( CMD_GPIO_INPUT, &reg))
@@ -2152,33 +2200,47 @@ void sctrl_enter_rtos_deep_sleep(PS_DEEP_CTRL_PARAM *deep_param)
                 continue;
             }
 
-            if ( deep_param->gpio_index_map & ( 0x01UL << i ))
-            {
-                int type_h,type_l;
-                type_l = deep_param->gpio_edge_map;
-                type_h = 0x0;
+			if ( deep_param->gpio_index_map & ( 0x01UL << i ))
+			{
+				int type_h,type_l;
+				type_l = deep_param->gpio_edge_map;
+				type_h = 0x0;
 
-                /* low level or negedge wakeup */
-                if(( type_h & ( 0x01UL << i )) == ( type_l & ( 0x01UL << i )))
-                {
-                    param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLUP);
-                    sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-                }
-                else    /* high level or posedge wakeup */
-                {
-                    param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLDOWN);
-                    sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-                }
+				/* low level or negedge wakeup */
+				if(( type_h & ( 0x01UL << i )) == ( type_l & ( 0x01UL << i )))
+				{
+					if(sctrl_get_deep_sleep_gpio_floating_map() & (0x01UL << i))
+					{
+						param = GPIO_CFG_PARAM(i, GMODE_INPUT);
+					} else {
+						param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLUP);
+					}
 
-                REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, type_l);
-                REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, type_h);
-            }
+					sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+				}
+				else    /* high level or posedge wakeup */
+				{
+					if(sctrl_get_deep_sleep_gpio_floating_map() & (0x01UL << i))
+					{
+						param = GPIO_CFG_PARAM(i, GMODE_INPUT);
+					} else {
+						param = GPIO_CFG_PARAM(i, GMODE_INPUT_PULLDOWN);
+					}
+
+					sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+				}
+
+				REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, type_l);
+				REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, type_h);
+			}
         }
 
         reg = deep_param->gpio_index_map;
         REG_WRITE(SCTRL_GPIO_WAKEUP_EN,reg);
     }
 #endif
+        delay(11);//106.4us ,at least 100us
+        REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS,0xFFFFFFFF);
 
 #if (CFG_SOC_NAME != SOC_BK7231N)
     REG_WRITE(SCTRL_USB_PLUG_WAKEUP,USB_PLUG_IN_INT_BIT|USB_PLUG_OUT_INT_BIT);
@@ -2299,6 +2361,16 @@ RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void)
 #endif
 
     return waked_source;
+}
+
+void sctrl_set_deep_sleep_gpio_floating_map(UINT32 gpio_last_floating_map)
+{
+	deep_sleep_gpio_floating_map = gpio_last_floating_map;
+}
+
+UINT32 sctrl_get_deep_sleep_gpio_floating_map(void)
+{
+	 return deep_sleep_gpio_floating_map;
 }
 
 
@@ -3433,4 +3505,44 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
     return ret;
 }
 
+#if CFG_IPERF_TEST_ACCEL && (CFG_SOC_NAME == SOC_BK7231N)
+extern void flash_set_clk(UINT8 clk_conf);
+void sctrl_overclock(int enable)
+{
+    UINT32 param;
+
+    GLOBAL_INT_DECLARATION();
+    if (enable) {
+	param = REG_READ(SCTRL_CONTROL);
+	param &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
+	param |= ((MCLK_DIV_2 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+	GLOBAL_INT_DISABLE();
+	REG_WRITE(SCTRL_CONTROL, param);
+	flash_set_clk(4);
+    }
+    else {
+	/*config main clk*/
+#if !USE_DCO_CLK_POWON
+	param = REG_READ(SCTRL_CONTROL);
+	param &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
+#if CFG_SYS_REDUCE_NORMAL_POWER
+	param |= ((MCLK_DIV_7 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+#else
+	param |= ((MCLK_DIV_5 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+#endif // CFG_SYS_REDUCE_NORMAL_POWER
+	GLOBAL_INT_DISABLE();
+	REG_WRITE(SCTRL_CONTROL, param);
+#else
+	GLOBAL_INT_DISABLE();
+#endif /*(!USE_DCO_CLK_POWON)*/
+
+#if CFG_USE_STA_PS
+	flash_set_clk(9);
+#else
+	flash_set_clk(5);
+#endif
+    }
+    GLOBAL_INT_RESTORE();
+}
+#endif
 // EOF

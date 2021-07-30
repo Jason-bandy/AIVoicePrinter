@@ -1,18 +1,18 @@
 {
-    "count": 2, 
+    "count": 4, 
     "magic": "RT-Thread", 
     "section": [
         {
-            "firmware": "tools/beken_packager/bootloader_bk7251_uart2_v1.0.8.bin", 
+            "firmware": "tools/beken_packager/bootloader_bk7231n_uart2_v1.0.8.bin", 
             "partition": "bootloader", 
-            "size": "65280", 
+            "size": "68K", 
             "start_addr": "0x00000000", 
             "version": "2M.1220"
         }, 
         {
             "firmware": "rtthread.bin", 
             "partition": "app", 
-            "size": "1292K", 
+            "size": "1156K", 
             "start_addr": "0x00011000", 
             "version": "2M.1220"
         }

@@ -1399,7 +1399,7 @@ typedef struct
     INT32 power_cali_shift_g;
 
     UINT32 is_tpc_used;
-
+    UINT32 device_id;
 } BK7011_CALI_CONTEXT;
 
 typedef struct

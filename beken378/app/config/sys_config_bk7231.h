@@ -50,9 +50,7 @@
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_SME                                    0
 #endif
-//#define CFG_MESH                                 0
 #define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
@@ -219,4 +217,7 @@
 #else
 #define CFG_XTAL_FREQUENCE                         CFG_XTAL_FREQUENCE_26M
 #endif
+
+#define CFG_USE_FORCE_LOWVOL_PS                    0
+
 #endif // _SYS_CONFIG_H_

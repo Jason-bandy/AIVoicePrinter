@@ -277,8 +277,8 @@ static int send_response(int sock, struct sockaddr *addr, char *msg, int len)
 	}
 
     // rest default netif to sta's netif
-    //if((dest_ip == IPADDR_ANY) || (dest_ip == IPADDR_BROADCAST))
-        //reset_default_netif();
+    if((dest_ip == IPADDR_ANY) || (dest_ip == IPADDR_BROADCAST))
+        reset_default_netif();
 
 	dhcp_d("sent response, %d bytes %s\r\n", sent,
 	    inet_ntoa(((struct sockaddr_in *)addr)->sin_addr));

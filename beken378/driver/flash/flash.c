@@ -61,7 +61,7 @@ static void flash_get_current_flash_config(void)
     }
 }
 
-static void flash_set_clk(UINT8 clk_conf)
+void flash_set_clk(UINT8 clk_conf)
 {
     UINT32 value;
 

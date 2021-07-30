@@ -25,7 +25,7 @@
 #define BK_LOGD( tag, format, ... ) os_printf(format, ##__VA_ARGS__)
 #define BK_LOGV( tag, format, ... ) os_printf(format, ##__VA_ARGS__)
 
-#define CFG_LOG_LEVEL			BK_LOG_DEBUG
+#define CFG_LOG_LEVEL			BK_LOG_NONE
 
 #define PERI_LOGI				BK_LOGI
 #define PERI_LOGW				BK_LOGW

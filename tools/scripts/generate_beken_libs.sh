@@ -26,25 +26,25 @@ case $1 in
 	bk7231n)
 		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 1
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
-		make_target="beken_ip beken_ble beken_vad beken_sensor"
+		make_target="beken_ip beken_ble beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
 		;;
 	bk7231u)
 		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 1
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
 		modify_config ${SYS_CFG_FILE} CFG_USB 1
-		make_target="beken_ip beken_ble beken_usb beken_vad beken_sensor"
+		make_target="beken_ip beken_ble beken_usb beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
 		;;
 	bk7251)
 		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 1
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
 		modify_config ${SYS_CFG_FILE} CFG_USB 1
-		make_target="beken_ip beken_ble beken_usb beken_vad beken_sensor"
+		make_target="beken_ip beken_ble beken_usb beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
 		;;
 	bk7271)
 		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 0
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
 		modify_config ${SYS_CFG_FILE} CFG_USB 1
-		make_target="beken_ip beken_usb beken_vad beken_sensor"
+		make_target="beken_ip beken_usb beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
 		;;
 	*)
 		echo "unsupported platform"

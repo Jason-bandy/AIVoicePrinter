@@ -430,7 +430,11 @@ void ap_set_default_netif(void)
 
 void reset_default_netif(void)
 {
-    netifapi_netif_set_default(NULL);
+	if (sta_ip_is_start()) {
+		netifapi_netif_set_default(net_get_sta_handle());
+	} else {
+		netifapi_netif_set_default(NULL);
+	}
 }
 
 uint32_t sta_ip_is_start(void)

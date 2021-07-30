@@ -1,8 +1,5 @@
 
-WPA_VERSION := wpa_supplicant-2.9
-ifeq ($(CFG_USE_WPA_29),0)
-WPA_VERSION := hostapd-2.5
-endif
+WPA_VERSION := wpa_supplicant_2_9
 
 AT_SERVICE_CFG ?= 0
 ifeq ($(AT_SERVICE_CFG),1)
@@ -115,6 +112,7 @@ INCLUDES += -I./beken378/os/include
 INCLUDES += -I./beken378/os/FreeRTOSv9.0.0
 INCLUDES += -I./beken378/func/utf8
 INCLUDES += -I./beken378/app/http
+INCLUDES += -I./beken378/func/force_sleep
 
 ifeq ($(CFG_BK_AWARE),1)
 INCLUDES += -I./beken378/func/bk_aware
@@ -300,6 +298,7 @@ SRC_C += ./beken378/driver/pwm/pwm.c
 SRC_C += ./beken378/driver/pwm/pwm_bk7231n.c
 SRC_C += ./beken378/driver/pwm/mcu_ps_timer.c
 SRC_C += ./beken378/driver/pwm/bk_timer.c
+SRC_C += ./beken378/driver/pwm/bk_timer_extense.c
 SRC_C += ./beken378/driver/pwm/pwm_mutex.c
 SRC_C += ./beken378/driver/qspi/qspi.c
 SRC_C += ./beken378/driver/rw_pub/rw_platf_pub.c
@@ -328,12 +327,6 @@ endif
 SRC_C += ./beken378/func/func.c
 SRC_C += ./beken378/func/usb_plug/usb_plug.c
 SRC_C += ./beken378/func/security/security_func.c
-SRC_C += ./beken378/func/bk7011_cal/bk7231_cal.c
-SRC_C += ./beken378/func/bk7011_cal/manual_cal_bk7231.c
-SRC_C += ./beken378/func/bk7011_cal/bk7231U_cal.c
-SRC_C += ./beken378/func/bk7011_cal/bk7231N_cal.c
-SRC_C += ./beken378/func/bk7011_cal/bk7221U_cal.c
-SRC_C += ./beken378/func/bk7011_cal/manual_cal_bk7231U.c
 SRC_C += ./beken378/func/joint_up/role_launch.c
 SRC_C += ./beken378/app/http/utils_httpc.c
 SRC_C += ./beken378/app/http/utils_net.c
@@ -345,97 +338,6 @@ SRC_C += ./beken378/func/bk_aware/bk_aware.c
 endif
 
 SRC_WPA_C += ./beken378/func/hostapd_intf/hostapd_intf.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/bk_patch/ddrv.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/bk_patch/signal.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/bk_patch/sk_intf.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/bk_patch/fake_socket.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/hostapd/main_none.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-internal.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-internal-dec.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-internal-enc.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-unwrap.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-wrap.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/md5.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/md5-internal.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/rc4.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha1.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha1-internal.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha1-pbkdf2.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha1-prf.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/tls_none.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ap_config.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ap_drv_ops.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ap_list.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ap_mlme.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/beacon.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/drv_callbacks.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/hostapd.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/hw_features.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ieee802_11_auth.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ieee802_11.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ieee802_11_ht.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ieee802_11_shared.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/ieee802_1x.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/sta_info.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/tkip_countermeasures.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/utils.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/wmm.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/wpa_auth.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/wpa_auth_glue.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/wpa_auth_ie.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/ap/pmksa_cache_auth.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/hw_features_common.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/ieee802_11_common.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/wpa_common.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/notifier.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/wpa_psk_cache.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/drivers/driver_beken.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/drivers/driver_common.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/drivers/drivers.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/l2_packet/l2_packet_none.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/rsn_supp/pmksa_cache.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/rsn_supp/wpa.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/rsn_supp/wpa_ie.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/utils/common.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/utils/eloop.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/utils/os_none.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/utils/wpabuf.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/utils/wpa_debug.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/blacklist.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/bss.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/config.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/config_none.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/events.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/main_supplicant.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/notify.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/wmm_ac.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/wpa_scan.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/wpas_glue.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/wpa_supplicant.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/ctrl_iface.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/wlan.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/sme.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/cmd_wlan.c
-
-ifneq ($(CFG_USE_WPA_29),0)
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/wpa_supplicant/op_classes.c
-endif
-
-# for WPA3
-ifeq ($(CFG_WPA3),1)
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/sae.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/common/dragonfly.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-ctr.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-omac1.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/aes-siv.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/crypto_wolfssl.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/dh_group5.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/dh_groups.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha256.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha256-internal.c
-SRC_WPA_C += ./beken378/func/$(WPA_VERSION)/src/crypto/sha256-prf.c
-endif # CFG_WPA3
-
 ifeq ($(CFG_USE_SDCARD_HOST),1)
 SRC_C += ./beken378/func/fatfs/cc936.c
 SRC_C += ./beken378/func/fatfs/ccsbcs.c
@@ -505,8 +407,6 @@ SRC_C += ./beken378/func/power_save/power_save.c
 SRC_C += ./beken378/func/power_save/manual_ps.c
 SRC_C += ./beken378/func/power_save/mcu_ps.c
 SRC_C += ./beken378/func/power_save/ap_idle.c
-SRC_C += ./beken378/func/rf_test/rx_sensitivity.c
-SRC_C += ./beken378/func/rf_test/tx_evm.c
 SRC_C += ./beken378/func/saradc_intf/saradc_intf.c
 SRC_C += ./beken378/func/rwnx_intf/rw_ieee80211.c
 SRC_C += ./beken378/func/rwnx_intf/rw_msdu.c
@@ -516,13 +416,6 @@ SRC_C += ./beken378/func/sim_uart/gpio_uart.c
 SRC_C += ./beken378/func/sim_uart/pwm_uart.c
 SRC_C += ./beken378/func/spidma_intf/spidma_intf.c
 SRC_C += ./beken378/func/temp_detect/temp_detect.c
-SRC_C += ./beken378/func/uart_debug/cmd_evm.c
-SRC_C += ./beken378/func/uart_debug/cmd_help.c
-SRC_C += ./beken378/func/uart_debug/cmd_reg.c
-SRC_C += ./beken378/func/uart_debug/cmd_rx_sensitivity.c
-SRC_C += ./beken378/func/uart_debug/command_line.c
-SRC_C += ./beken378/func/uart_debug/command_table.c
-SRC_C += ./beken378/func/uart_debug/udebug.c
 SRC_C += ./beken378/func/user_driver/BkDriverFlash.c
 SRC_C += ./beken378/func/user_driver/BkDriverGpio.c
 SRC_C += ./beken378/func/user_driver/BkDriverPwm.c
@@ -600,6 +493,10 @@ SRC_C += ./beken378/func/easy_flash/src/ef_iap.c
 SRC_C += ./beken378/func/easy_flash/src/ef_log.c
 SRC_C += ./beken378/func/easy_flash/src/ef_utils.c
 SRC_C += ./beken378/func/easy_flash/port/ef_port.c
+
+#force sleep
+SRC_C += ./beken378/func/force_sleep/force_mac_ps.c
+SRC_C += ./beken378/func/force_sleep/force_mcu_ps.c
 
 #paho-mqtt
 SRC_C += ./beken378/func/paho-mqtt/client/src/MQTTClient.c
@@ -803,8 +700,6 @@ SRC_C  += ./beken378/os/mem_arch.c
 SRC_C  += ./beken378/os/platform_stub.c
 SRC_C  += ./beken378/os/str_arch.c
 
-SRC_C += ./beken378/func/rf_use/arbitrate.c
-
 ifeq ($(ATSVR_CFG),1)
 SRC_C += ./beken378/func/at_server/_at_server_port/atsvr_core.c
 SRC_C += ./beken378/func/at_server/_at_server_port/atsvr_port.c
@@ -834,7 +729,6 @@ SRC_S +=  ./beken378/driver/entry/boot_vectors.S
 # -------------------------------------------------------------------
 
 # Lib files will be deleted when making SDK.
-
 SRC_IP_C =
 -include ./beken378/ip/ip_lib_src.mk
 
@@ -857,3 +751,20 @@ SRC_SENSOR_C =
 ifeq ($(CFG_WIFI_SENSOR),1)
 -include ./beken378/func/sensor/sensor_lib_src.mk
 endif
+
+SRC_CAL_C =
+-include ./beken378/func/bk7011_cal/cal_lib_src.mk
+
+SRC_SUPPLICANT_C =
+-include ./beken378/func/wpa_supplicant_2_9/supplicant_lib_src.mk
+
+SRC_UART_DEBUG_C =
+-include ./beken378/func/uart_debug/uart_debug_lib_src.mk
+
+SRC_RF_TEST_C =
+-include ./beken378/func/rf_test/rf_test_lib_src.mk
+
+SRC_RF_USE_C =
+-include ./beken378/func/rf_use/rf_use_lib_src.mk
+
+

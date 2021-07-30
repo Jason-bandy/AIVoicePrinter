@@ -255,6 +255,7 @@ enum
 #endif
 
 /* CMD_RF_HOLD_BIT_SET/_CLR*/
+#define RF_HOLD_RF_SLEEP_BIT                         (1 << 15)
 #define RF_HOLD_BY_USER_BIT                          (1 << 14)
 #define RF_HOLD_BY_BKREG_BIT                         (1 << 13)
 #define RF_HOLD_BY_ATE_BIT                           (1 << 12)
@@ -382,4 +383,7 @@ extern void sctrl_rf_ps_enable_clear(void);
 extern int sctrl_rf_ps_enabled(void);
 RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void);
 UINT8 sctrl_if_mcu_can_sleep(void);
+extern int bk_misc_wakeup_get_gpio_num(void);
+extern UINT32 sctrl_get_deep_sleep_gpio_floating_map(void);
+
 #endif // _SCTRL_PUB_H_

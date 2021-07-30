@@ -4,10 +4,7 @@ $(NAME)_TYPE := kernel
 
 -include $(SOURCE_ROOT)/platform/mcu/$(HOST_MCU_FAMILY)/.config
 
-WPA_VERSION := wpa_supplicant-2.9
-ifeq ($(CFG_USE_WPA_29),0)
-WPA_VERSION := hostapd-2.5
-endif
+WPA_VERSION := wpa_supplicant_2_9
 
 $(NAME)_INCLUDES := ke \
 					mac \
