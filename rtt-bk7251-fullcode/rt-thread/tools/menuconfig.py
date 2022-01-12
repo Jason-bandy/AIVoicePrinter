@@ -21,6 +21,8 @@
 # Date           Author       Notes
 # 2017-12-29     Bernard      The first version
 
+from __future__ import print_function
+
 import os
 
 # make rtconfig.h from .config

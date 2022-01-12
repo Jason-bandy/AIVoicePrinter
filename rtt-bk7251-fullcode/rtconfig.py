@@ -1,3 +1,4 @@
+from __future__ import print_function
 import os
 
 # toolchains options
@@ -10,20 +11,23 @@ if os.getenv('RTT_ROOT'):
 else:
     RTT_ROOT = os.path.join(os.path.normpath(os.getcwd()), 'rt-thread')
 
-print 'RTT_ROOT is: %s' %(RTT_ROOT)
+print('RTT_ROOT is: %s' % RTT_ROOT)
 
 if os.getenv('RTT_CC'):
     CROSS_TOOL = os.getenv('RTT_CC')
 
+print('CROSS_TOOL is: %s' % CROSS_TOOL)
 if  CROSS_TOOL == 'gcc':
     PLATFORM    = 'gcc'
-    EXEC_PATH   = r'/home/gcc-arm-none-eabi-5_4-2016q3/bin'
+    EXEC_PATH   = r'/opt/gcc-arm-none-eabi-5_4-2016q3/bin'
 else:
-    print 'Please make sure your toolchains is GNU GCC!'
+    print('Please make sure your toolchains is GNU GCC!')
     exit(0)
 
 if os.getenv('RTT_EXEC_PATH'):
     EXEC_PATH = os.getenv('RTT_EXEC_PATH')
+
+print('EXEC_PATH is: %s' % EXEC_PATH)
 
 BUILD = 'release'
 # BUILD = 'debug'

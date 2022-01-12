@@ -24,6 +24,8 @@
 #                             group definition.
 #
 
+from __future__ import print_function
+
 import os
 import sys
 import string
@@ -83,7 +85,7 @@ class Win32Spawn:
                 try:
                     os.remove(f)
                 except Exception as e:
-                    print 'Error removing file: %s' % e
+                    print('Error removing file: %s' % e)
                     return -1
             return 0
 
@@ -104,8 +106,8 @@ class Win32Spawn:
         try:
             proc = subprocess.Popen(cmdline, env=_e, shell=False)
         except Exception as e:
-            print 'Error in calling:\n%s' % cmdline
-            print 'Exception: %s: %s' % (e, os.strerror(e.errno))
+            print('Error in calling:\n%s' % cmdline)
+            print('Exception: %s: %s' % (e, os.strerror(e.errno)))
             return e.errno
         finally:
             os.environ['PATH'] = old_path
@@ -141,10 +143,10 @@ def GenCconfigFile(env, BuildOptions):
 def DoSystemCall(command_string):
     result = os.system(command_string)
     if (result>>8) != 0:
-        print 'system(%s) error!' % command_string
+        print('system(%s) error!' % command_string)
         exit (1)
     else:
-        print 'system(%s) succeed' % command_string
+        print('system(%s) succeed' % command_string)
 
 def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = []):
     import rtconfig
@@ -377,7 +379,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
         # --target will change the toolchain settings which clang-analyzer is
         # depend on
         if GetOption('clang-analyzer'):
-            print '--clang-analyzer cannot be used with --target'
+            print('--clang-analyzer cannot be used with --target')
             sys.exit(1)
 
         SetOption('no_exec', 1)
@@ -387,8 +389,8 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             os.environ['RTT_CC'] = rtconfig.CROSS_TOOL
             reload(rtconfig)
         except KeyError:
-            print 'Unknow target: %s. Avaible targets: %s' % \
-                    (tgt_name, ', '.join(tgt_dict.keys()))
+            print('Unknow target: %s. Avaible targets: %s' % \
+                    (tgt_name, ', '.join(tgt_dict.keys())))
             sys.exit(1)
     elif (GetDepend('RT_USING_NEWLIB') == False and GetDepend('RT_USING_NOLIBC') == False) \
         and rtconfig.PLATFORM == 'gcc':
@@ -732,7 +734,7 @@ def DefineGroup(name, src, depend, **parameters):
     if GetOption('cleanlib') and (GetOption('cleanlib') == name):
         fn = os.path.join(group['path'], GroupLibFullName(name, Env))
         if os.path.exists(fn) and (group['src'] != []):
-            print 'Remove library:', GroupLibFullName(name, Env)
+            print('Remove library:', GroupLibFullName(name, Env))
             os.unlink(fn)
 
     # check whether exist group library
@@ -806,7 +808,7 @@ def BuildLibInstallAction(target, source, env):
                 dst_name = os.path.join(Group['path'], Group['LIBNAME'])
             else:
                 dst_name = os.path.join(Group['path'], lib_name)
-            print 'Copy %s => %s' % (lib_name, dst_name)
+            print('Copy %s => %s' % (lib_name, dst_name))
             do_copy_file(lib_name, dst_name)
             break
 
@@ -848,7 +850,7 @@ def DoBuilding(env, target, objects):
         # build library with special component
         for Group in Projects:
             if Group['name'] == lib_name:
-                print 'buildlib %s ' % lib_name
+                print('buildlib %s ' % lib_name)
                 lib_name = GroupLibName(Group['name'], Env)
                 if not local_group(Group, objects):
                     objects = Env.Object(Group['src'])
@@ -867,11 +869,11 @@ def DoBuilding(env, target, objects):
                     if Group.has_key('LIBNAME'):
                         dst_name = os.path.join(Group['path'], Group['LIBNAME'])
                         if os.path.exists(dst_name):
-                            print 'Remove library: %s' % dst_name
+                            print('Remove library: %s' % dst_name)
                             os.unlink(dst_name)
                     dst_name = GroupLibFullName(Group['name'], env)
                     if os.path.exists(dst_name):
-                        print 'Remove library: %s' % dst_name
+                        print('Remove library: %s' % dst_name)
                         os.unlink(dst_name)
                 break
     else:
@@ -910,7 +912,7 @@ def GenTargetProject(program = None):
                 if template:
                     MDK5Project('project.uvprojx', Projects)
                 else:
-                    print 'No template project file found.'
+                    print('No template project file found.')
 
     if GetOption('target') == 'mdk4':
         from keil import MDK4Project
@@ -984,7 +986,7 @@ def EndBuilding(target, program = None):
 
     if not GetOption('help') and not GetOption('target'):
         if not os.path.exists(rtconfig.EXEC_PATH):
-            print "Error: the toolchain path (%s) is not exist, please check 'EXEC_PATH' in path or rtconfig.py." % rtconfig.EXEC_PATH
+            print("Error: the toolchain path (%s) is not exist, please check 'EXEC_PATH' in path or rtconfig.py." % rtconfig.EXEC_PATH)
             need_exit = True
 
     if need_exit:

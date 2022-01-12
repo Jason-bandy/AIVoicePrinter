@@ -8,6 +8,7 @@ selection method.
 
 __revision__ = "tools/clang-analyze.py 2013-09-06 grissiom"
 
+from __future__ import print_function
 import os
 import os.path
 
@@ -53,9 +54,7 @@ def generate(env):
 
     if rtconfig.EXEC_PATH:
         if not os.path.exists(rtconfig.EXEC_PATH):
-            print
-            print 'warning: rtconfig.EXEC_PATH(%s) does not exists.' % rtconfig.EXEC_PATH
-            print
+            print('warning: rtconfig.EXEC_PATH(%s) does not exists.' % rtconfig.EXEC_PATH)
             return
         env.AppendENVPath('PATH', rtconfig.EXEC_PATH)
 

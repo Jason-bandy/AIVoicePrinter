@@ -32,7 +32,7 @@ wizard.py - a script to generate SConscript in RT-Thread RTOS.
 `wizard --bridge' to generate SConscript as a bridge to connect each 
 SConscript script file of sub-directory. 
 """
-
+from __future__ import print_function
 import sys
 
 SConscript_com = '''# RT-Thread building script for component
@@ -66,18 +66,18 @@ Return('objs')
 '''
 
 def usage():
-    print 'wizard --component name'
-    print 'wizard --bridge'
+    print('wizard --component name')
+    print('wizard --bridge')
 
 def gen_component(name):
-    print 'generate SConscript for ' + name
+    print('generate SConscript for ' + name)
     text = SConscript_com.replace('COMPONENT_NAME', name)
     f = file('SConscript', 'w')
     f.write(text)
     f.close()
 
 def gen_bridge():
-    print 'generate SConscript for bridge'
+    print('generate SConscript for bridge')
     f = file('SConscript', 'w')
     f.write(SConscript_bridge)
     f.close()
