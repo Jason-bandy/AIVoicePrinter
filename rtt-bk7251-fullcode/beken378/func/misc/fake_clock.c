@@ -28,8 +28,6 @@ static CAL_TICK_T cal_tick_save;
 UINT32 use_cal_net = 0;
 
 extern void mcu_ps_increase_clr(void);
-extern uint32_t preempt_delayed_schedule_get_flag(void);
-extern void preempt_delayed_schedule_clear_flag(void);
 static inline UINT64 fclk_freertos_get_tick64(void);
 
 #if (CFG_OS_FREERTOS)
@@ -101,16 +99,10 @@ void fclk_hdl(UINT8 param)
 #if (CFG_TASK_WDG_ENABLED)
         task_watchdog_timeout_check();
 #endif
-    
-    if((xTaskIncrementTick() != pdFALSE) 
-			|| preempt_delayed_schedule_get_flag())
-    {
-    	preempt_delayed_schedule_clear_flag();
-		
-        /* Select a new task to run. */
-        vTaskSwitchContext();
-    }
-    GLOBAL_INT_RESTORE();
+	if (xTaskIncrementTick() != pdFALSE) {
+		vTaskSwitchContext();
+	}
+	GLOBAL_INT_RESTORE();
 #endif
 
 #if (CFG_SUPPORT_ALIOS)

@@ -21,6 +21,7 @@ enum
     SARADC_CMD_SET_BYPASS_CALIB,
     SARADC_CMD_PAUSE,
     SARADC_CMD_RESUME,
+    SARADC_CMD_RECALI,
 };
 
 typedef enum

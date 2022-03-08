@@ -9,6 +9,7 @@ src += ["bk7231U_cal.c"]
 src += ["bk7231N_cal.c"]
 src += ["bk7221U_cal.c"]
 src += ["manual_cal_bk7231U.c"]
+src += ["chip_support.c"]
 
 path = []
 path += [cwd + '/']

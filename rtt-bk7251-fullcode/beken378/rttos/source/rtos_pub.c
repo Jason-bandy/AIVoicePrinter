@@ -513,19 +513,69 @@ void rtos_deinit_free_beken_timer(rt_timer_t t)
     ((beken2_timer_t *)(t->user_timer))->beken_magic = 0;
 }
 
-OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer )
-{
-	OSStatus ret = kNoErr;
-    register rt_base_t level;
-    RTOS_DBG("delete oneshot_timer %x\n",timer->handle);
 
-    /* disable interrupt */
-    level = rt_hw_interrupt_disable();
+static BOOL os_timer_callback_is_processing(rt_timer_t os_timer)
+{
+    return !!(os_timer->parent.flag & RT_TIMER_FLAG_RUNNING);
+}
+
+static void wait_os_timer_callback_processing_completed(rt_timer_t os_timer)
+{
+    do {
+        if (!os_timer)
+            return;
+
+        if (rt_timer_in_timer_task()) {
+            rt_kprintf("delete timer in timer context, skip waiting\n");
+            break;
+        }
+
+        if (platform_is_in_interrupt_context()) {
+            rt_kprintf("delete timer in interrupt, potential bugs!!!\n");
+            break;
+        }
+
+        uint32_t delay_cnt = 0;
+        
+        while (os_timer_callback_is_processing(os_timer)) {
+            rtos_delay_milliseconds(10);
+            delay_cnt ++;
+            if ((delay_cnt % 100) == 0) {
+                rt_kprintf("timer=%p waiting for deleted %u\n", os_timer, delay_cnt);
+            }
+
+            if (delay_cnt > 500) {
+                rt_kprintf("timer=%p not deleted for 5 seconds, stop waiting\n", os_timer);
+                break;
+            }
+        }
+    }while(0);
+}
+
+static OSStatus deinit_oneshot_timer( beken2_timer_t* timer, BOOL blocked)
+{
+    OSStatus ret = kNoErr;
+    register rt_base_t level;
     rt_timer_t os_timer = (rt_timer_t)(timer->handle);
 
-    if(os_timer->parent.flag & RT_TIMER_FLAG_RUNNING)
+    RTOS_DBG("delete oneshot_timer %x\n",timer->handle);
+
+    if (!os_timer)
+        return RT_EOK;
+
+    level = rt_hw_interrupt_disable();
+
+    //Mark os timer pending to prevent calling callback
+    os_timer->parent.flag |= RT_TIMER_FLAG_FREE_PENDING;
+
+    if (blocked && os_timer_callback_is_processing(os_timer)) {
+        rt_hw_interrupt_enable(level);
+        wait_os_timer_callback_processing_completed(os_timer);
+        level = rt_hw_interrupt_disable();
+    }
+
+    if(os_timer_callback_is_processing(os_timer))
     {
-        os_timer->parent.flag |= RT_TIMER_FLAG_FREE_PENDING;
         RTOS_DBG("==========running ,set free pending\r\n");
 
         timer->handle = 0;
@@ -541,18 +591,28 @@ OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer )
     {
         ret = RT_ERROR;
     }
-	else
-	{
-		timer->handle = 0;
-		timer->function = 0;
-		timer->left_arg = 0;
-		timer->right_arg = 0;
-		timer->beken_magic = 0;
-	}
+    else
+    {
+        timer->handle = 0;
+        timer->function = 0;
+        timer->left_arg = 0;
+        timer->right_arg = 0;
+        timer->beken_magic = 0;
+    }
     /* enable interrupt */
     rt_hw_interrupt_enable(level);
 
     return ret;
+}
+
+OSStatus rtos_deinit_oneshot_timer_block( beken2_timer_t* timer )
+{
+	return deinit_oneshot_timer(timer, true);
+}
+
+OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer )
+{
+	return deinit_oneshot_timer(timer, false);
 }
 
 static void timer_period_callback(void* parameter)
@@ -684,23 +744,64 @@ OSStatus rtos_init_timer_ex( beken_timer_t* timer, const char* name, uint32_t ti
     return ret;
 }
 
-OSStatus rtos_deinit_timer( beken_timer_t* timer )
+static OSStatus deinit_timer( beken_timer_t* timer, BOOL blocked)
 {
-	OSStatus ret = kNoErr;
+    OSStatus ret = kNoErr;
+    register rt_base_t level;
+    rt_timer_t os_timer = (rt_timer_t)(timer->handle);
 
-    RTOS_DBG("delete period_timer \n");
+    RTOS_DBG("delete oneshot_timer %x\n",timer->handle);
+
+    if (!os_timer)
+        return RT_EOK;
+
+    level = rt_hw_interrupt_disable();
+
+    //Mark os timer pending to prevent calling callback
+    os_timer->parent.flag |= RT_TIMER_FLAG_FREE_PENDING;
+
+    if (blocked && os_timer_callback_is_processing(os_timer)) {
+        rt_hw_interrupt_enable(level);
+        wait_os_timer_callback_processing_completed(os_timer);
+        level = rt_hw_interrupt_disable();
+    }
+
+    if(os_timer_callback_is_processing(os_timer))
+    {
+        RTOS_DBG("==========running ,set free pending\r\n");
+
+        timer->handle = 0;
+
+        /* enable interrupt */
+        rt_hw_interrupt_enable(level);
+
+        return ret;
+    }
+
     if(rt_timer_delete((rt_timer_t)timer->handle) != RT_EOK)
     {
-        ret = kGeneralErr;
+        ret = RT_ERROR;
     }
-	else
-	{
-		timer->handle = 0;
-		timer->function = 0;
-		timer->arg      = 0;
-	}
+    else
+    {
+        timer->handle = 0;
+        timer->function = 0;
+        timer->arg      = 0;
+    }
+    /* enable interrupt */
+    rt_hw_interrupt_enable(level);
 
     return ret;
+}
+
+OSStatus rtos_deinit_timer_block( beken_timer_t* timer )
+{
+    return deinit_timer(timer, true);
+}
+
+OSStatus rtos_deinit_timer( beken_timer_t* timer )
+{
+    return deinit_timer(timer, false);
 }
 
 uint32_t rtos_get_timer_expiry_time( beken_timer_t* timer )

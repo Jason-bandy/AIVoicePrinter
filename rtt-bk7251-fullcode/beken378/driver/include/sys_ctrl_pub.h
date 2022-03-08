@@ -391,6 +391,6 @@ extern RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void);
 extern UINT8 sctrl_if_mcu_can_sleep(void);
 extern int bk_misc_wakeup_get_gpio_num(void);
 extern UINT32 sctrl_get_deep_sleep_gpio_floating_map(void);
-
+extern void sctrl_reboot_with_deep_sleep(UINT32 sleep_ms);
 #endif // _SCTRL_PUB_H_
 

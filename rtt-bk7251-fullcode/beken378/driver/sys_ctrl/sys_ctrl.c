@@ -520,6 +520,12 @@ void sctrl_init(void)
 
     sctrl_mac_ahb_slave_clock_enable();
     sctrl_rf_init();
+
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    param = REG_READ(SCTRL_SLEEP);
+    param |= BOOT_SKIP_ENABLE_BIT; //enable boot_skip for sctrl_reboot_with_deep_sleep on bk7231nl
+    REG_WRITE(SCTRL_SLEEP, param);
+#endif // (CFG_SOC_NAME == SOC_BK7231N)
 }
 
 void sctrl_exit(void)
@@ -2394,7 +2400,34 @@ UINT32 sctrl_get_deep_sleep_gpio_floating_map(void)
 	 return deep_sleep_gpio_floating_map;
 }
 
+void sctrl_reboot_with_deep_sleep(UINT32 sleep_ms)
+{
+    UINT32 reg;
 
+    sleep_ms = 32 * sleep_ms; //32000 * ms / 1000 = 32 * ms
+
+    reg = (sleep_ms >> 16)& 0xffff;                                          //'A'
+    REG_WRITE(SCTRL_ROSC_TIMER_H,reg);
+
+    reg = REG_READ(SCTRL_ROSC_TIMER);
+    reg |= ROSC_TIMER_INT_STATUS_BIT;                                       //'C'
+    REG_WRITE(SCTRL_ROSC_TIMER,reg);  //sys_ctrl : 0x47;
+
+    reg = REG_READ(SCTRL_ROSC_TIMER);
+    reg &= ~(ROSC_TIMER_PERIOD_MASK << ROSC_TIMER_PERIOD_POSI);
+    reg |= ((sleep_ms & ROSC_TIMER_PERIOD_MASK) << ROSC_TIMER_PERIOD_POSI);
+    REG_WRITE(SCTRL_ROSC_TIMER,reg);   //sys_ctrl : 0x47;                         //'D'
+
+    reg = REG_READ(SCTRL_ROSC_TIMER);
+    reg |= ROSC_TIMER_ENABLE_BIT;
+    REG_WRITE(SCTRL_ROSC_TIMER,reg);  //sys_ctrl : 0x47;                             //'B'
+
+    /* enter deep_sleep mode */
+    reg = REG_READ(SCTRL_SLEEP);
+    reg &= ~(SLEEP_MODE_MASK << SLEEP_MODE_POSI);
+    reg = reg | SLEEP_MODE_CFG_DEEP_WORD;
+    REG_WRITE(SCTRL_SLEEP, reg);
+}
 #endif
 
 #if (CFG_SOC_NAME != SOC_BK7231)

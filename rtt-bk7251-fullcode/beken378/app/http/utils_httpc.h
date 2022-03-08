@@ -55,7 +55,11 @@ typedef enum {
     HTTPCLIENT_HEAD
 } HTTPCLIENT_REQUEST_TYPE;
 
-#define HTTP_RESP_CONTENT_LEN   (256)
+#ifndef CFG_HTTP_RESP_CONTENT_LEN
+#define HTTP_RESP_CONTENT_LEN   (1024)
+#else
+#define HTTP_RESP_CONTENT_LEN   CFG_HTTP_RESP_CONTENT_LEN
+#endif
 
 
 /** @defgroup httpclient_struct Struct

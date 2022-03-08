@@ -62,6 +62,7 @@ typedef struct
 *******************************************************************************/
 extern void flash_init(void);
 extern void flash_exit(void);
+extern UINT8 flash_support_wide_voltage(void);
 extern UINT8 flash_get_line_mode(void);
 extern UINT32 flash_is_support_0x50h_cmd(void);
 extern UINT32 flash_register_bypass_cb(FUNC_2PARAM_CB cb);

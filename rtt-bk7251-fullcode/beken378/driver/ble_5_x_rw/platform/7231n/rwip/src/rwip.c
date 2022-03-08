@@ -522,15 +522,20 @@ void rwip_reset(void)
     GLOBAL_INT_RES();
 }
 
+extern void ble_set_ext_wkup(uint8_t enable);
+
 void rwip_schedule(void)
 {
     #if (BLE_EMB_PRESENT || BT_EMB_PRESENT)
     // If system is waking up, delay the handling up to the Bluetooth clock is available and corrected
-    if ((rwip_env.prevent_sleep & RW_WAKE_UP_ONGOING) == 0)
+    if ((rwip_env.prevent_sleep & (RW_WAKE_UP_ONGOING | RW_DEEP_SLEEP)) == 0)
     #endif // (BLE_EMB_PRESENT || BT_EMB_PRESENT)
     {
         // schedule all pending events
         kernel_event_schedule();
+    } else if (((rwip_env.prevent_sleep & RW_DEEP_SLEEP) == RW_DEEP_SLEEP)
+        && (!kernel_sleep_check())) {
+        ble_set_ext_wkup(1);
     }
 }
 

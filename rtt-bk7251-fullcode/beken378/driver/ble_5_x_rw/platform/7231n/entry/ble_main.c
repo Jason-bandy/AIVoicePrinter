@@ -538,6 +538,17 @@ void ble_dut_start(void)
 	ble_send_msg(BLE_DUT_START);
 }
 
+#define SYS_CTRL_BASE_ADDRESS		0x800000
+
+void ble_set_ext_wkup(uint8_t enable)
+{
+	if (enable) {
+		*(volatile unsigned int *)(SYS_CTRL_BASE_ADDRESS + 0xD * 4) |= 0x1 << 27;
+	} else {
+		*(volatile unsigned int *)(SYS_CTRL_BASE_ADDRESS + 0xD * 4) &= ~(0x1 << 27);
+	}
+}
+
 UINT32 ble_in_dut_mode(void)
 {
 	return (ble_dut_status == DUT_IDLE) ? 0 : 1;

@@ -49,4 +49,5 @@ $(NAME)_SOURCES += bk7231_cal.c \
                    bk7231U_cal.c \
                    bk7231N_cal.c \
                    bk7221U_cal.c \
-                   manual_cal_bk7231U.c
+                   manual_cal_bk7231U.c \
+                   chip_support.c

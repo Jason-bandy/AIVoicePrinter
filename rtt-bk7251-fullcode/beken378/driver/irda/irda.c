@@ -160,6 +160,15 @@ static void trng_active(UINT8 enable)
 {
 }
 
+void trng_read_delay(UINT32 time)
+{
+	volatile UINT32 i = 0;
+	for( i=0; i<time; i++){
+		;
+	}
+
+}
+
 static UINT32 trng_get_random(void)
 {
 	UINT32 reg, value;
@@ -168,6 +177,7 @@ static UINT32 trng_get_random(void)
 	reg |= TRNG_EN;
 	REG_WRITE(TRNG_CTRL, reg);
 
+	trng_read_delay(170000);
 	value = REG_READ(TRNG_DATA);
 
 	reg = REG_READ(TRNG_CTRL);

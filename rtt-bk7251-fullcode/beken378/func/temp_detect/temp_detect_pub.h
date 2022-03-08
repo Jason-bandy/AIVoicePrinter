@@ -30,9 +30,15 @@
 #endif
 
 #define ADC_TMEP_DETECT_INTVAL                      (15)  // 15s  how many second
+#if CFG_USE_TEMPERATURE_DETECT && CFG_USE_VOLTAGE_DETECT
+#define ADC_TMEP_DETECT_INTVAL_INIT                 (2)   // 2s
+#define ADC_TMEP_XTAL_INIT                          (60)  // 60s
+#define ADC_TMEP_DETECT_INTVAL_CHANGE               (60) // 2 mins
+#else
 #define ADC_TMEP_DETECT_INTVAL_INIT                 (1)   // 1s
 #define ADC_TMEP_XTAL_INIT                          (60)  // 60s
 #define ADC_TMEP_DETECT_INTVAL_CHANGE               (120) // 2 mins
+#endif
 
 #define ADC_TMEP_DIST_INTIAL_VAL                    (0)
 #if (CFG_SOC_NAME == SOC_BK7231)

@@ -61,6 +61,14 @@ typedef struct
     u8 mac_cnt;
 } airkiss_mac_t;
 
+typedef enum {
+	AK_RUNNING  = 0,
+	AK_EXITING_START,
+	AK_EXITING_STOP_TIMER,
+	AK_EXITING_FREE_RESOURCE,
+	AK_EXITED,
+} airkiss_state_t;
+
 extern uint32_t airkiss_is_at_its_context(void);
 
 #endif // _AIRKISS_MAIN_H_

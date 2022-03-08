@@ -497,6 +497,7 @@ OSStatus rtos_init_oneshot_timer( beken2_timer_t *timer,
 									void* larg, 
 									void* rarg );
 OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer );
+OSStatus rtos_deinit_oneshot_timer_block( beken2_timer_t* timer);
 OSStatus rtos_stop_oneshot_timer( beken2_timer_t* timer );
 BOOL rtos_is_oneshot_timer_running( beken2_timer_t* timer );
 OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer );
@@ -552,6 +553,7 @@ OSStatus rtos_reload_timer( beken_timer_t* timer );
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_deinit_timer( beken_timer_t* timer );
+OSStatus rtos_deinit_timer_block(beken_timer_t *timer);
 
 BOOL rtos_is_timer_running( beken_timer_t* timer );
 

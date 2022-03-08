@@ -37,6 +37,17 @@ typedef struct wlan_ssid {
 	uint8_t ssid_len;
 } wlan_ssid_t;
 
+typedef struct wlan_sta_vsie {
+	int frame;
+	uint8_t vsie[255];
+	uint8_t len;
+} wlan_sta_vsie_t;
+
+typedef struct wlan_ap_vsie {
+	uint8_t vsie[255];
+	uint8_t len;
+} wlan_ap_vsie_t;
+
 /**
  * @brief Wlan station configuration field definition
  */

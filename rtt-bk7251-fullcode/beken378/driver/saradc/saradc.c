@@ -8,6 +8,7 @@
 #include "gpio_pub.h"
 #include "uart_pub.h"
 #include "mcu_ps_pub.h"
+#include "temp_detect_pub.h"
 #include "sys_ctrl_pub.h"
 #include <string.h>
 
@@ -33,6 +34,8 @@ static DD_OPERATIONS saradc_op = {
 };
 
 static void saradc_int_clr(void);
+static void saradc_enable_icu_config(void);
+static void saradc_disable_icu_config(void);
 
 static void saradc_flush(void)
 {
@@ -258,7 +261,26 @@ static UINT32 saradc_open(UINT32 op_flag)
         | ((saradc_desc->filter & SARADC_ADC_FILTER_MASK)<< SARADC_ADC_FILTER_POSI);
     REG_WRITE(SARADC_ADC_CONFIG, config_value);
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    if (8 == saradc_desc->channel)
+    {
+        sat_config_value = SARADC_ADC_SAT_ENABLE
+            | ((0x03 & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
+    }
+    else if (ADC_VOLT_SENSER_CHANNEL == saradc_desc->channel)
+    {
+        sat_config_value = SARADC_ADC_SAT_ENABLE
+            | ((0x02 & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
+    }
+    else
+    {
+        sat_config_value = SARADC_ADC_SAT_ENABLE
+            | ((0x01 & SARADC_ADC_SAT_CTRL_MASK) << SARADC_ADC_SAT_CTRL_POSI);
+    }
+    REG_WRITE(SARADC_ADC_SATURATION_CFG, sat_config_value);
+    config_value = 1;
+    saradc_ctrl(SARADC_CMD_SET_BYPASS_CALIB, &config_value);
+#elif (CFG_SOC_NAME == SOC_BK7236)
     if (8 == saradc_desc->channel)
     {
         sat_config_value = SARADC_ADC_SAT_ENABLE
@@ -618,6 +640,30 @@ UINT32 saradc_check_accuracy(void)
 	return value;
 }
 
+static UINT32 saradc_recalibrate(void)
+{
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    UINT32 config_value;
+
+    /* calibrate saradc to avoid deviation after deepsleep */
+    saradc_enable_icu_config();
+    config_value = REG_READ(SARADC_ADC_CONFIG);
+    config_value |= SARADC_ADC_CHNL_EN;
+    REG_WRITE(SARADC_ADC_CONFIG, config_value);
+
+    config_value = REG_READ(SARADC_ADC_CTRL_CFG);
+    config_value |= SARADC_ADC_CALIB_TRIG;
+    REG_WRITE(SARADC_ADC_CTRL_CFG, config_value);
+
+    config_value = REG_READ(SARADC_ADC_CONFIG);
+    config_value &= ~SARADC_ADC_CHNL_EN;
+    REG_WRITE(SARADC_ADC_CONFIG, config_value);
+    saradc_disable_icu_config();
+#endif
+
+    return SARADC_SUCCESS;
+}
+
 static UINT32 saradc_ctrl(UINT32 cmd, void *param)
 {
 	UINT32 ret = SARADC_SUCCESS;
@@ -660,6 +706,9 @@ static UINT32 saradc_ctrl(UINT32 cmd, void *param)
         break;
     case SARADC_CMD_RESUME:
         ret = saradc_resume();
+        break;
+    case SARADC_CMD_RECALI:
+        ret = saradc_recalibrate();
         break;
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
     case SARADC_CMD_SET_BYPASS_CALIB:

@@ -89,6 +89,8 @@
 
 #define SARADC_ADC_CTRL_CFG             (SARADC_BASE + 2 * 4)
 #define SARADC_ADC_BYPASS_CALIB         (0x01UL << 10)
+#define SARADC_ADC_CALIB_DONE           (0x01UL << 9)
+#define SARADC_ADC_CALIB_TRIG           (0x01UL << 8)
 #define SARADC_ADC_STEADY_CTRL_POSI     (5)
 #define SARADC_ADC_STEADY_CTRL_MASK     (0x7)
 #define SARADC_ADC_ALMOST_CFG_POSI      (0)

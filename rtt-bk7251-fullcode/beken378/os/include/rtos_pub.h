@@ -73,12 +73,20 @@ typedef enum
     WAIT_FOR_ALL_EVENTS,
 } beken_event_flags_wait_option_t;
 
+typedef enum
+{
+	BEKEN_TIMER_INIT = 0,
+	BEKEN_TIMER_DELETING,
+	BEKEN_TIMER_DELETED,
+} beken_timer_state_t;
+
 typedef struct
 {
     void *          handle;
     timer_handler_t function;
     void *          arg;
-}beken_timer_t;
+	volatile beken_timer_state_t state;
+} beken_timer_t;
 
 typedef struct
 {
@@ -103,7 +111,8 @@ typedef struct
     timer_2handler_t function;
     void *          left_arg;
     void *          right_arg;
-	uint32_t        beken_magic;
+	volatile beken_timer_state_t state;
+	uint32_t        beken_magic;	
 }beken2_timer_t;
 
 typedef void (*beken_thread_function_t)( beken_thread_arg_t arg);
@@ -612,6 +621,7 @@ OSStatus rtos_init_oneshot_timer( beken2_timer_t *timer,
 									void* larg, 
 									void* rarg);
 OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer);
+OSStatus rtos_deinit_oneshot_timer_block( beken2_timer_t* timer);
 OSStatus rtos_stop_oneshot_timer( beken2_timer_t* timer);
 BOOL rtos_is_oneshot_timer_running( beken2_timer_t* timer);
 OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer);
@@ -667,6 +677,7 @@ OSStatus rtos_reload_timer( beken_timer_t* timer);
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_deinit_timer( beken_timer_t* timer);
+OSStatus rtos_deinit_timer_block(beken_timer_t *timer);
 
 
 /** @brief    Check if an RTOS timer is running

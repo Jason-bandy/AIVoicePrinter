@@ -171,7 +171,9 @@ static int bk_ble_gattc_cmp_evt_handler(kernel_msg_id_t const msgid,  struct bk_
 		bk_printf("[%s]\r\n",__FUNCTION__);
 		if (ble_event_notice)
 			ble_event_notice(BLE_5_TX_DONE, NULL);
-		app_ble_next_operation(conn_idx, status);
+	}
+	if( status ) {
+		bk_printf("[%s]conn_idx %d status:%d\r\n",__FUNCTION__,conn_idx,status);
 	}
 	return KERNEL_MSG_CONSUMED;
 }

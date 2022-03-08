@@ -568,7 +568,7 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
             } else {
                 os_memcpy(client_data->response_buf + count, data, client_data->response_buf_len - 1 - count);
                 client_data->response_buf[client_data->response_buf_len - 1] = '\0';
-                return HTTP_RETRIEVE_MORE_DATA;
+                return ERROR_NO_SUPPORT;//HTTP_RETRIEVE_MORE_DATA;http_ota_download will takes  HTTP_RETRIEVE_MORE_DATA as ota successful
             }
 
             max_len = HTTPCLIENT_MIN(HTTPCLIENT_CHUNK_SIZE - 1, client_data->response_buf_len - 1 - count);
@@ -693,6 +693,10 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
                 if (ret == ERROR_HTTP_CONN) {
                     return ret;
                 }
+            }
+            if(readLen==len)
+            {
+                readLen = 0;
             }
         } while (readLen);
         

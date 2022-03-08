@@ -18,17 +18,32 @@
 #define SCTRL_CHIP_ID                         (SCTRL_BASE + 00 * 4)
 #define CHIP_ID_DEFAULT                          (0x7111)
 #define CHIP_ID_BK7231N                          (0x7231C)
+#define CHIP_ID_BK7251                           (0x7221a)
+#define CHIP_ID_BK7231U                          (0x7231a)
 
 #define SCTRL_DEVICE_ID                       (SCTRL_BASE + 01 * 4)
-#define DEVICE_ID_MASK                           (0xFFFF0000) //as wangjian advised, only check high 16 bits
-#define DEVICE_ID_DEFAULT                        (0x20150414)
-#define DEVICE_ID_BK7231N_B                      (0x20521024)
-#define DEVICE_ID_BK7231N_C                      (0x20521025)
-#define DEVICE_ID_BK7231N_D                      (0x20521026)
-#define DEVICE_ID_BK7231N_E                      (0x20521027)
-#define DEVICE_ID_BK7231N_F                      (0x20521028)
-#define DEVICE_ID_BK7231N_N                      (0x20521010)
-#define DEVICE_ID_BK7231N_P                      (0x20A21020)
+#define DEVICE_ID_MASK                           (0xFFFF0000)
+
+//Device ID of BK7231N
+#define DEVICE_ID_DEFAULT                        (0x20150414) //UMC_TW
+#define DEVICE_ID_BK7231N_A                      (0x20521023) //UMC_TW
+#define DEVICE_ID_BK7231N_B                      (0x20521024) //UMC_TW
+#define DEVICE_ID_BK7231N_C                      (0x20521025) //UMC_TW
+#define DEVICE_ID_BK7231N_D                      (0x20521026) //UMC_TW
+#define DEVICE_ID_BK7231N_E                      (0x20521027) //UMC_TW
+#define DEVICE_ID_BK7231N_F                      (0x20521028) //UMC_TW
+#define DEVICE_ID_BK7231N_G                      (0x20521029) //UMC_TW
+#define DEVICE_ID_BK7231N_N                      (0x20521010) //UMC_XM
+#define DEVICE_ID_BK7231N_O                      (0x20521011) //UMC_XM
+
+#define DEVICE_ID_BK7231N_P                      (0x20A21020) //7231P_A, SMIC
+#define DEVICE_ID_BK7231N_P_B                    (0x20A21021) //7231P_B, SMIC
+
+//Device ID of BK7251
+#define DEVICE_ID_BK7251_A                       (0x18221020) //UMC_TW
+
+//Device ID of BK7231U
+#define DEVICE_ID_BK7231U_A                      (0x18521020) //UMC_TW
 
 #define SCTRL_CONTROL                         (SCTRL_BASE + 02 * 4)
 #if (CFG_SOC_NAME == SOC_BK7221U)
@@ -343,6 +358,7 @@
 #define PROCORE_DLY_POSI                            (20)
 #define PROCORE_DLY_MASK                            (0xF)
 #if (CFG_SOC_NAME == SOC_BK7231N)
+#define BOOT_SKIP_ENABLE_BIT                     (1 << 24)
 #define GPIO_SLEEP_SWITCH_BIT                    (1 << 19)
 #define DCO_PWD_SLEEP_BIT                        (1 << 17)
 #define FLASH_PWD_SLEEP_BIT                      (1 << 18)

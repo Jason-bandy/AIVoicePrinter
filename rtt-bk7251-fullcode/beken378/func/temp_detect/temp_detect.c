@@ -354,7 +354,11 @@ static void temp_detect_polling_handler(void)
     else
     {
 #if CFG_USE_VOLTAGE_DETECT
-        temp_detect_send_msg(VOLT_TIMER_POLL);
+        if (flash_support_wide_voltage()) {
+            temp_detect_send_msg(VOLT_TIMER_POLL);
+        } else {
+            rtos_reload_timer(&g_temp_detect_config.detect_timer);
+        }
         (void)err;
 #else
         err = rtos_reload_timer(&g_temp_detect_config.detect_timer);

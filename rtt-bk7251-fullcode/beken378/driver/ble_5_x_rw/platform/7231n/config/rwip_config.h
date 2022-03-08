@@ -659,25 +659,25 @@
 
 #if defined(CFG_RF_ATLAS)
 #define BLE_PHY_1MBPS_SUPPORT                       1
-#define BLE_PHY_2MBPS_SUPPORT                       1
+#define BLE_PHY_2MBPS_SUPPORT                       0 //7231n do not support 2M feature because of hardware issue
 #define BLE_PHY_CODED_SUPPORT                       1
 #define BLE_STABLE_MOD_IDX_TX_SUPPORT               0
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0
 #elif defined(CFG_RF_BTIPT)
 #define BLE_PHY_1MBPS_SUPPORT                       1
-#define BLE_PHY_2MBPS_SUPPORT                       1
+#define BLE_PHY_2MBPS_SUPPORT                       0//7231n do not support 2M feature because of hardware issue
 #define BLE_PHY_CODED_SUPPORT                       1
 #define BLE_STABLE_MOD_IDX_TX_SUPPORT               0
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0
 #elif defined(CFG_RF_EXTRC)
 #define BLE_PHY_1MBPS_SUPPORT                       1
-#define BLE_PHY_2MBPS_SUPPORT                       1
+#define BLE_PHY_2MBPS_SUPPORT                       0//7231n do not support 2M feature because of hardware issue
 #define BLE_PHY_CODED_SUPPORT                       1
 #define BLE_STABLE_MOD_IDX_TX_SUPPORT               0
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0
 #else // RIPPLE
 #define BLE_PHY_1MBPS_SUPPORT                       1
-#define BLE_PHY_2MBPS_SUPPORT                       1
+#define BLE_PHY_2MBPS_SUPPORT                       0//7231n do not support 2M feature because of hardware issue
 #define BLE_PHY_CODED_SUPPORT                       1
 #define BLE_STABLE_MOD_IDX_TX_SUPPORT               0
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0

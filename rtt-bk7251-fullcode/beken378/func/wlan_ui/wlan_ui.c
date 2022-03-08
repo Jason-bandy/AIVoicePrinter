@@ -136,7 +136,11 @@ void bk_wlan_connection_loss(void)
         {
             os_printf("bk_wlan_connection_loss vif:%d\r\n", p_vif_entry->index);
             sta_ip_down();
-            rw_msg_send_connection_loss_ind(p_vif_entry->index);
+            if(0 != rw_msg_send_connection_loss_ind(p_vif_entry->index))
+            {
+               bk_printf("rw_msg_send fail\r\n");
+            }
+
         }
         p_vif_entry = vif_mgmt_next(p_vif_entry);
     }
@@ -395,12 +399,26 @@ void bk_reboot(void)
     GLOBAL_INT_DISABLE();
 
     sddev_control(WDT_DEV_NAME, WCMD_POWER_DOWN, NULL);
-    os_printf("wdt reboot\r\n");
+
 #if (CFG_SOC_NAME == SOC_BK7231N)
-    delay_ms(100); //add delay for bk_writer BEKEN_DO_REBOOT cmd
+    /* workaround for wide_voltage/startup_slow flash with bk7231n */
+    if (flash_support_wide_voltage())
+    {
+        os_printf("deepsleep reboot\r\n");
+        delay_ms(10);
+
+        sctrl_reboot_with_deep_sleep(10);
+    }
+    else
 #endif
-    sddev_control(WDT_DEV_NAME, WCMD_SET_PERIOD, &wdt_val);
-    sddev_control(WDT_DEV_NAME, WCMD_POWER_UP, NULL);
+    {
+        os_printf("wdt reboot\r\n");
+#if (CFG_SOC_NAME == SOC_BK7231N)
+        delay_ms(100); //add delay for bk_writer BEKEN_DO_REBOOT cmd
+#endif
+        sddev_control(WDT_DEV_NAME, WCMD_SET_PERIOD, &wdt_val);
+        sddev_control(WDT_DEV_NAME, WCMD_POWER_UP, NULL);
+    }
     while(1);
     GLOBAL_INT_RESTORE();
 }
@@ -460,6 +478,13 @@ void bk_wlan_ap_init(network_InitTypeDef_st *inNetworkInitPara)
 #endif
             os_memcpy(g_ap_param_ptr->key, inNetworkInitPara->wifi_key, g_ap_param_ptr->key_len);
         }
+
+#if CFG_WIFI_AP_VSIE
+        /* Set Vendor Specific IE for Beacon/ProbeResp */
+        g_ap_param_ptr->vsie_len = inNetworkInitPara->vsie_len;
+        if (g_ap_param_ptr->vsie_len)
+            os_memcpy(g_ap_param_ptr->vsie, inNetworkInitPara->vsie, g_ap_param_ptr->vsie_len);
+#endif
 
         if(inNetworkInitPara->dhcp_mode == DHCP_SERVER)
         {
@@ -563,6 +588,8 @@ OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitParaAP)
 
 	/* restart lwip network */
     uap_ip_start();
+
+    sm_build_broadcast_deauthenticate();
 #endif
 
     return kNoErr;
@@ -869,6 +896,23 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 		os_memcpy(config.u.bssid, inNetworkInitPara->wifi_bssid, ETH_ALEN);
 		config.field = WLAN_STA_FIELD_BSSID;
 		wpa_ctrl_request(WPA_CTRL_CMD_STA_SET, &config);
+	}
+#endif
+
+#if CFG_WIFI_STA_VSIE
+	/* set vsie for probe req & assoc req */
+	if (inNetworkInitPara->vsie_len) {
+		wlan_sta_vsie_t vsie;
+
+		/* set probe request vendor IE */
+		vsie.frame = VENDOR_ELEM_PROBE_REQ;
+		vsie.len = inNetworkInitPara->vsie_len;
+		os_memcpy(vsie.vsie, inNetworkInitPara->vsie, vsie.len);
+		wlan_sta_set_vendor_ie(&vsie);
+
+		/* set assoc request vendor IE */
+		vsie.frame = VENDOR_ELEM_ASSOC_REQ;
+		wlan_sta_set_vendor_ie(&vsie);
 	}
 #endif
 
@@ -2106,7 +2150,7 @@ int bk_wlan_dtim_rf_ps_mode_do_wakeup()
 
 #if CFG_WIFI_P2P
 	if(bk_wlan_has_role(VIF_AP))
-		return 0;	
+		return 0;
 #endif
 
     void *sem_list = NULL;
@@ -2429,6 +2473,7 @@ int http_ota_download(const char *uri)
     os_memset(&http_content, 0, sizeof(HTTP_RESP_CONTENT_LEN));
     httpclient.header = "Accept: text/xml,text/html,\r\n";
     httpclient_data.response_buf = http_content;
+    httpclient_data.response_buf_len = HTTP_RESP_CONTENT_LEN;
     httpclient_data.response_content_len = HTTP_RESP_CONTENT_LEN;
     ret = httpclient_common(&httpclient,
                             uri,

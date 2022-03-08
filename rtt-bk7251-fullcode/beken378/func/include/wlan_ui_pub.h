@@ -152,6 +152,10 @@ typedef struct _network_InitTypeDef_st
     char reserved[26];
     int  wifi_retry_interval;     /**< Retry interval if an error is occured when connecting an access point,
                                      time unit is millisecond. */
+#if CFG_WIFI_STA_VSIE || CFG_WIFI_AP_VSIE
+    uint8_t vsie[255];			  /**< vendor specific IE for probe req/assoc req. */
+    uint8_t vsie_len;			  /**< vendor specific IE len. */
+#endif
 } network_InitTypeDef_st;
 
 /**
@@ -545,6 +549,7 @@ int wlan_ap_set(uint8_t *ssid, uint8_t ssid_len, uint8_t *psk);
 int wlan_sta_wps_pbc(void);
 int wlan_sta_wps_pin_get(wlan_sta_wps_pin_t *wps);
 int wlan_sta_wps_pin_set(wlan_sta_wps_pin_t *wps);
+int wlan_sta_set_vendor_ie(wlan_sta_vsie_t *vsie);
 int wlan_p2p_listen(void);
 int wlan_p2p_find(void);
 int wlan_p2p_stop_find(void);
@@ -557,6 +562,7 @@ int wlan_ap_enable(void);
 int wlan_ap_reload(void);
 int wlan_ap_sta_num(int *num);
 int wlan_ap_sta_info(wlan_ap_stas_t *stas);
+int wlan_ap_set_beacon_vsie(wlan_ap_vsie_t *vsie);
 int wlan_register_notifier(notify_func func, void *arg);
 int wlan_unregister_notifier(notify_func func, void *arg);
 #endif

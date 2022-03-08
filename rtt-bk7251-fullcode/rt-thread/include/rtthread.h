@@ -108,6 +108,7 @@ rt_err_t rt_timer_delete(rt_timer_t timer);
 rt_err_t rt_timer_start(rt_timer_t timer);
 rt_err_t rt_timer_stop(rt_timer_t timer);
 rt_err_t rt_timer_control(rt_timer_t timer, int cmd, void *arg);
+rt_bool_t rt_timer_in_timer_task(void);
 
 rt_tick_t rt_timer_next_timeout_tick(void);
 void rt_timer_check(void);

@@ -151,9 +151,10 @@ int wpa_intf_channel_switch(struct prism2_hostapd_param *param, int len)
     vif = vif_mgmt_get_entry(vif_id);
 
     ieee80211_freq_to_chan(freq, &chann);
+    os_printf("wpa csa ,chan %d -> %d\r\n",bk_wlan_ap_get_channel_config(), chann);
+
     if(chann == bk_wlan_ap_get_channel_config())
     {
-        os_printf("csa_over_same_channel\r\n");
         return -1;
     }
 

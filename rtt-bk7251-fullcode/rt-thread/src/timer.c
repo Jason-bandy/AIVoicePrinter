@@ -434,11 +434,11 @@ rt_err_t rt_timer_stop(rt_timer_t timer)
 
     _rt_timer_remove(timer);
 
-    /* enable interrupt */
-    rt_hw_interrupt_enable(level);
-
     /* change stat */
     timer->parent.flag &= ~RT_TIMER_FLAG_ACTIVATED;
+
+    /* enable interrupt */
+    rt_hw_interrupt_enable(level);
 
     return RT_EOK;
 }
@@ -567,13 +567,14 @@ void rt_soft_timer_check(void)
     rt_tick_t current_tick;
     rt_list_t *n;
     struct rt_timer *t;
+    register rt_base_t level;
 
     RT_DEBUG_LOG(RT_DEBUG_TIMER, ("software timer check enter\n"));
 
     current_tick = rt_tick_get();
 
     /* lock scheduler */
-    rt_enter_critical();
+    level = rt_hw_interrupt_disable();
 
     n = rt_soft_timer_list[RT_TIMER_SKIP_LIST_LEVEL - 1].next;
 
@@ -585,6 +586,7 @@ void rt_soft_timer_check(void)
          * It supposes that the new tick shall less than the half duration of
          * tick max.
          */
+        bool timer_is_stopped = false;
         if ((current_tick - t->timeout_tick) < RT_TICK_MAX / 2)
         {
             RT_OBJECT_HOOK_CALL(rt_timer_timeout_hook, (t));
@@ -595,8 +597,10 @@ void rt_soft_timer_check(void)
             /*set running*/
             t->parent.flag |= RT_TIMER_FLAG_RUNNING;
 
-            /* not lock scheduler when performing timeout function */
-            rt_exit_critical();
+            if (!(t->parent.flag & RT_TIMER_FLAG_ACTIVATED)) {
+                timer_is_stopped = true;
+            }
+            rt_hw_interrupt_enable(level);
 
             if(NULL == t->timeout_func)
             {
@@ -604,15 +608,16 @@ void rt_soft_timer_check(void)
             }
 
             /* call timeout function */
-            t->timeout_func(t->parameter);
+            if (timer_is_stopped == false) {
+                t->timeout_func(t->parameter);
+            }
 
             /* re-get tick */
             current_tick = rt_tick_get();
 
             RT_DEBUG_LOG(RT_DEBUG_TIMER, ("current tick: %d\n", current_tick));
 
-            /* lock scheduler */
-            rt_enter_critical();
+            level = rt_hw_interrupt_disable();
 
             /*clear running*/
             t->parent.flag &= ~RT_TIMER_FLAG_RUNNING;
@@ -642,7 +647,7 @@ void rt_soft_timer_check(void)
     }
 
     /* unlock scheduler */
-    rt_exit_critical();
+    rt_hw_interrupt_enable(level);
 
     RT_DEBUG_LOG(RT_DEBUG_TIMER, ("software timer check leave\n"));
 }
@@ -651,11 +656,15 @@ void rt_soft_timer_check(void)
 static void rt_thread_timer_entry(void *parameter)
 {
     rt_tick_t next_timeout;
+    register rt_base_t level;
 
     while (1)
     {
+        level = rt_hw_interrupt_disable();
         /* get the next timeout tick */
         next_timeout = rt_timer_list_next_timeout(rt_soft_timer_list);
+        rt_hw_interrupt_enable(level);
+
         if (next_timeout == RT_TICK_MAX)
         {
             /* no software timer exist, suspend self. */
@@ -730,4 +739,8 @@ void rt_system_timer_thread_init(void)
 #endif
 }
 
+rt_bool_t rt_timer_in_timer_task(void)
+{
+    return (&timer_thread == rt_thread_self());
+}
 /**@}*/

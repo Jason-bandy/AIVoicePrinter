@@ -54,6 +54,10 @@ typedef struct ap_param
     uint8_t cipher_suite;
     uint8_t key[65];
     uint8_t key_len;
+#if CFG_WIFI_AP_VSIE
+	uint8_t vsie[255];
+	uint8_t vsie_len;
+#endif
 } ap_param_t;
 
 typedef struct sta_param

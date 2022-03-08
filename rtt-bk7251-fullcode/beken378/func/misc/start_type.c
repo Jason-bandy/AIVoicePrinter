@@ -89,6 +89,11 @@ extern UINT32 sctrl_ctrl(UINT32 cmd, void *param);
             }
         }
     }
+    else if ((RESET_SOURCE_DEEPPS_RTC == start_type) && (RESET_SOURCE_REBOOT == misc_value))
+    {
+        /* adjust for deepsleep reboot */
+        start_type = RESET_SOURCE_REBOOT;
+    }
     //clear 
     sctrl_ctrl(CMD_SET_SCTRL_RETETION, &misc_value);
 

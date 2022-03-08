@@ -62,6 +62,10 @@
 /* WiFi Direct Support, CFG_WIFI_WPS must be enabled */
 #define CFG_WIFI_P2P                               0
 #define CFG_WIFI_P2P_GO                            0
+/* Vendor Specific IEs when STA Probe Req/Association Req*/
+#define CFG_WIFI_STA_VSIE                          0
+/* Vendor Specific IEs when AP Beacon  */
+#define CFG_WIFI_AP_VSIE                           0
 
 /* PMF */
 #define CFG_IEEE80211W                             0

@@ -28,12 +28,13 @@
 	.globl do_pabort
 	.globl do_dabort
 	.globl do_reserved
-    .globl bk_trap_udef
-    .globl bk_trap_pabt
-    .globl bk_trap_dabt
-    .globl bk_trap_resv
+	.globl bk_trap_udef
+	.globl bk_trap_pabt
+	.globl bk_trap_dabt
+	.globl bk_trap_resv
+	.globl preempt_delayed_schedule_handler
     
-    #include "sys_config.h"
+#include "sys_config.h"
 
 /* ========================================================================
  *                                Macros
@@ -187,15 +188,11 @@
 		
 	MRS		R0, SPSR
 	STMDB		r13!, {R0}
-	
-	LDR		R0, =ulCriticalNesting 
+
+	LDR		R0, =ulCriticalNesting
 	LDR		R0, [R0]
 	STMDB		r13!, {R0}
-	
-	LDR		R0, =pxCurrentTCB 
-	LDR		R0, [R0]
-	STMDB		r13!, {R0}
-		
+
 	SUB r13, r13, #4
 	
 11:
@@ -224,7 +221,7 @@
 	//Get the SPSR from the stack.
 	LDMFD	LR!, {R0}
 	MSR		SPSR_cxsf, R0
-		
+
 	//Restore all system mode registers for the task.
 	LDMFD	LR, {R0-R14}^
 	NOP
@@ -237,17 +234,13 @@
 	//correct address.
 	SUBS	PC, LR, #4
 	
-20:		
+20:
 	ADD r13, r13, #0x4
-	
-	LDR		R0, =pxCurrentTCB
-	LDMFD		r13!, {R1}
-	STR		R1, [R0]
-		
+
 	LDR		R0, =ulCriticalNesting
 	LDMFD		r13!, {R1}
 	STR		R1, [R0]
-	
+
 	LDMFD		r13!, {R0}
 	MSR		SPSR_cxsf, R0
 		
@@ -563,8 +556,8 @@ boot_reserved:
 
 		.align	5 
 do_swi:
-    LDMFD   SP!, {R0-R1}
-    B vPortYieldProcessor
+	LDMFD   SP!, {R0-R1}
+	B vPortYieldProcessor
 
 		.align	5
 boot_swi:
@@ -590,20 +583,22 @@ fiq_handler:
     
 		.align	5 
 do_irq:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	portSAVE_CONTEXT
 	LDR R0, =intc_irq
 	MOV LR, PC
 	BX R0
+	BLX preempt_delayed_schedule_handler
 	portRESTORE_CONTEXT
 	
 		.align	5    
 do_fiq:
-    LDMFD   SP!, {R0-R1}
+	LDMFD   SP!, {R0-R1}
 	portSAVE_CONTEXT
 	LDR R0, =intc_fiq
 	MOV LR, PC
 	BX R0
+	BLX preempt_delayed_schedule_handler
 	portRESTORE_CONTEXT 
 	
 /*Starting the first task is just a matter of restoring the context that*/
@@ -650,7 +645,7 @@ vPortYieldProcessor:
 	LDR R0, =vTaskSwitchContext
 	MOV LR, PC
 	BX R0
-	
+
 	portRESTORE_CONTEXT			//Restore the context of the selected task.
 	
     .code 32

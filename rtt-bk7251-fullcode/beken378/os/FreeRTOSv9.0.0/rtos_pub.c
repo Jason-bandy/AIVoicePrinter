@@ -360,12 +360,14 @@ void rtos_exit_critical(void)
 
 void rtos_lock_scheduling(void)
 {
-	vTaskSuspendAll();
+	if (platform_is_in_interrupt_context() != RTOS_SUCCESS)
+		vTaskSuspendAll();
 }
 
 void rtos_unlock_scheduling(void)
 {
-	xTaskResumeAll();
+	if (platform_is_in_interrupt_context() != RTOS_SUCCESS)
+		xTaskResumeAll();
 }
 
 OSStatus rtos_init_mutex(beken_mutex_t *mutex)
@@ -529,16 +531,29 @@ static void timer_callback2(xTimerHandle handle)
 
 	if (BEKEN_MAGIC_WORD != timer->beken_magic)
 		return;
-	if (timer->function)
+
+	if (timer->state == BEKEN_TIMER_DELETING) {
+		timer->state = BEKEN_TIMER_DELETED;
+		return;
+	}
+
+	if (timer->function) {
 		timer->function(timer->left_arg, timer->right_arg);
+	}
 }
 
 static void timer_callback1(xTimerHandle handle)
 {
 	beken_timer_t *timer = (beken_timer_t *) pvTimerGetTimerID(handle);
 
-	if (timer->function)
+	if (timer->state == BEKEN_TIMER_DELETING) {
+		timer->state = BEKEN_TIMER_DELETED;
+		return;
+	}
+
+	if (timer->function) {
 		timer->function(timer->arg);
+	}
 }
 
 OSStatus rtos_start_oneshot_timer(beken2_timer_t *timer)
@@ -558,7 +573,37 @@ OSStatus rtos_start_oneshot_timer(beken2_timer_t *timer)
 	return kNoErr;
 }
 
-OSStatus rtos_deinit_oneshot_timer(beken2_timer_t *timer)
+void rtos_beken_timer_delete_hook(xTimerHandle handle)
+{
+}
+
+#define WAIT_BEKEN_TIMER_DELETED(_ptimer) do {\
+	if (xTimerInTimerTask()) {\
+		os_printf("delete timer in timer context, skip waiting\n");\
+		break;\
+	}\
+\
+	if (platform_is_in_interrupt_context()) {\
+		os_printf("deleting timer in interrupt, potential bugs!!!\n");\
+		break;\
+	}\
+\
+	uint32_t delay_cnt = 0;\
+	while (_ptimer->state != BEKEN_TIMER_DELETED) {\
+		rtos_delay_milliseconds(10);\
+		delay_cnt ++;\
+		if ((delay_cnt % 100) == 0) {\
+			os_printf("timer=%p waiting for deleted %u\n", _ptimer, delay_cnt);\
+		}\
+\
+		if (delay_cnt > 500) {\
+			os_printf("timer=%p not deleted for 5 seconds, stop waiting\n", _ptimer);\
+			break;\
+		}\
+	}\
+}while(0);
+
+static OSStatus deinit_oneshot_timer(beken2_timer_t *timer, bool block)
 {
 	OSStatus ret = kNoErr;
 	GLOBAL_INT_DECLARATION();
@@ -567,6 +612,7 @@ OSStatus rtos_deinit_oneshot_timer(beken2_timer_t *timer)
 	if (xTimerDelete(timer->handle, BEKEN_WAIT_FOREVER) != pdPASS)
 		ret = kGeneralErr;
 	else {
+		timer->state = BEKEN_TIMER_DELETING;
 		timer->handle = 0;
 		timer->function = 0;
 		timer->left_arg = 0;
@@ -575,7 +621,21 @@ OSStatus rtos_deinit_oneshot_timer(beken2_timer_t *timer)
 	}
 	GLOBAL_INT_RESTORE();
 
+	if (block && (ret == kNoErr)) {
+		WAIT_BEKEN_TIMER_DELETED(timer);
+	}
+
 	return ret;
+}
+
+OSStatus rtos_deinit_oneshot_timer_block(beken2_timer_t *timer)
+{
+	return deinit_oneshot_timer(timer, true);
+}
+
+OSStatus rtos_deinit_oneshot_timer(beken2_timer_t *timer)
+{
+	return deinit_oneshot_timer(timer, false);
 }
 
 OSStatus rtos_stop_oneshot_timer(beken2_timer_t *timer)
@@ -638,6 +698,7 @@ OSStatus rtos_init_oneshot_timer(beken2_timer_t *timer,
 	timer->left_arg = larg;
 	timer->right_arg = rarg;
 	timer->beken_magic = BEKEN_MAGIC_WORD;
+	timer->state = BEKEN_TIMER_INIT;
 	timer->handle = _xTimerCreate("",
 								  (portTickType)(time_ms / ms_to_tick_ratio),
 								  pdFALSE,
@@ -663,6 +724,7 @@ OSStatus rtos_init_timer(beken_timer_t *timer,
 	GLOBAL_INT_DISABLE();
 	timer->function = function;
 	timer->arg      = arg;
+	timer->state = BEKEN_TIMER_INIT;
 
 	timer->handle = _xTimerCreate("",
 								  (portTickType)(time_ms / ms_to_tick_ratio),
@@ -750,19 +812,34 @@ OSStatus rtos_change_period(beken_timer_t *timer, uint32_t time_ms)
 
 }
 
-OSStatus rtos_deinit_timer(beken_timer_t *timer)
+static OSStatus deinit_timer(beken_timer_t *timer, bool block)
 {
 	OSStatus ret = kNoErr;
 	GLOBAL_INT_DECLARATION();
 
 	GLOBAL_INT_DISABLE();
-	if (xTimerDelete(timer->handle, BEKEN_WAIT_FOREVER) != pdPASS)
+	if (xTimerDelete(timer->handle, BEKEN_WAIT_FOREVER) != pdPASS) {
 		ret = kGeneralErr;
-	else
+	} else {
 		timer->handle = 0;
+		timer->state = BEKEN_TIMER_DELETING;
+	}
 	GLOBAL_INT_RESTORE();
 
+	if (block && (ret == kNoErr)) {
+		WAIT_BEKEN_TIMER_DELETED(timer);
+	}
+
 	return ret;
+}
+
+OSStatus rtos_deinit_timer_block(beken_timer_t *timer)
+{
+	return deinit_timer(timer, true);
+}
+OSStatus rtos_deinit_timer(beken_timer_t *timer)
+{
+	return deinit_timer(timer, false);
 }
 
 uint32_t beken_tick_ms(void)
