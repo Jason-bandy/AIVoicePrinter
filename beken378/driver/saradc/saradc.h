@@ -62,6 +62,8 @@
 #define SARADC_ADC_SAT_OVERFLOW         (0x01UL << 3)
 
 #define SARADC_ADC_DAT_AFTER_STA        (SARADC_BASE + 4 * 4)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#include "saradc_bk7238.h"
 #elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define SARADC_BASE                     (0x00802C00)
 #define SARADC_ADC_CONFIG               (SARADC_BASE + 0 * 4)
@@ -146,7 +148,4 @@
 /*******************************************************************************
 * Function Declarations
 *******************************************************************************/
-static UINT32 saradc_open(UINT32 op_flag);
-static UINT32 saradc_close(void);
-static UINT32 saradc_ctrl(UINT32 cmd, void *param);
 #endif //_SARADC_H_

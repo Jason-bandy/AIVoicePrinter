@@ -20,6 +20,7 @@
 #define CHIP_ID_BK7231N                          (0x7231C)
 #define CHIP_ID_BK7251                           (0x7221a)
 #define CHIP_ID_BK7231U                          (0x7231a)
+#define CHIP_ID_BK7238                           (0x7238)
 
 #define SCTRL_DEVICE_ID                       (SCTRL_BASE + 01 * 4)
 #define DEVICE_ID_MASK                           (0xFFFF0000)
@@ -44,6 +45,12 @@
 
 //Device ID of BK7231U
 #define DEVICE_ID_BK7231U_A                      (0x18521020) //UMC_TW
+
+//Device ID of BK7238
+#define DEVICE_ID_BK7238_MPW                     (0x21128000)
+
+//Device ID of BK7238
+#define DEVICE_ID_BK7238_A                       (0x22068000)
 
 #define SCTRL_CONTROL                         (SCTRL_BASE + 02 * 4)
 #if (CFG_SOC_NAME == SOC_BK7221U)
@@ -72,6 +79,15 @@
 #define FLASH_SCK_IOCAP_POSI                     (18)
 #define FLASH_SCK_IOCAP_MASK                     (0x3)
 #define BLE_RF_EN_BIT                            (1 << 15)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define BLE_RF_PTA_EN_BIT                        (1 << 24)
+#define EFUSE_VDD25_EN                           (1 << 23)
+#define FLASH_SPI_MUX_BIT                        (1 << 22)
+#define PWD_ARMCLK_IN_WFI_BIT                    (1 << 21)
+#define PWD_AHBCLK_IN_SLEEP_BIT                  (1 << 20)
+#define FLASH_SCK_IOCAP_POSI                     (18)
+#define FLASH_SCK_IOCAP_MASK                     (0x3)
+#define BLE_RF_EN_BIT                            (1 << 15)
 #endif // (CFG_SOC_NAME == SOC_BK7221U)
 #define DPLL_CLKDIV_RESET_BIT                    (1 << 14)
 #define SDIO_CLK_INVERT_BIT                      (1 << 13)
@@ -83,6 +99,7 @@
 
 #define MCLK_DIV_MASK                            (0x0F)
 #define MCLK_DIV_POSI                            (4)
+#define MCLK_DIV_0                               (0)
 #define MCLK_DIV_1                               (1)
 #define MCLK_DIV_2                               (2)
 #define MCLK_DIV_3                               (3)
@@ -117,7 +134,7 @@
 #endif // (CFG_SOC_NAME != SOC_BK7231)
 #define MAC_WAKEUP_ARM                           (1 << 7)
 #define MODEM_CORE_RESET_BIT                     (1 << 6)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define BOOT_MODE_BIT                            (1 << 9)
 #define MAC_SUBSYS_RESET_BIT                     (1 << 2)
 #else
@@ -172,7 +189,7 @@
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define ANA_SPI_STATE_POSI                       (0)
 #define ANA_SPI_STAET_MASK                       (0x1F)
-#elif (CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)
+#elif (CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7238)
 #define ANA_SPI_STATE_POSI                       (0)
 #define ANA_SPI_STAET_MASK                       (0x7F)
 #elif (CFG_SOC_NAME == SOC_BK7221U)
@@ -180,7 +197,7 @@
 #define ANA_SPI_STAET_MASK                       (0x7FF)
 #endif
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
 #define SCTRL_LA_SAMPLE                       (SCTRL_BASE + 18 * 4)
 #define LA_SMP_LEN_POSI                          (16)
 #define LA_SMP_LEN_MASK                          (0xFFFF)
@@ -195,7 +212,7 @@
 #endif
 
 #define SCTRL_ANALOG_CTRL0                    (SCTRL_BASE + 22 * 4)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define LPEN_DPLL                                (1 << 27)
 #endif
 #define SPI_TRIG_BIT                             (1 << 19)
@@ -217,6 +234,22 @@
 #define DCO_MSW_POSI                             (2)
 #define DCO_MSW_MASK                             (0x1FFU)
 #define DPLL_VREFSEL_BIT                         (1 << 1)
+#elif(CFG_SOC_NAME == SOC_BK7238)
+#define ROSC_TSTEN_BIT                           (1 << 31)
+#define DCO_TSTEN_BIT                            (1 << 30)
+#define DCO_DIV_POSI                             (27)
+#define DCO_DIV_MASK                             (0x7U)
+#define DCO_AMSEL_BIT                            (1 << 26)
+#define SPI_RST_BIT                              (1 << 25)
+#define DCO_CNTI_POSI                            (16)
+#define DCO_CNTI_MASK                            (0x1FFU)
+#define DCO_TRIG_BIT                             (1 << 15)
+#define DCO_ICTRL_POSI                           (11)
+#define DCO_ICTRL_MASK                           (0x7U)
+#define DCO_MSW_POSI                             (2)
+#define DCO_MSW_MASK                             (0x1FFU)
+#define ROSC_MODIFY_AUTO                         (1 << 1)
+#define ROSC_CALIB_AUTO                          (1 << 0)
 #else
 #define DIV_BYPASS_BIT                           (1 << 31)
 #define SPI_RST_BIT                              (1 << 25)
@@ -234,6 +267,14 @@
 #define XTALH_CTUNE_MASK                         (0x7FU)
 #define BANDGAP_CAL_MANUAL_POSI                  (23)
 #define BANDGAP_CAL_MANUAL_MASK                  (0x3FU)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define XTALH_CTUNE_POSI                         (1)
+#define XTALH_CTUNE_MASK                         (0xFFU)
+#define BANDGAP_CAL_MANUAL_POSI                  (23)
+#define BANDGAP_CAL_MANUAL_MASK                  (0x3FU)
+#define ROSC_CAL_MODE_BIT                        (1 << 14) //1:32K,0:31.25K
+#define ROSC_SPI_TRIG_BIT                        (1 << 12)
+#define VREF_SCALE_BIT                           (1 << 0)
 #elif (CFG_SOC_NAME != SOC_BK7231)
 #define XTALH_CTUNE_POSI                         (2)
 #define XTALH_CTUNE_MASK                         (0x3FU)
@@ -241,7 +282,11 @@
 #define TRXT_TST_ENABLE_BIT                      (1 << 12)
 
 #define SCTRL_ANALOG_CTRL3                    (SCTRL_BASE + 25 * 4)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7238)
+#define MANU_EN_32K                            (1 << 7)
+#define ANALOG_BUF_SEL_RX_BIT                  (1 << 10)
+#define AMPBIAS_OUTEN_BIT                      (1 << 11)
+#elif (CFG_SOC_NAME != SOC_BK7231N)
 #define CHARGE_LC2CVDLYLV_MASK                 (0x7)
 #define CHARGE_LC2CVDLYLV_POS                  (29)
 #define CHARGE_VLCSWLV_MASK                     (0xF)
@@ -260,10 +305,25 @@
 #define VREF_SEL_BIT                             (1 << 30)
 #define GADC_CAL_SEL_POSI                        (19)
 #define GADC_CAL_SEL_MASK                        (0x3)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define BGCAL_EN_BIT                             (1 << 31)
+#define VREF_SEL_BIT                             (1 << 30)
+#define GADC_CAL_SEL_POSI                        (24)
+#define GADC_CAL_SEL_MASK                        (0xF)
+#define ANALOG_BUF_SEL_TX_BIT                    (1 << 0)
 #else
 #endif
 
 #define SCTRL_ANALOG_CTRL5                    (SCTRL_BASE + 0x1B*4)
+#if (CFG_SOC_NAME == SOC_BK7238)
+#define ROSC_TRIG_EN_BIT                         (1 << 29)
+#define ROSC_CAL_XTAL_POSI                       (16)
+#define ROSC_CAL_XTAL_MASK                       (0xF)
+#define ROSC_CAL_MODIFY_INTVAL_POSI              (10)
+#define ROSC_CAL_MODIFY_INTVAL_MASK              (0x3F)
+#define ROSC_CAL_INTERVAL_POSI                   (0)
+#define ROSC_CAL_INTERVAL_MASK                   (0x3FF)
+#endif
 
 #if (CFG_SOC_NAME != SOC_BK7231)
 #define SCTRL_ANALOG_CTRL6                    (SCTRL_BASE + 0x1C*4)
@@ -338,7 +398,7 @@
 #define DAC_N_END_OUPT_R                         (1 << 7)
 #define DAC_VSEL_MASK                            (0x3)
 #define DAC_VSEL_POSI                            (1)
-#elif (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define SCTRL_ANALOG_STATE                    (SCTRL_BASE + 0x21*4)
 #define ANALOG_STATE_MASK                        (0xFF)
 #define ANALOG_STATE_POS                         (0)
@@ -362,6 +422,12 @@
 #define GPIO_SLEEP_SWITCH_BIT                    (1 << 19)
 #define DCO_PWD_SLEEP_BIT                        (1 << 17)
 #define FLASH_PWD_SLEEP_BIT                      (1 << 18)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define MEM_DS_FOR_LVSLEEP_BIT                   (1 << 25)
+#define BOOT_SKIP_BIT                            (1 << 24)
+#define GPIO_SLEEP_SWITCH_BIT                    (1 << 19)
+#define DCO_PWD_SLEEP_BIT                        (1 << 17)
+#define FLASH_PWD_SLEEP_BIT                      (1 << 18)
 #else
 #define DCO_PWD_SLEEP_BIT                        (1 << 18)
 #define FLASH_PWD_SLEEP_BIT                      (1 << 17)
@@ -374,10 +440,21 @@
 #define SLEEP_MODE_CFG_DEEP_WORD                 (0xADC1)
 
 #define SCTRL_DIGTAL_VDD                      (SCTRL_BASE + 66 * 4)
+#if (CFG_SOC_NAME == SOC_BK7238)
+#define AON_VDD_ACTIVE_POSI                      (12)
+#define AON_VDD_ACTIVE_MASK                      (0xF)
+#define AON_VDD_SLEEP_POSI                       (8)
+#define AON_VDD_SLEEP_MASK                       (0xF)
+#define DIG_VDD_ACTIVE_POSI                      (4)
+#define DIG_VDD_ACTIVE_MASK                      (0xF)
+#define DIG_VDD_SLEEP_POSI                       (0)
+#define DIG_VDD_SLEEP_MASK                       (0xF)
+#else
 #define DIG_VDD_ACTIVE_POSI                      (4)
 #define DIG_VDD_ACTIVE_MASK                      (0x7)
 #define DIG_VDD_SLEEP_POSI                       (0)
 #define DIG_VDD_SLEEP_MASK                       (0x7)
+#endif
 #define VDD_1_DOT_51                             (0x7)
 #define VDD_1_DOT_38                             (0x6)
 #define VDD_1_DOT_25                             (0x5)
@@ -408,7 +485,13 @@
 #define BLE_PWD_MASK                             (0xFFFF)
 #define BLE_PWD                                  (0xDB1E)
 #define BLE_PWU                                  (0x0001)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7238)
+/* write 0xd5e5 to power down dtcm(final 128KB) */
+#define MEM_PWD_POSI                             (0)
+#define MEM_PWD_MASK                             (0xFFFF)
+#define MEM_PWD                                  (0xD5E5)
+#define MEM_PWU                                  (0x0001)
+#elif (CFG_SOC_NAME != SOC_BK7231N)
 #define USB_PWD_POSI                             (0)
 #define USB_PWD_MASK                             (0xFFFF)
 #define USB_PWD                                  (0xD12B)
@@ -416,9 +499,17 @@
 #endif
 
 #define SCTRL_PMU_STATUS                      (SCTRL_BASE + 70 * 4)
+#if (CFG_SOC_NAME == SOC_BK7231N)
+#define PMU_BLE_POWER_DOWN_BIT                   (1 << 4)
 #define PMU_MAC_POWER_DOWN_BIT                   (1 << 3)
 #define PMU_MODEM_POWER_DOWN_BIT                 (1 << 2)
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define PMU_BLE_POWER_DOWN_BIT                   (1 << 4)
+#define PMU_MAC_POWER_DOWN_BIT                   (1 << 3)
+#define PMU_MODEM_POWER_DOWN_BIT                 (1 << 2)
+#else
+#define PMU_MAC_POWER_DOWN_BIT                   (1 << 3)
+#define PMU_MODEM_POWER_DOWN_BIT                 (1 << 2)
 #define PMU_DSP_POWER_DOWN_BIT                   (1 << 1)
 #define PMU_USB_POWER_DOWN_BIT                   (1 << 0)
 #endif
@@ -436,7 +527,7 @@
 #define GPIO_WAKEUP_TYPE_POSITIVE_EDGE           (0)
 #define GPIO_WAKEUP_TYPE_NEGATIVE_EDGE           (1)
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
 #define SCTRL_USB_PLUG_WAKEUP                   (SCTRL_BASE + 78 * 4)
 #define USB_PLUG_IN_EN_BIT                      (1 << 0)
 #define USB_PLUG_OUT_EN_BIT                     (1 << 1)
@@ -444,7 +535,7 @@
 #define USB_PLUG_OUT_INT_BIT                    (1 << 3)
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define SCTRL_GPIO_WAKEUP_TYPE_SELECT           (SCTRL_BASE + 78 * 4)
 #else
 #define SCTRL_GPIO_WAKEUP_EN1                  (SCTRL_BASE + 81 * 4)
@@ -502,7 +593,7 @@ enum
 #define BLK_EN_MIC_L_CHANNEL                     (1 << 17)
 #define BLK_EN_AUDIO_R_CHANNEL                   (1 << 16)
 #define BLK_EN_AUDIO_L_CHANNEL                   (1 << 15)
-#elif (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N)
+#elif (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define BLK_EN_NC                                (1 << 19)
 #define BLK_EN_MIC_QSPI_RAM_OR_FLASH             (1 << 18)
 #define BLK_EN_MIC_PGA                           (1 << 17)
@@ -541,6 +632,7 @@ enum
 
 
 #define SCTRL_ROSC_CAL                        (SCTRL_BASE + 77 * 4)
+#if (CFG_SOC_NAME != SOC_BK7238)
 #define ROSC_CAL_MANU_FIN_POSI                   (22)
 #define ROSC_CAL_MANU_FIN_MASK                   (0x1FF)
 #define ROSC_CAL_MANU_CIN_POSI                   (17)
@@ -551,6 +643,7 @@ enum
 #define ROSC_CAL_MODE_BIT                        (1 << 2)
 #define ROSC_CAL_TRIG_BIT                        (1 << 1)
 #define ROSC_CAL_EN_BIT                          (1 << 0)
+#endif
 
 #define SCTRL_BLOCK_EN_MUX						(SCTRL_BASE + 79 * 4)
 #define SCTRL_ROSC_TIMER_H		                (SCTRL_BASE + 80 * 4)
@@ -586,9 +679,16 @@ UINT32    int_enable_cfg;
 *******************************************************************************/
 extern UINT32 sctrl_ctrl(UINT32 cmd, void *parm);
 extern void sctrl_sub_reset(void);
+extern void sctrl_mclk_select(UINT32 mode,UINT32 div);
 
 #if CFG_USE_BLE_PS
 void sctrl_ble_ps_init(void);
+#endif
+
+#if (CFG_SOC_NAME == SOC_BK7238)
+void rosc_calib_manual_trigger(void);
+void rosc_calib_auto_trigger(uint32_t interval);
+void rosc_calib_auto_trigger_disable(void);
 #endif
 #endif // _SCTRL_H_
 // eof

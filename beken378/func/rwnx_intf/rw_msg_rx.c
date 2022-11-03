@@ -30,10 +30,12 @@
 #endif
 #include "rxu_task.h"
 #include "main_none.h"
-#include "sys_ctrl_pub.h"
+#include "power_save_pub.h"
 #include "ate_app.h"
 #include "scanu.h"
 #include "rwnx_defs.h"
+#include "low_voltage_ps.h"
+#include "phy_trident.h"
 
 uint32_t resultful_scan_cfm = 0;
 uint8_t *ind_buf_ptr = 0;
@@ -63,6 +65,10 @@ extern UINT32 sctrl_ctrl(UINT32 cmd, void *param);
 extern int get_security_type_from_ie(u8 *, int, u16);
 extern void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate);
 extern void bk7011_default_rxsens_setting(void);
+#if CFG_WPA_CTRL_IFACE
+extern int wpa_is_scan_only();
+int wlan_get_bss_beacon_ies(struct wpabuf *buf, const u8 *bcn_ie, int ie_len);
+#endif
 
 /* scan result malloc item */
 UINT8 *sr_malloc_result_item(UINT32 vies_len)
@@ -400,7 +406,10 @@ void mhdr_disconnect_ind(void *msg)
             mhdr_set_station_status(RW_EVT_STA_CONNECT_FAILED);
             break;
     }
-
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    lv_ps_clear_start_flag();
+    phy_exit_11b_low_power();
+#endif
 #if CFG_ROLE_LAUNCH
 	if(rl_sta_req_is_null())
 	{
@@ -453,9 +462,7 @@ void mhdr_assoc_ind(void *msg, UINT32 len)
 	}
 
 	mcu_prevent_clear(MCU_PS_CONNECT);
-
-    UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
-    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+	power_save_rf_hold_bit_clear(RF_HOLD_BY_CONNECT_BIT);
 }
 
 /* SM_AUTH_IND handler, send it to wpa_s */
@@ -496,7 +503,8 @@ void mhdr_connect_ind(void *msg, UINT32 len)
 	}
 #else
 	if (0 == conn_ind_ptr->status_code) {
-		os_printf("---------SM_CONNECT_IND_ok\n");
+		os_printf("---------SM_CONNECT_IND_ok, aid %d, bssid %pm\n",
+			conn_ind_ptr->aid, &conn_ind_ptr->bssid);
 
 		bk7011_default_rxsens_setting();
 
@@ -511,8 +519,7 @@ void mhdr_connect_ind(void *msg, UINT32 len)
 #endif
 
 	mcu_prevent_clear(MCU_PS_CONNECT);
-	UINT32 reg = RF_HOLD_BY_CONNECT_BIT;
-	sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+	power_save_rf_hold_bit_clear(RF_HOLD_BY_CONNECT_BIT);
 }
 
 #endif
@@ -520,11 +527,27 @@ void mhdr_connect_ind(void *msg, UINT32 len)
 /* RXU_MGT_IND handler, send it to wpa_s */
 void mhdr_mgmt_ind(void *msg, UINT32 len)
 {
-    struct ke_msg *msg_ptr = (struct ke_msg *)msg;
-    struct rxu_mgt_ind *ind = (struct rxu_mgt_ind *)msg_ptr->param;
+	struct ke_msg *msg_ptr = (struct ke_msg *)msg;
+	struct rxu_mgt_ind *ind = (struct rxu_mgt_ind *)msg_ptr->param;
 
 #if CFG_WPA_CTRL_IFACE
-	wpa_ctrl_event_copy(WPA_CTRL_EVENT_MGMT_IND, ind, sizeof(*ind) + ind->length);
+	if (ind->length > 24) {
+		struct ieee80211_mgmt *mgmt = (struct ieee80211_mgmt *)ind->payload;
+		u16 fc, stype;
+
+		fc = le_to_host16(mgmt->frame_control);
+		stype = WLAN_FC_GET_STYPE(fc);
+
+		#if !CONFIG_FILS
+		/* ignore FILS Discovery PA */
+		if (stype == WLAN_FC_STYPE_ACTION &&
+			mgmt->u.action.category == WLAN_ACTION_PUBLIC &&
+			mgmt->u.action.u.public_action.action == WLAN_PA_FILS_DISCOVERY)
+			return;
+		#endif
+
+		wpa_ctrl_event_copy(WPA_CTRL_EVENT_MGMT_IND, ind, sizeof(*ind) + ind->length);
+	}
 #else
 	/* FIXME: DON'T CALL IN RWNX_MSG THREAD */
 	union wpa_event_data data;
@@ -539,6 +562,17 @@ void mhdr_mgmt_ind(void *msg, UINT32 len)
 	//print_hex_dump("MGMT: ", ind->payload, ind->length);
 	if (wpa_s)
 		wpa_supplicant_event_sta(wpa_s, EVENT_RX_MGMT, &data);
+#endif
+}
+
+/* RXU_UNPROT_MGT_IND handler, send it to wpa_s */
+void mhdr_unprot_mgmt_ind(void *msg, UINT32 len)
+{
+    struct ke_msg *msg_ptr = (struct ke_msg *)msg;
+    struct rxu_unprot_mgt_ind *ind = (struct rxu_unprot_mgt_ind *)msg_ptr->param;
+
+#if CFG_WPA_CTRL_IFACE
+	wpa_ctrl_event_copy(WPA_CTRL_EVENT_UNPROT_MGMT_IND, ind, sizeof(*ind));
 #endif
 }
 
@@ -621,6 +655,13 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
     IEEE802_11_PROBE_RSP_PTR probe_rsp_ieee80211_ptr;
     char on_channel;
     int replace_index = -1;
+#if CFG_WPA_CTRL_IFACE
+    bool reduce_ie = false;
+    struct wpabuf *ies = 0;
+
+    if (wpa_is_scan_only())
+        reduce_ie = true;
+#endif
 
     ret = RW_SUCCESS;
     result_ptr = scan_rst;
@@ -691,6 +732,16 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
     }
     while(0);
 
+#if CFG_WPA_CTRL_IFACE
+    if (reduce_ie) {
+        ies = wpabuf_alloc(128);
+        if (!ies)
+            goto scan_rst_exit;
+        wlan_get_bss_beacon_ies(ies, (u8 *)(var_part_addr), vies_len);
+        item = (SCAN_RST_ITEM_PTR)sr_malloc_result_item(wpabuf_len(ies));
+        // os_printf("%s: %d-> %d\n", __func__, vies_len, wpabuf_len(ies));
+    } else
+#endif
     item = (SCAN_RST_ITEM_PTR)sr_malloc_result_item(vies_len);
     if (item == NULL)
         goto scan_rst_exit;
@@ -721,8 +772,17 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
 
     os_memcpy(item->tsf, probe_rsp_ieee80211_ptr->rsp.timestamp, 8);
 
-    item->ie_len = vies_len;
-    os_memcpy(item + 1, var_part_addr, vies_len);
+#if CFG_WPA_CTRL_IFACE
+    if (reduce_ie)
+    {
+        item->ie_len = wpabuf_len(ies);
+        os_memcpy(item + 1, wpabuf_head(ies), wpabuf_len(ies));
+    } else
+#endif
+    {
+        item->ie_len = vies_len;
+        os_memcpy(item + 1, var_part_addr, vies_len);
+    }
 
     item->security = get_security_type_from_ie((u8 *)var_part_addr, vies_len, item->caps);
 
@@ -738,6 +798,11 @@ UINT32 mhdr_scanu_result_ind(SCAN_RST_UPLOAD_T *scan_rst, void *msg, UINT32 len)
     }
 
 scan_rst_exit:
+#if CFG_WPA_CTRL_IFACE
+    if (ies)
+        wpabuf_free(ies);
+#endif
+
     return ret;
 }
 
@@ -754,17 +819,18 @@ int rwnx_get_noht_rssi_thresold(void)
 
 void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 {
-	UINT32 reg;
 	uint32_t param;
 	FUNC_1PARAM_PTR fn = bk_wlan_get_status_cb();
-
+#if CFG_WIFI_P2P
+	struct sm_disconnect_ind *disc;
+	disc = (struct sm_disconnect_ind *)rx_msg->param;
+#endif
 	switch (rx_msg->id) {
 
 	/**************************************************************************/
 	/*                          scan_hdlrs                                    */
 	/**************************************************************************/
 	case SCANU_START_CFM:/* scan complete */
-        reg = RF_HOLD_BY_SCAN_BIT;
 
 #if CFG_ROLE_LAUNCH
 		rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER);
@@ -776,7 +842,7 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		}
 
 		mhdr_scanu_start_cfm(rx_msg, &scan_rst_set_ptr);
-        sctrl_ctrl(CMD_RF_HOLD_BIT_CLR, &reg);
+		power_save_rf_hold_bit_clear(RF_HOLD_BY_SCAN_BIT);
 		break;
 
 	case SCANU_RESULT_IND:
@@ -838,6 +904,11 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		// STA mgmt: FIXME: AP may sends RXU_MGT_IND?
 		mhdr_mgmt_ind(rx_msg, rx_msg->param_len);
 		break;
+
+	case RXU_UNPROT_MGT_IND:
+		// FOR STA unprot disassociation/deauth
+		mhdr_unprot_mgmt_ind(rx_msg, rx_msg->param_len);
+		break;
 #endif
 
 	case SM_DISCONNECT_IND:
@@ -847,6 +918,13 @@ void rwnx_handle_recv_msg(struct ke_msg *rx_msg)
 		extern UINT32 rwnx_sys_is_enable_hw_tpc(void);
 		if (rwnx_sys_is_enable_hw_tpc() == 0)
 			rwnx_cal_set_txpwr(20, 11);
+#if CFG_WIFI_P2P
+		if (disc->is_p2p) {
+			param = RW_EVT_STA_DISCONNECTED;
+			if (fn)
+				(*fn)(&param);
+		}
+#endif
 
 #if CFG_ROLE_LAUNCH
 		rl_pre_sta_set_status(RL_STATUS_STA_LAUNCH_FAILED);

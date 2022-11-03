@@ -32,12 +32,24 @@ do
 	fi
 done
 
+# Current steps of building test build:
+# 1. Build all platform with default config
+#   1.1 build all libs, such as libip_bk7238_ble_sta
+#   1.1 remove internal files
+#   1.1 build with default config
+# 2. Build iperf/airkiss build
+#   2.1 build iper/airkiss with libs that generated in step1.1
+#
+# On step2.1 we need libip_7238_sta, build it here!
+./tools/scripts/generate_beken_libs.sh bk7238_no_ble
+
 for PLATFORM in ${PLATFORMS}
 do
 	./tools/scripts/generate_beken_libs.sh $PLATFORM
 	if [ $? != 0 ]; then
 		echo "make $PLATFORM libs fail"
 		exit 1
+
 	fi
 done
 

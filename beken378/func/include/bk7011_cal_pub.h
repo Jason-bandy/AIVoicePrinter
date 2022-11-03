@@ -16,6 +16,8 @@ typedef enum{
 #define DEFAULT_TXID_ID           (12345678)
 #if (CFG_SOC_NAME == SOC_BK7231N)
 #define DEFAULT_TXID_THERMAL      (330)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define DEFAULT_TXID_THERMAL      (255)
 #else
 #define DEFAULT_TXID_THERMAL      (280) //180430,7231:315,7231U:340
 #endif
@@ -95,7 +97,7 @@ typedef struct {
     INT8 p_index_delta_ble;
 } VOLT_PWR_ST, *VOLT_PWR_PTR;
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 typedef struct tmp_pwr_st {//do
     unsigned trx0x0c_12_15 : 4; //not used on BK7231N actually
     signed p_index_delta : 6;
@@ -136,10 +138,13 @@ typedef enum
     TEMPERATURE_TYPE_NORMAL,
     TEMPERATURE_TYPE_HIGH,
 } temperature_type;
+#define TEMPERATURE_LOW 0
+#define TEMPERATURE_HIGH 95
 
 
 extern void manual_cal_load_bandgap_calm(void);
 void bk7011_cal_vdddig_by_temperature(temperature_type new_temperature_type);
+void bk7011_update_by_temperature(INT16 temp_code, UINT16 cur_val);
 
 extern void calibration_main(void);
 extern INT32 rwnx_cal_load_trx_rcbekn_reg_val(void);
@@ -151,6 +156,8 @@ extern void bk7011_cal_bias(void);
 extern void bk7011_cal_bias_low_temprature(UINT8 low_temprature);
 extern void bk7011_cal_bias_high_temprature(UINT8 high_temprature);
 extern void bk7011_cal_dpll(void);
+extern void rwnx_cal_en_rx_filter_offset(void);
+extern void rwnx_cal_dis_rx_filter_offset(void);
 extern void rwnx_cal_set_txpwr(UINT32 pwr_gain, UINT32 grate);
 extern UINT32 manual_cal_get_pwr_idx_shift(UINT32 rate, UINT32 bandwidth, UINT32 *pwr_gain);
 extern int manual_cal_get_txpwr(UINT32 rate, UINT32 channel, UINT32 bandwidth, UINT32 *pwr_gain);
@@ -220,9 +227,13 @@ extern void rwnx_cal_set_txpwr_for_ble_boardcast(void);
 extern void bk7011_set_rf_config_tssithred_b(int tssi_thred_b);
 extern void bk7011_set_rf_config_tssithred_g(int tssi_thred_g);
 extern void rwnx_cal_recover_txpwr_for_wifi(void);
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 extern void rwnx_cal_recover_rf_setting(void);
 extern void rwnx_cal_recover_wifi_setting(void);
+extern UINT32 bk7011_get_power_gain(void);
+extern void bk7011_set_power_gain(UINT32 pwr_gain);
+extern void bk7011_set_second_pregain(UINT32 pwr_gain);
+extern int bk7011_find_power_index(UINT32 pwr_gain);
 #endif
 extern void rwnx_cal_initial_calibration(void);
 
@@ -257,6 +268,7 @@ extern UINT32 manual_cal_is_in_rftest_mode(void);
 
 extern void rwnx_cal_en_extra_txpa(void);
 extern void rwnx_cal_dis_extra_txpa(void);
+extern void rwnx_cal_set_pacapsw(int tx_mode);
 
 extern int manual_cal_save_cailmain_tx_tab_to_flash(void);
 extern int manual_cal_save_cailmain_rx_tab_to_flash(void);

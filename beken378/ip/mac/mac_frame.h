@@ -672,7 +672,8 @@ enum mac_ht_oper_prot_val
  */
 #define MAC_ACTION_CATEGORY_OFT           0
 #define MAC_ACTION_ACTION_OFT             1
-#define MAC_ACTION_TOKEN_OFT              2
+#define MAC_ACTION_INFO_OFT               2
+#define MAC_ACTION_TOKEN_OFT              MAC_ACTION_INFO_OFT
 #define MAC_ACTION_P2P_ACTION_OFT         5
 #define MAC_ACTION_P2P_TAGGED_OFT         7
 
@@ -1251,6 +1252,8 @@ enum
 /* ------------------------------------------------------------------------------------ *
  * ----------------- Spectrum & Power Management Frame Offset End --------------------- *
  * ------------------------------------------------------------------------------------ */
+#define MAC_ACTION_CHAN_SWITCH_ANNOUNCEMENT     4
+#define MAC_INFOELT_CHAN_SWITCH_OFT             2
 
 /*
 *---------------------------------------------------------------------------------------
@@ -1386,6 +1389,7 @@ enum
 #define MAC_ELTID_WIDE_BANDWIDTH_CHAN_SWITCH 194
 #define MAC_ELTID_VHT_TRANSMIT_PWR_ENVELOP   195
 #define MAC_ELTID_CHAN_SWITCH_WRP            196
+#define MAC_ELTID_FTM_PARAMS             206
 #define MAC_ELTID_OUI                    221 // Proprietary   (0xDD)
 
 #define MAC_OUI_TYPE_WPA                  1
@@ -1404,6 +1408,15 @@ enum
 #define MAC_OUI_PARAM_BE_PARAM_OFT       10
 #define MAC_OUI_PARAM_VI_PARAM_OFT       18
 #define MAC_OUI_PARAM_VO_PARAM_OFT       22
+
+// Extended Capabilities
+#define MAC_EXT_CAPA_ID_OFT                     0
+#define MAC_EXT_CAPA_LEN_OFT                    1
+#define MAC_EXT_CAPA_MIN_LEN                    3
+
+// Extended Capabilities values
+#define MAC_EXT_CAPA_FTM_RESPONDER_POS          70
+#define MAC_EXT_CAPA_FTM_INITIATOR_POS          71
 
 /*
  * STATUS CODE
@@ -1551,6 +1564,85 @@ enum
 #define MAC_RSNIE_AKM_OWE                     0x000FAC12
 
 // RSN CAPA
+
+
+/// Fine Timing Measurement Parameters (see IEEE Std 802.11-2016 Section 9.4.2.168)
+#define FTM_STATUS_INDICATION_OFT                     0
+#define FTM_STATUS_INDICATION_WIDTH                   2
+#define FTM_STATUS_INDICATION_SUCCESSFULL             1
+#define FTM_STATUS_INDICATION_REQ_INCAPABLE           2
+#define FTM_STATUS_INDICATION_REQ_FAILED              3
+
+#define FTM_VALUE_OFT                                 2
+#define FTM_VALUE_WIDTH                               5
+
+#define FTM_NB_BURSTS_EXP_OFT                         8
+#define FTM_NB_BURSTS_EXP_WIDTH                       4
+#define FTM_NB_BURSTS_EXP_ZERO                        0
+#define FTM_NB_BURSTS_EXP_ONE                         1
+#define FTM_NB_BURSTS_EXP_NO_PREFERENCE               15
+
+#define FTM_BURST_DURATION_OFT                        12
+#define FTM_BURST_DURATION_WIDTH                      4
+#define FTM_BURST_DURATION_250US                      2
+#define FTM_BURST_DURATION_500US                      3
+#define FTM_BURST_DURATION_1MS                        4
+#define FTM_BURST_DURATION_2MS                        5
+#define FTM_BURST_DURATION_4MS                        6
+#define FTM_BURST_DURATION_8MS                        7
+#define FTM_BURST_DURATION_16MS                       8
+#define FTM_BURST_DURATION_32MS                       9
+#define FTM_BURST_DURATION_64MS                       10
+#define FTM_BURST_DURATION_128MS                      11
+#define FTM_BURST_DURATION_NO_PREFERENCE              15
+
+#define FTM_MIN_DELTA_FTM_OFT                         16
+#define FTM_MIN_DELTA_FTM_WIDTH                       8
+#define FTM_MIN_DELTA_FTM_NO_PREFERENCE               0
+
+#define FTM_PARTIAL_TSF_TIMER_OFT                     24
+#define FTM_PARTIAL_TSF_TIMER_WIDTH                   16
+#define FTM_PARTIAL_TSF_TIMER_NO_PREFERENCE           0
+
+#define FTM_PARTIAL_TSF_TIMER_PREF_OFT                40
+#define FTM_PARTIAL_TSF_TIMER_PREF_WIDTH              1
+#define FTM_PARTIAL_TSF_TIMER_PREF_NO                 0
+#define FTM_PARTIAL_TSF_TIMER_PREF_YES                1
+
+#define FTM_ASAP_CAPABLE_OFT                          41
+#define FTM_ASAP_CAPABLE_WIDTH                        1
+#define FTM_ASAP_CAPABLE_YES                          1
+#define FTM_ASAP_CAPABLE_NO                           0
+
+#define FTM_ASAP_OFT                                  42
+#define FTM_ASAP_WIDTH                                1
+#define FTM_ASAP_YES                                  1
+#define FTM_ASAP_NO                                   0
+
+#define FTM_FTM_PER_BURST_OFT                         43
+#define FTM_FTM_PER_BURST_WIDTH                       5
+#define FTM_FTM_PER_BURST_NO_PREFERENCE               0
+
+#define FTM_FORMAT_BANDWITH_OFT                       50
+#define FTM_FORMAT_BANDWITH_WIDTH                     6
+#define FTM_FORMAT_BANDWITH_NO_PREFERENCE             0
+#define FTM_FORMAT_BANDWITH_NON_HT_5MHZ               4
+#define FTM_FORMAT_BANDWITH_NON_HT_10MHZ              6
+#define FTM_FORMAT_BANDWITH_NON_HT_20MHZ              8
+#define FTM_FORMAT_BANDWITH_HT_MIXED_20MHZ            9
+#define FTM_FORMAT_BANDWITH_VHT_20MHZ                 10
+#define FTM_FORMAT_BANDWITH_HT_MIXED_40MHZ            11
+#define FTM_FORMAT_BANDWITH_VHT_40MHZ                 12
+#define FTM_FORMAT_BANDWITH_VHT_80MHZ                 13
+#define FTM_FORMAT_BANDWITH_VHT_80_80MHZ              14
+#define FTM_FORMAT_BANDWITH_VHT_160MHZ_SEPARATE       15
+#define FTM_FORMAT_BANDWITH_VHT_160MHZ_SINGLE         16
+#define FTM_FORMAT_BANDWITH_DMG_2160MHZ               31
+
+#define FTM_FORMAT_BURST_PERIOD_OFT                   56
+#define FTM_FORMAT_BURST_PERIOD_WIDTH                 16
+#define FTM_FORMAT_BURST_PERIOD_NO_PREFERENCE         0
+
 
 /** @} */
 
@@ -1955,6 +2047,119 @@ __PACKED struct amsdu_hdr
 #define BA_FRM_LEN               (sizeof_b(struct ba_frame))
 
 
+/**
+ * @name FTM Frame definitions
+ * @{
+ ****************************************************************************************
+ */
+// Public Action Action field (see IEEE Std 802.11-2016 Section 9.6.8.1)
+/// Fine Timing Measurement Request
+#define FTM_MEAS_REQ               32
+/// Fine Timing Measurement
+#define FTM_MEAS                   33
+
+// Fine Timing Measurement Request frame format(see IEEE Std 802.11-2016 Section 9.6.8.32)
+/// Offset of the Trigger
+#define FTM_REQ_TRIGGER           (MAC_ACTION_INFO_OFT + 0)
+/// Offset of the FTM Parameters
+#define FTM_REQ_PARAMS            (MAC_ACTION_INFO_OFT + 1)
+
+// Fine Timing Measurement frame format (see IEEE Std 802.11-2016 Section 9.6.8.33)
+/// Offset of the Dialog Token
+#define FTM_MEAS_DIAG_TOKEN       (MAC_ACTION_INFO_OFT + 0)
+/// Offset of the Follow Up Dialog Token
+#define FTM_MEAS_FLW_DIAG_TOKEN   (MAC_ACTION_INFO_OFT + 1)
+/// Offset of the TOD
+#define FTM_MEAS_TOD              (MAC_ACTION_INFO_OFT + 2)
+/// Offset of the TOA
+#define FTM_MEAS_TOA              (MAC_ACTION_INFO_OFT + 8)
+/// Offset of the TOD error
+#define FTM_MEAS_TOD_ERR          (MAC_ACTION_INFO_OFT + 14)
+/// Offset of the TOA error
+#define FTM_MEAS_TOA_ERR          (MAC_ACTION_INFO_OFT + 16)
+/// Offset of the FTM params
+#define FTM_MEAS_PARAMS           (MAC_ACTION_INFO_OFT + 18)
+
+/// Length of the FTM parameters element
+#define MAC_FTM_PARAMS_LEN         (9)
+
+/// Fine Timing Measurement Parameters (see IEEE Std 802.11-2016 Section 9.4.2.168)
+#define FTM_STATUS_INDICATION_OFT                     0
+#define FTM_STATUS_INDICATION_WIDTH                   2
+#define FTM_STATUS_INDICATION_SUCCESSFULL             1
+#define FTM_STATUS_INDICATION_REQ_INCAPABLE           2
+#define FTM_STATUS_INDICATION_REQ_FAILED              3
+
+#define FTM_VALUE_OFT                                 2
+#define FTM_VALUE_WIDTH                               5
+
+#define FTM_NB_BURSTS_EXP_OFT                         8
+#define FTM_NB_BURSTS_EXP_WIDTH                       4
+#define FTM_NB_BURSTS_EXP_ZERO                        0
+#define FTM_NB_BURSTS_EXP_ONE                         1
+#define FTM_NB_BURSTS_EXP_NO_PREFERENCE               15
+
+#define FTM_BURST_DURATION_OFT                        12
+#define FTM_BURST_DURATION_WIDTH                      4
+#define FTM_BURST_DURATION_250US                      2
+#define FTM_BURST_DURATION_500US                      3
+#define FTM_BURST_DURATION_1MS                        4
+#define FTM_BURST_DURATION_2MS                        5
+#define FTM_BURST_DURATION_4MS                        6
+#define FTM_BURST_DURATION_8MS                        7
+#define FTM_BURST_DURATION_16MS                       8
+#define FTM_BURST_DURATION_32MS                       9
+#define FTM_BURST_DURATION_64MS                       10
+#define FTM_BURST_DURATION_128MS                      11
+#define FTM_BURST_DURATION_NO_PREFERENCE              15
+
+#define FTM_MIN_DELTA_FTM_OFT                         16
+#define FTM_MIN_DELTA_FTM_WIDTH                       8
+#define FTM_MIN_DELTA_FTM_NO_PREFERENCE               0
+
+#define FTM_PARTIAL_TSF_TIMER_OFT                     24
+#define FTM_PARTIAL_TSF_TIMER_WIDTH                   16
+#define FTM_PARTIAL_TSF_TIMER_NO_PREFERENCE           0
+
+#define FTM_PARTIAL_TSF_TIMER_PREF_OFT                40
+#define FTM_PARTIAL_TSF_TIMER_PREF_WIDTH              1
+#define FTM_PARTIAL_TSF_TIMER_PREF_NO                 0
+#define FTM_PARTIAL_TSF_TIMER_PREF_YES                1
+
+#define FTM_ASAP_CAPABLE_OFT                          41
+#define FTM_ASAP_CAPABLE_WIDTH                        1
+#define FTM_ASAP_CAPABLE_YES                          1
+#define FTM_ASAP_CAPABLE_NO                           0
+
+#define FTM_ASAP_OFT                                  42
+#define FTM_ASAP_WIDTH                                1
+#define FTM_ASAP_YES                                  1
+#define FTM_ASAP_NO                                   0
+
+#define FTM_FTM_PER_BURST_OFT                         43
+#define FTM_FTM_PER_BURST_WIDTH                       5
+#define FTM_FTM_PER_BURST_NO_PREFERENCE               0
+
+#define FTM_FORMAT_BANDWITH_OFT                       50
+#define FTM_FORMAT_BANDWITH_WIDTH                     6
+#define FTM_FORMAT_BANDWITH_NO_PREFERENCE             0
+#define FTM_FORMAT_BANDWITH_NON_HT_5MHZ               4
+#define FTM_FORMAT_BANDWITH_NON_HT_10MHZ              6
+#define FTM_FORMAT_BANDWITH_NON_HT_20MHZ              8
+#define FTM_FORMAT_BANDWITH_HT_MIXED_20MHZ            9
+#define FTM_FORMAT_BANDWITH_VHT_20MHZ                 10
+#define FTM_FORMAT_BANDWITH_HT_MIXED_40MHZ            11
+#define FTM_FORMAT_BANDWITH_VHT_40MHZ                 12
+#define FTM_FORMAT_BANDWITH_VHT_80MHZ                 13
+#define FTM_FORMAT_BANDWITH_VHT_80_80MHZ              14
+#define FTM_FORMAT_BANDWITH_VHT_160MHZ_SEPARATE       15
+#define FTM_FORMAT_BANDWITH_VHT_160MHZ_SINGLE         16
+#define FTM_FORMAT_BANDWITH_DMG_2160MHZ               31
+
+#define FTM_FORMAT_BURST_PERIOD_OFT                   56
+#define FTM_FORMAT_BURST_PERIOD_WIDTH                 16
+#define FTM_FORMAT_BURST_PERIOD_NO_PREFERENCE         0
+/** @} */
 
 
 

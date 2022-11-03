@@ -328,7 +328,7 @@ struct hostapd_bss_config {
 					* frames */
 #endif
 
-#ifdef CONFIG_P2P
+#if defined(CONFIG_P2P) || defined(CONFIG_HOSTAPD_ACL)
 	enum macaddr_acl {
 		ACCEPT_UNLESS_DENIED = 0,
 		DENY_UNLESS_ACCEPTED = 1,
@@ -663,6 +663,7 @@ struct hostapd_config {
 
 	int *supported_rates;
 	int *basic_rates;
+	uint8_t *mcs_set;
 	unsigned int beacon_rate;
 	enum beacon_rate_type rate_type;
 
@@ -868,5 +869,12 @@ hostapd_config_get_radius_attr(struct hostapd_radius_attr *attr, u8 type);
 int hostapd_config_check(struct hostapd_config *conf, int full_config);
 void hostapd_set_security_params(struct hostapd_bss_config *bss,
 				 int full_config);
+
+int hostapd_ctrl_iface_acl_add_mac(struct mac_acl_entry **acl, int *num,
+					  const u8 *addr);
+int hostapd_ctrl_iface_acl_del_mac(struct mac_acl_entry **acl, int *num,
+					  const u8 *addr);
+void hostapd_ctrl_iface_acl_clear_list(struct mac_acl_entry **acl,
+					      int *num);
 
 #endif /* HOSTAPD_CONFIG_H */

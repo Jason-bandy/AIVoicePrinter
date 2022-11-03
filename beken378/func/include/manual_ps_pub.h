@@ -50,6 +50,7 @@ typedef struct  ps_deep_ctrl {
 	
 	UINT32 sleep_time;
 	UINT32 lpo_32k_src;
+	UINT32 sleep_mode;
 } PS_DEEP_CTRL_PARAM;
 
 

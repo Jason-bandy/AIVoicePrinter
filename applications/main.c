@@ -37,7 +37,11 @@
 #include "ate_app.h"
 #include "shell.h"
 #include <fal.h>
+
+#ifdef PKG_USING_RT_OTA
 #include "rt_ota.h"
+#endif
+
 #include "sys_ctrl_pub.h"
 static int wlan_app_init(void);
 

@@ -1,7 +1,7 @@
 #ifndef _SPI_H_
 #define _SPI_H_
 
-#if(CFG_SOC_NAME == SOC_BK7231N)
+#if(CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 
 #define SPI_BASE							(0x00802700)
 

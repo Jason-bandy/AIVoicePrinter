@@ -2,13 +2,15 @@ from building import *
 
 cwd  = GetCurrentDir()
 
-src = []
+src = ["bk7011_cal.c"]
 src += ["bk7231_cal.c"]
 src += ["manual_cal_bk7231.c"]
 src += ["bk7231U_cal.c"]
 src += ["bk7231N_cal.c"]
 src += ["bk7221U_cal.c"]
+src += ["bk7238_cal.c"]
 src += ["manual_cal_bk7231U.c"]
+src += ["manual_cal_bk7238.c"]
 src += ["chip_support.c"]
 
 path = []
@@ -28,6 +30,8 @@ elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7221U'):
     cal_lib_name += '_7251'
 elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7271'):
     cal_lib_name += '_7271'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7238'):
+    cal_lib_name += '_7238'
 else:
     cal_lib_name += '_unknown'
     platform_match = 'no'

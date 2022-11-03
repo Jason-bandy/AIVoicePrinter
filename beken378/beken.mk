@@ -140,6 +140,8 @@ $(NAME)_SOURCES :=  app/app.c \
 					func/power_save/power_save.c \
 					func/power_save/mcu_ps.c \
 					func/power_save/manual_ps.c \
+                                        func/power_save/low_voltage_ps.c \
+                                        func/power_save/low_voltage_compensation.c \
 					func/power_save/ap_idle.c \
 					func/wlan_ui/wlan_ui.c \
 					func/net_param_intf/net_param.c \

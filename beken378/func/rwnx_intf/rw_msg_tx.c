@@ -31,6 +31,10 @@
 #include "scanu.h"
 #endif
 
+#if CFG_WIFI_FTM
+#include "ftm_task.h"
+#endif
+
 #include "error.h"
 #include "mcu_ps_pub.h"
 #include "power_save_pub.h"
@@ -106,6 +110,24 @@ failed_or_timeout:
         os_free(tx_msg);
     }
     return -1;
+}
+
+int rw_send_me_rc_set_rate(u8 sta_idx, u16 rate_cfg)
+{
+	struct me_rc_set_rate_req *req;
+
+	/* Build the ME_RC_SET_RATE_REQ message */
+	req = ke_msg_alloc(ME_RC_SET_RATE_REQ, TASK_ME, TASK_API,
+					   sizeof(struct me_rc_set_rate_req));
+	if (!req)
+		return -ENOMEM;
+
+	/* Set parameters for the ME_RC_SET_RATE_REQ message */
+	req->sta_idx = sta_idx;
+	req->fixed_rate_cfg = rate_cfg;
+
+	/* Send the ME_RC_SET_RATE_REQ message to FW */
+	return rw_msg_send(req, 0, NULL);
 }
 
 int rw_msg_send_reset(void)
@@ -410,6 +432,22 @@ int rw_msg_send_apm_stop_req(u8 vif_index)
 	return ret;
 }
 
+
+/* notify umac that hostapd has been started, and can receive mgmt frames */
+int rw_msg_send_apm_start_done_ind(bool started)
+{
+    struct apm_start_done_ind *param;
+
+    /* RESET REQ has no parameter */
+    param = ke_msg_alloc(APM_START_DONE_IND, TASK_APM, TASK_API, sizeof(*param));
+    if (!param)
+        return -1;
+    param->started = started;
+
+    return rw_msg_send(param, 0 /* dummy */, NULL);
+}
+
+
 int rw_msg_send_bcn_change(void *bcn_param)
 {
     struct mm_bcn_change_req *req;
@@ -471,8 +509,6 @@ int rw_msg_send_me_sta_add(struct add_sta_st *param,
     req->aid = param->aid;
     req->flags = 0x01; // 1:STA_QOS_CAPA 2: STA_HT_CAPA BIT(3)STA_MFP_CAPA
     //req->flags = param->flags;
-
-    os_printf("hapd_intf_sta_add:%d, vif:%d\r\n", req->aid, req->vif_idx);
 
     req->rate_set.length = 12;
     req->rate_set.array[0] = 130;
@@ -612,6 +648,18 @@ int rw_msg_send_scanu_req(SCAN_PARAM_T *scan_param)
 	/* Set parameters */
 	req->vif_idx = scan_param->vif_idx;
 	req->no_cck = 0;
+
+	// if need scan all chan, set it to 0.
+	if(scan_param->flag == 1)
+	{
+		// in scan only, we not use cancel-scan
+		req->need_cancel_scan = 0;
+	}
+	else
+	{
+		// in connetion, we use cancel-scan for there is only one ssid on all chan in most of case.
+		req->need_cancel_scan = 1;
+	}
 
 	int *freqs = scan_param->freqs;
 	if (!freqs[0]) {
@@ -766,6 +814,7 @@ int rw_msg_send_sm_disconnect_req(DISCONNECT_PARAM_T *param)
 {
     struct ke_msg cfm;
     struct sm_disconnect_req *req;
+    int ret;
 
     /* Build the SM_DISCONNECT_REQ message */
     req = ke_msg_alloc(SM_DISCONNECT_REQ, TASK_SM, TASK_API,
@@ -777,7 +826,17 @@ int rw_msg_send_sm_disconnect_req(DISCONNECT_PARAM_T *param)
     req->reason_code = param->reason_code;
     req->vif_idx = param->vif_idx;
 
-    return rw_msg_send(req, SM_DISCONNECT_CFM, &cfm);
+    ret = rw_msg_send(req, SM_DISCONNECT_CFM, &cfm);
+
+    /*
+     * Wait for sm_deauth_cfm completes.
+     * For some cases, vif may be deleted by supplicant(or userapp), if there is no
+     * delay here, vif may be deleted before sm_deauth_cfm returns, which may cause
+     * sm_delete_resources frees wrong sta and its keyram macaddr.
+     */
+    rtos_delay_milliseconds(100);
+
+    return ret;
 }
 
 int rw_msg_send_sm_set_operstate_req(SET_OPERATE_PARAM_T *param)
@@ -921,6 +980,7 @@ int rw_msg_send_sm_assoc_req( ASSOC_PARAM_T *sme, void *cfm)
 int rw_msg_send_sm_connect_req( CONNECT_PARAM_T *sme, void *cfm)
 {
     struct sm_connect_req *req;
+    uint32_t listen_interval = PS_DTIM_COUNT;
 
     /* Build the SM_CONNECT_REQ message */
     req = ke_msg_alloc(SM_CONNECT_REQ, TASK_SM, TASK_API,
@@ -944,6 +1004,10 @@ int rw_msg_send_sm_connect_req( CONNECT_PARAM_T *sme, void *cfm)
     req->ie_len = sme->ie_len;
     req->auth_type = sme->auth_type;
     os_memcpy((UINT8 *)req->ie_buf, (UINT8 *)sme->ie_buf, req->ie_len);
+#if CFG_USE_STA_PS
+    listen_interval = power_save_get_listen_int();
+#endif
+    req->listen_interval = listen_interval;
 	req->bcn_len = sme->bcn_len;
 	if (req->bcn_len)
 		os_memcpy((UINT8 *)req->bcn_buf, (UINT8 *)sme->bcn_buf, req->bcn_len);
@@ -1008,6 +1072,44 @@ int rw_msg_set_power(u8 vif_idx, u8 power)
     /* Send the MM_SET_POWER_REQ message to LMAC FW */
     return rw_msg_send(req, MM_SET_POWER_CFM, NULL);
 }
+
+#if CFG_AP_MONITOR_COEXIST_TBTT
+int rw_msg_set_ap_monitor_coexist_tbtt(u8 vif_idx, uint32_t enable)
+{
+    struct mm_set_ap_monitor_coexist_tbtt_req *req;
+
+    /* Build the MM_SET_AP_MONITOR_COEXIST_TBTT_REQ message */
+    req = ke_msg_alloc(MM_SET_AP_MONITOR_COEXIST_TBTT_REQ, TASK_MM, TASK_NONE,
+                          sizeof(struct mm_set_ap_monitor_coexist_tbtt_req));
+    if (!req)
+        return -1;
+
+    /* Set parameters for the MM_SET_AP_MONITOR_COEXIST_TBTT_REQ message */
+    req->inst_nbr = vif_idx;
+    req->enable= enable;
+
+    /* Send the MM_SET_AP_MONITOR_COEXIST_TBTT_CFM message to LMAC FW */
+    return rw_msg_send(req, MM_SET_AP_MONITOR_COEXIST_TBTT_CFM, NULL);
+}
+
+int rw_msg_set_ap_monitor_coexist_tbtt_dur(u8 vif_idx, uint32_t duration_ms)
+{
+    struct mm_set_ap_monitor_coexist_tbtt_dur_req *req;
+
+    /* Build the MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_REQ message */
+    req = ke_msg_alloc(MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_REQ, TASK_MM, TASK_NONE,
+                          sizeof(struct mm_set_ap_monitor_coexist_tbtt_dur_req));
+    if (!req)
+        return -1;
+
+    /* Set parameters for the MM_SET_AP_MONITOR_COEXIST_TBTT_REQ message */
+    req->inst_nbr = vif_idx;
+    req->duration_ms= duration_ms;
+
+    /* Send the MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_CFM message to LMAC FW */
+    return rw_msg_send(req, MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_CFM, NULL);
+}
+#endif
 
 #if CFG_WIFI_P2P
 int rw_msg_send_roc(u8 vif_index, unsigned int freq, uint32_t duration)
@@ -1089,6 +1191,30 @@ int rw_msg_send_cancel_roc(u8 vif_index)
 
 #endif // CFG_WIFI_P2P
 
+#if CFG_WIFI_FTM
+int rw_msg_send_ftm_start(u8 vif_index, u8 ftm_per_burst, u8 nb_ftm_rsp)
+{
+#if CFG_WIFI_FTM_INITIATOR
+	struct ftm_start_req *req;
+	struct ftm_start_cfm cfm;
+
+	req = ke_msg_alloc(FTM_START_REQ, TASK_FTM, TASK_API,
+					   sizeof(struct ftm_start_req));
+	if (!req)
+		return BK_ERR_NO_MEM;
+
+	req->vif_idx = vif_index;
+	req->ftm_per_burst = ftm_per_burst;
+	req->nb_ftm_rsp = nb_ftm_rsp;
+
+	/* Send the MM_REMAIN_ON_CHANNEL_REQ message to LMAC FW */
+	return rw_msg_send(req, FTM_START_CFM, &cfm);
+#else
+	return 0;
+#endif
+}
+
+#endif
 
 // eof
 

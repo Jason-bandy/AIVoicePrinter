@@ -27,13 +27,6 @@ typedef enum {
     PS_BCN_LOSS_FIRST = 4,
 } PS_BCN_STATUS;
 
-typedef enum {
-    PS_BCN_STATUS_INIT = 0,
-    PS_BCN_STATUS_UP = 1,
-    PS_BCN_ABNORMAL_AT = 2,
-    PS_BCN_STATUS_DOWN = 3,
-} PS_BCN_ABNORMAL_STATUS;
-
 
 typedef enum {
     PS_ARM_WAKEUP_NONE = 0,
@@ -67,30 +60,18 @@ typedef struct ps_do_wkup_sem {
 } PS_DO_WKUP_SEM;
 
 typedef struct  ps_sta {
-	PS_BCN_ABNORMAL_STATUS     ps_bcn_ab_status ;
 	PS_ARM_WAKEUP_WAY ps_arm_wakeup_way ;
 	UINT8     ps_real_sleep ;
 	UINT8 sleep_first;
 	UINT8 ps_can_sleep;
-	UINT8 if_wait_bcn;
-	UINT8 liston_int;
-	PS_LISTEN_MODE liston_mode;
-	UINT8 pwm0_clkmux;
-	PS_TM_STATUS tm_status;
+	UINT8 listen_int;
+	PS_LISTEN_MODE listen_mode;
 	UINT8 ps_dtim_period;
 	UINT8 ps_dtim_count;
 	UINT8 ps_dtim_multi;
 	volatile PS_STA_BEACON_STATE waited_beacon;
-	UINT8 ps_bcn_loss_cnt;
-	PS_BCN_CAL_STATUS ps_bcn_cal_status;
 	UINT16 ps_beacon_int;
-	UINT16 PsDataWakeupWaitTimeMs ;
-	UINT16 PsPeriWakeupWaitTimeMs ;
-	UINT16 sleep_ms;
-	UINT32 nxmac_timer_v;
-	UINT32 pwm0_less_time;
 	UINT32 sleep_count ;
-	UINT32 next_ps_time;
 	struct co_list wk_list;
 } STA_PS_INFO;
 
@@ -106,7 +87,6 @@ void power_save_ieee_dtim_wakeup ( void );
 UINT8 power_save_me_ps_set_all_state ( UINT8 state );
 PS_STA_BEACON_STATE power_save_beacon_state_get ( void );
 PS_ARM_WAKEUP_WAY power_save_wkup_way_get ( void );
-void power_save_set_uart_linger_time ( UINT32 uart_wakeup_time );
 extern void bmsg_ps_sender ( uint8_t ioctl );
 extern void ps_fake_data_rx_check ( void );
 extern bool ps_sleep_check ( void );

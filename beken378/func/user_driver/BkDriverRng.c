@@ -62,7 +62,7 @@ OSStatus BkRandomNumberRead( void *inBuffer, int inByteCount )
 	src = (char *)&param;	
 	dest = (char *)inBuffer;
 	
-	len = MIN(inByteCount, sizeof(param));
+	len = _MIN(inByteCount, sizeof(param));
 	for(i = 0; i < len; i ++)
 	{
 		dest[i] = src[i];

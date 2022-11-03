@@ -492,7 +492,7 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
 
 	reg = REG_READ(REG_QSPI_SW_DAT);
     reg  = ((ucDir ? 0 : 1) << 14)
-                     | ((MIN(p_QSPI_ge0_drv_desc->data_buff_size, QSPI_GE0_DEP)*ucCNT*4) << 2)
+                     | ((_MIN(p_QSPI_ge0_drv_desc->data_buff_size, QSPI_GE0_DEP)*ucCNT*4) << 2)
                      | (ucBW << 1)
                      | ((p_QSPI_ge0_drv_desc->data_buff_size ? 1 : 0) << 0);
 	REG_WRITE(REG_QSPI_SW_DAT, reg);
@@ -510,8 +510,8 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
 	REG_WRITE(REG_QSPI_GE1_DEP, reg);
 
 	reg = REG_READ(REG_QSPI_GE0_TH);
-    reg  = (MIN(p_QSPI_ge0_drv_desc->data_buff_size/2, QSPI_GE0_DEP) << 0)
-         | (MIN(p_QSPI_ge0_drv_desc->data_buff_size/2, QSPI_GE0_DEP) << 11);
+    reg  = (_MIN(p_QSPI_ge0_drv_desc->data_buff_size/2, QSPI_GE0_DEP) << 0)
+         | (_MIN(p_QSPI_ge0_drv_desc->data_buff_size/2, QSPI_GE0_DEP) << 11);
 	REG_WRITE(REG_QSPI_GE0_TH, reg);
 
 	reg =  REG_READ(REG_QSPI_GE0_TH);
@@ -524,7 +524,7 @@ int qspi_ge0_init(QSPI_GE0_DRV_DESC *p_QSPI_ge0_drv_desc)
 		REG_WRITE(REG_QSPI_ENABLE, reg);
 
 
-        for (i=0; i<MIN(p_QSPI_ge0_drv_desc->data_buff_size, QSPI_GE0_DEP); i++)
+        for (i=0; i<_MIN(p_QSPI_ge0_drv_desc->data_buff_size, QSPI_GE0_DEP); i++)
         {
 
 			reg = REG_READ(REG_QSPI_GE0_DATA);

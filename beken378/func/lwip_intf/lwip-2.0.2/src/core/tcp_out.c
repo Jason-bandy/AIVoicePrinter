@@ -1586,7 +1586,11 @@ tcp_rexmit_fast(struct tcp_pcb *pcb)
     pcb->flags |= TF_INFR;
 
     /* Reset the retransmission timer to prevent immediate rto retransmissions */
+#if CFG_IPERF_TEST_ACCEL
+    pcb->rtime = pcb->rto;
+#else
     pcb->rtime = 0;
+#endif
   }
 }
 

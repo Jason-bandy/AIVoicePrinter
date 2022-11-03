@@ -8,7 +8,7 @@
 #include "arm_arch.h"
 #include "uart.h"
 #include "rtthread.h"
-#include "sys_ctrl_pub.h"
+#include "power_save.h"
 
 // #define ATE_USE_DEGUB
 
@@ -129,6 +129,10 @@ void ate_app_init(void)
     {
         ate_mode_state = (char)1;
     }
+    else if (RESET_SOURCE_FORCE_ATE == bk_misc_get_start_type())
+    {
+        ate_mode_state = (char)1;
+    }
     else
     {
         ate_mode_state = (char)0;
@@ -159,7 +163,7 @@ void ate_start(void)
 {
     app_pre_start();
 
-    sctrl_rf_ps_enable_clear();
+    power_save_rf_hold_bit_set(RF_HOLD_RF_SLEEP_BIT);
 
     ATE_PRT("ate_start\r\n");
 }

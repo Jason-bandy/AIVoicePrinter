@@ -26,6 +26,7 @@
 #define IPERF_MODE_STOP     0
 #define IPERF_MODE_SERVER   1
 #define IPERF_MODE_CLIENT   2
+#define IPERF_MODE_STOPPING 3
 
 typedef struct
 {
@@ -62,7 +63,7 @@ static void iperf_udp_client(void *thread_param)
     server.sin_port = htons(param.port);
     server.sin_addr.s_addr = inet_addr(param.host);
     rt_kprintf("iperf udp mode run...\n");
-    while (param.mode != IPERF_MODE_STOP)
+    while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
     {
         packet_count++;
         tick = rt_tick_get();
@@ -73,6 +74,7 @@ static void iperf_udp_client(void *thread_param)
     }
     closesocket(sock);
     free(buffer);
+    param.mode = IPERF_MODE_STOP;
 }
 
 static void iperf_udp_server(void *thread_param)
@@ -121,7 +123,7 @@ static void iperf_udp_server(void *thread_param)
         free(buffer);
         return;
     }
-    while (param.mode != IPERF_MODE_STOP)
+    while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
     {
         tick1 = rt_tick_get();
         tick2 = tick1;
@@ -158,6 +160,7 @@ static void iperf_udp_server(void *thread_param)
     }
     free(buffer);
     closesocket(sock);
+    param.mode = IPERF_MODE_STOP;
 }
 
 static void iperf_client(void *thread_param)
@@ -179,7 +182,7 @@ static void iperf_client(void *thread_param)
     for (i = 0; i < IPERF_BUFSZ; i ++)
         send_buf[i] = i & 0xff;
 
-    while (param.mode != IPERF_MODE_STOP)
+    while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
     {
         sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
         if (sock < 0)
@@ -221,7 +224,7 @@ static void iperf_client(void *thread_param)
         sentlen = 0;
 
         tick1 = rt_tick_get();
-        while (param.mode != IPERF_MODE_STOP)
+        while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
         {
             tick2 = rt_tick_get();
             if (tick2 - tick1 >= RT_TICK_PER_SECOND * 5)
@@ -248,10 +251,11 @@ static void iperf_client(void *thread_param)
         closesocket(sock);
 
         rt_thread_delay(RT_TICK_PER_SECOND * 2);
-        rt_kprintf("Disconnected, iperf server shut down!\n");
+        rt_kprintf("Disconnected, iperf client shut down!\n");
         tips = 1;
     }
     free(send_buf);
+    param.mode = IPERF_MODE_STOP;
 }
 
 void iperf_server(void *thread_param)
@@ -300,7 +304,7 @@ void iperf_server(void *thread_param)
     timeout.tv_sec = 3;
     timeout.tv_usec = 0;
 
-    while (param.mode != IPERF_MODE_STOP)
+    while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
     {
         FD_ZERO(&readset);
         FD_SET(sock, &readset);
@@ -327,7 +331,7 @@ void iperf_server(void *thread_param)
 
         recvlen = 0;
         tick1 = rt_tick_get();
-        while (param.mode != IPERF_MODE_STOP)
+        while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
         {
             bytes_received = recv(connected, recv_data, IPERF_BUFSZ, 0);
             if (bytes_received <= 0) break;
@@ -356,6 +360,7 @@ void iperf_server(void *thread_param)
 __exit:
     if (sock >= 0) closesocket(sock);
     if (recv_data) free(recv_data);
+    param.mode = IPERF_MODE_STOP;
 }
 
 void iperf_usage(void)
@@ -400,7 +405,10 @@ int iperf(int argc, char **argv)
     else if (strcmp(argv[index], "--stop") == 0)
     {
         /* stop iperf */
-        param.mode = IPERF_MODE_STOP;
+        if(param.mode == IPERF_MODE_SERVER || param.mode == IPERF_MODE_CLIENT){
+            param.mode = IPERF_MODE_STOPPING;
+            rt_kprintf("iperf: iperf is stopping...\n");
+        }
         return 0;
     }
     else if (strcmp(argv[index], "-s") == 0)
@@ -480,6 +488,10 @@ int iperf(int argc, char **argv)
             }
         }
         if (tid) rt_thread_startup(tid);
+    }
+    else if(param.mode == IPERF_MODE_STOPPING)
+    {
+        rt_kprintf("iperf is stopping,try later!\n");
     }
     else
     {

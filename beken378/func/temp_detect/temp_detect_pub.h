@@ -20,6 +20,7 @@
 #elif(CFG_SOC_NAME == SOC_BK7271)
 #define ADC_TEMP_SENSER_CHANNEL                     0
 #else
+#define ADC_VOLT_SENSER_CHANNEL                     0
 #define ADC_TEMP_SENSER_CHANNEL                     7
 #endif
 
@@ -43,15 +44,23 @@
 #define ADC_TMEP_DIST_INTIAL_VAL                    (0)
 #if (CFG_SOC_NAME == SOC_BK7231)
 #define ADC_TMEP_LSB_PER_10DEGREE                   (24)
+#define ADC_TEMP_VAL_MIN                            (50)
+#define ADC_TEMP_VAL_MAX                            (700)
+#elif (CFG_SOC_NAME == SOC_BK7238)
+#define ADC_TMEP_LSB_PER_10DEGREE                   (21)
+#define ADC_TEMP_VAL_MIN                            (10)
+#define ADC_TEMP_VAL_MAX                            (700)
 #elif (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
 #define ADC_TMEP_LSB_PER_10DEGREE                   (18)
+#define ADC_TEMP_VAL_MIN                            (50)
+#define ADC_TEMP_VAL_MAX                            (700)
 #else
 #define ADC_TMEP_LSB_PER_10DEGREE                   (12)// 7231:24,7231U:22,
+#define ADC_TEMP_VAL_MIN                            (50)
+#define ADC_TEMP_VAL_MAX                            (700)
 #endif
 
 #define ADC_TMEP_10DEGREE_PER_DBPWR                 (1) // 7231:1,7231U:1,
-#define ADC_TEMP_VAL_MIN                            (50)
-#define ADC_TEMP_VAL_MAX                            (700)
 #define ADC_XTAL_DIST_INTIAL_VAL                    (70)
 
 /*******************************************************************************

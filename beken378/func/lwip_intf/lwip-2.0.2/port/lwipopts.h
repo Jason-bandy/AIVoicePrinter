@@ -43,7 +43,11 @@
 #define LWIP_LOOPBACK_MAX_PBUFS         8
 
 #define TCPIP_THREAD_NAME               "tcp/ip"
+#if (CFG_SUPPORT_MATTER)
+#define TCPIP_THREAD_STACKSIZE          1024
+#else
 #define TCPIP_THREAD_STACKSIZE          512
+#endif
 
 #if CFG_OS_FREERTOS
 #define TCPIP_THREAD_PRIO               2
@@ -59,7 +63,7 @@
 #endif
 
 /* Disable lwIP asserts */
-#define LWIP_NOASSERT			        1
+//#define LWIP_NOASSERT			        1
 
 #define LWIP_DEBUG                      0
 #define LWIP_DEBUG_TRACE                0
@@ -96,6 +100,7 @@
 #define SNMP_MSG_DEBUG                  LWIP_DBG_OFF
 #define SNMP_MIB_DEBUG                  LWIP_DBG_OFF
 #define DNS_DEBUG                       LWIP_DBG_OFF
+#define IP6_DEBUG                       LWIP_DBG_OFF
 
 //#define LWIP_COMPAT_MUTEX      		    1
 /**
@@ -118,9 +123,9 @@
  */
 #define MEM_ALIGNMENT                   4
 
-#define MAX_SOCKETS_TCP 12
+#define MAX_SOCKETS_TCP 6
 #define MAX_LISTENING_SOCKETS_TCP 4
-#define MAX_SOCKETS_UDP 22
+#define MAX_SOCKETS_UDP 10
 #define TCP_SND_BUF_COUNT 5
 
 /* Value of TCP_SND_BUF_COUNT denotes the number of buffers and is set by
@@ -160,7 +165,11 @@
  * If the application sends a lot of data out of ROM (or other static memory),
  * this should be set high.
  */
+#if (CFG_SUPPORT_MATTER)
+#define MEMP_NUM_PBUF                   16
+#else
 #define MEMP_NUM_PBUF                   10
+#endif
 
 /**
  * MEMP_NUM_TCP_PCB: the number of simulatenously active TCP connections.
@@ -214,7 +223,11 @@
  * PBUF_POOL_SIZE: the number of buffers in the pbuf pool.
  */
 #if ((defined(CFG_LWIP_MEM_POLICY))&&(CFG_LWIP_MEM_POLICY == LWIP_REDUCE_THE_PLAN))
+#if (CFG_SUPPORT_MATTER)
+#define PBUF_POOL_SIZE                  24
+#else
 #define PBUF_POOL_SIZE                  3
+#endif
 #else
 #if CFG_IPERF_TEST_ACCEL
 #define PBUF_POOL_SIZE                  16
@@ -234,8 +247,11 @@
  * designed to accomodate single full size TCP frame in one pbuf, including
  * TCP_MSS, IP header, and link header.
  */
+#if (CFG_SUPPORT_MATTER)
+#define PBUF_POOL_BUFSIZE               1280
+#else
 #define PBUF_POOL_BUFSIZE               1580
-
+#endif
 
 /*
    ---------------------------------
@@ -246,7 +262,7 @@
  * LWIP_RAW==1: Enable application layer to hook into the IP layer itself.
  */
 #define LWIP_RAW                        1
-#ifdef CONFIG_IPV6
+#if (CFG_SUPPORT_MATTER)
 #define LWIP_IPV6                        1
 #endif
 

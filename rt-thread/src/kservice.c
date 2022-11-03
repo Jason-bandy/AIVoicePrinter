@@ -748,6 +748,70 @@ static char *print_number(char *buf,
     return buf;
 }
 
+#ifdef OUTCHAR
+#undef OUTCHAR
+#endif
+#define OUTCHAR(str, end, ch)                         \
+do {                                                  \
+    if (str + 1 < end)                                \
+        *str++ = ch;                                  \
+} while (0)
+
+static int convert_ip(unsigned int value, char *buf, size_t size)
+{
+    const char *digits = "0123456789";
+    int i;
+    unsigned char c;
+    size_t pos = 0;
+
+    for (i = 0; i < 4; i++)
+    {
+        c = (value >> (i*8)) & 0xff;
+
+        /* We return an unterminated buffer with the digits in reverse order. */
+        do
+        {
+            buf[pos++] = digits[c % 10];
+            c /= 10;
+        } while (c != 0 && pos < size);
+
+        if (i != 3 && pos < size)
+            buf[pos++] = '.';
+    }
+
+    return (int)pos;
+}
+
+/* TODO: IPv6 */
+static char *fmtip(char *buf, char *end, unsigned int value)
+{
+    int pos;
+    char ip_buf[18];
+
+    pos = convert_ip(value, ip_buf, sizeof(ip_buf));
+    if (pos > 0) pos--;
+    for (; pos >= 0; pos--)
+        OUTCHAR(buf, end, ip_buf[pos]);
+    return buf;
+}
+
+static char *fmtmac(char *buf, char *end, const unsigned char *mac, int caps)
+{
+    const char *digits = caps ? "0123456789ABCDEF" : "0123456789abcdef";
+    int i;
+    unsigned char c;
+
+    for (i = 0; i < 6; i++)
+    {
+        c = mac[i];
+        OUTCHAR(buf, end, digits[(c >> 4) & 0xf]);
+        OUTCHAR(buf, end, digits[c & 0xf]);
+        if (i != 5)
+            OUTCHAR(buf, end, ':');
+    }
+    return buf;
+}
+
 rt_int32_t rt_vsnprintf(char       *buf,
                         rt_size_t   size,
                         const char *fmt,
@@ -917,20 +981,37 @@ rt_int32_t rt_vsnprintf(char       *buf,
             continue;
 
         case 'p':
-            if (field_width == -1)
+            if (*(fmt + 1) == 'm' || *(fmt + 1) == 'M')
             {
-                field_width = sizeof(void *) << 1;
-                flags |= ZEROPAD;
+                unsigned char *macstr;
+                fmt++;
+                if ((macstr = va_arg(args, unsigned char *)) == NULL)
+                    macstr = (unsigned char *)"\x00\x00\x00\x00\x00\x00";
+                str = fmtmac(str, end, macstr, !!(*fmt == 'M'));
             }
+            else if (*(fmt + 1) == 'i' || *(fmt + 1) == 'I')
+            {
+                fmt++;
+                num = va_arg(args, unsigned int);
+                fmtip(str, end, (unsigned int)num);
+            }
+            else
+            {
+                if (field_width == -1)
+                {
+                    field_width = sizeof(void *) << 1;
+                    flags |= ZEROPAD;
+                }
 #ifdef RT_PRINTF_PRECISION
-            str = print_number(str, end,
-                               (long)va_arg(args, void *),
-                               16, field_width, precision, flags);
+                str = print_number(str, end,
+                                   (long)va_arg(args, void *),
+                                   16, field_width, precision, flags);
 #else
-            str = print_number(str, end,
-                               (long)va_arg(args, void *),
-                               16, field_width, flags);
+                str = print_number(str, end,
+                                   (long)va_arg(args, void *),
+                                   16, field_width, flags);
 #endif
+            }
             continue;
 
         case '%':

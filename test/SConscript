@@ -4,6 +4,13 @@ cwd = GetCurrentDir()
 
 src  = Glob('*.c')
 
+if GetDepend('CONFIG_RT_USING_AUDIO') == False:
+    SrcRemove(src, 'mic_record.c')
+    SrcRemove(src, 'web_camera.c')
+    SrcRemove(src, 'i2s_test.c')
+    SrcRemove(src, 'i2s_rtt_test.c')
+    SrcRemove(src, 'video_buffer_test.c')
+
 group = DefineGroup('test', src, depend = [''])
 
 Return('group')

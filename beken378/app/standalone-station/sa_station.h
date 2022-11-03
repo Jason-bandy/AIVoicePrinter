@@ -17,6 +17,7 @@
 
 #define SCANU_IND_PAYLOAD_LEN                   512
 
+// scan result struct, consistent with struct rxu_mgt_ind.
 typedef struct _scan_result_
 {
     /// Length of the frame
@@ -33,6 +34,8 @@ typedef struct _scan_result_
     UINT8 inst_nbr;
     /// RSSI of the received frame.
     INT8 rssi;
+    /// RX legacy info
+    UINT32 rx_leg_inf;
     /// Frame payload.
     UINT32 payload[1];
 } SCAN_IND_T, *SCAN_IND_PTR;

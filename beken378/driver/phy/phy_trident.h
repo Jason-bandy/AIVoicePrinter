@@ -468,6 +468,8 @@ extern uint8_t phy_close_cca(void);
 extern uint8_t phy_show_cca(void);
 extern void phy_wakeup_rf_reinit(void);
 extern void phy_wakeup_wifi_reinit(void);
+void phy_enter_11b_low_power(void);
+void phy_exit_11b_low_power(void);
 
 /// @}
 #endif /* PHY_TRIDENT_H_ */

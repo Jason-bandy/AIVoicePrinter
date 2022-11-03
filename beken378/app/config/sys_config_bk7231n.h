@@ -8,9 +8,11 @@
 #define CFG_USE_UART1                              1
 #define CFG_JTAG_ENABLE                            0
 #define OSMALLOC_STATISTICAL                       0
+#define CFG_MEM_DEBUG                              0
 
 /*section 0-----app macro config-----*/
 #define CFG_IEEE80211N                             1
+#define CFG_IEEE80211N_HT40                        0
 
 /*section 1-----OS macro config-----*/
 #define RTOS_ALIOS_THINGS                          1
@@ -52,6 +54,11 @@
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
+#if CFG_AP_MONITOR_COEXIST
+#define CFG_AP_MONITOR_COEXIST_DEMO                0
+/*AP will switch to ori channel when tbtt arrive*/
+#define CFG_AP_MONITOR_COEXIST_TBTT                0
+#endif
 #define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         1
@@ -68,6 +75,21 @@
 #define CFG_WIFI_STA_VSIE                          0
 /* Vendor Specific IEs when AP Beacon  */
 #define CFG_WIFI_AP_VSIE                           0
+/* Custom softap basic rates, supported rates, ht mcs set */
+#define CFG_WIFI_AP_CUSTOM_RATES                   0
+/*
+ * Support set softap modes: BGN, BG, B. Macro
+ * CFG_AP_SUPPORT_HT_IE must be enabled to support N mode
+ */
+#define CFG_WIFI_AP_HW_MODE                        0
+/* Support 802.11mc FTM */
+#define CFG_WIFI_FTM                               0
+#if CFG_WIFI_FTM
+/* FTM initiator */
+#define CFG_WIFI_FTM_INITIATOR                     1
+/* FTM responder: fake ftm responder */
+#define CFG_WIFI_FTM_RESPONDER                     0
+#endif
 
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -82,6 +104,8 @@
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
 #define CFG_OWE                                    0
+/* use wpa2 instead of wpa3-sae if in wpa3 transition mode */
+#define CFG_CFG_WPA2_PREFER_TO_SAE                 0
 #endif
 #define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
@@ -92,7 +116,17 @@
 #define CFG_USE_CONV_UTF8                          0
 #define CFG_BK_AWARE                               0
 #define CFG_BK_AWARE_OUI                           "\xC8\x47\x8C"
+#define CFG_RESTORE_CONNECT                        0
+#define CFG_QUICK_TRACK                            0
 
+/* use mbedtls as wpa crypto functions */
+#define CFG_USE_MBEDTLS                            0
+#if CFG_USE_MBEDTLS
+#define CFG_MBEDTLS                                1
+#endif
+#if CFG_QUICK_TRACK
+#define _DUT_                                      1
+#endif
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
 #define CFG_SUPPORT_SARADC                         1
@@ -199,6 +233,9 @@
 #define CFG_USE_BLE_PS                             1
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
+#define CFG_LOW_VOLTAGE_PS                         0
+#define CFG_LOW_VOLTAGE_PS_32K_DIV                 0
+#define CFG_LOW_VOLTAGE_PS_TEST                    1
 
 /*section 17-----support sta power sleep*/
 #define CFG_USE_STA_PS                             1
@@ -244,14 +281,17 @@
 #define CFG_SUPPORT_BLE                            1
 #define CFG_SUPPORT_BLE_MESH                       0
 #define CFG_USE_PTA                                0
+#define CFG_SUPPORT_MATTER                         0
 
 #if ((0 == CFG_SUPPORT_BLE) && (CFG_USE_BLE_PS))
 #error "check the ble macro, thx!"
 #endif
 
 #define BLE_VERSION_4_2                            1
-#define BLE_VERSION_5_x                            2
-#define CFG_BLE_VERSION                            BLE_VERSION_5_x
+#define BLE_VERSION_5_1                            2
+#define BLE_VERSION_5_2                            3
+
+#define CFG_BLE_VERSION                            BLE_VERSION_5_1
 
 #define WIFI_DEFAULT_BLE_REQUEST                   1
 #define BLE_DEFAULT_WIFI_REQUEST                   2
@@ -307,11 +347,22 @@
 #define FLASH_SELECTION_TYPE_8M                    0x800000 //8MBytes
 #define CFG_FLASH_SELECTION_TYPE                   FLASH_SELECTION_TYPE_2M
 
+#if ((1 == CFG_SUPPORT_MATTER) && (CFG_FLASH_SELECTION_TYPE < FLASH_SELECTION_TYPE_4M))
+#error "matter need at least 4MB flash!!!"
+#endif
+
+#if (1 == CFG_SUPPORT_MATTER)
+#undef CFG_MBEDTLS
+#define CFG_MBEDTLS                                1
+#endif
+
 /* watchdog, freertos only */
 #define CFG_INT_WDG_ENABLED                        1
 #define CFG_INT_WDG_PERIOD_MS                      10000
 #define CFG_TASK_WDG_ENABLED                       1
 #define CFG_TASK_WDG_PERIOD_MS                     60000
+#define DUMP_THREAD_WHEN_TASK_WDG_TIGGERED         1
+#define DUMP_STACK_WHEN_TASK_WDG_TIGGERED          1
 
 /*section 29 -----  peripheral interface open  */
 #define CFG_USE_I2C1                                0
@@ -328,6 +379,8 @@
 
 #define AT_SERVICE_CFG                             0
 
-#define CFG_USE_FORCE_LOWVOL_PS                    0
+#define CFG_USE_FORCE_LOWVOL_PS                    1
+
+#define CFG_BK_NX_GET_WIFI_SNR                     0
 
 #endif // _SYS_CONFIG_H_

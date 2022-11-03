@@ -39,7 +39,11 @@ typedef enum
 #define BK_MS_TO_TICKS(x)     ((x) / (FCLK_DURATION_MS))
 #define BK_TICKS_TO_MS(x)     ((x) * (FCLK_DURATION_MS))
 
+#if !(CFG_SOC_NAME == SOC_BK7221U)
 #define         ONE_CAL_TIME        15000
+#else
+#define         ONE_CAL_TIME        1000
+#endif
 
 typedef struct
 {

@@ -21,18 +21,18 @@ void delay05us(INT32 num);
 
 //#define DPDCALILEN				  256
 
-#define cpu_delay(val)            delay(MAX(1, val/100))
+#define cpu_delay(val)            delay(_MAX(1, val/100))
 #define DELAY1US				  100
 //#define DELAY05US				  1
 
-#define cal_delay(val)            delay05us(MAX(1, val))	// 8us
+#define cal_delay(val)            delay05us(_MAX(1, val))	// 8us
 //#define CAL_DELAY1US			  2
 //#define CAL_DELAY05US			  20 //20160804  1:0.5us 2:1us
 #define CAL_DELAY05US			  2		// 20170503 2:1.5us     2 to 20  for debug 20180227
 #define CAL_TX_NUM                50
 #define CAL_RX_NUM                5
 
-#define cal_delay_100us(val)      delay100us(MAX(1, val))	// 200us
+#define cal_delay_100us(val)      delay100us(_MAX(1, val))	// 200us
 #define CAL_DELAY100US			  1  //20160804  1:100us 2:200us		// 20170503 1:150us 2:300us
 
 

@@ -99,7 +99,7 @@ void mcu_sleep_set_wake_gpio(UINT32 gpio_index_map, UINT32 gpio_edge_map)
 	UINT32 reg, i, param;
 
 	for (i = 0; i < BITS_INT; i++) {
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 		if (((i > GPIO1) && (i < GPIO6))
 			|| ((i > GPIO11) && (i < GPIO14))
 			|| ((i > GPIO17) && (i < GPIO20))
@@ -147,8 +147,7 @@ void mcu_sleep_set_wake_gpio(UINT32 gpio_index_map, UINT32 gpio_edge_map)
 	REG_WRITE(SCTRL_GPIO_WAKEUP_EN, reg);
 
 	/* set gpio 31~32 mode*/
-#if (CFG_SOC_NAME != SOC_BK7231N)
-#else
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 	reg = 0xFFFFFFFF;
 	REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, reg);
 #endif
@@ -207,7 +206,7 @@ static void mcu_sleep_clear_rosc_timer(void)
 	GLOBAL_INT_RESTORE();
 }
 
-static void mcu_sleep(UINT64 sleep_us)
+static void mcu_sleep(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us)
 {
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
@@ -232,6 +231,16 @@ static void mcu_sleep(UINT64 sleep_us)
 #if TOPTASK_BEACON_ALIGN
 		lv_ps_clear_anchor_point();
 #endif
+		if(PS_DEEP_WAKEUP_RTC != wake_up_way)
+		{
+#if(CFG_SOC_NAME == SOC_BK7238)
+			rosc_calib_manual_trigger();
+			rosc_calib_auto_trigger_disable();
+#else
+			REG_WRITE(SCTRL_ROSC_CAL, 0x35);
+			REG_WRITE(SCTRL_ROSC_CAL, 0x36);
+#endif
+		}
 		/* set arm sleep mode */
 		reg = REG_READ(SCTRL_SLEEP);
 		reg &= ~(SLEEP_MODE_MASK << SLEEP_MODE_POSI);
@@ -259,7 +268,7 @@ static void mcu_sleep(UINT64 sleep_us)
 				| PWM_ARM_WAKEUP_EN_BIT);
 		if (g_mcu_sleep.cfg.off_ble == 0) {
 			reg |= (BLE_ARM_WAKEUP_EN_BIT);
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 			reg |= (BTDM_ARM_WAKEUP_EN_BIT);
 #endif
 		}
@@ -289,17 +298,22 @@ static void mcu_hw_sleep(void)
 	GLOBAL_INT_DISABLE();
 	UINT32 reg;
 
+#if(CFG_SOC_NAME == SOC_BK7238)
+	/*in order to output 26M clock,will make average current higher*/
+	reg = sctrl_analog_get(SCTRL_ANALOG_CTRL3);
+	reg |= (AMPBIAS_OUTEN_BIT);
+	sctrl_analog_set(SCTRL_ANALOG_CTRL3, reg);
+	while((sctrl_analog_get(SCTRL_ANALOG_CTRL3) & AMPBIAS_OUTEN_BIT) == 0);
+
+	rosc_calib_manual_trigger();
+	rosc_calib_auto_trigger(2);//1s
+#else
 	REG_WRITE(SCTRL_ROSC_CAL, 0x35);
-	REG_WRITE(SCTRL_ROSC_CAL, 0x36);
+	REG_WRITE(SCTRL_ROSC_CAL, 0x37);
+#endif
 
 	/* MCLK(main clock) select:dco*/
-	reg = REG_READ(SCTRL_CONTROL);
-	reg &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
-	REG_WRITE(SCTRL_CONTROL, reg);
-	reg = REG_READ(SCTRL_CONTROL);
-	reg &= ~(MCLK_MUX_MASK << MCLK_MUX_POSI);
-	REG_WRITE(SCTRL_CONTROL, reg);
-
+	sctrl_mclk_select(MCLK_MODE_DCO, MCLK_DIV_0);
 	/* dpll division reset*/
 	reg = REG_READ(SCTRL_CONTROL);
 	reg |= DPLL_CLKDIV_RESET_BIT;
@@ -326,12 +340,12 @@ static void mcu_hw_sleep(void)
 	sctrl_analog_set(SCTRL_ANALOG_CTRL2, reg);
 	while (sctrl_analog_get(SCTRL_ANALOG_CTRL2) & (CENTRAL_BAIS_ENABLE_BIT));
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
 	/* turn off dsp and usb*/
 	REG_WRITE(SCTRL_DSP_PWR, (DSP_PWD << DSP_PWD_POSI));
 #endif
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
 	/* turn off usb and ble*/
 	if (g_mcu_sleep.cfg.off_ble)
 		reg = ((USB_PWD << USB_PWD_POSI) | (BLE_PWD << BLE_PWD_POSI));
@@ -378,10 +392,7 @@ static void mcu_hw_wakeup(void)
 	REG_WRITE(SCTRL_BLOCK_EN_CFG, reg);
 
 	/* MCLK(main clock) select:26M*/
-	reg = REG_READ(SCTRL_CONTROL);
-	reg &= ~(MCLK_MUX_MASK << MCLK_MUX_POSI);
-	reg |= ((MCLK_FIELD_26M_XTAL & MCLK_MUX_MASK) << MCLK_MUX_POSI);
-	REG_WRITE(SCTRL_CONTROL, reg);
+	sctrl_mclk_select(MCLK_MODE_26M_XTAL, MCLK_DIV_0);
 
 	/* dpll division reset release*/
 	reg = REG_READ(SCTRL_CONTROL);
@@ -389,26 +400,31 @@ static void mcu_hw_wakeup(void)
 	REG_WRITE(SCTRL_CONTROL, reg);
 
 	/* MCLK(main clock) select:dpll*//* MCLK division*/
-	reg = REG_READ(SCTRL_CONTROL);
-	reg &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
 #if (CFG_SOC_NAME == SOC_BK7231N)
-	reg |= ((MCLK_DIV_5 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+	sctrl_mclk_select(MCLK_MODE_DPLL, MCLK_DIV_5);
+#elif (CFG_SOC_NAME == SOC_BK7238)
+	sctrl_mclk_select(MCLK_MODE_DPLL, MCLK_DIV_2);
 #else
-	reg |= ((MCLK_DIV_3 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+	sctrl_mclk_select(MCLK_MODE_DPLL, MCLK_DIV_3);
 #endif
-	REG_WRITE(SCTRL_CONTROL, reg);
-
-	reg = REG_READ(SCTRL_CONTROL);
-	reg &= ~(MCLK_MUX_MASK << MCLK_MUX_POSI);
-	reg |= ((MCLK_FIELD_DPLL & MCLK_MUX_MASK) << MCLK_MUX_POSI);
-	REG_WRITE(SCTRL_CONTROL, reg);
 
 	sctrl_cali_dpll(1);
 	sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);
 
 	/*open 32K Rosc calib*/
+#if(CFG_SOC_NAME == SOC_BK7238)
+	/*in order to output 26M clock,will make average current higher*/
+	reg = sctrl_analog_get(SCTRL_ANALOG_CTRL3);
+	reg &= ~(AMPBIAS_OUTEN_BIT);
+	sctrl_analog_set(SCTRL_ANALOG_CTRL3, reg);
+	while((sctrl_analog_get(SCTRL_ANALOG_CTRL3) & AMPBIAS_OUTEN_BIT));
+
+	rosc_calib_manual_trigger();
+	rosc_calib_auto_trigger(2);//1s
+#else
 	REG_WRITE(SCTRL_ROSC_CAL, 0x35);
 	REG_WRITE(SCTRL_ROSC_CAL, 0x37);
+#endif
 
 	GLOBAL_INT_RESTORE();
 }
@@ -462,13 +478,13 @@ static UINT32 force_mcu_ps_measure_ps_timer(void)
 	return sleep_ms * 1000;
 }
 
-static UINT32 force_mcu_ps_entry(UINT64 sleep_us)
+static UINT32 force_mcu_ps_entry(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us)
 {
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
 	mcu_hw_sleep();
-	mcu_sleep(sleep_us);
+	mcu_sleep(wake_up_way,sleep_us);
 
 	GLOBAL_INT_RESTORE();
 
@@ -488,7 +504,7 @@ static UINT32 force_mcu_ps_exit(void)
 }
 
 void bk_send_byte(UINT8 uport, UINT8 data);
-UINT32 force_mcu_ps(UINT64 sleep_us, UINT32 sleep_mode)
+UINT32 force_mcu_ps(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us, UINT32 sleep_mode)
 {
 	UINT32 sleep_tick = 0;
 	uint32_t mac_status = 0, mac_timer_enbit = 0;
@@ -543,7 +559,7 @@ UINT32 force_mcu_ps(UINT64 sleep_us, UINT32 sleep_mode)
 			force_mcu_ps_start_ps_timer(sleep_us);
 		}
 
-		force_mcu_ps_entry(sleep_us);
+		force_mcu_ps_entry(wake_up_way,sleep_us);
 		force_mcu_ps_exit();
 
 		sleep_us = force_mcu_ps_measure_ps_timer();
@@ -551,15 +567,15 @@ UINT32 force_mcu_ps(UINT64 sleep_us, UINT32 sleep_mode)
 		force_mcu_ps_start_tick_timer();
 		sleep_ms = (UINT32)(sleep_us / 1000);
 	} else if (g_mcu_sleep.cfg.sleep_mode == MCU_LOW_VOLTAGE_SLEEP) {
-        #if (CFG_BLE_VERSION == BLE_VERSION_5_x)
+        #if (CFG_BLE_VERSION == BLE_VERSION_5_1)
         UINT32 ble_up = ble_thread_is_up();
         if((g_mcu_sleep.cfg.off_ble == 1) && (ble_up == 1))
             ble_thread_exit();
         #endif
-		force_mcu_ps_entry(sleep_us);
+		force_mcu_ps_entry(wake_up_way,sleep_us);
 		force_mcu_ps_exit();
         
-#if (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#if (CFG_BLE_VERSION == BLE_VERSION_5_1)
         if((g_mcu_sleep.cfg.off_ble == 1) && (ble_up == 1))
             ble_entry();
 #endif
@@ -599,7 +615,7 @@ UINT32 force_mcu_ps_init(void)
 
 UINT32 force_mcu_ps_set_wakeup_time(UINT64 wakeup_time_us)
 {
-#if CFG_LOW_VOLTAGE_PS
+#if (1 == CFG_LOW_VOLTAGE_PS)
 	UINT64 cur_time_us = rtos_get_time_us();
 	UINT32 sleep_us;
 
@@ -614,7 +630,7 @@ UINT32 force_mcu_ps_set_wakeup_time(UINT64 wakeup_time_us)
 
 void force_mcu_ps_clear_wakeup_time(void)
 {
-#if CFG_LOW_VOLTAGE_PS
+#if (1 == CFG_LOW_VOLTAGE_PS)
 	mcu_sleep_clear_rosc_timer();
 #endif
 }
@@ -675,7 +691,7 @@ UINT32 bk_force_instant_lowvol_sleep(PS_DEEP_CTRL_PARAM *lowvol_param)
 	sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&parameter);
 #endif
 
-	ret = force_mcu_ps(sleep_us, MCU_LOW_VOLTAGE_SLEEP);
+	ret = force_mcu_ps(lowvol_param->wake_up_way, sleep_us, lowvol_param-> sleep_mode);
 
 #if CFG_INT_WDG_ENABLED
 	parameter = PWD_ARM_WATCHDOG_CLK_BIT;

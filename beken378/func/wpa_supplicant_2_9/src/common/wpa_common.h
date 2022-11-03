@@ -101,14 +101,10 @@ WPA_CIPHER_BIP_CMAC_256)
  * GroupKey and PeerKey require encryption, otherwise, encryption is optional.
  */
 #define RSN_KEY_DATA_GROUPKEY RSN_SELECTOR(0x00, 0x0f, 0xac, 1)
-#if 0
 #define RSN_KEY_DATA_STAKEY RSN_SELECTOR(0x00, 0x0f, 0xac, 2)
-#endif
 #define RSN_KEY_DATA_MAC_ADDR RSN_SELECTOR(0x00, 0x0f, 0xac, 3)
 #define RSN_KEY_DATA_PMKID RSN_SELECTOR(0x00, 0x0f, 0xac, 4)
-#ifdef CONFIG_IEEE80211W
 #define RSN_KEY_DATA_IGTK RSN_SELECTOR(0x00, 0x0f, 0xac, 9)
-#endif /* CONFIG_IEEE80211W */
 #define RSN_KEY_DATA_KEYID RSN_SELECTOR(0x00, 0x0f, 0xac, 10)
 #define RSN_KEY_DATA_MULTIBAND_GTK RSN_SELECTOR(0x00, 0x0f, 0xac, 11)
 #define RSN_KEY_DATA_MULTIBAND_KEYID RSN_SELECTOR(0x00, 0x0f, 0xac, 12)
@@ -116,6 +112,7 @@ WPA_CIPHER_BIP_CMAC_256)
 
 #define WFA_KEY_DATA_IP_ADDR_REQ RSN_SELECTOR(0x50, 0x6f, 0x9a, 4)
 #define WFA_KEY_DATA_IP_ADDR_ALLOC RSN_SELECTOR(0x50, 0x6f, 0x9a, 5)
+#define WFA_KEY_DATA_TRANSITION_DISABLE RSN_SELECTOR(0x50, 0x6f, 0x9a, 0x20)
 
 #define WPA_OUI_TYPE RSN_SELECTOR(0x00, 0x50, 0xf2, 1)
 
@@ -338,6 +335,12 @@ struct rsn_rdie {
 	le16 status_code;
 } STRUCT_PACKED;
 
+/* WFA Transition Disable KDE (using OUI_WFA) */
+/* Transition Disable Bitmap bits */
+#define TRANSITION_DISABLE_WPA3_PERSONAL BIT(0)
+#define TRANSITION_DISABLE_SAE_PK BIT(1)
+#define TRANSITION_DISABLE_WPA3_ENTERPRISE BIT(2)
+#define TRANSITION_DISABLE_ENHANCED_OPEN BIT(3)
 
 #ifdef _MSC_VER
 #pragma pack(pop)
@@ -374,7 +377,9 @@ int wpa_ft_mic(const u8 *kck, size_t kck_len, const u8 *sta_addr,
 	       const u8 *mdie, size_t mdie_len,
 	       const u8 *ftie, size_t ftie_len,
 	       const u8 *rsnie, size_t rsnie_len,
-	       const u8 *ric, size_t ric_len, u8 *mic);
+	       const u8 *ric, size_t ric_len,
+	       const u8 *rsnxe, size_t rsnxe_len,
+	       u8 *mic);
 int wpa_derive_pmk_r0(const u8 *xxkey, size_t xxkey_len,
 		      const u8 *ssid, size_t ssid_len,
 		      const u8 *mdid, const u8 *r0kh_id, size_t r0kh_id_len,
@@ -410,6 +415,10 @@ int wpa_parse_wpa_ie_rsn(const u8 *rsn_ie, size_t rsn_ie_len,
 			 struct wpa_ie_data *data);
 int wpa_parse_wpa_ie_wpa(const u8 *wpa_ie, size_t wpa_ie_len,
 			 struct wpa_ie_data *data);
+int wpa_parse_wpa_ie_rsn_key_mgmt_and_pairwise_cipher(const u8 *rsn_ie, size_t rsn_ie_len,
+			 int *key_mgmt, int *pairwise_cipher);
+int wpa_parse_wpa_ie_wpa_key_mgmt_and_pairwise_cipher(const u8 *wpa_ie, size_t wpa_ie_len,
+			 int *key_mgmt, int *pairwise_cipher);
 int wpa_default_rsn_cipher(int freq);
 
 void rsn_pmkid(const u8 *pmk, size_t pmk_len, const u8 *aa, const u8 *spa,
@@ -468,10 +477,68 @@ struct wpa_ft_ies {
 	size_t ric_len;
 	int key_mgmt;
 	int pairwise_cipher;
+	const u8 *rsnxe;
+	size_t rsnxe_len;
 };
 
 int wpa_ft_parse_ies(const u8 *ies, size_t ies_len, struct wpa_ft_ies *parse,
 		     int use_sha384);
+
+struct wpa_eapol_ie_parse {
+	const u8 *wpa_ie;
+	size_t wpa_ie_len;
+	const u8 *rsn_ie;
+	size_t rsn_ie_len;
+	const u8 *pmkid;
+	const u8 *gtk;
+	size_t gtk_len;
+	const u8 *mac_addr;
+	size_t mac_addr_len;
+	const u8 *igtk;
+	size_t igtk_len;
+	const u8 *mdie;
+	size_t mdie_len;
+	const u8 *ftie;
+	size_t ftie_len;
+	const u8 *ip_addr_req;
+	const u8 *ip_addr_alloc;
+	const u8 *transition_disable;
+	size_t transition_disable_len;
+	const u8 *oci;
+	size_t oci_len;
+	const u8 *osen;
+	size_t osen_len;
+	const u8 *rsnxe;
+	size_t rsnxe_len;
+	const u8 *reassoc_deadline;
+	const u8 *key_lifetime;
+	const u8 *lnkid;
+	size_t lnkid_len;
+	const u8 *ext_capab;
+	size_t ext_capab_len;
+	const u8 *supp_rates;
+	size_t supp_rates_len;
+	const u8 *ext_supp_rates;
+	size_t ext_supp_rates_len;
+	const u8 *ht_capabilities;
+	const u8 *vht_capabilities;
+	const u8 *supp_channels;
+	size_t supp_channels_len;
+	const u8 *supp_oper_classes;
+	size_t supp_oper_classes_len;
+	u8 qosinfo;
+	u16 aid;
+	const u8 *wmm;
+	size_t wmm_len;
+};
+
+int wpa_parse_kde_ies(const u8 *buf, size_t len, struct wpa_eapol_ie_parse *ie);
+static inline int wpa_supplicant_parse_ies(const u8 *buf, size_t len,
+					   struct wpa_eapol_ie_parse *ie)
+{
+	return wpa_parse_kde_ies(buf, len, ie);
+}
+
 
 int wpa_cipher_key_len(int cipher);
 int wpa_cipher_rsc_len(int cipher);

@@ -167,7 +167,7 @@ int wpa_intf_channel_switch(struct prism2_hostapd_param *param, int len)
 
     mm_channel_switch_init(vif, freq, csa_count);
 
-    os_printf("[csa]intf_channel_switch:%x:%d:%d\r\n", vif, param->vif_idx, csa_count);
+    os_printf("wpa notify mm csa: %x:%d:%d\r\n", vif, param->vif_idx, csa_count);
     settings = param->u.chan_switch.settings;
     param_csa = hadp_intf_get_csa_bcn_req(settings, vif_id, &settings->beacon_csa);
     param_csa_after = hadp_intf_get_csa_after_bcn_req(vif_id, &settings->beacon_after);
@@ -195,6 +195,9 @@ int hapd_intf_sta_add(struct prism2_hostapd_param *param, int len)
     add_sta.capability = param->u.add_sta.capability;
     add_sta.tx_supp_rates = param->u.add_sta.tx_supp_rates;
 
+    os_printf("%s: aid %d, vif %d, mac %pm\n", __func__,
+        param->u.add_sta.aid, param->vif_idx, param->sta_addr);
+
     ret = rw_msg_send_me_sta_add(&add_sta, cfm);
     if(!ret && (cfm->status == CO_OK))
     {
@@ -203,6 +206,13 @@ int hapd_intf_sta_add(struct prism2_hostapd_param *param, int len)
 #if CFG_TX_BUFING
         rwm_tx_bufing_end(cfm->sta_idx);
 #endif
+    }
+    else
+    {
+        os_printf("%s: failed, ret %d, status %d\n", __func__, ret, cfm->status);
+        // reset ret to cfm->status if current message is success handled
+        if (!ret)
+            ret = cfm->status;
     }
     os_free(cfm);
 
@@ -249,7 +259,7 @@ int hapd_intf_sta_del(struct prism2_hostapd_param *param, int len)
     if(sta_idx == 0xff)
         return 0;
 
-    WPAS_PRT("hapd_intf_sta_del:%d\r\n", sta_idx);
+    WPAS_PRT("hapd_intf_sta_del: sta_idx %d, mac %pm\n", sta_idx, param->sta_addr);
 
 #if CFG_TX_BUFING
     rwm_tx_bufing_end(sta_idx);
@@ -322,8 +332,7 @@ int hapd_intf_add_key(struct prism2_hostapd_param *param, int len)
     ps_set_key_prevent();
     mcu_prevent_set(MCU_PS_ADD_KEY);
     if (key_param.sta_idx != 0xFF) {
-        UINT32 reg = RF_HOLD_BY_KEY_BIT;
-        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+        power_save_rf_hold_bit_set(RF_HOLD_BY_KEY_BIT);
     }
 #if CFG_USE_STA_PS
     power_save_rf_dtim_manual_do_wakeup();
@@ -346,22 +355,26 @@ int hapd_intf_del_key(struct prism2_hostapd_param *param, int len)
 {
     u8 hw_key_idx = 0;
 
-    if( (param->sta_addr == NULL) || is_broadcast_ether_addr(param->sta_addr))
+    if ((param->sta_addr == NULL) || is_broadcast_ether_addr(param->sta_addr))
     {
-        hw_key_idx = rwm_mgmt_get_hwkeyidx(param->vif_idx, 0xff);
+        hw_key_idx = rwm_mgmt_get_hwkeyidx(param->vif_idx, 0xff, param->u.crypt.idx);
     }
     else
     {
         u8 staid = rwm_mgmt_sta_mac2idx(param->sta_addr);
         if(staid == 0xff)
             return 0;
-        hw_key_idx = rwm_mgmt_get_hwkeyidx(param->vif_idx, staid);
+        hw_key_idx = rwm_mgmt_get_hwkeyidx(param->vif_idx, staid, param->u.crypt.idx);
     }
 
-    if(hw_key_idx > MM_SEC_MAX_KEY_NBR)
+#if NX_MFP
+    if (hw_key_idx > MM_SEC_MAX_MFP_KEY_NBR)
+#else
+    if (hw_key_idx > MM_SEC_MAX_KEY_NBR)
+#endif
         return 0;
 
-    WPAS_PRT("del hw key idx:%d\r\n", hw_key_idx);
+    WPAS_PRT("%s: mac %pm, hw key idx %d\r\n", __func__, param->sta_addr, hw_key_idx);
 
     return rw_msg_send_key_del(hw_key_idx);
 }
@@ -567,6 +580,7 @@ int wpa_send_scan_req(struct prism2_hostapd_param *param, int len)
 	os_memcpy(scan_param->freqs, param->u.scan_req.freqs, sizeof(scan_param->freqs));
 	os_memcpy(scan_param->extra_ies, param->u.scan_req.extra_ies, param->u.scan_req.extra_ies_len);
 	scan_param->extra_ies_len = param->u.scan_req.extra_ies_len;
+	scan_param->flag = param->u.scan_req.flag;
 
 	ret = rw_msg_send_scanu_req(scan_param);
 
@@ -639,8 +653,7 @@ int wpa_get_scan_rst(struct prism2_hostapd_param *param, int len)
 			mhdr_set_station_status(RW_EVT_STA_NO_AP_FOUND);
 		}
 
-		UINT32 reg = RF_HOLD_BY_SCAN_BIT;
-		sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+		power_save_rf_hold_bit_clear(RF_HOLD_BY_SCAN_BIT);
 #if CFG_ROLE_LAUNCH
 		if (rl_pre_sta_set_status(RL_STATUS_STA_SCAN_OVER))
 			return -1;
@@ -920,7 +933,7 @@ int wpa_get_bss_info(struct prism2_hostapd_param *param, int len)
         return -1;
 
     os_memcpy(param->u.bss_info.bssid, cfm->bssid, ETH_ALEN);
-    ssid_len = MIN(SSID_MAX_LEN, os_strlen((char *)cfm->ssid));
+    ssid_len = _MIN(SSID_MAX_LEN, os_strlen((char *)cfm->ssid));
     os_memcpy(param->u.bss_info.ssid, cfm->ssid, ssid_len);
     os_free(cfm);
 
@@ -1108,8 +1121,7 @@ int hapd_intf_ioctl(unsigned long arg)
         {
             ret = hapd_intf_del_key(param, len);
             mcu_prevent_clear(MCU_PS_ADD_KEY);
-            UINT32 reg = RF_HOLD_BY_KEY_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+            power_save_rf_hold_bit_clear(RF_HOLD_BY_KEY_BIT);
         }
         else
         {

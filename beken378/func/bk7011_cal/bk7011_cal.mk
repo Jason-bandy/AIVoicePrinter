@@ -44,7 +44,8 @@ $(NAME)_INCLUDES += ../../driver/dma\
                     ../../func/rwnx_intf
  
 
-$(NAME)_SOURCES += bk7231_cal.c \
+$(NAME)_SOURCES += bk7011_cal.c \
+                   bk7231_cal.c \
                    manual_cal_bk7231.c \
                    bk7231U_cal.c \
                    bk7231N_cal.c \

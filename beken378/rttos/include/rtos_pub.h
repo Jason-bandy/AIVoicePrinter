@@ -504,7 +504,12 @@ OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer );
 BOOL rtos_is_oneshot_timer_init( beken2_timer_t* timer );
 OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer );
 OSStatus rtos_change_period( beken_timer_t* timer, uint32_t time_ms);
+OSStatus rtos_change_period_1( beken2_timer_t* timer, uint32_t time_ms);
 uint32_t rtos_get_timer_expiry_time( beken_timer_t* timer );
+
+
+BOOL rtos_is_timer_init(beken_timer_t* timer);
+BOOL rtos_is_timer_running(beken_timer_t* timer);
 
 /** @brief    Starts a RTOS timer running
   *

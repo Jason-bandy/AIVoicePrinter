@@ -35,6 +35,9 @@
 /** @addtogroup BK_PLATFORM
 * @{
 */
+#ifdef __cplusplus
+extern"C" {
+#endif
 
 
 /** @defgroup BK_GPIO _BK_ GPIO Driver
@@ -202,6 +205,10 @@ OSStatus BkGpioDisableIRQ( bk_gpio_t gpio );
 /** @} */
 OSStatus BKGpioOp(char cmd, uint32_t id, char mode);
 void BKGpioIntcEn(uint8_t cmd, uint8_t id, uint32_t mode, void(*p_handle)(char));
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

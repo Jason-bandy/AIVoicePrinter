@@ -457,5 +457,10 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 /* Beken specific LWIP options */
 #define BK_DHCP                         1
 
+#define DNS_MAX_RETRIES                 4
+
+/* When DHCP fails, reconnect to AP */
+#define MK3060_DHCP_FAIL                1
+
 #endif /* __LWIPOPTS_H__ */
 

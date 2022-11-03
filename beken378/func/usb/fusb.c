@@ -1,4 +1,6 @@
 #include "include.h"
+
+#if CFG_USB
 #include "uart_pub.h"
 #include "fusb_pub.h"
 #include "fusb.h"
@@ -10,8 +12,6 @@
 #include "diskio.h"
 #include "usb_pub.h"
 #include "sdcard_pub.h"
-
-#if CFG_USB
 
 #ifdef FUSB_ENABLE_USER_MAIN
 

@@ -69,78 +69,78 @@ $(NAME)_INCLUDES += ../func/$(WPA_VERSION)/src/utils \
                     ../func/$(WPA_VERSION)/src/drivers 
 
 ifeq ($(CFG_BLE_VERSION),1)
-$(NAME)_INCLUDES += ../driver/ble \
-					../driver/ble/beken_ble_sdk/controller/include \
-					../driver/ble/beken_ble_sdk/hci/include \
-					../driver/ble/beken_ble_sdk/host/include \
-					../driver/ble/beken_ble_sdk/sys/include \
-					../driver/ble/config \
-					../driver/ble/modules/app/api \
-					../driver/ble/modules/gernel_api \
-					../driver/ble/modules/mesh_model/ali \
-					../driver/ble/plactform/arch \
-					../driver/ble/plactform/driver/ble_icu \
-					../driver/ble/plactform/driver/ir \
-					../driver/ble/plactform/driver/reg \
-					../driver/ble/plactform/driver/sys_ctrl \
-					../driver/ble/plactform/driver/uart \
-					../driver/ble/plactform/include \
-					../driver/ble/plactform/modules/include \
-					../driver/ble/profiles/comm/api \
-					../driver/ble/profiles/prf/include \
-					../driver/ble/profiles/sdp/api \
-					../driver/ble/beken_ble_sdk/mesh/include \
-					../driver/ble/beken_ble_sdk/mesh/src/dbg \
-					../driver/ble/beken_ble_sdk/mesh/src/models/include 
+$(NAME)_INCLUDES += ../driver/ble/ble_4_2 \
+					../driver/ble/ble_4_2/beken_ble_sdk/controller/include \
+					../driver/ble/ble_4_2/beken_ble_sdk/hci/include \
+					../driver/ble/ble_4_2/beken_ble_sdk/host/include \
+					../driver/ble/ble_4_2/beken_ble_sdk/sys/include \
+					../driver/ble/ble_4_2/config \
+					../driver/ble/ble_4_2/modules/app/api \
+					../driver/ble/ble_4_2/modules/gernel_api \
+					../driver/ble/ble_4_2/modules/mesh_model/ali \
+					../driver/ble/ble_4_2/plactform/arch \
+					../driver/ble/ble_4_2/plactform/driver/ble_icu \
+					../driver/ble/ble_4_2/plactform/driver/ir \
+					../driver/ble/ble_4_2/plactform/driver/reg \
+					../driver/ble/ble_4_2/plactform/driver/sys_ctrl \
+					../driver/ble/ble_4_2/plactform/driver/uart \
+					../driver/ble/ble_4_2/plactform/include \
+					../driver/ble/ble_4_2/plactform/modules/include \
+					../driver/ble/ble_4_2/profiles/comm/api \
+					../driver/ble/ble_4_2/profiles/prf/include \
+					../driver/ble/ble_4_2/profiles/sdp/api \
+					../driver/ble/ble_4_2/beken_ble_sdk/mesh/include \
+					../driver/ble/ble_4_2/beken_ble_sdk/mesh/src/dbg \
+					../driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/include 
 else
 ifeq ($(CFG_BLE_VERSION),2)
-$(NAME)_INCLUDES += ../driver/ble_5_x_rw/ble_lib/ip/ble/hl/api \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/inc \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gap/gapc \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gap/gapm \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/attc \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/attm \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/atts \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/gattc \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/gattm \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/l2c/l2cc \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/l2c/l2cm \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/api \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/import/reg \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/llc \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/lld \
-					../driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/llm \
-					../driver/ble_5_x_rw/ble_lib/ip/em/api \
-					../driver/ble_5_x_rw/ble_lib/ip/hci/api \
-					../driver/ble_5_x_rw/ble_lib/ip/hci/src \
-					../driver/ble_5_x_rw/ble_lib/ip/sch/api \
-					../driver/ble_5_x_rw/ble_lib/ip/sch/import \
-					../driver/ble_5_x_rw/ble_lib/modules/aes/api \
-					../driver/ble_5_x_rw/ble_lib/modules/aes/src \
-					../driver/ble_5_x_rw/ble_lib/modules/common/api \
-					../driver/ble_5_x_rw/ble_lib/modules/dbg/api \
-					../driver/ble_5_x_rw/ble_lib/modules/dbg/src \
-					../driver/ble_5_x_rw/ble_lib/modules/ecc_p256/api \
-					../driver/ble_5_x_rw/ble_lib/modules/h4tl/api \
-					../driver/ble_5_x_rw/ble_lib/modules/ke/api \
-					../driver/ble_5_x_rw/ble_lib/modules/ke/src \
-					../driver/ble_5_x_rw/ble_pub/prf \
-					../driver/ble_5_x_rw/ble_pub/profiles/comm/api \
-					../driver/ble_5_x_rw/ble_pub/app/api \
-					../driver/ble_5_x_rw/ble_pub/ui \
-					../driver/ble_5_x_rw/platform/7231n/rwip/api \
-					../driver/ble_5_x_rw/platform/7231n/rwip/import/reg \
-					../driver/ble_5_x_rw/platform/7231n/nvds/api \
-					../driver/ble_5_x_rw/platform/7231n/config \
-					../driver/ble_5_x_rw/platform/7231n/driver/reg \
-					../driver/ble_5_x_rw/platform/7231n/driver/rf \
-					../driver/ble_5_x_rw/platform/7231n/driver/uart \
-					../driver/ble_5_x_rw/platform/7231n/entry \
-					../driver/ble_5_x_rw/arch/armv5 \
-					../driver/ble_5_x_rw/arch/armv5/ll \
-					../driver/ble_5_x_rw/arch/armv5/compiler
+$(NAME)_INCLUDES += ../driver/ble/ble_5_1/ble_lib/ip/ble/hl/api \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/inc \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gap/gapc \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gap/gapm \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/attc \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/attm \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/atts \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/gattc \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/gattm \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/l2c/l2cc \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/l2c/l2cm \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/ll/api \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/ll/import/reg \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/ll/src \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/ll/src/llc \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/ll/src/lld \
+					../driver/ble/ble_5_1/ble_lib/ip/ble/ll/src/llm \
+					../driver/ble/ble_5_1/ble_lib/ip/em/api \
+					../driver/ble/ble_5_1/ble_lib/ip/hci/api \
+					../driver/ble/ble_5_1/ble_lib/ip/hci/src \
+					../driver/ble/ble_5_1/ble_lib/ip/sch/api \
+					../driver/ble/ble_5_1/ble_lib/ip/sch/import \
+					../driver/ble/ble_5_1/ble_lib/modules/aes/api \
+					../driver/ble/ble_5_1/ble_lib/modules/aes/src \
+					../driver/ble/ble_5_1/ble_lib/modules/common/api \
+					../driver/ble/ble_5_1/ble_lib/modules/dbg/api \
+					../driver/ble/ble_5_1/ble_lib/modules/dbg/src \
+					../driver/ble/ble_5_1/ble_lib/modules/ecc_p256/api \
+					../driver/ble/ble_5_1/ble_lib/modules/h4tl/api \
+					../driver/ble/ble_5_1/ble_lib/modules/ke/api \
+					../driver/ble/ble_5_1/ble_lib/modules/ke/src \
+					../driver/ble/ble_5_1/ble_pub/prf \
+					../driver/ble/ble_5_1/ble_pub/profiles/comm/api \
+					../driver/ble/ble_5_1/ble_pub/app/api \
+					../driver/ble/ble_5_1/ble_pub/ui \
+					../driver/ble/ble_5_1/platform/7231n/rwip/api \
+					../driver/ble/ble_5_1/platform/7231n/rwip/import/reg \
+					../driver/ble/ble_5_1/platform/7231n/nvds/api \
+					../driver/ble/ble_5_1/platform/7231n/config \
+					../driver/ble/ble_5_1/platform/7231n/driver/reg \
+					../driver/ble/ble_5_1/platform/7231n/driver/rf \
+					../driver/ble/ble_5_1/platform/7231n/driver/uart \
+					../driver/ble/ble_5_1/platform/7231n/entry \
+					../driver/ble/ble_5_1/arch/armv5 \
+					../driver/ble/ble_5_1/arch/armv5/ll \
+					../driver/ble/ble_5_1/arch/armv5/compiler
 endif
 endif
 					
@@ -149,6 +149,8 @@ $(NAME)_SOURCES	:=  common/co_dlist.c \
 					common/co_math.c \
 					common/co_pool.c \
 					common/co_ring.c \
+					common/co_tkip.c \
+					common/co_wep.c \
 					ke/ke_env.c \
 					ke/ke_event.c \
 					ke/ke_msg.c \

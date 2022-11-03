@@ -338,6 +338,8 @@ struct me_rc_set_rate_req
 };
 #endif
 
+extern uint8_t me_mgmt_tx_get_staid(void *mac);
+
 extern const struct ke_state_handler me_state_handler[ME_STATE_MAX];
 
 extern const struct ke_state_handler me_default_handler;

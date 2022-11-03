@@ -3,7 +3,6 @@
 #include "rw_pub.h"
 #include "rtos_pub.h"
 #include "arm_arch.h"
-#include "sys_ctrl_pub.h"
 #include "power_save_pub.h"
 #include "ps_debug_pub.h"
 #include "target_util_pub.h"
@@ -30,8 +29,7 @@ void ap_ps_do_rf_up ( void )
     GLOBAL_INT_DISABLE();
 
     if ( ap_rf_off == 1 ) {
-        UINT32 reg = RF_HOLD_BY_AP_BIT;
-        sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+        power_save_rf_hold_bit_set(RF_HOLD_BY_AP_BIT);
         wifi_general_mac_state_set_active();
         ap_rf_off = 0;
     }
@@ -41,7 +39,6 @@ void ap_ps_do_rf_up ( void )
 
 void ap_bcn_timer_real_handler ( void )
 {
-	UINT32 reg;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 	
@@ -51,14 +48,12 @@ void ap_bcn_timer_real_handler ( void )
             rtos_change_period ( &ps_ap_bcn_timer, 5 );
             wifi_general_mac_state_set_idle();
             ap_rf_off = 1;
-            reg = RF_HOLD_BY_AP_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+            power_save_rf_hold_bit_clear(RF_HOLD_BY_AP_BIT);
         }
         else if ( ps_fake_global_ap_count == 1 ) 
         {
             rtos_change_period ( &ps_ap_bcn_timer, 4 );
-            reg = RF_HOLD_BY_AP_BIT;
-            sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+            power_save_rf_hold_bit_set(RF_HOLD_BY_AP_BIT);
             wifi_general_mac_state_set_active();
             ap_rf_off = 0;
         }
@@ -84,8 +79,7 @@ void stop_global_ap_bcn_timer ( void )
 {
     GLOBAL_INT_DECLARATION();
     GLOBAL_INT_DISABLE();
-    UINT32 reg = RF_HOLD_BY_AP_BIT;
-    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    power_save_rf_hold_bit_set(RF_HOLD_BY_AP_BIT);
     wifi_general_mac_state_set_active();
     ap_rf_off = 0;
 #if CFG_USE_MCU_PS

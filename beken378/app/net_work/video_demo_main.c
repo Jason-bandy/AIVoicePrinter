@@ -41,7 +41,7 @@ void video_transfer_usage(void)
 
 static int video_transfer(int argc, char **argv)
 {
-    char *oob_ssid = NULL;
+    char *oob_ssid = NULL, *tmp_oob_ssid = "beken p2p";
     char *connect_key = NULL;
     static UINT32 video_transfer_mode = 0;
 
@@ -74,6 +74,10 @@ static int video_transfer(int argc, char **argv)
                 connect_key = argv[3];
             }
 
+            app_demo_sta_exit();
+            app_demo_p2p_exit();
+            video_transfer_mode = 0;
+
             app_demo_softap_start(oob_ssid, connect_key);
             video_transfer_mode |= VIDE_MODE_SOFTAP;
 
@@ -104,9 +108,12 @@ static int video_transfer(int argc, char **argv)
                 connect_key = argv[3];
             }
 
+            app_demo_softap_exit();
+            app_demo_p2p_exit();
+            video_transfer_mode = 0;
+
             app_demo_sta_start(oob_ssid, connect_key);
             video_transfer_mode |= VIDE_MODE_STATION;
-
         }
         else
         {
@@ -127,16 +134,22 @@ static int video_transfer(int argc, char **argv)
 
         if ((video_transfer_mode & VIDE_MODE_P2P) == 0)
         {
-            oob_ssid = argv[2];
+            if (argv[2][0] == '0')
+                oob_ssid = tmp_oob_ssid;
+            else
+                oob_ssid = argv[2];
             if (argc >= 4)
             {
                 /* video_transfer -s ssid key [options] */
                 connect_key = argv[3];
             }
 
+            app_demo_softap_exit();
+            app_demo_sta_exit();
+            video_transfer_mode = 0;
+
             app_demo_p2p_start(oob_ssid, connect_key);
             video_transfer_mode |= VIDE_MODE_P2P;
-
         }
         else
         {

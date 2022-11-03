@@ -98,6 +98,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 		"WEP",
 		"WPA_TKIP",
 		"WPA_AES",
+		"WPA_MIXED",
 		"WPA2_TKIP",
 		"WPA2_AES",
 		"WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
@@ -115,7 +116,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 
 		bk_printf("Got ap count: %d\r\n", apList.ApNum);
 		for (i = 0; i < ap_num; i++)
-			bk_printf("    \"%s\", " MACSTR "\b, %d, %s, %d\n",
+			bk_printf("    \"%s\", %02x:%02x:%02x:%02x:%02x:%02x, %d, %s, %d\n",
 					apList.ApList[i].ssid, MAC2STR(apList.ApList[i].bssid),
 					apList.ApList[i].ApPower, crypto_str[apList.ApList[i].security],
 					apList.ApList[i].channel);
@@ -145,14 +146,22 @@ void demo_scan_adv_app_init(uint8_t *oob_ssid)
 void demo_softap_app_init(char *ap_ssid, char *ap_key)
 {
     network_InitTypeDef_st wNetConfig;
-    int len;
+    int ssid_len, key_len;
 
     os_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
-
-    len = os_strlen(ap_ssid);
-    if(SSID_MAX_LEN < len)
+	
+    ssid_len = os_strlen(ap_ssid);
+    key_len = os_strlen(ap_key);
+	
+    if (SSID_MAX_LEN < ssid_len)
     {
         bk_printf("ssid name more than 32 Bytes\r\n");
+        return;
+    }
+	
+    if (KEY_MAX_LEN < key_len)
+    {
+        bk_printf("key more than 64 Bytes\r\n");
         return;
     }
 
@@ -174,15 +183,22 @@ void demo_softap_app_init(char *ap_ssid, char *ap_key)
 void demo_sta_app_init(char *oob_ssid,char *connect_key)
 {
 	network_InitTypeDef_st wNetConfig;
-    int len;
+	int ssid_len, key_len;
 	os_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
 
-    len = os_strlen(oob_ssid);
-    if(SSID_MAX_LEN < len)
-    {
-        bk_printf("ssid name more than 32 Bytes\r\n");
-        return;
-    }
+	ssid_len = os_strlen(oob_ssid);
+	key_len = os_strlen(connect_key);
+	if (SSID_MAX_LEN < ssid_len)
+	{
+		bk_printf("ssid name more than 32 Bytes\r\n");
+		return;
+	}
+
+	if (KEY_MAX_LEN < key_len)
+	{
+		bk_printf("key more than 64 Bytes\r\n");
+		return;
+	}
 
 	os_strcpy((char *)wNetConfig.wifi_ssid, oob_ssid);
 	os_strcpy((char *)wNetConfig.wifi_key, connect_key);
@@ -192,6 +208,14 @@ void demo_sta_app_init(char *oob_ssid,char *connect_key)
 	wNetConfig.wifi_retry_interval = 100;
 
 	bk_printf("ssid:%s key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
+#if CFG_QUICK_TRACK
+	wNetConfig.key_mgmt = BIT(1) | BIT(10);  // PSK & SAE         WPA_KEY_MGMT_PSK WPA_KEY_MGMT_SAE
+	wNetConfig.proto = BIT(0) | BIT(1);	// WPA & RSN              WPA_PROTO_WPA & WPA_PROTO_RSN
+	wNetConfig.pairwise_cipher = BIT(3) | BIT(4); // TKIP & CCMP  WPA_CIPHER_CCMP WPA_CIPHER_TKIP
+	wNetConfig.group_cipher = BIT(3) | BIT(4); // TKIP & CCMP     WPA_CIPHER_CCMP WPA_CIPHER_TKIP
+	wNetConfig.ieee80211w = 1; // MFP Optional
+#endif
+
 	bk_wlan_start(&wNetConfig);
 }
 
@@ -281,10 +305,9 @@ void demo_state_app_init(void)
 	if (sta_ip_is_start()) {
 		os_memset(&linkStatus, 0x0, sizeof(LinkStatusTypeDef));
 		bk_wlan_get_link_status(&linkStatus);
-		os_memcpy(ssid, linkStatus.ssid, 32);
-
-		bk_printf("sta:rssi=%d,ssid=%s,bssid=" MACSTR ",channel=%d,cipher_type:",
-				  linkStatus.wifi_strength, ssid, MAC2STR(linkStatus.bssid), linkStatus.channel);
+		os_memcpy(ssid, linkStatus.ssid, 33);
+		bk_printf("sta:rssi=%d,ssid=%s,bssid=" MACSTR ",aid=%d,channel=%d,cipher_type:",
+				  linkStatus.wifi_strength, ssid, MAC2STR(linkStatus.bssid), linkStatus.aid, linkStatus.channel);
 		switch (bk_sta_cipher_type()) {
 		case BK_SECURITY_TYPE_NONE:
 			bk_printf("OPEN\r\n");
@@ -297,6 +320,9 @@ void demo_state_app_init(void)
 			break;
 		case BK_SECURITY_TYPE_WPA_AES:
 			bk_printf("WPA_AES\r\n");
+			break;
+		case BK_SECURITY_TYPE_WPA_MIXED:
+			bk_printf("WPA_MIXED\r\n");
 			break;
 		case BK_SECURITY_TYPE_WPA2_AES:
 			bk_printf("CCMP\r\n");
@@ -328,7 +354,7 @@ void demo_state_app_init(void)
 	if (uap_ip_is_start()) {
 		os_memset(&ap_info, 0x0, sizeof(network_InitTypeDef_ap_st));
 		bk_wlan_ap_para_info_get(&ap_info);
-		os_memcpy(ssid, ap_info.wifi_ssid, 32);
+		os_memcpy(ssid, ap_info.wifi_ssid, 33);
 		bk_printf("softap:ssid=%s,channel=%d,dhcp=%d,cipher_type:",
 				  ssid, ap_info.channel, ap_info.dhcp_mode);
 		switch (ap_info.security) {

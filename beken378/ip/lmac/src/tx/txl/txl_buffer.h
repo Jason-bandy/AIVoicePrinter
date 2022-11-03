@@ -177,15 +177,15 @@ struct txl_buffer_tag
     struct txl_buffer_tag *next;
     /// Pointer to the TX descriptor linked to this buffer
     struct txdesc *txdesc;
-    
+
     #if (RW_BFMER_EN)
     /// IPC DMA descriptor for the Beamforming Report
     struct dma_desc dma_desc_bfr;
     #endif //(RW_BFMER_EN)
-    
+
     /// TX buffer descriptor
     struct tx_pbd tbd;
-    
+
     #if RW_MUMIMO_TX_EN
     union
     {
@@ -195,11 +195,11 @@ struct txl_buffer_tag
         struct tx_compressed_policy_tbl comp_pol_tbl;
     };
     #endif
-    
+
     /// Index of the user in the access category (0 if no MU-MIMO)
     uint16_t user_idx;
 	uint16_t padding;
-    
+
     /// Payload area (force 4-byte alignment)
     uint32_t payload[];
 };
@@ -209,7 +209,7 @@ struct txl_buffer_tag
 /*
  * GLOBAL VARIABLES
  ****************************************************************************************
- */   
+ */
 extern struct txl_buffer_hw_desc_tag txl_buffer_hw_desc[TX_BUFFER_POOL_MAX];
 extern struct txl_buffer_env_tag txl_buffer_env;
 extern struct txl_buffer_control txl_buffer_control_desc[NX_REMOTE_STA_MAX][2];
@@ -219,18 +219,30 @@ extern struct txl_buffer_control txl_buffer_control_desc_bcmc[NX_VIRT_DEV_MAX];
  * FUNCTION PROTOTYPES
  ****************************************************************************************
  */
+/**
+ ****************************************************************************************
+ * @brief Releases a Tx buffer
+ *
+ * @param[in] buf               Pointer to the buffer to be freed
+ * @param[in] access_category   Access category for which the buffer is freed
+ *
+ * @return true if a new buffer allocation attempt can occur, false otherwise
+ *
+ ****************************************************************************************
+ */
 extern bool txl_buffer_free(struct txl_buffer_tag *, uint8_t);
+
 extern void txl_buffer_push(uint8_t ac, struct txl_buffer_tag *buf);
 #if NX_AMSDU_TX
 void txl_buffer_update_tbd(struct txdesc *txdesc,
                                     uint8_t access_category,
                                     uint8_t pkt_idx);
-struct txl_buffer_tag *txl_buffer_alloc(struct txdesc *txdesc, 
+struct txl_buffer_tag *txl_buffer_alloc(struct txdesc *txdesc,
 										uint8_t access_category,
-										uint8_t user_idx, 
+										uint8_t user_idx,
 										uint8_t pkt_idx);
 #else
-struct txl_buffer_tag *txl_buffer_alloc(struct txdesc *txdesc, 
+struct txl_buffer_tag *txl_buffer_alloc(struct txdesc *txdesc,
                                             uint8_t access_category,
                                             uint8_t user_idx);
 #endif

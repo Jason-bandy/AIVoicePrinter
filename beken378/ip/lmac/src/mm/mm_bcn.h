@@ -25,7 +25,9 @@
 #if (NX_P2P_GO)
 #include "p2p.h"
 #endif //(NX_P2P_GO)
-
+#if CFG_AP_MONITOR_COEXIST_TBTT
+#include "mm_timer.h"
+#endif
 #define CSA_ACTION_COUNT              (12)
 
 #if NX_BCN_AUTONOMOUS_TX
@@ -61,6 +63,9 @@ struct mm_bcn_env_tag
     /// P2P NOA Change Request
     uint8_t p2p_noa_req[NX_VIRT_DEV_MAX];
     #endif //(NX_P2P_GO)
+#if CFG_AP_MONITOR_COEXIST_TBTT
+    struct mm_timer_tag tbtt_dur_timer;
+#endif
 };
 
 

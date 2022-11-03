@@ -1,7 +1,7 @@
 #ifndef _PWM_H_
 #define _PWM_H_
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
 #include "bk_err.h"
 #include "bk_log.h"
 
@@ -118,6 +118,7 @@ bk_err_t pwm_unit_disable(UINT8 ucChannel);
 bk_err_t pwm_group_mode_enable(UINT8 ucChannel);
 bk_err_t pwm_group_mode_disable(UINT8 ucChannel);
 bk_err_t pwm_update_param_enable(UINT8 channel);
+bk_err_t pwm_single_update_param_enable(UINT8 channel,UINT32 level);
 bk_err_t pwm_group_update_param_enable(UINT8 channel1,UINT8 channel2);
 bk_err_t pwm_init_levl_set_low(UINT8 ucChannel);
 bk_err_t pwm_init_levl_set_high(UINT8 ucChannel);

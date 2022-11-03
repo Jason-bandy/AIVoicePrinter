@@ -14,7 +14,10 @@
 
 #include "webclient.h"
 #include <fal.h>
+
+#ifdef PKG_USING_RT_OTA
 #include <rt_ota.h>
+#endif
 
 #include "BkDriverFlash.h"
 #include "drv_flash.h"

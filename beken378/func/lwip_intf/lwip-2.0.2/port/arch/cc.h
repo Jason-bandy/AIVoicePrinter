@@ -36,8 +36,13 @@
 
 #include "typedef.h"
 #include "uart_pub.h"
+#include <sys/time.h>
 
 #define LWIP_NO_STDINT_H 1
+#if (CFG_SUPPORT_MATTER)
+#define LWIP_TIMEVAL_PRIVATE 0
+#endif
+
 /*
  *   Typedefs for the types used by lwip -
  *   u8_t, s8_t, u16_t, s16_t, u32_t, s32_t, mem_ptr_t

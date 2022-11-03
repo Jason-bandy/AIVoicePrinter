@@ -448,11 +448,90 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 				bk_printf("%d\r\n", cnt++);
 			rtos_delay_milliseconds(80);
 		}
+	}else if ((os_strcmp(argv[1], "master_dma_tx_loop") == 0))
+	{
+		UINT8 *buf;
+		int tx_len;
+
+		if (argc < 2)
+			tx_len = SPI_RX_BUF_LEN;
+		else
+			tx_len = atoi(argv[2]);
+
+		max_hz = atoi(argv[3]); //SPI_BAUDRATE;
+
+		bk_printf("spi master  dma tx: tx_len:%d max_hz:%d\r\n", tx_len, max_hz);
+
+		buf = os_malloc(tx_len * sizeof(UINT8));
+		if (!buf) {
+			bk_printf("buf malloc fail\r\n");
+			return;
+		}
+
+		os_memset(buf, 0, tx_len);
+
+		for (int i = 0; i < tx_len; i++)
+			buf[i] = i + 0x60;
+
+		msg.send_buf = buf;
+		msg.send_len = tx_len;
+		msg.recv_buf = NULL;
+		msg.recv_len = 0;
+		msg.repeat_cnt = atoi(argv[4]);
+
+		mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
+
+		bk_spi_master_dma_tx_loop_init(mode, max_hz, &msg);
+
+		bk_spi_master_dma_send_loop(&msg);
+
+		bk_spi_master_dma_tx_loop_deinit();
+
+		bk_printf("spi master  dma tx loop test end \r\n");
+	}else if ((os_strcmp(argv[1], "master_dma_tx_loop_repeat") == 0))
+	{
+		UINT8 *buf;
+		int tx_len;
+
+		if (argc < 2)
+			tx_len = SPI_RX_BUF_LEN;
+		else
+			tx_len = atoi(argv[2]);
+
+		max_hz = atoi(argv[3]); //SPI_BAUDRATE;
+
+		bk_printf("spi master  dma tx: tx_len:%d max_hz:%d\r\n", tx_len, max_hz);
+
+		buf = os_malloc(tx_len * sizeof(UINT8));
+		if (!buf) {
+			bk_printf("buf malloc fail\r\n");
+			return;
+		}
+
+		os_memset(buf, 0, tx_len);
+
+		for (int i = 0; i < tx_len; i++)
+			buf[i] = i + 0x60;
+
+		msg.send_buf = buf;
+		msg.send_len = tx_len;
+		msg.recv_buf = NULL;
+		msg.recv_len = 0;
+		msg.repeat_cnt = atoi(argv[4]);
+
+		mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
+
+		bk_spi_master_dma_tx_loop_init(mode, max_hz, &msg);
+
+		UINT8 cnt = 5;
+		while (cnt--) {
+			bk_spi_master_dma_send_loop(&msg);
+			bk_printf("spi_dma_tx_loop_send cnt :%d\r\n",cnt);
+		}
+
+		bk_spi_master_dma_tx_loop_deinit();
 	}
-
-
 #endif
-
 	else
 		bk_printf("gspi_test master/slave	 tx/rx	rate  len\r\n");
 
@@ -577,7 +656,7 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 {
 	UINT8 channel1;
 	UINT32 duty_cycle1, cycle, cap_value;
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
 	UINT8 channel2;
 	UINT32 duty_cycle2;
 	UINT32 dead_band;
@@ -587,7 +666,7 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	channel1	= atoi(argv[2]);
 	duty_cycle1	= atoi(argv[3]);
 	cycle		= atoi(argv[4]);
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
 	channel2	= atoi(argv[5]);
 	duty_cycle2	= atoi(argv[6]);
 	dead_band	= atoi(argv[7]);
@@ -611,7 +690,7 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_pwm_start(channel1);				/*start single pwm channel once */
 	} else if (os_strcmp(argv[1], "stop") == 0)
 		bk_pwm_stop(channel1);
-#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) ||(CFG_SOC_NAME == SOC_BK7271))
+#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) ||(CFG_SOC_NAME == SOC_BK7271) || (CFG_SOC_NAME == SOC_BK7238))
 	else if (os_strcmp(argv[1], "update") == 0)
 	{
 		if (5 != argc) {
@@ -637,7 +716,7 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		cap_value = bk_pwm_get_capvalue(channel1);
 		PERI_LOGI(TAG, "pwm : %d cap_value=%x \r\n", channel1, cap_value);
 	}
-	#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236))
+	#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238))
 	else if (os_strcmp(argv[1], "cw") == 0)
 	{
 

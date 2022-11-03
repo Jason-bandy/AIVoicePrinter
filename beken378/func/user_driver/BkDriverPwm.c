@@ -33,7 +33,7 @@
 #include "pwm_pub.h"
 
 
-#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236) && (CFG_SOC_NAME != SOC_BK7238)
 #include "pwm_bk7271.h"
 
 OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle)
@@ -114,24 +114,24 @@ OSStatus bk_pwm_initlevl_set_high(bk_pwm_t pwm);
 
 OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle1,uint32_t duty_cycle2,uint32_t duty_cycle3)
 {
-    UINT32 ret;
-    pwm_param_t param;
+	UINT32 ret;
+	pwm_param_t param;
 
-    /*init pwm*/
-    param.channel         = (uint8_t)pwm;
-    param.cfg.bits.int_en = PWM_INT_DIS;
-    param.cfg.bits.mode   = PWM_PWM_MODE;
-    param.cfg.bits.clk    = PWM_CLK_26M;
-    param.p_Int_Handler   = 0;
-    param.duty_cycle1     = duty_cycle1;
+	/*init pwm*/
+	param.channel         = (uint8_t)pwm;
+	param.cfg.bits.int_en = PWM_INT_DIS;
+	param.cfg.bits.mode   = PWM_PWM_MODE;
+	param.cfg.bits.clk    = PWM_CLK_26M;
+	param.p_Int_Handler   = 0;
+	param.duty_cycle1     = duty_cycle1;
 	param.duty_cycle2     = duty_cycle2;
 	param.duty_cycle3     = duty_cycle3;
-    param.end_value       = frequency;  
+	param.end_value       = frequency;
 
 	bk_printf("bk pwm initial:mode = %x\r\n",param.cfg.val);
-    ret = sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
-    ASSERT(PWM_SUCCESS == ret);
-	
+	ret = sddev_control(PWM_DEV_NAME, CMD_PWM_INIT_PARAM, &param);
+	ASSERT(PWM_SUCCESS == ret);
+
 	if(duty_cycle1)
 	{
 		bk_pwm_initlevl_set_high(param.channel);
@@ -141,7 +141,7 @@ OSStatus bk_pwm_initialize(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cycle
 		bk_pwm_initlevl_set_low(param.channel);
 	}
 
-    return kNoErr;
+	return kNoErr;
 }
 
 
@@ -213,7 +213,7 @@ UINT32 bk_pwm_get_capvalue(bk_pwm_t pwm)
 	return pwm_cap.value;
 }
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
 static UINT8 group_flag = 0;
 static UINT8 pwm1_set_high_flag = 0;
 static UINT8 pwm2_set_low_flag = 0;
@@ -247,6 +247,7 @@ bk_err_t bk_pwm_update_param(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cyc
 {
 	pwm_param_t param;
 	UINT32 ret;
+	UINT32 init_level = 0;
 
 	param.channel         = (uint8_t)pwm;
 	param.duty_cycle1	  = duty_cycle;
@@ -254,15 +255,16 @@ bk_err_t bk_pwm_update_param(bk_pwm_t pwm, uint32_t frequency, uint32_t duty_cyc
 	param.duty_cycle3     = 0;
 	param.end_value       = frequency;
 
-	if (!duty_cycle)
-		bk_pwm_initlevl_set_low(pwm);
-	else
-		bk_pwm_initlevl_set_high(pwm);
+	if (!duty_cycle) {
+		init_level = 0;
+	} else {
+		init_level = 1;
+	}
 
 	ret = sddev_control(PWM_DEV_NAME, CMD_PWM_UPDATE_PARAM, &param);
 	ASSERT(PWM_SUCCESS == ret);
 
-	ret = pwm_update_param_enable(pwm);
+	ret = pwm_single_update_param_enable(pwm, init_level);
 
 	return ret;
 }
@@ -282,12 +284,12 @@ void bk_pwm_cw_initialize(bk_pwm_t pwm1, bk_pwm_t pwm2, uint32_t frequency, uint
 	param.duty_cycle1     = frequency - duty_cycle1 - dead_band;
 	param.duty_cycle2     = frequency  - dead_band;
 	param.duty_cycle3     = 0;
-    param.end_value       = frequency;  
+	param.end_value       = frequency;
 
 	init_pwm_param(&param, 1);
 	pwm_init_levl_set_low(pwm1);
-	
-    /*init pwm2*/
+
+	/*init pwm2*/
 
 	param.channel = pwm2 ;
 	param.cfg.bits.int_en = PWM_INT_DIS;
@@ -325,7 +327,7 @@ void bk_pwm_cw_start(bk_pwm_t pwm1, bk_pwm_t pwm2)
 {
 
 	group_flag=pwm_check_group(pwm1, pwm2 );
-	
+
 	if (group_flag == 1) {
 		//grounp enable
 		pwm_group_mode_enable(pwm1);

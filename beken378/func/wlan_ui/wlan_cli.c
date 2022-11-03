@@ -51,6 +51,10 @@
 #include "bk_aware.h"
 #endif
 
+#if (CFG_SUPPORT_MATTER)
+#include "flash_namespace_value.h"
+#endif
+
 #if CFG_SUPPORT_LITEOS
 #include "los_config.h"
 #include "los_context.h"
@@ -68,7 +72,7 @@
 #include "application.h"
 #endif
 
-#if (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#if (CFG_BLE_VERSION == BLE_VERSION_5_1)
 #include "app_ble_task.h"
 #endif
 #endif
@@ -79,6 +83,8 @@ extern void sec_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #endif
 
 #include "temp_detect_pub.h"
+#include "low_voltage_ps.h"
+#include "power_save.h"
 
 #ifdef monitor_printf_debug
 #define monitor_dbg(fmt, ...)   bk_printf(fmt, ##__VA_ARGS__)
@@ -98,13 +104,24 @@ extern int cli_putstr(const char *msg);
 extern int hexstr2bin(const char *hex, u8 *buf, size_t len);
 extern void make_tcp_server_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 extern void net_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
+#if (CFG_SUPPORT_MATTER)
+extern void BkApplyUpdateCmdHandler(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv );
+extern void BkQueryImageCmdHandler(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv );
+extern void BkNotifyUpdateApplied(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv );
+#endif
 uint32_t bk_wlan_reg_rx_mgmt_cb(mgmt_rx_cb_t cb, uint32_t rx_mgmt_flag);
 
 #if CFG_AIRKISS_TEST
 extern u32 airkiss_process(u8 start);
 extern uint32_t airkiss_is_at_its_context(void);
 #endif
+#if CFG_QUICK_TRACK
+extern void controlappc_start(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
+#endif
 
+#if CFG_AP_MONITOR_COEXIST_DEMO
+extern u32 monitor_process(u8 start);
+#endif
 
 #if CFG_SARADC_CALIBRATE
 static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
@@ -280,13 +297,14 @@ static int handle_input(char *inbuf)
 
     command->function(pCli->outbuf, OUT_BUF_LEN, argc, argv);
     cli_putstr(pCli->outbuf);
+    os_printf("heap=%u\n", xPortGetFreeHeapSize());
     return 0;
 }
 
 /* Perform basic tab-completion on the input buffer by string-matching the
 * current input line against the cli functions table.  The current input line
 * is assumed to be NULL-terminated. */
-static void tab_complete(char *inbuf, unsigned int *bp)
+static void tab_complete(char *inbuf, unsigned int *bp, const char *prompt)
 {
     int i, n, m;
     const char *fm = NULL;
@@ -329,13 +347,13 @@ static void tab_complete(char *inbuf, unsigned int *bp)
     }
 
     /* just redraw input line */
-    os_printf("%s%s", PROMPT, inbuf);
+    os_printf("%s%s", prompt, inbuf);
 }
 
 /* Get an input line.
 *
 * Returns: 1 if there is input, 0 if the line should be ignored. */
-static int get_input(char *inbuf, unsigned int *bp)
+static int get_input(char *inbuf, unsigned int *bp, const char *prompt)
 {
 	if (inbuf == NULL){
 		os_printf("inbuf_null\r\n");
@@ -366,7 +384,7 @@ static int get_input(char *inbuf, unsigned int *bp)
 
 				if (ch >= IN_BUF_LEN) {
 					os_printf("Error: input buffer overflow\r\n");
-					os_printf(PROMPT);
+					os_printf("%s",prompt);
 					*bp = 0;
 					return 0;
 				}
@@ -407,7 +425,7 @@ static int get_input(char *inbuf, unsigned int *bp)
 
 		if (inbuf[*bp] == '\t') {
 			inbuf[*bp] = '\0';
-			tab_complete(inbuf, bp);
+			tab_complete(inbuf, bp,prompt);
 			continue;
 		}
 
@@ -417,7 +435,7 @@ static int get_input(char *inbuf, unsigned int *bp)
 		(*bp)++;
 		if (*bp >= IN_BUF_LEN) {
 			os_printf("Error: input buffer overflow\r\n");
-			os_printf(PROMPT);
+			os_printf("%s",prompt);
 			*bp = 0;
 			return 0;
 		}
@@ -471,6 +489,12 @@ static void cli_main( uint32_t data )
 	demo_sta_app_init("CMW-AP", "12345678");
 	#endif /* CFG_RF_OTA_TEST*/
 
+    char prompt[5];
+    if(get_ate_mode_state()==1)
+        strcpy(prompt,"\r\n# ");
+    else
+        strcpy(prompt,"\r\n$ ");
+
     while (1)
     {
         int ret;
@@ -478,7 +502,7 @@ static void cli_main( uint32_t data )
 
         rtos_get_semaphore(&log_rx_interrupt_sema, BEKEN_NEVER_TIMEOUT);
 
-        while(get_input(pCli->inbuf, &pCli->bp))
+        while(get_input(pCli->inbuf, &pCli->bp,prompt))
         {
             msg = pCli->inbuf;
 
@@ -490,8 +514,7 @@ static void cli_main( uint32_t data )
                 print_bad_command(msg);
             else if (ret == 2)
                 os_printf("syntax error\r\n");
-
-            os_printf(PROMPT);
+            os_printf("%s",prompt);
         }
     }
 
@@ -510,6 +533,20 @@ static void task_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
     rtos_print_thread_status( pcWriteBuffer, xWriteBufferLen );
 #endif
 }
+
+#if CFG_MEM_DEBUG
+void printLeakMem(int leaktime);
+
+static void memleak_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+	uint32_t leaktime = 0;
+
+	if (argc >= 2)
+		leaktime = os_strtoul(argv[1], NULL, 10);
+
+	printLeakMem(leaktime);
+}
+#endif
 
 void tftp_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
@@ -590,6 +627,13 @@ void softap_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **a
     char *ap_key;
 
     os_printf("SOFTAP_COMMAND\r\n\r\n");
+
+    if (argc > 1 && strlen(argv[1]) == 0)
+    {
+        os_printf("invalid ssid\r\n");
+        return;
+    }
+
     if (argc == 2)
     {
         ap_ssid = argv[1];
@@ -599,6 +643,10 @@ void softap_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **a
     {
         ap_ssid = argv[1];
         ap_key = argv[2];
+    }
+    else
+    {
+        os_printf("parameter invalid\r\n");
     }
 
     if(ap_ssid)
@@ -781,7 +829,7 @@ void cli_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
 {
     uint32_t count, i;
 
-    count = MIN(32, len);
+    count = _MIN(32, len);
     monitor_dbg("cli_monitor_cb:%d:%d\r\n", count, len);
     for(i = 0; i < count; i ++)
     {
@@ -903,6 +951,13 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     char *connect_key;
 
     os_printf("sta_Command\r\n");
+
+    if (argc > 1 && strlen(argv[1]) == 0)
+    {
+        os_printf("invalid ssid\r\n");
+        return;
+    }
+
     if (argc == 2)
     {
         oob_ssid = argv[1];
@@ -933,13 +988,13 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 				return;
 			}
 #endif
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 			if (!get_ate_mode_state() && !os_strcasecmp((const char *)oob_ssid_tp, "CMW-AP")) {
 				extern char ate_mode_state;
 				extern void improve_rx_sensitivity(void);
 
 				ate_mode_state = 2; /* 0: no_ate, 1: ate, 2: fake_ate */
-				sctrl_rf_ps_enable_clear();
+				power_save_rf_hold_bit_set(RF_HOLD_RF_SLEEP_BIT);
 				sctrl_flash_select_dco();
 				improve_rx_sensitivity();
 			}
@@ -1110,6 +1165,26 @@ void wifistate_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
     demo_state_app_init();
 }
 
+void blacklist_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    int blacklist_ena = 0;
+
+    if (argc != 2)
+    {
+        os_printf("blacklist <0|1>\n");
+    }
+    else
+    {
+        blacklist_ena = strtoul(argv[1], NULL, 0);
+        if (blacklist_ena)
+            wlan_sta_enable_ssid_blacklist();
+        else
+            wlan_sta_disable_ssid_blacklist();
+        os_printf("blacklist %s\n", blacklist_ena ? "enabled" : "disabled");
+    }
+}
+
+
 void wifidebug_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     os_printf("wifidebug_Command\r\n");
@@ -1212,6 +1287,14 @@ void get_version(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 
 void reboot(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
+    if (argc == 2)
+    {
+        if (!os_strcasecmp(argv[1], "ate"))
+        {
+            bk_reboot_for_ate();
+            return;
+        }
+    }
     bk_reboot();
 }
 
@@ -1363,12 +1446,68 @@ extern OSStatus test_flash_write(volatile uint32_t start_addr, uint32_t len);
 extern OSStatus test_flash_erase(volatile uint32_t start_addr, uint32_t len);
 extern OSStatus test_flash_read(volatile uint32_t start_addr, uint32_t len);
 extern OSStatus test_flash_read_time(volatile uint32_t start_addr, uint32_t len);
+extern OSStatus test_flash_read_without_print(volatile uint32_t start_addr, uint32_t len);
+beken_thread_t idle_read_flash_handle = NULL;
+
+static void test_idle_read_flash(void *arg) {
+	while (1) {
+		test_flash_read_without_print(0x1000, 1000);
+		test_flash_read_without_print(0x100000, 1000);
+		test_flash_read_without_print(0x200000, 1000);
+		test_flash_read_without_print(0x300000, 0x1000);
+	}
+	rtos_delete_thread(&idle_read_flash_handle);
+}
 
 static void flash_command_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     char cmd = 0;
     uint32_t len = 0;
     uint32_t addr = 0;
+
+#if 0//(CONFIG_SYSTEM_CTRL)
+	if (os_strcmp(argv[1], "config") == 0) {
+		uint32_t flash_src_clk = os_strtoul(argv[2], NULL, 10);
+		uint32_t flash_div_clk = os_strtoul(argv[3], NULL, 10);
+		uint32_t flash_line_mode = os_strtoul(argv[4], NULL, 10);
+
+		if (FLASH_CLK_XTAL == flash_src_clk) {
+			sys_drv_flash_cksel(flash_src_clk);
+		}
+
+		if((FLASH_CLK_XTAL != sys_drv_flash_get_clk_sel()) && (0 == flash_div_clk)) {
+			os_printf("Config fail. Please set src clk as 26M, or set div larger than 0 firstly.\n");
+			return;
+		}
+
+		sys_drv_flash_set_clk_div(flash_div_clk);
+		sys_drv_flash_cksel(flash_src_clk);
+		flash_set_line_mode(flash_line_mode);
+		os_printf("flash_src_clk = %u. [0 -> 26M; 1->98M; 2-> 120M]\n", flash_src_clk);
+		os_printf("flash_div_clk = %u. \n", flash_div_clk);
+		os_printf("flash_line_mode = %u.  \n", flash_line_mode);
+
+		return;
+	}
+#endif
+	if (os_strcmp(argv[1], "idle_read_start") == 0) {
+		uint32_t task_prio = os_strtoul(argv[2], NULL, 10);
+		os_printf("idle_read_flash task start: task_prio = %u.\n", task_prio);
+		rtos_create_thread(&idle_read_flash_handle, task_prio,
+			"idle_read_flash",
+			(beken_thread_function_t) test_idle_read_flash,
+			4096,
+			(beken_thread_arg_t)0);
+
+		return;
+	} else if (os_strcmp(argv[1], "idle_read_stop") == 0) {
+		if (idle_read_flash_handle) {
+			rtos_delete_thread(&idle_read_flash_handle);
+			idle_read_flash_handle = NULL;
+			os_printf("idle_read_flash task stop\n");
+		}
+		return;
+	}
 
     if(argc == 4)
     {
@@ -1704,7 +1843,7 @@ static void reg_write_read_test(char *pcWriteBuffer, int xWriteBufferLen, int ar
 #if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1))
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
 #include "ble_api.h"
-#elif (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#elif ((CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_5_2))
 #include "ble_api_5_x.h"
 #endif
 
@@ -1735,6 +1874,34 @@ enum
 	TEST_IDX_NB,
 };
 
+#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+bk_attm_desc_t test_att_db[TEST_IDX_NB] =
+{
+	//  Service Declaration
+	[TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, PROP(RD), 0},
+
+	//  Level Characteristic Declaration
+	[TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+	//  Level Characteristic Value
+	[TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    PROP(WR), 128|OPT(NO_OFFSET)},
+
+	[TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+	//  Level Characteristic Value
+	[TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I), 128|OPT(NO_OFFSET)},
+
+	//  Level Characteristic - Client Characteristic Configuration Descriptor
+
+	[TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR),OPT(NO_OFFSET)},
+
+	[TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+	//  Level Characteristic Value
+	[TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       PROP(N), 128|OPT(NO_OFFSET)},
+
+	//  Level Characteristic - Client Characteristic Configuration Descriptor
+
+	[TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR), OPT(NO_OFFSET)},
+};
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_4_2)
 bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 {
 	//  Service Declaration
@@ -1761,6 +1928,7 @@ bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 
 	[TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
 };
+#endif//(CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_4_2)
 
 ble_err_t bk_ble_init(void)
 {
@@ -1913,6 +2081,14 @@ void cli_ble_event_callback(ble_event_t event, void *param)
         case BLE_CREATE_DB_OK:
         {
             os_printf("CREATE DB SUCCESS\r\n");
+        }
+        break;
+        case BLE_ATT_INFO_REQ:
+        {
+            att_info_req_t *a_ind = (att_info_req_t *)param;
+            bk_printf("BLE_ATT_INFO_REQ\r\n");
+            a_ind->length = 128;
+            a_ind->status = ERR_SUCCESS;
         }
         break;
         default:
@@ -2138,7 +2314,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
     {
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
         appm_disconnect();
-#elif (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_1)
         appm_disconnect(0x13);
 #endif
     }
@@ -2147,7 +2323,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		ble_dut_start();
     }
 }
-#elif (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_5_2)
 #include "app_ble.h"
 #include "app_sdp.h"
 #include "app_ble_init.h"
@@ -2178,9 +2354,11 @@ void ble_notice_cb(ble_notice_t notice, void *param)
 	case BLE_5_REPORT_ADV:
 	{
 		recv_adv_t *r_ind = (recv_adv_t *)param;
-		bk_printf("r_ind:actv_idx:%d, adv_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
-			r_ind->actv_idx, r_ind->adv_addr[0], r_ind->adv_addr[1], r_ind->adv_addr[2],
-			r_ind->adv_addr[3], r_ind->adv_addr[4], r_ind->adv_addr[5]);
+
+		bk_printf("[%s]r_ind:actv_idx:%d,evt_type:%d adv_addr:%02x:%02x:%02x:%02x:%02x:%02x,rssi:%d\r\n",
+			((r_ind->evt_type&0x7) == 3)?"scan-rsp":((r_ind->evt_type&0x7) == 1)?"adv":"unknow",
+			r_ind->actv_idx,r_ind->evt_type, r_ind->adv_addr[0], r_ind->adv_addr[1], r_ind->adv_addr[2],
+			r_ind->adv_addr[3], r_ind->adv_addr[4], r_ind->adv_addr[5],r_ind->rssi);
 		break;
 	}
 	case BLE_5_MTU_CHANGE:
@@ -2283,7 +2461,62 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 {
 	uint8_t adv_data[31];
 	uint8_t actv_idx;
-
+	if(os_strcmp(argv[1],"notify")==0){
+		uint32_t len;
+		uint16 prf_id;
+		uint8 write_buffer[128]={0};
+		len=os_strtoul(argv[3], NULL, 10);
+		if(argc!=4){
+			os_printf("notify arg %d error\r\n",argc);
+			return;
+		}else{
+			if(len>128 || len<4){
+				os_printf("The length of the notify should be between 4 and 128 \r\n");
+				if(len<4){
+					os_printf("Output 4 bytes\r\n");
+					len=4;
+				}else{
+					os_printf("Output the first 128 bytes\r\n");
+					len=128;
+				}
+			}
+			for(int i=0;i<4;i++){
+				write_buffer[i]=rand()%257;
+			}
+		}
+		prf_id=atoi(argv[2]);
+		if(ERR_SUCCESS!=bk_ble_send_ntf_value(len, write_buffer,prf_id,TEST_IDX_FF03_VAL_VALUE)){
+			os_printf("ERROR\r\n");
+		}
+	}
+	if(os_strcmp(argv[1],"indicate")==0){
+		uint16 prf_id;
+		uint32_t len;
+		uint8 write_buffer[128]={0};
+		len=os_strtoul(argv[3], NULL, 10);
+		if(argc!=4){
+			os_printf("indicate arg %d error\r\n",argc);
+			return;
+		}else{
+			if(len>128 || len<4){
+				os_printf("The length of the indicate should be between 4 and 128 \r\n");
+				if(len<4){
+					os_printf("Output 4 bytes\r\n");
+					len=4;
+				}else{
+					os_printf("Output the first 128 bytes\r\n");
+					len=128;
+				}
+			}
+			for(int i=0;i<4;i++){
+				write_buffer[i]=rand()%257;
+			}
+		}
+		prf_id=atoi(argv[2]);
+		if(ERR_SUCCESS!=bk_ble_send_ind_value(len, write_buffer,prf_id,TEST_IDX_FF02_VAL_VALUE)){
+			os_printf("ERROR\r\n");
+		}
+	}
 	if (os_strcmp(argv[1], "dut") == 0) {
 		ble_dut_start();
 	}
@@ -2295,6 +2528,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		actv_idx = app_ble_get_idle_actv_idx_handle();
 		bk_ble_create_advertising(actv_idx, 7, 160, 160, ble_cmd_cb);
 	}
+	#if (CFG_SOC_NAME == SOC_BK7231N)
 	if (os_strcmp(argv[1], "set_adv_data") == 0) {
 		adv_data[0] = 0x02;
 		adv_data[1] = 0x01;
@@ -2310,6 +2544,21 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		memcpy(&adv_data[2], "7231N", 6);
 		bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, 0x8, ble_cmd_cb);
 	}
+	#elif (CFG_SOC_NAME == SOC_BK7238)
+	/*note:AD type flags already added to adv data,not be set by application*/
+	if (os_strcmp(argv[1], "set_adv_data") == 0) {
+		adv_data[0] = 0x0A;
+		adv_data[1] = 0x09;
+		memcpy(&adv_data[2], "7238_BLE", 9);
+		bk_ble_set_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, 0xB, ble_cmd_cb);
+	}
+	if (os_strcmp(argv[1], "set_rsp_data") == 0) {
+		adv_data[0] = 0x06;
+		adv_data[1] = 0x08;
+		memcpy(&adv_data[2], "7238", 5);
+		bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, 0x7, ble_cmd_cb);
+	}
+	#endif
 	if (os_strcmp(argv[1], "start_adv") == 0) {
 		bk_ble_start_advertising(os_strtoul(argv[2], NULL, 10), 0, ble_cmd_cb);
 	}
@@ -2338,9 +2587,12 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	if (os_strcmp(argv[1], "dis_conn") == 0) {
 		bk_ble_disconnect(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
+	#if (CFG_SOC_NAME == SOC_BK7231N)
+	/*note:bk7238 auto mtu exchange by gatt_cli,not be call it by application*/
 	if (os_strcmp(argv[1], "mtu_change") == 0) {
 		bk_ble_gatt_mtu_change(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
+	#endif // (CFG_SOC_NAME == SOC_BK7231N)
 	if (os_strcmp(argv[1], "init_adv") == 0) {
 		struct adv_param adv_info;
 		adv_info.channel_map = 7;
@@ -2525,38 +2777,35 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #endif
 
 #if CFG_WIFI_SENSOR
+#include "sensor.h"
+void wifi_sensor_callback(int status)
+{
+    if(status)
+        bk_printf("detected movement\r\n");
+    else
+        bk_printf("nothing detected\r\n");
+}
+
 static void wifi_sensor_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	int status;
-
     if ( argc != 2 )
     {
-        bk_printf("param error");
+        bk_printf("start / stop\r\n");
     }
 
-
-	if (os_strcmp(argv[1], "start") == 0)
+    if (os_strcmp(argv[1], "start") == 0)
     {
-		bk_wifi_detect_movement_start();
+        if(bk_wifi_detect_movement_start(wifi_sensor_callback) != BK_WSD_OK)
+            bk_printf("bk wifi sensor start failed\r\n");
     }
-
-	if (os_strcmp(argv[1], "stop") == 0)
+    else if (os_strcmp(argv[1], "stop") == 0)
     {
-		bk_wifi_detect_movement_stop();
+        bk_wifi_detect_movement_stop();
+        bk_printf("bk wifi sensor stop\r\n");
     }
-
-	if (os_strcmp(argv[1], "status") == 0)
+    else
     {
-		status = bk_get_movement_status();
-
-		if(status ==0)
-		{
-			bk_printf("detect something");
-		}
-		else
-		{
-			bk_printf("detect nothing");
-		}
+        bk_printf("not support\r\n");
     }
 }
 #endif
@@ -2698,6 +2947,38 @@ static void bk_wifi_aware_command(char *pcWriteBuffer, int xWriteBufferLen,
 }
 #endif
 
+#if CFG_WIFI_FTM
+static void ftm_command(char *pcWriteBuffer, int xWriteBufferLen,
+				int argc, char **argv)
+{
+	if (argc == 2 && os_strcmp(argv[1], "start") == 0) {
+		rw_msg_send_ftm_start(0, 3, 1);
+	} else if (argc == 2 && os_strcmp(argv[1], "stop") == 0) {
+		//bk_aware_demo_stop();
+	} else {
+		os_printf("Usage: ftm <start>|<stop>\n");
+	}
+}
+#endif
+
+#if CFG_BK_NX_GET_WIFI_SNR
+extern uint8_t rwnx_get_system_snr(void);
+static void wifi_snr_timer_handler(void *data)
+{
+    os_printf("wifi snr:%d\r\n", rwnx_get_system_snr());
+}
+
+beken_timer_t wifi_snr_timer;
+static void get_wifi_snr_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    rtos_init_timer(&wifi_snr_timer,
+                          1 * 1000,
+                          wifi_snr_timer_handler,
+                          (void *)0);
+    rtos_start_timer(&wifi_snr_timer);
+}
+#endif
+
 static const struct cli_command built_ins[] =
 {
     {"help", NULL, help_command},
@@ -2725,6 +3006,7 @@ static const struct cli_command built_ins[] =
     {"psk", "show psk", show_sta_psk},
 
     {"wifistate", "Show wifi state", wifistate_Command},
+    {"blacklist", "Set ssid blacklist", blacklist_Command},
 
     // network
     {"ifconfig", "Show IP address", ifconfig_Command},
@@ -2733,6 +3015,9 @@ static const struct cli_command built_ins[] =
     {"sockshow", "Show all sockets", socket_show_Command},
     // os
     {"tasklist", "list all thread name status", task_Command},
+#if CFG_MEM_DEBUG
+    {"memleak", "show memleak", memleak_Command},
+#endif
 
     // others
     {"memshow", "print memory information", memory_show_Command},
@@ -2743,11 +3028,11 @@ static const struct cli_command built_ins[] =
     {"reboot", "reboot system", reboot},
 
     {"time",     "system time",                 uptime_Command},
-    {"flash",    "Flash memory map",            partShow_Command},
+    {"partition",    "Flash partition map",            partShow_Command},
 
     {"GPIO", "GPIO <cmd> <arg1> <arg2>", Gpio_op_Command},
     {"GPIO_INT", "GPIO_INT <cmd> <arg1> <arg2>", Gpio_int_Command},
-    {"FLASH", "FLASH <cmd(R/W/E/N)>", flash_command_test},
+    {"flash", "flash <cmd(R/W/E/N/idle_read_start/idle_read_stop)>", flash_command_test},
     {"UART", "UART I <index>", Uart_command_test},
 
     {"txevm", "txevm [-m] [-c] [-l] [-r] [-w]", tx_evm_cmd_test},
@@ -2805,6 +3090,26 @@ static const struct cli_command built_ins[] =
 #endif
 #if CFG_BK_AWARE
 	{"bk_aware", "bk_aware", bk_wifi_aware_command},
+#endif
+#if CFG_QUICK_TRACK
+    {"app", "quicktrack controlappc", controlappc_start},
+#endif
+#if CFG_WIFI_FTM
+    {"ftm", "802.11mc FTM", ftm_command},
+#endif
+#if CFG_BK_NX_GET_WIFI_SNR
+    {"get_wifi_snr", "get", get_wifi_snr_Command},
+#endif
+#if (CFG_SUPPORT_MATTER)
+    {"bk_write_data_test", "bk_write_data_test", bk_write_data_test},
+    {"bk_read_data_test", "bk_read_data_test argv[]", bk_read_data_test},
+    {"bk_erase_namespace_test", "bk_erase_namespace_test argv[]", bk_erase_namespace_test},
+    {"bk_erase_name_test", "bk_erase_name_test argv[]", bk_erase_name_test},
+    {"bk_name_data_exits", "bk_name_data_exits argv[]", bk_name_data_exits},
+    {"bk_erase_all_test", "bk_erase_all_test ", bk_erase_all_test},
+    {"BkQueryImageCmdHandler", "BkQueryImageCmdHandler [nodeid]  [fabricid]", BkQueryImageCmdHandler},
+    {"BkApplyUpdateCmdHandler", "BkApplyUpdateCmdHandler", BkApplyUpdateCmdHandler},
+    {"BkNotifyUpdateApplied", "BkNotifyUpdateApplied [version]", BkNotifyUpdateApplied},
 #endif
 };
 
@@ -2968,6 +3273,60 @@ static void monitor_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, 
     }
 }
 
+#if CFG_AP_MONITOR_COEXIST_TBTT
+static void monitor_tbtt_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    if (argc == 1)
+    {
+        os_printf("Usage: monitor tbtt on/off.");
+        return;
+    }
+
+    if (!os_strcasecmp(argv[1], "on"))
+    {
+        cmd_printf("monitor tbtt on\r\n");
+        bk_wlan_ap_monitor_coexist_tbtt_enable();
+    }
+    else if (!os_strcasecmp(argv[1], "off"))
+    {
+        cmd_printf("monitor tbtt off\r\n");
+        bk_wlan_ap_monitor_coexist_tbtt_disable();
+    }
+}
+
+void monitor_tbtt_dur_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    int tbtt_duration = 0;
+
+    if(argc != 2)
+    {
+        os_printf("Usage: monitor_tbtt_dur [0~50].");
+        return;
+    }
+
+    tbtt_duration = atoi(argv[1]);
+
+    bk_wlan_ap_monitor_coexist_tbtt_duration(tbtt_duration);
+}
+#endif
+
+#if CFG_AP_MONITOR_COEXIST_DEMO
+void monitor_all_chan_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    u8 start = 0;
+
+    if(argc != 2)
+    {
+        os_printf("need 2 parameters: monitor all channel 1(start), 0(stop)\r\n");
+        return;
+    }
+
+    start = strtoul(argv[1], NULL, 0);
+
+    monitor_process(start);
+}
+#endif
+
 static void channel_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     int channel, i = 0;
@@ -3039,7 +3398,7 @@ static void Deep_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int arg
 					deep_sleep_param.sleep_time,
 					deep_sleep_param.wake_up_way);
 
-	#if (CFG_SOC_NAME != SOC_BK7271)
+	#if (CFG_SOC_NAME != SOC_BK7271) && CFG_USE_DEEP_PS
 		bk_enter_deep_sleep_mode(&deep_sleep_param);
 	#endif
 	}
@@ -3146,7 +3505,7 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 #if CFG_USE_MCU_PS
     else if(0 == os_strcmp(argv[1], "mcudtim"))
     {
-        if(argc != 3)
+        if(argc < 3)
         {
             goto IDLE_CMD_ERR;
         }
@@ -3154,6 +3513,11 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         dtim = os_strtoul(argv[2], NULL, 10);
         if(dtim == 1)
         {
+            if(argc == 4)
+            {
+                dtim = os_strtoul(argv[3], NULL, 10);
+                power_save_set_listen_int(dtim);
+            }
             bk_wlan_mcu_ps_mode_enable();
         }
         else if(dtim == 0)
@@ -3178,12 +3542,14 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         if(dtim == 1)
         {
             if (bk_wlan_dtim_rf_ps_mode_enable())
-				os_printf("dtim enable failed\r\n");
+                os_printf("dtim enable failed\r\n");
+
+            os_printf("listen interval = %d\r\n", power_save_get_listen_int());
         }
         else if(dtim == 0)
         {
             if (bk_wlan_dtim_rf_ps_mode_disable())
-				os_printf("dtim disable failed\r\n");
+                os_printf("dtim disable failed\r\n");
         }
         else
         {
@@ -3290,6 +3656,76 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         #endif
         power_save_dump();
     }
+#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
+    else if(0 == os_strcmp(argv[1], "print_enable"))
+    {
+        ps_info.ps_print_enable = 1;
+        os_printf("enable ps info print!\r\n");
+        ps_info.ps_print_period = 10*60; //s
+        ps_info.ps_statistical_period = 60; //s
+        os_printf("set period to default, ps_print_period = %d s, ps_statistical_period = %d s\r\n",
+            ps_info.ps_print_period,ps_info.ps_statistical_period);
+    }
+    else if(0 == os_strcmp(argv[1], "print_period"))
+    {
+        if(argc == 4)
+        {
+            uint32_t ps_print_period = os_strtoul(argv[2], NULL, 10);
+            uint32_t ps_statistical_period = os_strtoul(argv[3], NULL, 10);
+            if((ps_print_period < ps_statistical_period)||(ps_print_period / ps_statistical_period > 10))
+            {
+                os_printf("ps_print_period must greater than ps_statistical_period !\r\n");
+                goto IDLE_CMD_ERR;
+            }
+            if(ps_print_period % ps_statistical_period != 0)
+            {
+                os_printf("ps_print_period % ps_statistical_period must be 0!\r\n");
+                goto IDLE_CMD_ERR;
+            }
+            if(ps_print_period / ps_statistical_period > 10)
+            {
+                os_printf("ps_print_period / ps_statistical_period must smaller than 10!\r\n");
+                goto IDLE_CMD_ERR;
+            }
+            ps_info.ps_print_period = ps_print_period;
+            ps_info.ps_statistical_period = ps_statistical_period;
+            os_printf("set period to new value, ps_print_period = %d s, ps_statistical_period = %d s\r\n",
+                ps_info.ps_print_period,ps_info.ps_statistical_period);
+//            power_save_print_timer_init();
+//            power_save_statistical_timer_init();
+
+        }
+        else
+            goto IDLE_CMD_ERR;
+
+    }
+    else if(0 == os_strcmp(argv[1], "wakeup_ARP_enable"))
+    {
+        if(argc == 3)
+        {
+            ps_info.ps_arp_enable = 1;
+            os_printf("enable low voltage wakeup ARP announcement!\r\n");
+            uint32_t arp_announce_period = os_strtoul(argv[2], NULL, 10);
+            if(arp_announce_period > LOW_VOL_ARP_SEND_INTERVAL)
+                    arp_announce_period = LOW_VOL_ARP_SEND_INTERVAL;
+            ps_info.ps_arp_period = arp_announce_period;
+            os_printf("ARP announcement period : %d s!\r\n",ps_info.ps_arp_period);
+
+        }
+        else
+        {
+            goto IDLE_CMD_ERR;
+        }
+    }
+#endif
+#if ( 1 == CFG_LOW_VOLTAGE_PS_32K_DIV)
+    else if(0 == os_strcmp(argv[1], "test"))
+    {
+        extern void sctrl_sta_test_sleep(uint32 sleep_ms);
+        dtim = os_strtoul(argv[2], NULL, 10);
+        sctrl_sta_test_sleep(dtim);
+    }
+#endif
 #endif
     else
     {
@@ -3329,6 +3765,26 @@ static void mac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         os_printf("invalid cmd\r\n");
     }
 
+}
+
+static void rc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+	uint8_t sta_idx = 0;
+	uint16_t rate_cfg = 0;
+
+	if (argc <= 2) {
+		os_printf("invalid RC command\n");
+		return;
+	}
+
+	if(os_strcmp(argv[1], "set_fixrate") == 0) {
+		sta_idx = os_strtoul(argv[2], NULL, 10) & 0xFFFF;
+		rate_cfg = os_strtoul(argv[3], NULL, 10) & 0xFFFF;
+		bk_wifi_rc_config(sta_idx, rate_cfg);
+	}
+	else {
+		os_printf("invalid RC paramter\n");
+	}
 }
 
 #if CFG_SARADC_CALIBRATE
@@ -3546,6 +4002,95 @@ static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		adc_obj_start(&test_adc);
 	} else if (0 == os_strcmp(argv[1], "stop"))
 		adc_obj_stop(&test_adc);
+    else if(0 == os_strcmp(argv[1], "get"))
+    {
+        INT32 channel = atoi(argv[2]);
+        UINT32 sum = 0;
+        UINT32 index;
+		typedef UINT16 heap_t;
+		size_t MinHeapInsert(heap_t *heap, size_t heap_size, heap_t x);
+		heap_t MinHeapReplace(heap_t *heap, size_t heap_size, heap_t x);
+
+        p_ADC_drv_desc = (saradc_desc_t *)os_malloc(sizeof(saradc_desc_t));
+        if (p_ADC_drv_desc == NULL)
+        {
+            os_printf("malloc1 failed!\r\n");
+            return;
+        }
+
+        os_memset(p_ADC_drv_desc, 0x00, sizeof(saradc_desc_t));
+        p_ADC_drv_desc->channel = channel;
+        p_ADC_drv_desc->data_buff_size = 100;
+        p_ADC_drv_desc->mode = (ADC_CONFIG_MODE_CONTINUE << 0)
+                               | (ADC_CONFIG_MODE_4CLK_DELAY << 2);
+        p_ADC_drv_desc->has_data                = 0;
+        p_ADC_drv_desc->current_read_data_cnt   = 0;
+        p_ADC_drv_desc->current_sample_data_cnt = 0;
+        p_ADC_drv_desc->pre_div = 0x10;
+        p_ADC_drv_desc->samp_rate = 0x20;
+        p_ADC_drv_desc->pData = (UINT16 *)os_malloc(p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+        os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+
+        if(p_ADC_drv_desc->pData == NULL)
+        {
+            os_printf("malloc1 failed!\r\n");
+            os_free(p_ADC_drv_desc);
+
+            return;
+        }
+
+        saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
+        while (1)
+        {
+            if (p_ADC_drv_desc->current_sample_data_cnt == p_ADC_drv_desc->data_buff_size)
+            {
+                if ((argc > 3) && atoi(argv[3]))
+                {
+                }
+                else
+                {
+                ddev_close(saradc_handle);
+                }
+                break;
+            }
+        }
+
+		heap_t heap[(100 + 1) / 2];
+		int count = 0;
+
+		for (index = 0; index < sizeof(heap) / sizeof(heap[0]); index++) {
+			MinHeapInsert(heap, index, (heap_t)p_ADC_drv_desc->pData[index]);
+
+		}
+
+		for (index = sizeof(heap) / sizeof(heap[0]); index < 100; index++) {
+			if (heap[0] < (heap_t)p_ADC_drv_desc->pData[index])
+			{
+				MinHeapReplace(heap, sizeof(heap) / sizeof(heap[0]), (heap_t)p_ADC_drv_desc->pData[index]);
+			}
+		}
+
+		for (index = 0; index < 100; index++)
+		{
+			//error [-0.5%, 0.5%] ==> [-5, 5]
+			if ((p_ADC_drv_desc->pData[index] > heap[0] + 0x10) || (heap[0] > p_ADC_drv_desc->pData[index] + 0x10))
+			{
+				continue;
+			}
+
+			count++;
+			sum += p_ADC_drv_desc->pData[index];
+		}
+
+        p_ADC_drv_desc->pData[0] = (UINT16)(sum / count);
+        float voltage = saradc_calculate(p_ADC_drv_desc->pData[0]);
+
+        os_printf("voltage is [%f] orignal %d count=%d\r\n", voltage, p_ADC_drv_desc->pData[0], count);
+
+        os_free(p_ADC_drv_desc->pData);
+        os_free(p_ADC_drv_desc);
+        return;
+    }
 	else
 		goto IDLE_CMD_ERR;
 
@@ -3625,6 +4170,9 @@ int cli_get_all_chars_len(void)
 #if CFG_IPERF_TEST
 extern void iperf(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 #endif // CFG_IPERF_TEST
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
+extern void cmd_la(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
+#endif
 
 static const struct cli_command user_clis[] =
 {
@@ -3632,6 +4180,7 @@ static const struct cli_command user_clis[] =
     {"monitor", "monitor on/off", monitor_Command},
     {"channel", "channel []", channel_Command},
     {"mac", "mac <mac>, Get mac/Set mac. <mac>: c89346000001", mac_command},
+    {"rc", "wifi rate control config", rc_command},
     {"ps", "ps [func] [param]", Ps_Command},
     {"deep_sleep", "deep_sleep [param]", Deep_Sleep_Command},
 #if (1 == CFG_USE_FORCE_LOWVOL_PS)
@@ -3655,6 +4204,16 @@ static const struct cli_command user_clis[] =
 
 #if (CFG_SOC_NAME == SOC_BK7221U)
     {"sec", "sec help", sec_Command },
+#endif
+#if CFG_AP_MONITOR_COEXIST_TBTT
+    {"monitor_tbtt", "monitor tbtt on/off", monitor_tbtt_Command },
+    {"monitor_tbtt_dur", "monitor tbtt dur (0-50)", monitor_tbtt_dur_Command },
+#endif
+#if CFG_AP_MONITOR_COEXIST_DEMO
+    {"monitor_all_chan", "start monitor all channel", monitor_all_chan_Command},
+#endif
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
+    {"la", "la [i] to dump ADC data", cmd_la },
 #endif
 };
 
@@ -3707,7 +4266,11 @@ int cli_init(void)
                              BEKEN_DEFAULT_WORKER_PRIORITY,
                              "cli",
                              (beken_thread_function_t)cli_main,
+                             #if (1 == CFG_SUPPORT_MATTER)
+                             2048,
+                             #else
                              4096,
+                             #endif
                              0);
     if (ret != kNoErr)
     {

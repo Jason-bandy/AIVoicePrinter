@@ -188,6 +188,26 @@ enum
 
 /**
  ****************************************************************************************
+ * Extract MAC address from unaligned bitstream into struct mac_addr.
+ * @param[in] mac_addr struct mac_addr to initialize
+ * @param[in] addr_ptr Address of the MAC address in bitstream.
+ ****************************************************************************************
+ */
+#if (CHAR_LEN == 1)
+#define MAC_ADDR_EXTRACT(mac_addr, addr_ptr)                         \
+    *(((uint8_t *)(mac_addr)) + 0) = *(((uint8_t *)(addr_ptr)) + 0); \
+    *(((uint8_t *)(mac_addr)) + 1) = *(((uint8_t *)(addr_ptr)) + 1); \
+    *(((uint8_t *)(mac_addr)) + 2) = *(((uint8_t *)(addr_ptr)) + 2); \
+    *(((uint8_t *)(mac_addr)) + 3) = *(((uint8_t *)(addr_ptr)) + 3); \
+    *(((uint8_t *)(mac_addr)) + 4) = *(((uint8_t *)(addr_ptr)) + 4); \
+    *(((uint8_t *)(mac_addr)) + 5) = *(((uint8_t *)(addr_ptr)) + 5)
+#else
+#define MAC_ADDR_EXTRACT(mac_addr, addr_ptr) \
+    memcpy(mac_addr, addr_ptr, MAC_ADDR_LEN)
+#endif
+
+/**
+ ****************************************************************************************
  * Compare two SSID.
  * @param[in] ssid1_ptr Pointer to the first SSID structure.
  * @param[in] ssid2_ptr Pointer to the second SSID structure.
@@ -490,6 +510,8 @@ struct mac_scan_result
     uint16_t beacon_period;
     uint16_t cap_info;
     bool valid_flag;
+    /// FTM support
+    bool ftm_support;
     int8_t rssi;
 };
 
@@ -614,6 +636,75 @@ struct mac_bss_conf
     /// Beacon period
     uint16_t beacon_period;
 };
+
+/// Max number of FTM responders per request
+#define FTM_RSP_MAX 5
+
+/// FTM results
+struct mac_ftm_results
+{
+    /// Number of FTM responders for which we have a measurement
+    uint8_t nb_ftm_rsp;
+    /// Per-responder measurements
+    struct
+    {
+        /// MAC Address of the FTM responder
+        struct mac_addr addr;
+        /// Round Trip Time (in ps)
+        uint32_t rtt;
+    } meas[FTM_RSP_MAX];
+};
+
+/**
+ ****************************************************************************************
+ * Test if a bit in the extended capabilities element is set.
+ * @param[in] ext_cap Pointer to the HE extended capabilities structure
+ * @param[in] bit     Bit to test
+ * @param[in] length  Length of the elements
+ * @return true if set, false otherwise
+ ****************************************************************************************
+ */
+#define EXT_CAPA_BIT_IS_SET(ext_cap, bit, length)   co_bit_is_set_var(ext_cap,                  \
+                                                                      MAC_EXT_CAPA_##bit##_POS, \
+                                                                      length)
+
+/**
+ ****************************************************************************************
+ * Set the value of a bit field in the FTM Parameters element.
+ * @param[in] params Pointer to the FTM Parameters structure
+ * @param[in] field Bit field to be written
+ * @param[in] val The value of the field
+ ****************************************************************************************
+ */
+#define FTM_PARAMS_VAL_SET(params, field, val) co_val_set((uint8_t *)params,   \
+                                                          FTM_##field##_OFT,   \
+                                                          FTM_##field##_WIDTH, \
+                                                          FTM_##field##_##val)
+
+/**
+ ****************************************************************************************
+ * Set the numeric value of a bit field in the FTM Parameters element.
+ * @param[in] params Pointer to the FTM Parameters structure
+ * @param[in] field Bit field to be written
+ * @param[in] val The numeric value
+ ****************************************************************************************
+ */
+#define FTM_PARAMS_VAL_SET_NUM(params, field, val) co_val_set((uint8_t *)params,   \
+                                                              FTM_##field##_OFT,   \
+                                                              FTM_##field##_WIDTH, \
+                                                              val)
+
+/**
+ ****************************************************************************************
+ * Get the value of a bit field in the FTM Parameters element.
+ * @param[in] params Pointer to the FTM Parameters structure
+ * @param[in] field  Bit field to be read
+ * @return The value of the field
+ ****************************************************************************************
+ */
+#define FTM_PARAMS_VAL_GET(params, field) co_val_get((uint8_t *)params, \
+                                                     FTM_##field##_OFT, \
+                                                     FTM_##field##_WIDTH)
 
 /*
 * GLOBAL VARIABLES

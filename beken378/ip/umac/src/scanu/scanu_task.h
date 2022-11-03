@@ -81,6 +81,8 @@ struct scanu_start_req
     uint8_t ssid_cnt;
     /// no CCK - For P2P frames not being sent at CCK rate in 2GHz band.
     bool no_cck;
+    /// check if need cancel-scan or not.  0: not cancel, 1: cancel
+    bool need_cancel_scan;
 };
 
 /// Structure containing the parameters of the @ref SCANU_START_CFM message
@@ -88,8 +90,10 @@ struct scanu_start_cfm
 {
     /// Status of the request
     uint8_t status;
-    /// Index of the VIF that is scanning    
-    uint8_t vif_idx;    
+    /// Index of the VIF that is scanning
+    uint8_t vif_idx;
+    /// Number of scan results available
+    uint8_t result_cnt;
 };
 
 /// Structure containing the parameters of the message.

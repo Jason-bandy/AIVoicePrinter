@@ -1162,9 +1162,21 @@ void rt_hw_serial_isr(struct rt_serial_device *serial, int event)
                 /* if the next position is read index, discard this 'read char' */
                 if (rx_fifo->put_index == rx_fifo->get_index)
                 {
+                    rt_tick_t now = rt_tick_get();
+                    if (rx_fifo->continue_fifo_full_start_tick == 0) {
+                        rx_fifo->continue_fifo_full_start_tick = now;
+                    } else {
+                        if ((now - rx_fifo->continue_fifo_full_start_tick) > 5000) {//5s
+                            extern void rt_dump_all_thread_stack(void);
+                            rt_kprintf("uart fifo continuously full > 5s!\n");
+                            rt_dump_all_thread_stack();
+                        }
+                    }
                     rx_fifo->get_index += 1;
                     rx_fifo->is_full = RT_TRUE;
                     if (rx_fifo->get_index >= serial->config.bufsz) rx_fifo->get_index = 0;
+                } else {
+                    rx_fifo->continue_fifo_full_start_tick = 0;
                 }
 
                 /* enable interrupt */

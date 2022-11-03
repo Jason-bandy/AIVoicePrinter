@@ -242,6 +242,10 @@ void rxl_mpdu_transfer_mesh(struct rx_swdesc *swdesc);
 #if (NX_P2P)
 void rxl_packet_trace(uint8_t *frame, struct vif_info_tag *vif);
 #endif
+#if CFG_AP_MONITOR_COEXIST
+uint32_t rxu_cntrl_patch_get_compensation_len(uint8_t *p_frame);
+int rxl_data_monitor(struct rx_swdesc *swdesc, uint8_t *payload, uint16_t length);
+#endif
 #endif // _RXL_CNTRL_H_
 // eof
 

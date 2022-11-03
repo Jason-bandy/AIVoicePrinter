@@ -25,7 +25,7 @@
 #include "uart1_tcp_server_demo.h"
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 int uart_print_port = UART1_PORT;
 #else
 int uart_print_port = UART2_PORT;
@@ -520,6 +520,16 @@ void uart_fast_init(void)
     }
 
     icu_ctrl(CMD_CLK_PWR_UP, &param);
+
+    if (UART1_PORT == uart_print_port)
+    {
+        param = GFUNC_MODE_UART1;
+    }
+    else
+    {
+        param = GFUNC_MODE_UART2;
+    }
+    gpio_ctrl(CMD_GPIO_ENABLE_SECOND, &param);
     uart_hw_init(uart_print_port);
 }
 

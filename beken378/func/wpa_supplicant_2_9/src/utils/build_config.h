@@ -19,6 +19,10 @@
 #include "rwnx_config.h"
 /* Insert configuration defines, e.g., #define EAP_MD5, here, if needed. */
 
+#define BK_SUPPLICANT  1
+
+//#define BK_SUPPLICANT_OPTIMIZE_CONNECTION          1
+
 #define NEED_AP_MLME
 #define CONFIG_NO_CONFIG_WRITE
 #define OS_NO_C_LIB_DEFINES
@@ -228,6 +232,8 @@
 /* enable multiple PSK cache */
 //#define CONFIG_WPA_PSK_CACHE_MULTI 1
 
+#define CONFIG_SELECT_NETWORK_AFTER_PSK_SET   1
+
 #define CONFIG_NO_ROAMING
 
 #if CFG_IEEE80211W
@@ -238,7 +244,7 @@
 #define CONFIG_SAE
 #define CONFIG_ECC
 #define CONFIG_SAE_SMALL_STACK
-
+#define CONFIG_SAE_OVERCLOCK
 #if CFG_SME
 #define CONFIG_SME
 #endif
@@ -288,7 +294,7 @@
 #endif
 
 /* the ca.pem and client private-key.pem is hard-coded */
-#define IEEE8021X_EAPOL_DEMO
+// #define IEEE8021X_EAPOL_DEMO
 #endif
 
 #if CFG_WIFI_WPS

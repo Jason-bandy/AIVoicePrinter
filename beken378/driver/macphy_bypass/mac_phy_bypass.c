@@ -247,6 +247,10 @@ UINT32 mpb_ctrl(UINT32 cmd, void *param)
         case MCMD_SET_TXDELAY:
             mpb_set_txdelay(*(UINT32*)param);
             break;
+
+        case MCMD_IS_BYPASS_MAC_EN:
+            *(UINT32*)param = (mpb_regs.r0->value & 0x01);
+            break;
 			
 		default:
 			break;

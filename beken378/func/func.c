@@ -158,8 +158,10 @@ UINT32 func_init_extended(void)
 
     FUNC_PRT("[FUNC]func_init_extended OVER!!!\r\n\r\n");
     os_printf("start_type:%d\r\n",bk_misc_get_start_type());
-    UINT32 reg = 0;
-    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+#if (1 == CFG_USE_FORCE_LOWVOL_PS)
+    if(RESET_SOURCE_DEEPPS_GPIO == bk_misc_get_start_type())
+        os_printf("deep sleep waked by GPIO%d\r\n",bk_misc_wakeup_get_gpio_num());
+#endif
     return 0;
 }
 
@@ -174,7 +176,11 @@ UINT32 func_init_basic(void)
 	flash_bypass_operate_sr_init();
 #endif
 
+#if (CFG_OS_FREERTOS) || (CFG_SUPPORT_RTT)
+    os_printf("SDK Rev: %s %s\r\n", BEKEN_SDK_REV, SDK_COMMIT_ID);
+#else
     os_printf("SDK Rev: %s\r\n", BEKEN_SDK_REV);
+#endif
 
     return 0;
 }

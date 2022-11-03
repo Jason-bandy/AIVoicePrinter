@@ -37,6 +37,7 @@
 #include "rw_msdu.h"
 #include "txu_cntrl.h"
 #include "power_save.h"
+#include "low_voltage_ps.h"
 
 #if (CFG_OS_FREERTOS) || (CFG_SUPPORT_RTT) || (CFG_SUPPORT_LITEOS)
 #include "wlan_cli_pub.h"
@@ -319,7 +320,9 @@ void ps_msg_process(UINT8 ps_msg)
 #endif
 #if CFG_USE_STA_PS
     case PS_BMSG_IOCTL_RF_TD_SET:
+#if (0 == CFG_LOW_VOLTAGE_PS)
         ps_set_td_timer();
+#endif
         break;
 
         #if PS_USE_KEEP_TIMER
@@ -328,29 +331,33 @@ void ps_msg_process(UINT8 ps_msg)
             break;
 
         case PS_BMSG_IOCTL_RF_KP_SET:
+#if (1 == CFG_LOW_VOLTAGE_PS)
+            power_save_set_keep_timer_time(lv_ps_get_keep_timer_duration());
+#endif
             power_save_keep_timer_set();
             break;
 
         case PS_BMSG_IOCTL_RF_KP_STOP:
             power_save_keep_timer_stop();
             break;
-		#endif
+        #endif
 
-		#if PS_USE_WAIT_TIMER
+        #if PS_USE_WAIT_TIMER
         case PS_BMSG_IOCTL_WAIT_TM_HANDLER:
             power_save_wait_timer_real_handler();
             break;
         case PS_BMSG_IOCTL_WAIT_TM_SET:
             power_save_wait_timer_start();
             break;
-		#endif
+        #endif
         case PS_BMSG_IOCTL_RF_PS_TIMER_INIT:
+#if (0 == CFG_LOW_VOLTAGE_PS)
             power_save_set_keep_timer_time(20);
-            break; 
-			
+#endif
+            break;
         case PS_BMSG_IOCTL_RF_PS_TIMER_DEINIT:
             power_save_set_keep_timer_time(0);
-            break; 
+            break;
 #endif
 #if CFG_USE_AP_IDLE
     case PS_BMSG_IOCTL_AP_PS_RUN:
@@ -738,10 +745,41 @@ void core_thread_uninit(void)
     g_wifi_core.stack_size = 0;
 }
 
+#if (CFG_SUPPORT_MATTER)
+extern void extended_app_waiting_for_launch(void);
+extern void ChipTest(void);//implementation in libAPP.a
+static void example_lighting_matter_task(void *pvParameters)
+{
+    os_printf("going Chip\r\n");
+    ChipTest();
+
+    rtos_delete_thread( NULL );
+    return;
+}
+
+static void start_matter_app(void)
+{
+    OSStatus ret;
+    static beken_thread_t matter_thread_handle;
+
+    ret = rtos_create_thread(&matter_thread_handle,
+                             8,
+                             "matter_task",
+                             (beken_thread_function_t)example_lighting_matter_task,
+                             (unsigned short)4000,
+                             (beken_thread_arg_t)0);
+    ASSERT(kNoErr == ret);
+}
+#endif
+
 extern void  user_main(void);
 void __attribute__((weak)) user_main(void)
 {
-	
+#if (CFG_SUPPORT_MATTER)
+	extended_app_waiting_for_launch();
+	/* start the Matter example thread */
+	start_matter_app();
+#endif
 }
 
 static void init_app_thread( void *arg )
@@ -790,10 +828,11 @@ void app_pre_start(void)
     media_thread_init();
 #endif
 
-#if ((CFG_SUPPORT_BLE) && (CFG_BLE_VERSION == BLE_VERSION_5_x))
+#if ((CFG_SUPPORT_BLE) && (CFG_BLE_VERSION != BLE_VERSION_4_2))
     extern void ble_entry(void);
     ble_entry();
 #endif
+    power_save_rf_hold_bit_clear(RF_HOLD_BY_STA_BIT);
 }
 
 

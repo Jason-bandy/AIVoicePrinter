@@ -39,6 +39,10 @@ typedef struct rw_rx_info_st {
     uint8_t dst_idx;
     /// RSSI of the received frame.
     int8_t rssi;
+
+    /// flags of lowest byte of rx_dmadesc->flags
+    uint8_t rx_dmadesc_flags;
+    uint8_t reserved[3];
     
     /// Center frequency on which we received the packet
     uint16_t center_freq;    
@@ -149,6 +153,10 @@ extern void wifi_general_mac_state_set_idle(void);
 extern void wifi_general_mac_state_set_active(void);
 #endif
 extern void rwnxl_register_connector(RW_CONNECTOR_T *intf);
+
+extern int8_t rwnx_get_system_evm(void);
+extern uint8_t rwnx_get_system_snr(void);
+extern void rwnx_system_evm_init(void);
 
 /// @}
 #endif // _RWNXL_H_

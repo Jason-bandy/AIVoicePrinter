@@ -254,6 +254,7 @@ __INLINE void hal_machw_udelay(uint32_t us)
 
 #if NX_MULTI_ROLE
 extern const uint8_t rxv2macrate[];
+extern const int8_t mac2rxvrate[];
 
 __INLINE uint32_t hal_machw_rx_duration(struct rx_hd *rhd, uint16_t len)
 {
@@ -261,6 +262,7 @@ __INLINE uint32_t hal_machw_rx_duration(struct rx_hd *rhd, uint16_t len)
     nxmac_ppdu_mcs_index_setf(rxv2macrate[(rhd->recvec1a >> 12) & 0x0F]);
     nxmac_time_on_air_param_1_pack(0, 0, 0, (rhd->recvec1b >> 15) & 0x01, 0, len);
 
+    DEEP_CLKGATE_DISABLE;
     // Compute the duration
     nxmac_compute_duration_setf(1);
     #ifdef CFG_RWTL
@@ -268,8 +270,9 @@ __INLINE uint32_t hal_machw_rx_duration(struct rx_hd *rhd, uint16_t len)
     hal_machw_time();
     #endif
     while(nxmac_time_on_air_valid_getf() == 0);
-	
+
     ASSERT_REC_VAL(nxmac_time_on_air_valid_getf() != 0, 500);
+    DEEP_CLKGATE_ENABLE;
 
     // Retrieve the duration
     return ((uint32_t)nxmac_time_on_air_getf());
@@ -280,6 +283,7 @@ __INLINE uint32_t hal_machw_frame_duration(uint8_t bw, uint8_t modf, uint8_t rat
 {
     uint8_t pre_type;
     int32_t retry_left = 10000;
+    uint32_t duration = 500;
 
     if (modf == 0)
     {
@@ -290,6 +294,7 @@ __INLINE uint32_t hal_machw_frame_duration(uint8_t bw, uint8_t modf, uint8_t rat
         pre_type = modf;                     //htmm or htgf
     }
 
+    DEEP_CLKGATE_DISABLE;
     // Fill-in the TimeOnAir parameter registers
     nxmac_ppdu_mcs_index_setf(rate);
     nxmac_time_on_air_param_1_pack(0, 0, short_gi, pre_type, bw, len);
@@ -306,12 +311,18 @@ __INLINE uint32_t hal_machw_frame_duration(uint8_t bw, uint8_t modf, uint8_t rat
         if (nxmac_time_on_air_valid_getf() != 0)
         {
             // Retrieve the duration
-            return ((uint32_t)nxmac_time_on_air_getf());
+            duration = ((uint32_t)nxmac_time_on_air_getf());
+            break;
         }
     }
 
-    os_printf("hal_machw_frame_duration timeout\r\n");
-    return 500;
+    if (retry_left <= 0)
+    {
+        os_printf("hal_machw_frame_duration timeout\r\n");
+    }
+    DEEP_CLKGATE_ENABLE;
+
+    return duration;
 }
 
 /**

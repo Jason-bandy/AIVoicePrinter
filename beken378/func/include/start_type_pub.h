@@ -1,7 +1,7 @@
 #ifndef __START_TYPE_PUB_H_
 #define __START_TYPE_PUB_H_
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define     START_TYPE_ADDR        (0x00800000 + 84 * 4)
 #else
 #define     START_TYPE_ADDR        (0x0080a080)
@@ -13,6 +13,16 @@
 #define     CRASH_DATA_ABORT_VALUE        0xbedead03
 #define     CRASH_UNUSED_VALUE            0xbedead04
 #define     CRASH_2ND_XAT0_VALUE          0xbedead05
+
+#define     CRASH_DEEP_PS_REBOOT_VALUE_H  0xadeadc00
+#define     CRASH_DEEP_PS_REBOOT_MASK_H   0xfffffc00
+#define     DPS_PIN_MASK    0x3F
+#define     DPS_PIN_POST    4
+#define     DPS_TYPE_MASK   0xF
+#define     DPS_TYPE_POST   0
+#define     CRASH_DEEP_PS_REBOOT_VALUE(pin, type)    ((CRASH_DEEP_PS_REBOOT_VALUE_H) | ((((type) & DPS_TYPE_MASK) << DPS_TYPE_POST) |  (((pin) & DPS_PIN_MASK) << DPS_PIN_POST)))
+#define     DPS_GET_PIN(value)                       (((value) >> DPS_PIN_POST) & DPS_PIN_MASK)
+#define     DPS_GET_TYPEK(value)                     (((value) >> DPS_TYPE_POST) & DPS_TYPE_MASK)
 
 #define     START_TYPE_DMEMORY_ADDR        (0x0040001c)
 
@@ -33,6 +43,7 @@ typedef enum {
 	RESET_SOURCE_CRASH_PER_XAT0 = 0xc,
 
     RESET_SOURCE_DEEPPS_USB = 0xa,
+    RESET_SOURCE_FORCE_ATE = 0xb,
 
 } RESET_SOURCE_STATUS;
 

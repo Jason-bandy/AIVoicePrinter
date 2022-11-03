@@ -197,7 +197,7 @@ __INLINE uint8_t co_read8p(uint32_t addr)
  ****************************************************************************************
  */
 __INLINE void co_write8p(uint32_t addr, uint8_t value)
-{    
+{
     *(uint8_t *)addr = value;
 }
 
@@ -228,7 +228,7 @@ __INLINE uint16_t co_read16p(uint32_t addr)
 __INLINE void co_write16p(uint32_t addr, uint16_t value)
 {
     uint8_t *dest = (uint8_t *)addr;
-    
+
     dest[0] = value & 0xff;
     dest[1] = (value >> 8) & 0xff;
 }
@@ -350,6 +350,135 @@ __INLINE void co_copy8p(uint32_t dst, uint32_t src, uint32_t len)
     {
         co_write8p(dst++, co_read8p(src++));
     }
+}
+
+/**
+ ****************************************************************************************
+ * @brief This function returns the value of bit field inside an array of bits,
+ * represented as an array of bytes.
+ * @param[in] array Array of bits
+ * @param[in] lsb Position of the LSB of the field inside the array of bits
+ * @param[in] width Width of the field
+ * @return true if the specified bit is set, false otherwise
+ ****************************************************************************************
+ */
+__INLINE uint8_t co_val_get(uint8_t const array[], int lsb, int width)
+{
+    int msb = lsb + width - 1;
+    int l_byte_idx = lsb / 8;
+    int m_byte_idx = msb / 8;
+    uint8_t val;
+
+    if (m_byte_idx == l_byte_idx)
+    {
+        uint8_t mask = CO_BIT(width) - 1;
+        int shift = lsb % 8;
+        val = (array[l_byte_idx] >> shift) & mask;
+    }
+    else
+    {
+        uint8_t l_bits_cnt = m_byte_idx * 8 - lsb;
+        uint8_t l_mask = CO_BIT(l_bits_cnt) - 1;
+        uint8_t m_mask = CO_BIT(width - l_bits_cnt) - 1;
+        int l_shift = lsb % 8;
+        val = (array[l_byte_idx] >> l_shift) & l_mask;
+        val |= (array[m_byte_idx] & m_mask) << l_bits_cnt;
+    }
+    return (val);
+}
+
+/**
+ ****************************************************************************************
+ * @brief This function sets a value of a bit field inside an array of bits,
+ * represented as an array of bytes.
+ * @param[in] array Array of bits
+ * @param[in] lsb Position of the LSB of the field inside the array of bits
+ * @param[in] width Width of the field
+ * @param[in] val Value to be set
+ ****************************************************************************************
+ */
+__INLINE void co_val_set(uint8_t array[], int lsb, int width, uint8_t val)
+{
+    int msb = lsb + width - 1;
+    int l_byte_idx = lsb / 8;
+    int m_byte_idx = msb / 8;
+
+    if (m_byte_idx == l_byte_idx)
+    {
+        uint8_t mask = CO_BIT(width) - 1;
+        int shift = lsb % 8;
+        array[l_byte_idx] &= ~(mask << shift);
+        array[l_byte_idx] |= (val & mask) << shift;
+    }
+    else
+    {
+        uint8_t l_bits_cnt = m_byte_idx * 8 - lsb;
+        uint8_t l_mask = CO_BIT(l_bits_cnt) - 1;
+        uint8_t m_mask = CO_BIT(width - l_bits_cnt) - 1;
+        int l_shift = lsb % 8;
+        array[l_byte_idx] &= ~(l_mask << l_shift);
+        array[m_byte_idx] &= ~m_mask;
+        array[l_byte_idx] |= (val & l_mask) << l_shift;
+        array[m_byte_idx] |= (val >> l_bits_cnt) & m_mask;
+    }
+}
+
+/**
+ ****************************************************************************************
+ * @brief This function returns the status of a specific bit position inside an array of
+ *        bits, represented as an array of bytes.
+ * @param[in] array Array of bits to be checked
+ * @param[in] pos Bit position to be checked
+ * @return true if the specified bit is set, false otherwise
+ ****************************************************************************************
+ */
+__INLINE bool co_bit_is_set(uint8_t const array[], int pos)
+{
+    return ((array[pos / 8] & CO_BIT(pos % 8)) != 0);
+}
+
+/**
+ ****************************************************************************************
+ * @brief This function returns the status of a specific bit position inside an array of
+ *        bits, represented as an array of bytes.
+ * @param[in] array Array of bits to be checked
+ * @param[in] pos Bit position to be checked
+ * @param[in] length Length of the array
+ * @return true if the specified bit is set, false otherwise and false is the bit is
+ * outside the range of the array
+ ****************************************************************************************
+ */
+__INLINE bool co_bit_is_set_var(uint8_t *array, int pos, int length)
+{
+    if ((pos / 8) > (length - 1))
+        return false;
+    return co_bit_is_set(array, pos);
+}
+
+/**
+ ****************************************************************************************
+ * @brief This function sets a specific bit position inside an array of bits, represented
+ * as an array of bytes.
+ * @param[in] array Array of bits
+ * @param[in] pos Bit position to be set
+ ****************************************************************************************
+ */
+__INLINE void co_bit_set(uint8_t array[], uint8_t pos)
+{
+    array[pos / 8] |= CO_BIT(pos % 8);
+}
+
+/**
+ ****************************************************************************************
+ * @brief This function clears a specific bit position inside an array of bits,
+ * represented as an array of bytes.
+ * @param[in] array Array of bits
+ * @param[in] pos Bit position to be cleared
+ ****************************************************************************************
+ */
+__INLINE void co_bit_clr(uint8_t array[], uint8_t pos)
+{
+    array[pos / 8] &= ~CO_BIT(pos % 8);
 }
 
 /// @} end of group COUTILS

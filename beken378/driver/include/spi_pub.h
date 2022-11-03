@@ -38,7 +38,7 @@ enum
     CMD_SPI_TXTRANS_EN,
     CMD_SPI_RXTRANS_EN,
     CMD_SPI_CS_EN,
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
     CMD_SPI_SET_TX_FINISH_INT_CALLBACK,
     CMD_SPI_SET_RX_FINISH_INT_CALLBACK,
 #endif
@@ -93,7 +93,7 @@ enum
 
 struct spi_message
 {
-#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236) && (CFG_SOC_NAME != SOC_BK7238)
     UINT8 *send_buf;
     UINT32 send_len;
 
@@ -105,7 +105,7 @@ struct spi_message
 
     UINT8*recv_buf;
     UINT32 recv_len;
-
+    UINT32 repeat_cnt;
 #endif
 };
 
@@ -165,7 +165,9 @@ int bk_spi_dma_transfer(UINT32 mode, struct spi_message *spi_msg);
 int bk_spi_slave_dma_send(struct spi_message *spi_msg);
 int bk_spi_slave_dma_tx_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg);
 
-
+int bk_spi_master_dma_tx_loop_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg);
+int bk_spi_master_dma_send_loop(struct spi_message *spi_msg);
+int bk_spi_master_dma_tx_loop_deinit(void);
 #endif
 
 #endif //_SPI_PUB_H_

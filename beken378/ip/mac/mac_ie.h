@@ -167,6 +167,7 @@ uint8_t *mac_vendor_ie_find(unsigned int oui,
 							int len);
 
 uint32_t mac_ie_rsn_find(uint32_t buffer, uint16_t buflen, uint8_t *ie_len);
+uint32_t mac_ie_ext_cap_find(uint32_t buffer, uint16_t buflen, uint16_t *length);
 
 /// @}
 #endif // _MAC_IE_H_

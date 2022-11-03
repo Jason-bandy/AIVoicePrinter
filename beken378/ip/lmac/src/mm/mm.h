@@ -736,4 +736,10 @@ void mm_send_csa_traffic_ind(uint8_t vif_index, bool enable);
 void mm_hw_ap_disable(void);
 
 extern int32_t get_mm_sta_tbtt_residue_time(void);
+UINT8 mm_ap_beacon_rate_is_11b();
+
+#if (NX_HW_PARSER_TIM_ELEMENT)
+void mm_sta_upd_tbtt_timer(void);
+#endif
+
 #endif // _MM_H_

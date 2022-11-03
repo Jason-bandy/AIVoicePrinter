@@ -5,7 +5,7 @@
 #include "icu_pub.h"
 #include "sys_config.h"
 
-#if(CFG_SOC_NAME == SOC_BK7231N)
+#if(CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #include "spi_bk7231n.h"
 #include "spi_pub.h"
 #include "gpio_pub.h"

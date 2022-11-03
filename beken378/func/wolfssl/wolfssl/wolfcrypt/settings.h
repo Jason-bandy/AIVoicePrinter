@@ -392,7 +392,7 @@
     #if !defined(XMALLOC_USER) && !defined(NO_WOLFSSL_MEMORY) && \
         !defined(WOLFSSL_STATIC_MEMORY)
 
-	#if OSMALLOC_STATISTICAL
+	#if OSMALLOC_STATISTICAL || CFG_MEM_DEBUG
         #define XMALLOC(s, h, type)  pvPortMalloc_cm((const char*)NULL,__LINE__,(s), 0)
         #define XFREE(p, h, type)    vPortFree_cm((const char*)NULL,__LINE__,(p))
 	#else

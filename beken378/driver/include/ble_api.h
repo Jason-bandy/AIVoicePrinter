@@ -3,7 +3,7 @@
 
 #include "sys_config.h"
 
-#if CFG_BLE_VERSION == BLE_VERSION_5_x
+#if ((CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_5_2))
 #include "ble_api_5_x.h"
 #else
 #define MAX_ADV_DATA_LEN           (0x1F)
@@ -422,9 +422,7 @@ extern adv_info_t adv_info;
 extern scan_info_t scan_info;
 
 ble_err_t bk_ble_create_db (struct bk_ble_db_cfg* ble_db_cfg);
-#if CFG_BLE_VERSION == BLE_VERSION_4_2
 extern ble_err_t appm_start_advertising(void);
-#endif
 ble_err_t bk_ble_send_ntf_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
 ble_err_t bk_ble_send_ind_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
 #endif

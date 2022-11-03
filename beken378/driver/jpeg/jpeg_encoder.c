@@ -605,6 +605,25 @@ void jpegrate(int argc, char **argv)
 FINSH_FUNCTION_EXPORT_ALIAS(jpegrate, __cmd_jpegrate, jpegrate);
 
 #endif
+
+UINT32 ejpeg_is_on(void)
+{
+    UINT32 reg_addr = JPEG_REG1;
+    UINT32 reg_val = REG_READ(reg_addr);
+
+    return ((reg_val & JPEG_ENC_EN) > 0)? 1 : 0;
+}
+
+void ejpeg_off(void)
+{
+    ejpeg_close();
+}
+
+UINT32 ejpeg_get_quant_base_value(void)
+{
+    return jpeg_quant_table[0];
+}
+
 #endif
 // eof
 

@@ -4,7 +4,7 @@
 #include "arm_arch.h"
 #include "sys_config.h"
 
-#if(CFG_SOC_NAME == SOC_BK7231N)
+#if(CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #include "icu_pub.h"
 #include "spi_pub.h"
 #include "sys_ctrl_pub.h"
@@ -364,7 +364,7 @@ int bk_spi_master_deinit(void)
 }
 
 #if CFG_USE_SPI_DMA
-extern volatile int dma_trans_flag ;
+static UINT32 spi_repeat_cnt = 0;
 
 #define SPI_TEST_POART1		0
 #define SPI_TEST_POART2		1
@@ -389,9 +389,8 @@ void bk_spi_dma_rx_finish_callback(UINT32 param)
 
 }
 
-void bk_spi_dma_tx_finish_callback(UINT32 param)
+void bk_spi_dma_tx_finish_handler(UINT32 param)
 {
-
 	if ((spi_dev->flag & TX_FINISH_FLAG) == 0)
 	{
 		spi_dev->flag |= TX_FINISH_FLAG;
@@ -399,13 +398,37 @@ void bk_spi_dma_tx_finish_callback(UINT32 param)
 	}
 
 	BK_SPI_PRT("spi_dma master tx finish handler\r\n");
+}
 
+static void spi_dma_master_tx_finish_callback(int port, void *param)
+{
+	if ((spi_dev->flag & TX_FINISH_FLAG) == 0)
+	{
+		spi_dev->flag |= TX_FINISH_FLAG;
+		rtos_set_semaphore(&spi_dev->tx_sem);
+	}
+
+	BK_SPI_PRT("spi_dma master tx finish handler\r\n");
+}
+
+void bk_spi_dma_tx_loop_finish_callback(UINT32 param)
+{
+	if (!spi_repeat_cnt) {
+		spi_dma_tx_enable(0);
+		BK_SPI_PRT("spi repeat end:%d\r\n", spi_repeat_cnt);
+		rtos_set_semaphore(&spi_dev->tx_sem);
+	}
+
+	BK_SPI_PRT("spi_dma repeat cnt:%d\r\n", spi_repeat_cnt);
+
+	spi_repeat_cnt --;
 }
 
 int spi_dma_master_tx_init(struct spi_message *spi_msg)
 {
 	GDMACFG_TPYES_ST init_cfg;
 	GDMA_CFG_ST en_cfg;
+	struct spi_callback_des spi_dev_cb;
 
 	BK_SPI_PRT("spi dma tx init\r\n");
 	os_memset(&init_cfg, 0, sizeof(GDMACFG_TPYES_ST));
@@ -425,8 +448,26 @@ int spi_dma_master_tx_init(struct spi_message *spi_msg)
 	init_cfg.u.type4.src_loop_end_addr = spi_msg->send_buf + spi_msg->send_len;
 
 	init_cfg.half_fin_handler = spi_dma_tx_half_handler;
-	init_cfg.fin_handler = bk_spi_dma_tx_finish_callback;
+	init_cfg.fin_handler = NULL;
 
+	//change spi_slave tx callback
+	if (spi_msg->send_len < SPI_TX_LENGTH_MAX) {
+		spi_dev_cb.callback = spi_dma_master_tx_finish_callback;
+		spi_dev_cb.param = NULL;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_SET_TX_FINISH_INT_CALLBACK, (void *)&spi_dev_cb);
+
+		//enable tx finish int 
+		UINT32 param = 1;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
+	} else {
+		// may lost data, beacause dma fin earier than spi tx finish
+		// but if len large thanÁË4096, spi finish int will nerve happend.
+		init_cfg.fin_handler = bk_spi_dma_tx_finish_handler;
+
+		//disable tx finish int 
+		UINT32 param = 0;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
+	}
 	init_cfg.src_module = GDMA_X_SRC_DTCM_RD_REQ;
 	init_cfg.dst_module = GDMA_X_DST_GSPI_TX_REQ;
 
@@ -525,11 +566,8 @@ void bk_spi_master_dma_config(UINT32 mode, UINT32 rate)
 	param = 0;
 	sddev_control(SPI_DEV_NAME, CMD_SPI_CS_EN, (void *)&param);
 
-
 	BK_SPI_PRT("spi_master [CTRL]:0x%08x \n", REG_READ(SPI_CTRL));
 	BK_SPI_PRT("spi_master [CONFIG]:0x%08x \n", REG_READ(SPI_CONFIG));
-
-
 }
 
 
@@ -751,6 +789,148 @@ int bk_spi_dma_transfer(UINT32 mode, struct spi_message *spi_msg)
 			BK_SPI_WPRT("master:spi dma init error:%d\r\n", ret);
 	}
 
+
+	return ret;
+}
+
+int spi_dma_master_tx_loop_init(struct spi_message *spi_msg)
+{
+	GDMACFG_TPYES_ST init_cfg;
+	GDMA_CFG_ST en_cfg;
+
+	BK_SPI_PRT("spi dma tx init\r\n");
+	os_memset(&init_cfg, 0, sizeof(GDMACFG_TPYES_ST));
+	os_memset(&en_cfg, 0, sizeof(GDMA_CFG_ST));
+
+	init_cfg.dstdat_width = 8;
+	init_cfg.srcdat_width = 32;
+	init_cfg.dstptr_incr =  0;
+	init_cfg.srcptr_incr =  1;
+
+	init_cfg.src_start_addr = spi_msg->send_buf;
+	init_cfg.dst_start_addr = (void *)SPI_DAT;
+
+	init_cfg.channel = SPI_TX_DMA_CHANNEL ;
+	init_cfg.prio = 0;
+	init_cfg.u.type4.src_loop_start_addr = spi_msg->send_buf;
+	init_cfg.u.type4.src_loop_end_addr = spi_msg->send_buf + spi_msg->send_len;
+
+	init_cfg.half_fin_handler = spi_dma_tx_half_handler;
+	init_cfg.fin_handler = bk_spi_dma_tx_loop_finish_callback;
+
+	init_cfg.src_module = GDMA_X_SRC_DTCM_RD_REQ;
+	init_cfg.dst_module = GDMA_X_DST_GSPI_TX_REQ;
+	sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE4, (void *)&init_cfg);
+
+	en_cfg.channel = SPI_TX_DMA_CHANNEL;
+	en_cfg.param = spi_msg->send_len;		// dma translen
+	sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
+
+	en_cfg.channel = SPI_TX_DMA_CHANNEL;
+	en_cfg.param = 1;				// 0:not repeat 1:repeat
+	sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_WORK_MODE, (void *)&en_cfg);
+
+	en_cfg.channel = SPI_TX_DMA_CHANNEL;
+	en_cfg.param = 1;				// 0: src no loop 1: src loop
+	sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_SRCADDR_LOOP, &en_cfg);
+
+	return 0;
+}
+
+int bk_spi_master_dma_tx_loop_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg)
+{
+	OSStatus result = 0;
+
+	if (spi_dev)
+		bk_spi_master_deinit();
+
+	spi_dev = os_malloc(sizeof(struct bk_spi_dev));
+	if (!spi_dev)
+	{
+		BK_SPI_PRT("[spi]:malloc memory for spi_dev failed\n");
+		result = -1;
+		goto _exit;
+	}
+	os_memset(spi_dev, 0, sizeof(struct bk_spi_dev));
+
+
+	result = rtos_init_semaphore(&spi_dev->tx_sem, 1);
+	if (result != kNoErr)
+	{
+		BK_SPI_PRT("[spi]: spi tx semp init failed\n");
+		goto _exit;
+	}
+
+	bk_spi_master_dma_config(mode, rate);
+
+	spi_dma_master_tx_loop_init(spi_msg);
+
+	return 0;
+
+_exit:
+
+	if (spi_dev->tx_sem)
+		rtos_deinit_semaphore(&spi_dev->tx_sem);
+
+
+	if (spi_dev)
+	{
+		os_free(spi_dev);
+		spi_dev = NULL;
+	}
+
+	return 1;
+}
+
+int bk_spi_master_dma_tx_loop_deinit(void)
+{
+	if (spi_dev == NULL)
+		return 0;
+
+	if (spi_dev->mutex)
+		rtos_lock_mutex(&spi_dev->mutex);
+
+	if (spi_dev->tx_sem)
+		rtos_deinit_semaphore(&spi_dev->tx_sem);
+
+	if (spi_dev->mutex)
+	{
+		rtos_unlock_mutex(&spi_dev->mutex);
+		rtos_deinit_mutex(&spi_dev->mutex);
+	}
+
+	if (spi_dev)
+	{
+		os_free(spi_dev);
+		spi_dev = NULL;
+	}
+
+	bk_spi_unconfigure();
+
+	return 0;
+}
+
+int bk_spi_master_dma_send_loop(struct spi_message *spi_msg)
+{
+	UINT32 ret = 0;
+
+	spi_repeat_cnt = spi_msg->repeat_cnt;
+
+	GLOBAL_INT_DECLARATION();
+	ASSERT(spi_msg != NULL);
+
+	GLOBAL_INT_DISABLE();
+	GLOBAL_INT_RESTORE();
+
+	spi_dma_tx_enable(ENABLE);
+
+	/* wait tx finish */
+	rtos_get_semaphore(&spi_dev->tx_sem, BEKEN_NEVER_TIMEOUT);
+	if (ret)
+		BK_SPI_WPRT("spi_dma tx error:wait tx_sem\r\n");
+
+	spi_dma_tx_enable(DISABLE);
+	BK_SPI_PRT("spi_dma send loop stop \r\n");
 
 	return ret;
 }

@@ -2,7 +2,7 @@
 #include "arm_arch.h"
 #include "sys_config.h"
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #include "spi_pub.h"
 #include "drv_model_pub.h"
 #include "intc_pub.h"

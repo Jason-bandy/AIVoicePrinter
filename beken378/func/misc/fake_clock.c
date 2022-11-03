@@ -17,6 +17,13 @@
 #if CFG_SUPPORT_LITEOS
 #include "bk_los_timer.h"
 #endif
+#include "calendar_pub.h"
+
+#if(CFG_OS_FREERTOS && CFG_TASK_WDG_ENABLED)
+#include "BkDriverTimer.h"
+#include "bk_err.h"
+#include "tasks.h"
+#endif
 
 static volatile UINT64 current_clock = 0;
 static volatile UINT32 current_seconds = 0;
@@ -48,27 +55,60 @@ void int_watchdog_feed(void)
 }
 #endif
 
-#if (CFG_TASK_WDG_ENABLED)
+#if (CFG_OS_FREERTOS && CFG_TASK_WDG_ENABLED)
 
-static UINT64 s_last_task_wdg_feed_tick = 0;
-static UINT64 s_last_task_wdg_log_tick = 0;
+#define WDT_BARK_TIME_MS    2000
 
-void task_watchdog_feed(void)
+static uint64_t s_last_task_wdt_feed_tick = 0;
+static uint64_t s_last_task_wdt_log_tick = 0;
+
+static bool s_wdt_driver_is_init =false;
+
+void bk_task_wdt_feed()
 {
-        s_last_task_wdg_feed_tick = fclk_freertos_get_tick64();
+	s_last_task_wdt_feed_tick = fclk_freertos_get_tick64();// fclk_get_tick();
 }
 
-static inline void task_watchdog_timeout_check(void)
+void bk_task_wdt_timeout_check()
 {
-	if (s_last_task_wdg_feed_tick) {
-		UINT64 current_tick = fclk_freertos_get_tick64();
-		if ( (current_tick - s_last_task_wdg_feed_tick) > TASK_WDG_PERIOD_TICK ) {
-			if ((current_tick - s_last_task_wdg_log_tick) > TASK_WDG_PERIOD_TICK) {
-				os_printf("warning: task watchdog tiggered\n");
-				s_last_task_wdg_log_tick = current_tick;
+	if (s_last_task_wdt_feed_tick) {
+		uint64_t current_tick = fclk_freertos_get_tick64();//fclk_get_tick();
+		if ((current_tick - s_last_task_wdt_feed_tick) > TASK_WDG_PERIOD_TICK) {
+			if ((current_tick - s_last_task_wdt_log_tick) > TASK_WDG_PERIOD_TICK) {
+				bk_printf("task watchdog tiggered\n");
+				s_last_task_wdt_log_tick = current_tick;
+#if DUMP_THREAD_WHEN_TASK_WDG_TIGGERED
+				rtos_dump_task_list();
+#endif
+#if DUMP_STACK_WHEN_TASK_WDG_TIGGERED
+				rtos_dump_backtrace();
+#endif
 			}
 		}
 	}
+}
+
+void bk_wdt_feed_handle(void)
+{
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+
+	bk_task_wdt_timeout_check();
+
+	GLOBAL_INT_RESTORE();
+}
+
+bk_err_t bk_wdt_driver_init(void)
+{
+	if (s_wdt_driver_is_init) {
+		return BK_OK;
+	}
+
+	bk_timer_initialize(BKTIMER4,WDT_BARK_TIME_MS,(void*)bk_wdt_feed_handle);
+
+	s_wdt_driver_is_init = true;
+
+	return BK_OK;
 }
 #endif
 #endif //CFG_OS_FREERTOS
@@ -96,8 +136,8 @@ void fclk_hdl(UINT8 param)
         int_watchdog_feed();
 #endif
 
-#if (CFG_TASK_WDG_ENABLED)
-        task_watchdog_timeout_check();
+#if (CFG_OS_FREERTOS && CFG_TASK_WDG_ENABLED)
+        bk_wdt_driver_init();
 #endif
 	if (xTaskIncrementTick() != pdFALSE) {
 		vTaskSwitchContext();
@@ -111,6 +151,7 @@ void fclk_hdl(UINT8 param)
 }
 
 #if !(CFG_SUPPORT_RTT || CFG_SUPPORT_ALIOS || CFG_SUPPORT_LITEOS)
+#if (0 == CFG_LOW_VOLTAGE_PS)
 static UINT32 fclk_freertos_update_tick(UINT32 tick)
 {
     current_clock += tick;
@@ -134,9 +175,11 @@ static UINT32 fclk_freertos_update_tick(UINT32 tick)
     return 0;
 }
 #endif
+#endif
 
 UINT32 fclk_update_tick(UINT32 tick)
 {
+#if (0 == CFG_LOW_VOLTAGE_PS)
 #if (CFG_SUPPORT_RTT)
     rtt_update_tick(tick);
 #elif (CFG_SUPPORT_ALIOS)
@@ -152,7 +195,7 @@ UINT32 fclk_update_tick(UINT32 tick)
     fclk_freertos_update_tick(tick);
     vTaskStepTick( tick );
     GLOBAL_INT_RESTORE();
-    
+#endif
 #endif
     return 0;
 }
@@ -222,7 +265,6 @@ extern int increase_tick;
 UINT32 timer_cal_tick(void)
 {
     UINT32 fclk, tmp2;
-    UINT32 machw = 0;
     INT32 lost;
     GLOBAL_INT_DECLARATION();
 
@@ -245,11 +287,11 @@ UINT32 timer_cal_tick(void)
     {
         if(lost <= (-(2*FCLK_DURATION_MS)))
         {
+            increase_tick = lost + FCLK_DURATION_MS;
             if(lost < (-50000))
             {
-                os_printf("m reset:%x %x\r\n", lost, machw);
+                os_printf("m reset:%d %d\r\n", lost, increase_tick);
             }
-            increase_tick = lost + FCLK_DURATION_MS;
         }
     }
     
@@ -376,7 +418,7 @@ void fclk_timer_hw_init(BK_HW_TIMER_INDEX timer_id)
 #endif
 
         param.p_Int_Handler   = fclk_hdl;
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
         param.duty_cycle1     = 0;
 #else
         param.duty_cycle      = 0;

@@ -8,6 +8,8 @@ src += ["common/co_list.c"]
 src += ["common/co_math.c"]
 src += ["common/co_pool.c"]
 src += ["common/co_ring.c"]
+src += ["common/co_tkip.c"]
+src += ["common/co_wep.c"]
 src += ["ke/ke_env.c"]
 src += ["ke/ke_event.c"]
 src += ["ke/ke_msg.c"]
@@ -118,6 +120,8 @@ elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7221U'):
     wifi_lib_name += '_7251'
 elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7271'):
     wifi_lib_name += '_7271'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7238'):
+    wifi_lib_name += '_7238'
 else:
     wifi_lib_name += '_unknown'
     platform_match = 'no'

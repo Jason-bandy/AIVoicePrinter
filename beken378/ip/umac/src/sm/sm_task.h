@@ -392,6 +392,9 @@ struct sm_disconnect_ind
     uint8_t vif_idx;
     /// FT over DS is ongoing
     bool ft_over_ds;
+#if (NX_P2P)
+    bool is_p2p;
+#endif
 };
 
 /// Structure containing the parameters of APMSTA_DEAUTHENTICATION_CFM message.
@@ -449,6 +452,7 @@ extern const struct ke_state_handler sm_default_handler;
 /// Table including the state of each instance of the SM task.
 extern ke_state_t sm_state[SM_IDX_MAX];
 
+int rf_ps_ke_send_ps_disable_req(struct vif_info_tag *vif);
 /// @}
 
 #endif // _SM_TASK_H_

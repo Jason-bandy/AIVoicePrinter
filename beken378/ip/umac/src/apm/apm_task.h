@@ -74,6 +74,8 @@ enum apm_msg_tag
     APM_DEASSOC_IND,
     /// Indicate association failed of AP
     APM_ASSOC_FAILED_IND,
+    /// Indicate hostapd is started completely
+    APM_START_DONE_IND,
 };
 
 /// Structure containing the parameters of the @ref APM_START_REQ message.
@@ -184,6 +186,12 @@ struct apm_assoc_failed_ind
 {
     /// Mac of client
     uint8_t mac[6];
+};
+
+
+struct apm_start_done_ind
+{
+    bool started;
 };
 
 extern const struct ke_state_handler apm_state_handler[APM_STATE_MAX];

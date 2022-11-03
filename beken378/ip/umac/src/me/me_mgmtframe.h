@@ -399,6 +399,8 @@ void me_extract_mobility_domain(uint32_t buffer, uint16_t buflen,
 int me_extract_csa(uint32_t buffer, uint16_t buflen, uint8_t *mode,
                    struct mm_chan_ctxt_add_req *chan_desc);
 
+uint8_t me_ftm_add_parameter(uint32_t frame, uint8_t ftm_per_burst);
+
 /// @}
 
 #endif  // _ME_MGMTFRAME_H_

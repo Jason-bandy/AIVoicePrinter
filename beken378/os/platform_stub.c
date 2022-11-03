@@ -74,6 +74,13 @@ void * __wrap_zalloc(size_t size)
 	return os_zalloc(size);
 }
 
+size_t __wrap_strnlen(const char *s, size_t max_len)
+{
+	size_t i = 0;
+	for(; (i < max_len) && s[i]; ++i);
+	return i;
+}
+
 void __assert_func(const char *file, int line, const char *func, const char *failedexpr)
 {
 	os_printf("%s %d func %s expr %s\n", file, line, func, failedexpr);

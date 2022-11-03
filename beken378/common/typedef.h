@@ -24,7 +24,7 @@ typedef double         		  FP64;			/* Double precision floating point */
 typedef unsigned int          size_t;
 typedef unsigned char         BOOLEAN;
 
-#if (CFG_OS_FREERTOS) || (CFG_SUPPORT_RTT) || (CFG_SUPPORT_ALIOS)
+#if (CFG_OS_FREERTOS) || (CFG_SUPPORT_RTT) || (CFG_SUPPORT_ALIOS) || (CFG_SUPPORT_MATTER)
 typedef unsigned char         BOOL;
 #endif
 

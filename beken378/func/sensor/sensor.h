@@ -1,29 +1,19 @@
 #ifndef _WIFI_SENSOR_H_
 #define _WIFI_SENSOR_H_
 
-#define SENSOR_DEBUG
-#ifdef 	SENSOR_DEBUG
-#define SENSOR_PRINTF        bk_printf
-#define SENSOR_PRINTF_UART2  bk_printf
-#define SENSOR_DEGUB_PRINT   os_null_printf
-#else
-#define SENSOR_PRINTF        os_null_printf
-#define SENSOR_DEGUB_PRINT   os_null_printf
-#define SENSOR_PRINTF_UART2  os_null_printf
+#define BK_WSD_OK               0
+#define BK_WSD_FAIL            -1
 
-#endif
 
-extern void bk_wifi_detect_movement_start(void);
-extern void bk_wifi_detect_movement_stop(void);
-
-/** @brief  Get the detecting movement result.
- *
+/** @brief  bk wifi senser detecting movement callback.
  *
  *  @return   1        : something move.
- *  @return   0   	   : no movement in there
+ *  @return   0        : no movement in there
  */
-extern int  bk_get_movement_status(void);
-extern float get_movement_detection_param(void);
+typedef void (*bk_wsd_cb)(int status);
+
+int bk_wifi_detect_movement_start(bk_wsd_cb callback);
+void bk_wifi_detect_movement_stop(void);
 
 #endif
 

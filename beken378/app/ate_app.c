@@ -4,11 +4,13 @@
 #if ATE_APP_FUN
 #if (!CFG_SUPPORT_ALIOS) 
 #include "app.h"
+#include "power_save_pub.h"
+#else
+#include "sys_ctrl_pub.h"
 #endif
 
 #include "uart_pub.h"
 #include "wlan_cli_pub.h"
-#include "sys_ctrl_pub.h"
 #include "mem_pub.h"
 #include "str_pub.h"
 
@@ -16,6 +18,10 @@ char ate_mode_state = 0;
 int ate_gpio_port = GPIO0;
 
 #define CMD_SINGLE_WAVE  "txevm -b 0 -r 24 -c 1 -w 1"
+
+#if (CFG_SUPPORT_ALIOS)
+extern void power_save_rf_hold_bit_set(UINT32);
+#endif
 
 void ate_gpio_init(void)
 {
@@ -48,6 +54,10 @@ void ate_app_init(void)
 
     mode = ate_mode_check();
     if(mode)
+    {
+        ate_mode_state = (char)1;
+    }
+    else if (RESET_SOURCE_FORCE_ATE == bk_misc_get_start_type())
     {
         ate_mode_state = (char)1;
     }
@@ -87,7 +97,7 @@ void ate_start(void)
     cli_init();
 #endif
 
-    sctrl_rf_ps_enable_clear();
+    power_save_rf_hold_bit_set(RF_HOLD_RF_SLEEP_BIT);
 
     ATE_PRT("ate_start\r\n");
 }

@@ -12,6 +12,11 @@
 #include "sys_ctrl_pub.h"
 #include <string.h>
 
+#if (CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7271)
+static UINT32 saradc_open(UINT32 op_flag);
+static UINT32 saradc_close(void);
+static UINT32 saradc_ctrl(UINT32 cmd, void *param);
+
 #if (CFG_SOC_NAME == SOC_BK7271)
 #include "gpio_bk7271.h"
 #endif
@@ -646,7 +651,7 @@ static UINT32 saradc_recalibrate(void)
     UINT32 config_value;
 
     /* calibrate saradc to avoid deviation after deepsleep */
-    saradc_enable_icu_config();
+//    saradc_enable_icu_config();
     config_value = REG_READ(SARADC_ADC_CONFIG);
     config_value |= SARADC_ADC_CHNL_EN;
     REG_WRITE(SARADC_ADC_CONFIG, config_value);
@@ -654,11 +659,17 @@ static UINT32 saradc_recalibrate(void)
     config_value = REG_READ(SARADC_ADC_CTRL_CFG);
     config_value |= SARADC_ADC_CALIB_TRIG;
     REG_WRITE(SARADC_ADC_CTRL_CFG, config_value);
+    //wait calib completed
+    while(REG_READ(SARADC_ADC_CTRL_CFG) & SARADC_ADC_CALIB_TRIG);
+    //clear INT
+    config_value = REG_READ(SARADC_ADC_CTRL_CFG);
+    config_value &= ~SARADC_ADC_CALIB_TRIG;
+    REG_WRITE(SARADC_ADC_CTRL_CFG, config_value);
 
     config_value = REG_READ(SARADC_ADC_CONFIG);
     config_value &= ~SARADC_ADC_CHNL_EN;
     REG_WRITE(SARADC_ADC_CONFIG, config_value);
-    saradc_disable_icu_config();
+//    saradc_disable_icu_config();
 #endif
 
     return SARADC_SUCCESS;
@@ -781,4 +792,4 @@ void saradc_isr(void)
 
     saradc_int_clr();
 }
-
+#endif

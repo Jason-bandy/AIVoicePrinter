@@ -12,8 +12,14 @@
 #include "notifier_pub.h"
 #endif
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 #define ICU_BASE                                     (0x00802000)
 #define ICU_INT_STATUS                               (ICU_BASE + 19 * 4)
+
+#define KEY_MAX_LEN 64
 
 enum {
     WLAN_ENC_OPEN,
@@ -58,6 +64,12 @@ typedef enum
     BK_P2P
 } wlanInterfaceTypedef;
 
+enum bk_wlan_hw_mode {
+    BK_HW_MODE_BGN = 0,
+    BK_HW_MODE_BG,
+    BK_HW_MODE_B,
+};
+
 /**
  *  @brief  Wi-Fi security type enumeration definition.
  */
@@ -67,6 +79,7 @@ typedef enum
     BK_SECURITY_TYPE_WEP,         /**< Wired Equivalent Privacy. WEP security. */
     BK_SECURITY_TYPE_WPA_TKIP,    /**< WPA /w TKIP */
     BK_SECURITY_TYPE_WPA_AES,     /**< WPA /w AES */
+    BK_SECURITY_TYPE_WPA_MIXED,  /**< WPA /w AES or TKIP */
     BK_SECURITY_TYPE_WPA2_TKIP,   /**< WPA2 /w TKIP */
     BK_SECURITY_TYPE_WPA2_AES,    /**< WPA2 /w AES */
     BK_SECURITY_TYPE_WPA2_MIXED,  /**< WPA2 /w AES or TKIP */
@@ -137,12 +150,15 @@ typedef  struct  _ScanResult_adv
 
 /**
  *  @brief  Input network paras, used in bk_wlan_start function.
+ *  @basic_rates: basic rates of softap, for example, 10, 20, 55, 110
+ *  @supported_rates: supported rates of softap, 10, 20, 55, 110, 60, 90, 120, 180, 240, 360, 480, 540, etc.
+ *  @mcs_set: HT MCS set for softap, for example, 0xff
  */
 typedef struct _network_InitTypeDef_st
 {
     char wifi_mode;               /**< DHCP mode: @ref wlanInterfaceTypedef.*/
     char wifi_ssid[33];           /**< SSID of the wlan needs to be connected.*/
-    char wifi_key[64];            /**< Security key of the wlan needs to be connected, ignored in an open system.*/
+    char wifi_key[65];            /**< Security key of the wlan needs to be connected, ignored in an open system.*/
     char local_ip_addr[16];       /**< Static IP configuration, Local IP address. */
     char net_mask[16];            /**< Static IP configuration, Netmask. */
     char gateway_ip_addr[16];     /**< Static IP configuration, Router IP address. */
@@ -152,9 +168,29 @@ typedef struct _network_InitTypeDef_st
     char reserved[26];
     int  wifi_retry_interval;     /**< Retry interval if an error is occured when connecting an access point,
                                      time unit is millisecond. */
+    bool hidden_ssid;             /**< hidden ssid, only for softap */
 #if CFG_WIFI_STA_VSIE || CFG_WIFI_AP_VSIE
     uint8_t vsie[255];			  /**< vendor specific IE for probe req/assoc req. */
     uint8_t vsie_len;			  /**< vendor specific IE len. */
+#endif
+#if CFG_WIFI_AP_CUSTOM_RATES
+    /* mark last basic_rates be zero */
+    int basic_rates[16];
+    /* mark last supported_rates be zero */
+    int supported_rates[16];
+    /* mark last mcs_set be zero, don't change mcs_set length */
+    uint8_t mcs_set[16];
+#endif
+#if CFG_WIFI_AP_HW_MODE
+    /* bk_wlan_hw_mode */
+    int hw_mode;
+#endif
+#if CFG_QUICK_TRACK
+	int key_mgmt;
+	int pairwise_cipher;
+	int group_cipher;
+	int proto;		// WPA, RSN
+	int ieee80211w;
 #endif
 } network_InitTypeDef_st;
 
@@ -191,7 +227,7 @@ typedef struct _network_InitTypeDef_adv_st
 
 typedef struct _network_InitTypeDef_ap_st
 {
-    char wifi_ssid[32];
+    char wifi_ssid[33];
     char wifi_key[64];
     uint8_t channel;
     wlan_sec_type_t security;
@@ -213,8 +249,9 @@ typedef struct _linkStatus_t
 {
     int conn_state;       /**< The link to wlan is established or not, 0: disconnected, 1: connected. */
     int wifi_strength;      /**< Signal strength of the current connected AP */
-    uint8_t  ssid[32];      /**< SSID of the current connected wlan */
+    uint8_t  ssid[33];      /**< SSID of the current connected wlan */
     uint8_t  bssid[6];      /**< BSSID of the current connected wlan */
+    uint16_t  aid;          /**< BSSID of the current connected wlan */
     int      channel;       /**< Channel of the current connected wlan */
     wlan_sec_type_t security;
 } LinkStatusTypeDef;
@@ -258,7 +295,10 @@ typedef struct vif_addcfg_st {
 #define MONITOR_FILTER_DUPL_FRM         (1U << 1)
 
 typedef void (*monitor_cb_t)(uint8_t *data, int len, wifi_link_info_t *info);
-
+#if CFG_AP_MONITOR_COEXIST_TBTT
+typedef void (*tbtt_cb_t)(void);
+typedef void (*transmitted_bcn_t)(void);
+#endif
 /**
   * @brief     configure country info
   *
@@ -417,6 +457,7 @@ uint32_t bk_wlan_get_INT_status(void);
 int bk_wlan_send_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param);
 
 extern void bk_reboot(void);
+extern void bk_reboot_for_ate(void);
 
 extern int is_apm_bss_config_empty(void);
 /** @brief  Request deep sleep,and wakeup by gpio.
@@ -526,7 +567,11 @@ extern void rwnx_cal_set_max_twper(FP32 max_tx_pwr);
 extern void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy);
 
 #if CFG_WPA_CTRL_IFACE
+#if CFG_QUICK_TRACK
+int wlan_sta_set(network_InitTypeDef_st *network, uint8_t *ssid, uint8_t ssid_len, uint8_t *psk);
+#else
 int wlan_sta_set(uint8_t *ssid, uint8_t ssid_len, uint8_t *psk);
+#endif
 int wlan_sta_set_config(wlan_sta_config_t *config);
 int wlan_sta_get_config(wlan_sta_config_t *config);
 int wlan_sta_set_autoconnect(int enable);
@@ -550,6 +595,33 @@ int wlan_sta_wps_pbc(void);
 int wlan_sta_wps_pin_get(wlan_sta_wps_pin_t *wps);
 int wlan_sta_wps_pin_set(wlan_sta_wps_pin_t *wps);
 int wlan_sta_set_vendor_ie(wlan_sta_vsie_t *vsie);
+
+/* If SSID blacklist is enabled, the SSID is added into the
+  * blacklist if the STA fails to connect it; the blacklist will be
+  * cleared once the STA successfully connects one SSID or when
+  * STA tries all found SSIDs.
+  *
+  * This feature only impacts the connect behavior when STA finds
+  * several APs with the same SSIDs,
+  *
+  * e.g.  STA find AP1/AP2/AP3 ... with same SSID xxx. STA puts
+  * AP1 into blacklist if it fails to connect AP1 and then tries AP2, STA
+  * puts AP2 into blacklist if it fails to connect AP2 and then tries AP3 ...
+  * the STA repeats this process until it successfully connects one AP or
+  * fails to connect all APs, then the blacklist is cleared.
+  *
+  * Please be notified that the blacklist feature may consume more time
+  * before it can successfully connect to the AP if it finds more than one AP
+  * with same SSID, especially if only one AP has correct password but has
+  * very low RSSI.
+  *
+  * Generally speaking, if you want the STA to iterate all the scanned APs (with
+  * same SSID) one by one, you should enable the blacklist feature.
+  *
+  * The SSID blacklist is enabled by default.
+  */
+int wlan_sta_enable_ssid_blacklist(void);
+int wlan_sta_disable_ssid_blacklist(void);
 int wlan_p2p_listen(void);
 int wlan_p2p_find(void);
 int wlan_p2p_stop_find(void);
@@ -563,14 +635,20 @@ int wlan_ap_reload(void);
 int wlan_ap_sta_num(int *num);
 int wlan_ap_sta_info(wlan_ap_stas_t *stas);
 int wlan_ap_set_beacon_vsie(wlan_ap_vsie_t *vsie);
+int wlan_ap_sta_deauth(wlan_ap_sta_deauth_t *req);
 int wlan_register_notifier(notify_func func, void *arg);
 int wlan_unregister_notifier(notify_func func, void *arg);
+int wlan_ap_sta_deauth(wlan_ap_sta_deauth_t *req);
+int wlan_ap_add_blacklist(wlan_ap_blacklist_t *req);
+int wlan_ap_del_blacklist(wlan_ap_blacklist_t *req);
+int wlan_ap_clear_blacklist();
 #endif
 
 int wlan_sta_disable(void);
 int wlan_ap_disable(void);
 void bk_wifi_get_station_mac_address(char *mac);
 void bk_wifi_get_softap_mac_address(char *mac);
+void bk_wifi_rc_config(uint8_t sta_idx, uint16_t rate_cfg);
 void bk_wlan_register_mgnt_monitor_cb(monitor_cb_t fn);
 monitor_cb_t bk_wlan_get_mgnt_monitor_cb(void);
 int http_ota_download(const char *uri);
@@ -594,10 +672,24 @@ uint8_t *wlan_get_mesh_bssid(void);
 #endif
 #endif
 
-#if CFG_WIFI_P2P_GO
+#if CFG_WIFI_P2P
 uint8_t bk_wlan_ap_get_default_channel(void);
 void app_p2p_rw_event_func(void *new_evt);
 void app_p2p_restart_thread(void);
+#endif
+
+#if CFG_AP_MONITOR_COEXIST_TBTT
+void bk_wlan_register_tbtt_cb(tbtt_cb_t fn);
+tbtt_cb_t bk_wlan_get_tbtt_cb(void);
+void bk_wlan_register_transmitted_bcn_cb(transmitted_bcn_t fn);
+transmitted_bcn_t bk_wlan_get_transmitted_bcn_cb(void);
+void bk_wlan_ap_monitor_coexist_tbtt_enable();
+void bk_wlan_ap_monitor_coexist_tbtt_disable();
+void bk_wlan_ap_monitor_coexist_tbtt_duration(int tbtt_duration_ms);
+#endif
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif// _WLAN_UI_PUB_

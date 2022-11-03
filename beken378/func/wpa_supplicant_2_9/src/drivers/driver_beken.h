@@ -773,6 +773,7 @@ struct prism2_hostapd_param {
 			} ssids[SCAN_SSID_MAX];
 			u8 bssid[ETH_ALEN];
 			u8 ssids_num;
+			u8 flag;
 			int freqs[14];		//FIXME: 5G
 			u16 extra_ies_len;
 			u8 extra_ies[0];

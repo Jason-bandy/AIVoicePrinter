@@ -6,7 +6,7 @@
 #define INTC_FAILURE                (1)
 #define INTC_SUCCESS                (0)
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define FIQ_BT                           (31)
 #define FIQ_BLE                          (30)
 #define FIQ_BTDM                         (29)
@@ -79,7 +79,7 @@
 #define IRQ_UART1                        (0) 
 #endif 
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define PRI_FIQ_BT                           (7)
 #define PRI_FIQ_BLE                          (8)
 #define PRI_FIQ_BTDM                         (13)

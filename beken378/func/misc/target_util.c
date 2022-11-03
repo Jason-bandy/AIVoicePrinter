@@ -25,45 +25,33 @@ void delay(INT32 num)
     }
 }
 
+/*delay according to basic_frequency */
+extern UINT32 basic_frequency_for_delay;
+void delay_us(UINT32 us_count)
+{
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    volatile UINT32 i;
+    for(i=0;i<us_count*basic_frequency_for_delay;++i)
+        ;
+    GLOBAL_INT_RESTORE();
+}
+
+void delay_ms(UINT32 ms_count)
+{
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    volatile UINT32 i;
+    for(i=0;i<ms_count*basic_frequency_for_delay*1000;++i)
+        ;
+    GLOBAL_INT_RESTORE();
+}
+
+
+
 /*
 	when parameter is 1, the return result is approximately 1 ms;
  */
-void delay_ms(UINT32 ms_count)
-{
-    UINT32 ret;
-    UINT32 div;
-    UINT32 clk = 0;
-    UINT32 cell;
-    SYS_CTRL_U param;
-
-    ret = sddev_control(SCTRL_DEV_NAME, CMD_GET_SCTRL_CONTROL, &param);
-    ASSERT(SCTRL_SUCCESS == ret);
-
-    div = param.bits.mclk_div;
-    switch(param.bits.mclk_mux)
-    {
-    case MCLK_MODE_DCO:
-    case MCLK_MODE_26M_XTAL:
-        clk = 26000000;
-        break;
-
-    case MCLK_MODE_DPLL:
-        clk = 480000000 / (2 << div);
-        break;
-
-    case MCLK_MODE_LPO:
-        clk = 32000;
-        break;
-
-    default:
-        break;
-    }
-
-    ASSERT(clk);
-
-    cell = 100 * clk / 26000000;
-    delay(ms_count * cell);
-}
 
 /*
 	[delay offset]worst case: delay about 1 second;

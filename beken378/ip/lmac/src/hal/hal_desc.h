@@ -219,6 +219,9 @@
 /// Don't touch duration bit
 #define DONT_TOUCH_DUR                    CO_BIT(28)
 
+/// Don't Encrypt bit
+#define DONT_ENCRYPT                      CO_BIT(30)
+
 
 //----------------------------------------------------------------------------------------
 //THD STATINFO fields
@@ -426,6 +429,16 @@
 #define HT_MCS_MASK              (0x7 << HT_MCS_OFT)
 
 // Policy Table: Power Control Information field
+#if defined(CFG_NO_POWTBL)
+/// Transmit Power Level for RCX offset
+#define TX_PWR_LEVEL_PT_RCX_OFT         0
+/// Transmit Power Level for RCX mask
+#define TX_PWR_LEVEL_PT_RCX_MASK        (0xffffffff << TX_PWR_LEVEL_PT_RCX_OFT)
+/// Transmit Power Level of Protection for RCX offset
+#define TX_PWR_LEVEL_PROT_PT_RCX_OFT    32
+/// Transmit Power Level of Protection for RCX mask
+#define TX_PWR_LEVEL_PROT_PT_RCX_MASK   (0xffffffff << TX_PWR_LEVEL_PROT_PT_RCX_OFT)
+#else
 /// Transmit Power Level for RCX offset
 #define TX_PWR_LEVEL_PT_RCX_OFT         0
 /// Transmit Power Level for RCX mask
@@ -434,6 +447,7 @@
 #define TX_PWR_LEVEL_PROT_PT_RCX_OFT    8
 /// Transmit Power Level of Protection for RCX mask
 #define TX_PWR_LEVEL_PROT_PT_RCX_MASK   (0xff << TX_PWR_LEVEL_PROT_PT_RCX_OFT)
+#endif
 
 /// @}
 
@@ -681,8 +695,12 @@ struct tx_policy_tbl
     /// Rate Control Information used by MAC HW
     uint32_t ratecntrlinfo[RATE_CONTROL_STEPS];
     /// Power Control Information used by MAC HW
+    #if defined(CFG_NO_POWTBL)
+    uint64_t powercntrlinfo[RATE_CONTROL_STEPS];
+    #else
     uint32_t powercntrlinfo[RATE_CONTROL_STEPS];
-};
+    #endif
+}__PACKED;
 
 /// Compressed Policy Table Structure used to store Policy Table Information used by MAC HW
 /// to get TX information for secondary users in case of MU-MIMO PPDU transmission.
@@ -703,18 +721,18 @@ struct tx_hd
     uint32_t             nextfrmexseq_ptr;
     /// Next MPDU in the frame exchange.
     uint32_t             nextmpdudesc_ptr;
-	
+
     /// First payload buffer descriptor/Secondary user 1 THD address
-		/*#pragma anon_unions :GCC allows you to define a structure or 
-		union that contains, as fields, structures and unions without 
-		names*/ 
+		/*#pragma anon_unions :GCC allows you to define a structure or
+		union that contains, as fields, structures and unions without
+		names*/
     union {
         /// First payload buffer descriptor
         uint32_t             first_pbd_ptr;
         /// Secondary user 1 THD address
         uint32_t             sec_user1_ptr;
     };
-        
+
     /// Data buffer start/Secondary user 2 THD address.
     union {
         /// Data buffer start
@@ -722,7 +740,7 @@ struct tx_hd
         /// Secondary user 2 THD address
         uint32_t             sec_user2_ptr;
     };
-    
+
     /// Data buffer end /Secondary user 3 THD address.
     union {
         /// Data buffer end
@@ -730,12 +748,12 @@ struct tx_hd
         /// Secondary user 3 THD address
         uint32_t             sec_user3_ptr;
     };
-    
+
     /// Total length of the frame on air.
     uint32_t             frmlen;
     /// MSDU lifetime parameter (for EDCA frame).
     uint32_t             frmlifetime;
-    
+
     /// Valid only for A-MPDU header descriptor and for singleton MPDUs.
     uint32_t             phyctrlinfo;
     /// Valid only for A-MPDU header descriptor and for singleton MPDUs.
@@ -748,7 +766,7 @@ struct tx_hd
     uint32_t             macctrlinfo2;
     /// Valid only for A-MPDU header descriptor and for singleton MPDUs.
     uint32_t             statinfo;
-    
+
     /// Medium time used.
     uint32_t             mediumtimeused;
 };
@@ -819,7 +837,7 @@ union rx_vector_1b
 		uint32_t is_agg:1;
 		uint32_t fec_coding:1;
 		uint32_t syn_bw:1;
-		uint32_t doze_not_allow:1;		
+		uint32_t doze_not_allow:1;
 	}bits;
 };
 
@@ -834,7 +852,7 @@ struct rx_hd
     uint32_t            first_pbd_ptr;
     /// Pointer to the SW descriptor associated with this HW descriptor
     struct rx_swdesc   *swdesc;
-	
+
     /// Pointer to the address in buffer where the hardware should start writing the data
     uint32_t            datastartptr;
     /// Pointer to the address in buffer where the hardware should stop writing data
@@ -846,7 +864,7 @@ struct rx_hd
     uint16_t            frmlen;
     /// AMPDU status information
     uint16_t            ampdu_stat_info;
-	
+
     /// TSF Low
     uint32_t            tsflo;
     /// TSF High
@@ -855,7 +873,7 @@ struct rx_hd
     uint32_t            recvec1a;
     /// Contains the bytes 8 - 5 of Receive Vector 1
     uint32_t            recvec1b;
-	
+
     /// Contains the bytes 12 - 9 of Receive Vector 1
     uint32_t            recvec1c;
     /// Contains the bytes 16 - 13 of Receive Vector 1
@@ -864,7 +882,7 @@ struct rx_hd
     uint32_t            recvec2a;
     ///  Contains the bytes 8 - 5 of Receive Vector 2
     uint32_t            recvec2b;
-	
+
     /// MPDU status information
     uint32_t            statinfo;
 };
@@ -924,7 +942,7 @@ struct tx_cfm_tag
     uint16_t timestamp;
     /// Number of flow control credits allocated
     int8_t credits;
-    
+
     #if NX_AMSDU_TX
     /// Size allowed for AMSDU
     uint16_t amsdu_size;
@@ -944,6 +962,22 @@ struct tx_hw_desc_s
     /// TX header descriptor attached to the MPDU
     struct tx_hd    thd;
 };
+
+
+/// Rx frame legacy information
+struct rx_leg_info
+{
+    /// Format Modulation
+    uint32_t    format_mod     : 4;
+    /// Channel Bandwidth
+    uint32_t    ch_bw          : 3;
+    /// Preamble Type
+    uint32_t    pre_type       : 1;
+    /// Legacy Length
+    uint32_t    leg_length     :12;
+    /// Legacy rate
+    uint32_t    leg_rate       : 4;
+}__PACKED;
 
 #if NX_AMPDU_TX
 /// Minimum of A-MPDU descriptors per queue
@@ -1010,12 +1044,12 @@ struct tx_agg_desc
     struct tx_policy_tbl bar_pol_tbl;
     ///Pointer to the BA frame
     struct rx_swdesc *ba_desc;
-    
+
     #if NX_BW_LEN_ADAPT
     /// Pointer to TX descriptors finishing a BW step
     struct txdesc *txdesc[NX_BW_LEN_STEPS - 1];
     #endif
-    
+
     #if RW_MUMIMO_TX_EN
     /// List containing the descriptors to be confirmed once BA is received for this
     /// secondary user
@@ -1098,6 +1132,80 @@ struct hal_host_rxdesc
     struct rx_swdesc *p_rx_swdesc;
 };
 
+struct rx_vector_1
+{
+    /** Receive Vector 1a */
+    /// Legacy Length
+    uint32_t    leg_length         :12;
+    /// Legacy Rate
+    uint32_t    leg_rate           : 4;
+    /// HT Length
+    uint32_t    ht_length          :20;
+
+    /// Type of Guard Interval
+    uint32_t    short_gi           : 1;
+    /// Space Time Block Coding
+    uint32_t    stbc               : 2;
+    /// Smoothing bit
+    uint32_t    smoothing          : 1;
+    /// Modulation Coding Scheme
+    uint32_t    mcs                : 7;
+    /// Preamble type
+    uint32_t    pre_type           : 1;
+    /// Format Modulation
+    uint32_t    format_mod         : 3;
+    /// Channel Bandwidth
+    uint32_t    ch_bw              : 2;
+    /// Number of Space Time Streams
+    uint32_t    n_sts              : 3;
+    /// L-SIG Valid
+    uint32_t    lsig_valid         : 1;
+    /// Sounding
+    uint32_t    sounding           : 1;
+    /// Number of Extension Spatial Streams
+    uint32_t    num_extn_ss        : 2;
+    /// Aggregation bit
+    uint32_t    aggregation        : 1;
+    /// FEC
+    uint32_t    fec_coding         : 1;
+    /// Dynamic Bandwidth
+    uint32_t    dyn_bw             : 1;
+    /// TX OP Not Allowed
+    uint32_t    doze_not_allowed   : 1;
+
+    /** Receive Vector 1c */
+    /// Antenna Set
+    uint32_t    antenna_set        : 8;
+    /// Partial AID
+    uint32_t    partial_aid        : 9;
+    /// Group ID
+    uint32_t    group_id           : 6;
+    /// First User
+    uint32_t    first_user         : 1;
+    /// RSSI 1
+    int32_t     rssi1              : 8;
+
+    /** Receive Vector 1d */
+    /// RSSI 2
+    int32_t     rssi2              : 8;
+    /// RSSI 3
+    int32_t     rssi3              : 8;
+    /// RSSI 4
+    int32_t     rssi4              : 8;
+    /// Reserved
+    uint32_t    reserved_1d        : 8;
+} __PACKED;
+
+/// Structure for receive Vector 2
+struct rx_vector_2
+{
+    /// Contains the bytes 4 - 1 of Receive Vector 2
+    uint32_t            recvec2a;
+    ///  Contains the bytes 8 - 5 of Receive Vector 2
+    uint32_t            recvec2b;
+};
+
+
 /*
  * GLOBAL VARIABLES
  ****************************************************************************************
@@ -1146,6 +1254,25 @@ extern struct tx_hw_desc_s       tx_hw_desc4[NX_TXDESC_CNT4];
 
 extern struct hal_host_rxdesc  hal_host_rxdesc_pool[HAL_RXDESC_CNT];
 extern struct dma_desc hal_me_dma_desc;
+
+
+/**
+ *****************************************************************************************
+ * @brief Set legacy information
+ *
+ * @param[in]  rx_vec_1 Receive Vector 1
+ * @param[out] rx_leg_inf Rx frame legacy information
+ ****************************************************************************************
+ */
+__INLINE void hal_set_rx_leg_info(struct rx_vector_1 *rx_vec_1, struct rx_leg_info *rx_leg_inf)
+{
+    rx_leg_inf->format_mod = rx_vec_1->format_mod;
+    rx_leg_inf->ch_bw      = rx_vec_1->format_mod;
+    rx_leg_inf->pre_type   = rx_vec_1->pre_type;
+    rx_leg_inf->leg_length = rx_vec_1->leg_length;
+    rx_leg_inf->leg_rate   = rx_vec_1->leg_rate;
+}
+
 
 /// @}
 

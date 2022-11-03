@@ -18,10 +18,10 @@
 #include "video_transfer_udp.h"
 #include "video_demo_pub.h"
 #include "video_upd_spd.h"
-#if CFG_WIFI_P2P_GO
-#include "rw_tx_buffering.h"
+#if CFG_WIFI_P2P
 #include "rw_ieee80211.h"
 #include "net.h"
+//#include "sys.h"
 #endif
 
 #define APP_DEMO_P2P_DEBUG        1
@@ -64,6 +64,7 @@ typedef struct head_param
 APP_DEMO_P2P_PTR g_demo_p2p = NULL;
 
 extern void bk_wlan_status_register_cb(FUNC_1PARAM_PTR cb);
+extern void bk_wlan_status_unregister_cb(void);
 
 uint32 app_demo_p2p_alloc_buffer(void)
 {
@@ -138,7 +139,7 @@ void app_demo_p2p_send_msg(u32 new_msg, u32 new_data)
     if (g_demo_p2p && g_demo_p2p->msg_que)
     {
         msg.dmsg = new_msg;
-	 msg.data = new_data;
+        msg.data = new_data;
 
         ret = rtos_push_to_queue(&g_demo_p2p->msg_que, &msg, BEKEN_NO_WAIT);
         if (kNoErr != ret)
@@ -157,12 +158,13 @@ static void app_demo_p2p_rw_event_func(void *new_evt)
         APP_DEMO_P2P_PRT("RW_EVT_STA_GOT_IP\r\n");
         app_demo_p2p_send_msg(DAP_WIFI_CONECTED, 0);
     }
-    else if (evt_type == RW_EVT_STA_DISCONNECTED)
+    else if (evt_type == RW_EVT_STA_DISCONNECTED ||
+             evt_type == RW_EVT_STA_CONNECT_FAILED)
     {
         APP_DEMO_P2P_PRT("RW_EVT_STA_DISCONNECTED\r\n");
         app_demo_p2p_send_msg(DAP_WIFI_DISCONECTED, 0);
     }
-	else if (evt_type == RW_EVT_AP_CONNECTED)
+    else if (evt_type == RW_EVT_AP_CONNECTED)
     {
         APP_DEMO_P2P_PRT("RW_EVT_AP_CONNECTED\r\n");
         app_demo_p2p_send_msg(DAP_WIFI_CONECTED, 1);
@@ -253,17 +255,23 @@ static void app_demo_p2p_main(beken_thread_arg_t data)
                     #if APP_DEMO_CFG_USE_UDP_SDP
                     vudp_sdp_stop();
                     #endif
-#if CFG_TX_BUFING
-			rwm_tx_bufing_reinit(false);
+
+#if CFG_WIFI_P2P
+                    rwnx_hw_reinit();
+                    if (msg.data == 1)
+                    {
+                        uap_ip_down();
+                        wlan_p2p_cancel();
+                        wlan_p2p_find();
+                    }
+                    else if (msg.data == 0)
+                    {
+                        sta_ip_down();
+                        rtos_delay_milliseconds(2000);
+                        wlan_p2p_find();
+                    }
 #endif
-#if CFG_WIFI_P2P_GO
-			rwnx_hw_reinit();
-			if (msg.data == 1) {
-				uap_ip_down();
-				wlan_p2p_cancel();
-				wlan_p2p_listen();
-			}
-#endif
+
                     APP_DEMO_P2P_PRT("wifi disconnected!\r\n");
                 }
                 break;
@@ -284,9 +292,7 @@ static void app_demo_p2p_main(beken_thread_arg_t data)
                     #if APP_DEMO_CFG_USE_UDP_SDP
                     vudp_sdp_start();
                     #endif
-#if CFG_TX_BUFING
-			rwm_tx_bufing_reinit(true);
-#endif
+
                     APP_DEMO_P2P_PRT("wifi connected!\r\n");
                 }
                 break;
@@ -313,6 +319,14 @@ static void app_demo_p2p_main(beken_thread_arg_t data)
     }
 
 app_demo_sta_exit:
+
+#if APP_DEMO_CFG_USE_UDP_SDP
+	vudp_sdp_stop();
+#endif
+
+    // cancel p2p
+    bk_wlan_status_unregister_cb();
+    wlan_p2p_cancel();
 
     rtos_deinit_queue(&g_demo_p2p->msg_que);
 
@@ -376,7 +390,7 @@ void app_demo_p2p_start(char *oob_ssid, char *connect_key)
 
 void app_demo_p2p_exit(void)
 {
-    APP_DEMO_P2P_PRT("app_demo_sta_exit\r\n");
+    APP_DEMO_P2P_PRT("app_demo_p2p_exit\r\n");
 
     if (g_demo_p2p)
     {

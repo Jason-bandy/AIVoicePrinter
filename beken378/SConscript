@@ -1,4 +1,5 @@
 from building import *
+import subprocess
 
 cwd  = GetCurrentDir()
 
@@ -26,6 +27,7 @@ src += ["driver/pwm/mcu_ps_timer.c"]
 src += ["driver/pwm/bk_timer.c"]
 src += ["driver/pwm/bk_timer_extense.c"]
 src += ["driver/saradc/saradc.c"]
+src += ["driver/saradc/saradc_bk7238.c"]
 src += ["driver/sdcard/sdcard.c"]
 src += ["driver/sdcard/sdio_driver.c"]
 src += ["driver/spidma/spidma.c"]
@@ -58,10 +60,13 @@ src += ["app/standalone-ap/sa_ap.c"]
 src += ["app/standalone-station/sa_station.c"]
 src += ["app/video_work/video_transfer_tcp.c"]
 src += ["app/video_work/video_transfer_udp.c"]
+src += ["app/video_work/video_upd_spd.c"]
+src += ["app/video_work/video_upd_spd_pub.c"]
 src += ["app/video_work/video_buffer.c"]
 src += ["app/net_work/video_demo_main.c"]
 src += ["app/net_work/video_demo_station.c"]
 src += ["app/net_work/video_demo_softap.c"]
+src += ["app/net_work/video_demo_p2p.c"]
 src += ["app/http/utils_httpc.c"]
 src += ["app/http/utils_net.c"]
 src += ["app/http/utils_timer.c"]
@@ -93,6 +98,8 @@ src += ["func/bk_aware/bk_aware.c"]
 src += ["func/audio/audio_intf.c"]
 src += ["func/power_save/power_save.c"]
 src += ["func/power_save/mcu_ps.c"]
+src += ["func/power_save/low_voltage_ps.c"]
+src += ["func/power_save/low_voltage_compensation.c"]
 src += ["func/power_save/manual_ps.c"]
 src += ["func/power_save/ap_idle.c"]
 src += ["func/rwnx_intf/rw_msg_rx.c"]
@@ -107,6 +114,7 @@ src += ["func/temp_detect/temp_detect.c"]
 src += ["func/rwnx_intf/rw_ieee80211.c"]
 src += ["func/rwnx_intf/rw_msdu.c"]
 src += ["func/rwnx_intf/rw_msg_tx.c"]
+src += ["func/rwnx_intf/rw_tx_buffering.c"]
 src += ["func/user_driver/BkDriverFlash.c"]
 src += ["func/wlan_ui/wlan_ui.c"]
 src += ["func/hostapd_intf/hostapd_intf.c"]
@@ -260,7 +268,7 @@ path += [cwd + '/func/force_sleep']
 if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     path += [cwd + '/func/wolfssl']
 
-if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231N')):
+if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231N')) or (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7238')):
     src += ["driver/calendar/calendar.c"]
     path += [cwd + '/driver/calendar']
 
@@ -271,6 +279,10 @@ libpath = []
 objs = []
 
 cppdefines = ['CFG_SUPPORT_RTT=1']
+OSK_COMMIT = subprocess.check_output("git rev-parse --short HEAD", shell=True)
+cppdefines += ['OSK_COMMIT_ID=\\\"%s\\\"' %(OSK_COMMIT[:-1])]
+SDK_COMMIT = subprocess.check_output("git rev-parse --short HEAD", cwd=cwd, shell=True)
+cppdefines += ['SDK_COMMIT_ID=\\\"%s\\\"' %(SDK_COMMIT[:-1])]
 
 group = DefineGroup('beken_sdk', src, depend = [''], CPPPATH = path, CPPDEFINES = cppdefines, LIBS = libs, LIBPATH = libpath)
 

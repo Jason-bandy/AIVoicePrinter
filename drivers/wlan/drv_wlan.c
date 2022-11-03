@@ -594,8 +594,8 @@ static rt_err_t _wifi_easyjoin(rt_device_t dev, void *passwd)
 	if (passwd == NULL)
 		rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
 	else {
-		if (sizeof(wNetConfig.wifi_key) < rt_strlen(passwd)) {
-			rt_kprintf("wifi key is more than %d Bytes\r\n", sizeof(wNetConfig.wifi_key));
+		if (KEY_MAX_LEN < rt_strlen(passwd)) {
+			rt_kprintf("wifi key is more than 64 Bytes\r\n");
 			return -RT_ERROR;
 		}
 		rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
@@ -605,10 +605,11 @@ static rt_err_t _wifi_easyjoin(rt_device_t dev, void *passwd)
 	wNetConfig.dhcp_mode = DHCP_CLIENT;
 	wNetConfig.wifi_retry_interval = 100;
 
-	rt_kprintf("_wifi_easyjoin: ssid:%.*s bssid:%02x:%02x:%02x:%02x:%02x:%02x key:%.*s\r\n",
+	rt_kprintf("_wifi_easyjoin: ssid:%.*s bssid:%02x:%02x:%02x:%02x:%02x:%02x \r\n",
 			   sizeof(wNetConfig.wifi_ssid), wNetConfig.wifi_ssid,
-			   bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5],
-			   sizeof(wNetConfig.wifi_key), wNetConfig.wifi_key);
+			   bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+	rt_kprintf("key = %.*s\r\n",sizeof(wNetConfig.wifi_key), wNetConfig.wifi_key);	
+			   
 	bk_wlan_start(&wNetConfig);
 
 	return RT_EOK;
@@ -643,8 +644,8 @@ static rt_err_t _wifi_softap(rt_device_t dev, void *passwd)
 	if (passwd == NULL)
 		rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
 	else {
-		if (sizeof(wNetConfig.wifi_key) < rt_strlen(passwd)) {
-			rt_kprintf("wifi key is more than %d Bytes\r\n", sizeof(wNetConfig.wifi_key));
+		if (KEY_MAX_LEN < rt_strlen(passwd)) {
+			rt_kprintf("wifi key is more than 64 Bytes\r\n");
 			return -RT_ERROR;
 		}
 		rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
@@ -969,6 +970,15 @@ static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
     wifi_info = (struct beken_wifi_info *)wlan->user_data;
     RT_ASSERT(wlan != RT_NULL);
     RT_ASSERT(wifi_info != RT_NULL);
+
+    if((cmd == WIFI_SCAN) || (cmd == WIFI_EASYJOIN) || (cmd == WIFI_SOFTAP))
+    {
+        if(bk_wlan_is_monitor_mode())
+        {
+            DRV_WLAN_DBG("monitoris not finish yet\r\n");
+            return -RT_ERROR;
+        }
+    }
 
     switch (cmd)
     {

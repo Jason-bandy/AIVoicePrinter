@@ -628,6 +628,9 @@ struct wpa_supplicant {
 	int eapol_received; /* number of EAPOL packets received after the
 			     * previous association event */
 
+	u8 rsnxe[20];
+	size_t rsnxe_len;
+
 	unsigned char last_eapol_src[ETH_ALEN];
 
 	unsigned int keys_cleared; /* bitfield of key indexes that the driver is
@@ -788,7 +791,7 @@ struct wpa_supplicant {
 	int auth_alg;
 	u16 last_owe_group;
 
-#if defined(CONFIG_SME) || defined(CONFIG_IEEE80211W)
+#if defined(CONFIG_SME) || defined(CONFIG_IEEE80211W) || defined(CONFIG_SAE)
 	struct {
 #ifdef CONFIG_SME
 		u8 ssid[SSID_MAX_LEN];
@@ -832,6 +835,7 @@ struct wpa_supplicant {
 		u8 ext_auth_bssid[ETH_ALEN];
 		u8 ext_auth_ssid[SSID_MAX_LEN];
 		size_t ext_auth_ssid_len;
+		int *sae_rejected_groups;
 #endif /* CONFIG_SAE */
 	} sme;
 #endif /* CONFIG_SME */
@@ -1134,6 +1138,27 @@ struct wpa_supplicant {
 	unsigned int ext_work_id;
 
 	struct wpabuf *vendor_elem[NUM_VENDOR_ELEM_FRAMES];
+
+#ifdef CONFIG_TESTING_OPTIONS
+	struct l2_packet_data *l2_test;
+	unsigned int extra_roc_dur;
+	enum wpa_supplicant_test_failure test_failure;
+	char *get_pref_freq_list_override;
+	unsigned int reject_btm_req_reason;
+	unsigned int p2p_go_csa_on_inv:1;
+	unsigned int ignore_auth_resp:1;
+	unsigned int ignore_assoc_disallow:1;
+	unsigned int testing_resend_assoc:1;
+	unsigned int ignore_sae_h2e_only:1;
+	struct wpabuf *sae_commit_override;
+	enum wpa_alg last_tk_alg;
+	u8 last_tk_addr[ETH_ALEN];
+	int last_tk_key_idx;
+	u8 last_tk[WPA_TK_MAX_LEN];
+	size_t last_tk_len;
+	struct wpabuf *last_assoc_req_wpa_ie;
+	int *extra_sae_rejected_groups;
+#endif /* CONFIG_TESTING_OPTIONS */
 
 	struct wmm_ac_assoc_data *wmm_ac_assoc_info;
 	struct wmm_tspec_element *tspecs[WMM_AC_NUM][TS_DIR_IDX_COUNT];
@@ -1481,6 +1506,10 @@ struct wpa_bss * wpa_supplicant_pick_network(struct wpa_supplicant *wpa_s,
 int wpas_temp_disabled(struct wpa_supplicant *wpa_s, struct wpa_ssid *ssid);
 void wpa_supplicant_update_channel_list(struct wpa_supplicant *wpa_s,
 					struct channel_list_changed *info);
+#ifndef CONFIG_NO_SCAN_PROCESSING
+int wpas_select_network_from_last_scan(struct wpa_supplicant *wpa_s,
+					      int new_scan, int own_request);
+#endif /* CONFIG_NO_SCAN_PROCESSING */
 
 /* eap_register.c */
 int eap_register_methods(void);

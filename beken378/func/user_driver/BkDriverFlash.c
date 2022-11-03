@@ -38,6 +38,52 @@ static beken_mutex_t hal_flash_mutex;
 const bk_logic_partition_t *bk7231_partitions;
 
 /* Logic partition on flash devices */
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_1M) || (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_DYNAMIC)
+const bk_logic_partition_t bk7231_partitions_1M[BK_PARTITION_MAX] =
+{
+    [BK_PARTITION_BOOTLOADER] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "Bootloader",
+        .partition_start_addr      = 0x00000000,
+        .partition_length          = 0x0F000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    [BK_PARTITION_APPLICATION] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "Application",
+        .partition_start_addr      = 0x11000,
+        .partition_length          = 0xC2000, //730KB
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    [BK_PARTITION_OTA] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "ota",
+        .partition_start_addr      = 0xD3000,
+        .partition_length          = 0x1C000, //104KB+8KB
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    [BK_PARTITION_RF_FIRMWARE] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "RF Firmware",
+        .partition_start_addr      = 0xEF000,// for rf related info
+        .partition_length          = 0x1000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    [BK_PARTITION_NET_PARAM] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "NET info",
+        .partition_start_addr      = 0xF0000,// for net related info
+        .partition_length          = 0x1000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+};
+#endif
+
 #if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M) || (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_DYNAMIC)
 const bk_logic_partition_t bk7231_partitions_2M[BK_PARTITION_MAX] =
 {
@@ -135,6 +181,16 @@ const bk_logic_partition_t bk7231_partitions_4M[BK_PARTITION_MAX] =
         .partition_length          = 0x1000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
+#if (CFG_SUPPORT_MATTER)
+    [BK_PARTITION_MATTER_FLASH] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "matter info",
+        .partition_start_addr      = 0x3e2000,// for matter
+        .partition_length          = 0x15000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+#endif
 };
 #endif
 
@@ -304,7 +360,7 @@ OSStatus bk_flash_get_security(PROTECT_TYPE *protect_flag)
 {
 	DD_HANDLE flash_hdl;
 	UINT32 status, param;
-	
+
 	ASSERT(protect_flag != NULL);
 
 	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
@@ -461,6 +517,29 @@ OSStatus test_flash_read(volatile uint32_t start_addr, uint32_t len)
 	return kNoErr;
 }
 
+OSStatus test_flash_read_without_print(volatile uint32_t start_addr, uint32_t len)
+{
+	UINT32 status;
+	DD_HANDLE flash_hdl;
+	uint32_t tmp;
+	u8 buf[256];
+	uint32_t addr = start_addr;
+	uint32_t length = len;
+	tmp = addr + length;
+
+	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
+	if (DD_HANDLE_UNVALID == flash_hdl) {
+		os_printf("%s open failed\r\n", __FUNCTION__);
+		return kOpenErr;
+	}
+	for (; addr < tmp; addr += 256) {
+		os_memset(buf, 0, 256);
+		ddev_read(flash_hdl, (char *)buf, 256, addr);
+	}
+
+	return kNoErr;
+}
+
 OSStatus test_flash_read_time(volatile uint32_t start_addr, uint32_t len)
 {
  	UINT32 status, time_start, time_end;
@@ -509,7 +588,9 @@ int hal_flash_init(void)
 {
 	int ret = 0;
 
-#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_1M)
+	bk7231_partitions = bk7231_partitions_1M;
+#elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
 	bk7231_partitions = bk7231_partitions_2M;
 #elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_4M)
 	bk7231_partitions = bk7231_partitions_4M;
@@ -538,6 +619,10 @@ int hal_flash_init(void)
 		else if (status >= FLASH_SELECTION_TYPE_2M)
 		{
 			bk7231_partitions = bk7231_partitions_2M;
+		}
+		else if (status >= FLASH_SELECTION_TYPE_1M)
+		{
+			bk7231_partitions = bk7231_partitions_1M;
 		}
 		else
 		{

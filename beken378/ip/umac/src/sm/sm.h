@@ -154,6 +154,17 @@ struct sm_env_tag
     /// MAC address of old AP - during FT over DS transition
     struct mac_addr ft_old_bssid;
 
+#if SM_DEAUTH_RETRY_ENABLE
+    /// Disconnect is timeout
+    bool is_disconnect_timeout;
+    /// Disconnect Vif
+    uint8_t disconnect_vif;
+    /// sw deauth retry counter
+    uint8_t deauth_retry_cnt;
+    /// time of deauth
+    uint64_t deauth_time;
+#endif
+
 #if NX_ROAMING
     // Roaming variables
 
@@ -446,6 +457,9 @@ int32_t get_roaming_thrsh(void);
 void handoff_handler(bool unregister_old_ap);
 
 #endif  // NX_ROAMING
+#ifdef BK_DEAUTH_BEFORE_CONNECT
+void sm_send_deauth_before_connect(void);
+#endif
 
 /// SM module environment
 extern struct sm_env_tag sm_env;

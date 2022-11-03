@@ -8,264 +8,330 @@ else
 ATSVR_CFG ?= 0
 endif
 
+ifeq ($(CFG_SUPPORT_MATTER), 1)
+LWIP_VERSION := lwip-2.1.2
+else
+LWIP_VERSION := lwip-2.0.2
+endif
+
 # -------------------------------------------------------------------
 # Include folder list
 # -------------------------------------------------------------------
 
-INCLUDES += -I./beken378/common
-INCLUDES += -I./beken378/release
-INCLUDES += -I./beken378/demo
-INCLUDES += -I./beken378/app
-INCLUDES += -I./beken378/app/config
-INCLUDES += -I./beken378/app/standalone-station
-INCLUDES += -I./beken378/app/standalone-ap
-INCLUDES += -I./beken378/app/video_work
-INCLUDES += -I./beken378/app/net_work
-INCLUDES += -I./beken378/ip/common
-INCLUDES += -I./beken378/ip/ke/
-INCLUDES += -I./beken378/ip/mac/
-INCLUDES += -I./beken378/ip/lmac/src/hal
-INCLUDES += -I./beken378/ip/lmac/src/mm
-INCLUDES += -I./beken378/ip/lmac/src/ps
-INCLUDES += -I./beken378/ip/lmac/src/rd
-INCLUDES += -I./beken378/ip/lmac/src/rwnx
-INCLUDES += -I./beken378/ip/lmac/src/rx
-INCLUDES += -I./beken378/ip/lmac/src/scan
-INCLUDES += -I./beken378/ip/lmac/src/sta
-INCLUDES += -I./beken378/ip/lmac/src/tx
-INCLUDES += -I./beken378/ip/lmac/src/vif
-INCLUDES += -I./beken378/ip/lmac/src/rx/rxl
-INCLUDES += -I./beken378/ip/lmac/src/tx/txl
-INCLUDES += -I./beken378/ip/lmac/src/p2p
-INCLUDES += -I./beken378/ip/lmac/src/chan
-INCLUDES += -I./beken378/ip/lmac/src/td
-INCLUDES += -I./beken378/ip/lmac/src/tpc
-INCLUDES += -I./beken378/ip/lmac/src/tdls
-INCLUDES += -I./beken378/ip/umac/src/mesh
-INCLUDES += -I./beken378/ip/umac/src/mfp
-INCLUDES += -I./beken378/ip/umac/src/rc
-INCLUDES += -I./beken378/ip/umac/src/apm
-INCLUDES += -I./beken378/ip/umac/src/bam
-INCLUDES += -I./beken378/ip/umac/src/llc
-INCLUDES += -I./beken378/ip/umac/src/me
-INCLUDES += -I./beken378/ip/umac/src/rxu
-INCLUDES += -I./beken378/ip/umac/src/scanu
-INCLUDES += -I./beken378/ip/umac/src/sm
-INCLUDES += -I./beken378/ip/umac/src/txu
-INCLUDES += -I./beken378/driver/include
-INCLUDES += -I./beken378/driver/common/reg
-INCLUDES += -I./beken378/driver/entry
-INCLUDES += -I./beken378/driver/dma
-INCLUDES += -I./beken378/driver/intc
-INCLUDES += -I./beken378/driver/phy
-INCLUDES += -I./beken378/driver/pwm
-INCLUDES += -I./beken378/driver/rc_beken
-INCLUDES += -I./beken378/driver/flash
-INCLUDES += -I./beken378/driver/rw_pub
-INCLUDES += -I./beken378/driver/common/reg
-INCLUDES += -I./beken378/driver/common
-INCLUDES += -I./beken378/driver/uart
-INCLUDES += -I./beken378/driver/sys_ctrl
-INCLUDES += -I./beken378/driver/gpio
-INCLUDES += -I./beken378/driver/general_dma
-INCLUDES += -I./beken378/driver/spidma
-INCLUDES += -I./beken378/driver/icu
-INCLUDES += -I./beken378/driver/i2c
-INCLUDES += -I./beken378/driver/spi
-INCLUDES += -I./beken378/driver/jpeg
-INCLUDES += -I./beken378/driver/usb
-INCLUDES += -I./beken378/func/include
-INCLUDES += -I./beken378/func/ble_wifi_exchange
-INCLUDES += -I./beken378/func/rf_test
-INCLUDES += -I./beken378/func/user_driver
-INCLUDES += -I./beken378/func/power_save
-INCLUDES += -I./beken378/func/uart_debug
-INCLUDES += -I./beken378/func/ethernet_intf
-INCLUDES += -I./beken378/func/camera_intf
-INCLUDES += -I./beken378/func/video_transfer
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/hostapd
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/bk_patch
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/src/utils
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/src/ap
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/src/common
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/src/drivers
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/src
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/src/wps
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/wpa_supplicant
-INCLUDES += -I./beken378/func/$(WPA_VERSION)/bk_patch
-INCLUDES += -I./beken378/func/lwip_intf/lwip-2.0.2/src
-INCLUDES += -I./beken378/func/lwip_intf/lwip-2.0.2/port
-INCLUDES += -I./beken378/func/lwip_intf/lwip-2.0.2/src/include
-INCLUDES += -I./beken378/func/lwip_intf/lwip-2.0.2/src/include/netif
-INCLUDES += -I./beken378/func/lwip_intf/lwip-2.0.2/src/include/lwip
-INCLUDES += -I./beken378/func/temp_detect
-INCLUDES += -I./beken378/func/spidma_intf
-INCLUDES += -I./beken378/func/saradc_intf
-INCLUDES += -I./beken378/func/rwnx_intf
-INCLUDES += -I./beken378/func/joint_up
-INCLUDES += -I./beken378/func/base64
-INCLUDES += -I./beken378/func/easy_flash
-INCLUDES += -I./beken378/func/easy_flash/inc
-INCLUDES += -I./beken378/func/easy_flash/port
-INCLUDES += -I./beken378/func/rf_use
-INCLUDES += -I./beken378/func/usb
-INCLUDES += -I./beken378/func/misc
-INCLUDES += -I./beken378/func/sensor
-INCLUDES += -I./beken378/os/include
-INCLUDES += -I./beken378/os/FreeRTOSv9.0.0
-INCLUDES += -I./beken378/func/utf8
-INCLUDES += -I./beken378/app/http
-INCLUDES += -I./beken378/func/force_sleep
-
+INCLUDES += -I$(ROOT_DIR)/beken378/common
+INCLUDES += -I$(ROOT_DIR)/beken378/release
+INCLUDES += -I$(ROOT_DIR)/beken378/demo
+INCLUDES += -I$(ROOT_DIR)/beken378/app
+INCLUDES += -I$(ROOT_DIR)/beken378/app/config
+INCLUDES += -I$(ROOT_DIR)/beken378/app/standalone-station
+INCLUDES += -I$(ROOT_DIR)/beken378/app/standalone-ap
+INCLUDES += -I$(ROOT_DIR)/beken378/app/video_work
+INCLUDES += -I$(ROOT_DIR)/beken378/app/net_work
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/common
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/ke/
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/mac/
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/hal
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/mm
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/ps
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/rd
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/rwnx
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/rx
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/scan
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/sta
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/tx
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/vif
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/rx/rxl
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/tx/txl
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/p2p
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/chan
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/td
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/tpc
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/lmac/src/tdls
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/mesh
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/mfp
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/rc
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/apm
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/bam
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/ftm
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/llc
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/me
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/rxu
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/scanu
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/sm
+INCLUDES += -I$(ROOT_DIR)/beken378/ip/umac/src/txu
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/common/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/entry
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/dma
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/intc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/phy
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/pwm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/rc_beken
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/flash
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/rw_pub
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/common/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/common
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/uart
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/sys_ctrl
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/gpio
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/general_dma
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/spidma
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/icu
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/i2c
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/spi
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/jpeg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb
+INCLUDES += -I$(ROOT_DIR)/beken378/func/include
+INCLUDES += -I$(ROOT_DIR)/beken378/func/ble_wifi_exchange
+INCLUDES += -I$(ROOT_DIR)/beken378/func/rf_test
+INCLUDES += -I$(ROOT_DIR)/beken378/func/user_driver
+INCLUDES += -I$(ROOT_DIR)/beken378/func/power_save
+INCLUDES += -I$(ROOT_DIR)/beken378/func/uart_debug
+INCLUDES += -I$(ROOT_DIR)/beken378/func/ethernet_intf
+INCLUDES += -I$(ROOT_DIR)/beken378/func/camera_intf
+INCLUDES += -I$(ROOT_DIR)/beken378/func/video_transfer
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/hostapd
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/bk_patch
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/src/utils
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/src/ap
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/src/common
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/src/drivers
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/src
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/src/wps
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/wpa_supplicant
+INCLUDES += -I$(ROOT_DIR)/beken378/func/$(WPA_VERSION)/bk_patch
+INCLUDES += -I$(ROOT_DIR)/beken378/func/lwip_intf/lwip-2.0.2/port
+INCLUDES += -I$(ROOT_DIR)/beken378/func/lwip_intf/$(LWIP_VERSION)/src
+INCLUDES += -I$(ROOT_DIR)/beken378/func/lwip_intf/$(LWIP_VERSION)/src/include
+INCLUDES += -I$(ROOT_DIR)/beken378/func/lwip_intf/$(LWIP_VERSION)/src/include/netif
+INCLUDES += -I$(ROOT_DIR)/beken378/func/lwip_intf/$(LWIP_VERSION)/src/include/lwip
+INCLUDES += -I$(ROOT_DIR)/beken378/func/temp_detect
+INCLUDES += -I$(ROOT_DIR)/beken378/func/spidma_intf
+INCLUDES += -I$(ROOT_DIR)/beken378/func/saradc_intf
+INCLUDES += -I$(ROOT_DIR)/beken378/func/rwnx_intf
+INCLUDES += -I$(ROOT_DIR)/beken378/func/joint_up
+INCLUDES += -I$(ROOT_DIR)/beken378/func/base64
+INCLUDES += -I$(ROOT_DIR)/beken378/func/easy_flash
+INCLUDES += -I$(ROOT_DIR)/beken378/func/easy_flash/inc
+INCLUDES += -I$(ROOT_DIR)/beken378/func/easy_flash/port
+INCLUDES += -I$(ROOT_DIR)/beken378/func/rf_use
+INCLUDES += -I$(ROOT_DIR)/beken378/func/usb
+INCLUDES += -I$(ROOT_DIR)/beken378/func/misc
+INCLUDES += -I$(ROOT_DIR)/beken378/func/sensor
+INCLUDES += -I$(ROOT_DIR)/beken378/os/include
+INCLUDES += -I$(ROOT_DIR)/beken378/os/FreeRTOSv9.0.0
+INCLUDES += -I$(ROOT_DIR)/beken378/func/utf8
+INCLUDES += -I$(ROOT_DIR)/beken378/app/http
+INCLUDES += -I$(ROOT_DIR)/beken378/func/force_sleep
+INCLUDES += -I$(ROOT_DIR)/os/FreeRTOSv9.0.0/FreeRTOS/Source
 ifeq ($(CFG_BK_AWARE),1)
-INCLUDES += -I./beken378/func/bk_aware
+INCLUDES += -I$(ROOT_DIR)/beken378/func/bk_aware
+endif
+ifeq ($(CFG_SUPPORT_MATTER), 1)
+INCLUDES += -I$(ROOT_DIR)/beken378/func/key_value_flash
 endif
 
 ifeq ($(CFG_USE_SDCARD_HOST),1)
-INCLUDES += -I./beken378/driver/usb/src/msc
-INCLUDES += -I./beken378/func/fatfs
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/msc
+INCLUDES += -I$(ROOT_DIR)/beken378/func/fatfs
 endif
 
 # For BK7251
 ifeq ($(CFG_SOC_NAME), 3)
-INCLUDES += -I./beken378/driver/audio
-INCLUDES += -I./beken378/driver/sdcard
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/audio
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/sdcard
 endif
 
 # For WPA3
 # if WPA3 enabled or non-tls-internal enabled for EAP
 ifeq ($(CFG_WPA3),1)
-ifneq ("${CFG_MBEDTLS}", "1")
-INCLUDES += -I./beken378/func/wolfssl
+ifneq ("${CFG_USE_MBEDTLS}", "1")
+INCLUDES += -I$(ROOT_DIR)/beken378/func/wolfssl
 else ifeq ($(CFG_WPA2_ENTERPRISE),1)
 ifeq ($(CFG_WPA_TLS_WOLFSSL),1)
-INCLUDES += -I./beken378/func/wolfssl
+INCLUDES += -I$(ROOT_DIR)/beken378/func/wolfssl
 endif # CFG_WPA_TLS_WOLFSSL
-endif # CFG_MBEDTLS
+endif # CFG_USE_MBEDTLS
 endif # CFG_WPA3
 
 #paho-mqtt
-INCLUDES += -I./beken378/func/paho-mqtt/client
-INCLUDES += -I./beken378/func/paho-mqtt/client/src
-INCLUDES += -I./beken378/func/paho-mqtt/packet/src
-INCLUDES += -I./beken378/func/paho-mqtt/mqtt_ui
-INCLUDES += -I./beken378/func/paho-mqtt/mqtt_ui/ssl_mqtt
-INCLUDES += -I./beken378/func/paho-mqtt/mqtt_ui/tcp_mqtt
+INCLUDES += -I$(ROOT_DIR)/beken378/func/paho-mqtt/client
+INCLUDES += -I$(ROOT_DIR)/beken378/func/paho-mqtt/client/src
+INCLUDES += -I$(ROOT_DIR)/beken378/func/paho-mqtt/packet/src
+INCLUDES += -I$(ROOT_DIR)/beken378/func/paho-mqtt/mqtt_ui
+INCLUDES += -I$(ROOT_DIR)/beken378/func/paho-mqtt/mqtt_ui/ssl_mqtt
+INCLUDES += -I$(ROOT_DIR)/beken378/func/paho-mqtt/mqtt_ui/tcp_mqtt
 
 ifeq ($(CFG_SUPPORT_BLE),1)
 ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_4_2))
-INCLUDES += -I./beken378/driver/ble
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/controller/include
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/hci/include
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/host/include
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/sys/include
-INCLUDES += -I./beken378/driver/ble/config
-INCLUDES += -I./beken378/driver/ble/modules/app/api
-INCLUDES += -I./beken378/driver/ble/modules/gernel_api
-INCLUDES += -I./beken378/driver/ble/modules/mesh_model/ali
-INCLUDES += -I./beken378/driver/ble/plactform/arch
-INCLUDES += -I./beken378/driver/ble/plactform/driver/ble_icu
-INCLUDES += -I./beken378/driver/ble/plactform/driver/ir
-INCLUDES += -I./beken378/driver/ble/plactform/driver/reg
-INCLUDES += -I./beken378/driver/ble/plactform/driver/sys_ctrl
-INCLUDES += -I./beken378/driver/ble/plactform/driver/uart
-INCLUDES += -I./beken378/driver/ble/plactform/include
-INCLUDES += -I./beken378/driver/ble/plactform/modules/include
-INCLUDES += -I./beken378/driver/ble/profiles/comm/api
-INCLUDES += -I./beken378/driver/ble/profiles/prf/include
-INCLUDES += -I./beken378/driver/ble/profiles/sdp/api
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/mesh/include
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/mesh/src/dbg
-INCLUDES += -I./beken378/driver/ble/beken_ble_sdk/mesh/src/models/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/controller/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/hci/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/host/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/sys/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/config
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/modules/app/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/modules/gernel_api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/modules/mesh_model/ali
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/arch
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/driver/ble_icu
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/driver/ir
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/driver/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/driver/sys_ctrl
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/driver/uart
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/plactform/modules/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/profiles/comm/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/profiles/prf/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/profiles/sdp/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/dbg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/include
 endif
-ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_x))
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/inc
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gap/gapc
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gap/gapm
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/attc
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/attm
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/atts
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/gattc
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/gatt/gattm
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/l2c/l2cc
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/hl/src/l2c/l2cm
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/ll/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/ll/import/reg
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/ll/src
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/llc
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/lld
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/ble/ll/src/llm
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/em/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/hci/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/hci/src
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/sch/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/ip/sch/import
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/aes/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/aes/src
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/common/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/dbg/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/dbg/src
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/ecc_p256/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/h4tl/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/ke/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_lib/modules/ke/src
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_pub/prf
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/rwip/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/rwip/import/reg
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/nvds/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/config
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/driver/reg
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/driver/rf
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/driver/uart
-INCLUDES += -I./beken378/driver/ble_5_x_rw/platform/7231n/entry
-INCLUDES += -I./beken378/driver/ble_5_x_rw/arch/armv5
-INCLUDES += -I./beken378/driver/ble_5_x_rw/arch/armv5/ll
-INCLUDES += -I./beken378/driver/ble_5_x_rw/arch/armv5/compiler
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_pub/profiles/comm/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_pub/profiles/sdp/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_pub/app/api
-INCLUDES += -I./beken378/driver/ble_5_x_rw/ble_pub/ui
+ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_1))
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/inc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gap/gapc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gap/gapm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/attc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/attm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/atts
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/gattc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/gatt/gattm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/l2c/l2cc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/hl/src/l2c/l2cm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/ll/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/ll/import/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/ll/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/ll/src/llc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/ll/src/lld
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/ble/ll/src/llm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/em/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/hci/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/hci/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/sch/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/ip/sch/import
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/aes/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/aes/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/common/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/dbg/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/dbg/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/ecc_p256/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/h4tl/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/ke/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_lib/modules/ke/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_pub/prf
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/rwip/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/rwip/import/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/nvds/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/config
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/driver/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/driver/rf
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/driver/uart
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/platform/7231n/entry
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/arch/armv5
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/arch/armv5/ll
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/arch/armv5/compiler
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_pub/profiles/comm/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_pub/profiles/sdp/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_pub/app/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_1/ble_pub/ui
+endif
+ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_2))
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/arch/armv5
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/arch/armv5/compiler
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/arch/armv5/ll
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ahi/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/inc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/src/gap/gapc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/src/gap/gapm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/src/gap
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/src/gatt
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/src/inc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/hl/src/l2cap
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/iso/data_path
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/iso/data_path/isogen/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/iso/data_path/isogen/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/iso/data_path/isoohci/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/iso/data_path/isoohci/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/import/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/src/llc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/src/lld
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/src/lli
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/ble/ll/src/llm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/em/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/hci/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/hci/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/sch/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/ip/sch/import
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/aes/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/aes/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/common/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/dbg/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/ecc_p256/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/h4tl/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/ke/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/ke/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/rwip/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/rwip/import/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_lib/modules/rwip/src
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_pub/app/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_pub/profiles/bk_comm/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_pub/profiles/bk_sdp/api
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/ble_pub/ui
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/platform/7238/config
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/platform/7238/driver/reg
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/platform/7238/driver/rf
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/platform/7238/driver/uart
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/platform/7238/entry
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/ble/ble_5_2/platform/7238/nvds/api
 endif
 endif
 
 #usb module
 #ifeq ($(CFG_USB),1)
-INCLUDES += -I./beken378/driver/usb/include
-INCLUDES += -I./beken378/driver/usb/include/class
-INCLUDES += -I./beken378/driver/usb/src/cd
-INCLUDES += -I./beken378/driver/usb/src/drivers/
-INCLUDES += -I./beken378/driver/usb/src/drivers/comm
-INCLUDES += -I./beken378/driver/usb/src/drivers/hid
-INCLUDES += -I./beken378/driver/usb/src/drivers/msd
-INCLUDES += -I./beken378/driver/usb/src/drivers/compl
-INCLUDES += -I./beken378/driver/usb/src/drivers/hub
-INCLUDES += -I./beken378/driver/usb/src/drivers/trans
-INCLUDES += -I./beken378/driver/usb/src/example/msd
-INCLUDES += -I./beken378/driver/usb/src/hid
-INCLUDES += -I./beken378/driver/usb/src/lib
-INCLUDES += -I./beken378/driver/usb/src/msc
-INCLUDES += -I./beken378/driver/usb/src/systems/none/afs
-INCLUDES += -I./beken378/driver/usb/src/systems/none
-INCLUDES += -I./beken378/driver/usb/src/uvc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/include
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/include/class
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/cd
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/comm
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/hid
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/msd
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/compl
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/hub
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/drivers/trans
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/example/msd
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/hid
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/lib
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/msc
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/systems/none/afs
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/systems/none
+INCLUDES += -I$(ROOT_DIR)/beken378/driver/usb/src/uvc
 #endif
 
 ifeq ("${CFG_MBEDTLS}", "1")
 #CFG_DEFINE_INCLUDE += MBEDTLS_CONFIG_FILE=\"tls_config.h\"
-INCLUDES += -I./beken378/func/mbedtls/mbedtls/include
-INCLUDES += -I./beken378/func/mbedtls/mbedtls/include/mbedtls
-INCLUDES += -I./beken378/func/mbedtls/mbedtls-port/inc
-INCLUDES += -I./beken378/func/mbedtls/mbedtls_ui/
+ifeq ($(CFG_SUPPORT_MATTER), 1)
+INCLUDES += -I$(ROOT_DIR)/beken378/func/mbedtls/mbedtls-2.27.0/include
+else
+INCLUDES += -I$(ROOT_DIR)/beken378/func/mbedtls/mbedtls/include
+INCLUDES += -I$(ROOT_DIR)/beken378/func/mbedtls/mbedtls/include/mbedtls
+INCLUDES += -I$(ROOT_DIR)/beken378/func/mbedtls/mbedtls_ui/
+endif
+INCLUDES += -I$(ROOT_DIR)/beken378/func/mbedtls/mbedtls-port/inc
 endif
 
 
 ifeq ($(ATSVR_CFG),1)
-INCLUDES += -I./beken378/func/at_server/
-INCLUDES += -I./beken378/func/at_server/_at_server
-INCLUDES += -I./beken378/func/at_server/_at_server_port
-INCLUDES += -I./beken378/func/at_server/at_server_func
-INCLUDES += -I./beken378/func/at_server/atsvr_cmd
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/_at_server
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/_at_server_port
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/at_server_func
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/atsvr_cmd
 endif
 
 # -------------------------------------------------------------------
@@ -317,6 +383,7 @@ SRC_C += ./beken378/driver/pwm/pwm_mutex.c
 SRC_C += ./beken378/driver/qspi/qspi.c
 SRC_C += ./beken378/driver/rw_pub/rw_platf_pub.c
 SRC_C += ./beken378/driver/saradc/saradc.c
+SRC_C += ./beken378/driver/saradc/saradc_bk7238.c
 SRC_C += ./beken378/driver/spidma/spidma.c
 SRC_C += ./beken378/driver/sys_ctrl/sys_ctrl.c
 SRC_C += ./beken378/driver/uart/Retarget.c
@@ -368,49 +435,49 @@ endif
 SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/port/ethernetif.c
 SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/port/net.c
 SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/port/sys_arch.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/api_lib.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/api_msg.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/err.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/netbuf.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/netdb.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/netifapi.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/sockets.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/api/tcpip.c
 SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/apps/ping/ping.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/def.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/dns.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/inet_chksum.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/init.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ip.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/dhcp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/etharp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/icmp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/igmp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/ip4_addr.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/ip4.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv4/ip4_frag.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/dhcp6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/ethip6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/icmp6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/inet6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/ip6_addr.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/ip6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/ip6_frag.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/mld6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/ipv6/nd6.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/mem.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/memp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/netif.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/pbuf.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/raw.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/stats.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/sys.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/tcp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/tcp_in.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/tcp_out.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/timeouts.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/core/udp.c
-SRC_C += ./beken378/func/lwip_intf/lwip-2.0.2/src/netif/ethernet.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/api_lib.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/api_msg.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/err.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/netbuf.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/netdb.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/netifapi.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/sockets.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/api/tcpip.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/def.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/dns.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/inet_chksum.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/init.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ip.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/dhcp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/etharp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/icmp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/igmp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/ip4_addr.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/ip4.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv4/ip4_frag.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/dhcp6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/ethip6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/icmp6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/inet6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/ip6_addr.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/ip6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/ip6_frag.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/mld6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/ipv6/nd6.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/mem.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/memp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/netif.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/pbuf.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/raw.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/stats.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/sys.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/tcp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/tcp_in.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/tcp_out.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/timeouts.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/core/udp.c
+SRC_C += ./beken378/func/lwip_intf/$(LWIP_VERSION)/src/netif/ethernet.c
 SRC_C += ./beken378/func/lwip_intf/dhcpd/dhcp-server.c
 SRC_C += ./beken378/func/lwip_intf/dhcpd/dhcp-server-main.c
 SRC_C += ./beken378/func/misc/fake_clock.c
@@ -422,6 +489,8 @@ SRC_C += ./beken378/func/misc/flash_bypass.c
 SRC_C += ./beken378/func/power_save/power_save.c
 SRC_C += ./beken378/func/power_save/manual_ps.c
 SRC_C += ./beken378/func/power_save/mcu_ps.c
+SRC_C += ./beken378/func/power_save/low_voltage_ps.c
+SRC_C += ./beken378/func/power_save/low_voltage_compensation.c
 SRC_C += ./beken378/func/power_save/ap_idle.c
 SRC_C += ./beken378/func/saradc_intf/saradc_intf.c
 SRC_C += ./beken378/func/rwnx_intf/rw_ieee80211.c
@@ -450,9 +519,13 @@ SRC_C += ./beken378/func/camera_intf/camera_intf.c
 SRC_C += ./beken378/func/camera_intf/camera_intf_gc2145.c
 SRC_C += ./beken378/func/video_transfer/video_transfer.c
 
+ifeq ($(CFG_SUPPORT_MATTER), 1)
+SRC_C += ./beken378/func/key_value_flash/flash_namespace_value.c
+endif
+
 # For WPA3: wolfssl
 ifeq ($(CFG_WPA3),1)
-ifneq ("${CFG_MBEDTLS}", "1")
+ifneq ("${CFG_USE_MBEDTLS}", "1")
 SRC_C += ./beken378/func/wolfssl/wolfcrypt/src/wolfmath.c
 SRC_C += ./beken378/func/wolfssl/wolfcrypt/src/memory.c
 SRC_C += ./beken378/func/wolfssl/wolfcrypt/src/tfm.c
@@ -540,6 +613,13 @@ SRC_C += ./beken378/driver/spi/spi_master_bk7231n.c
 SRC_C += ./beken378/driver/spi/spi_slave_bk7231n.c
 endif
 
+# For BK7238
+ifeq ($(CFG_SOC_NAME), 7)
+SRC_C += ./beken378/driver/spi/spi_bk7231n.c
+SRC_C += ./beken378/driver/spi/spi_master_bk7231n.c
+SRC_C += ./beken378/driver/spi/spi_slave_bk7231n.c
+endif
+
 SRC_C += ./beken378/func/wlan_ui/wlan_ui.c
 SRC_C += ./beken378/func/net_param_intf/net_param.c
 ifneq ($(CFG_WPA2_ENTERPRISE),1)
@@ -548,6 +628,10 @@ endif
 SRC_C += ./beken378/func/airkiss/bk_airkiss.c
 SRC_C += ./beken378/func/airkiss/airkiss_main.c
 SRC_C += ./beken378/func/airkiss/airkiss_pingpong.c
+
+ifeq ($(CFG_AP_MONITOR_COEXIST_DEMO), 1)
+SRC_C += ./beken378/func/monitor/monitor.c
+endif
 
 #easy flash
 SRC_C += ./beken378/func/easy_flash/bk_ef.c
@@ -591,11 +675,17 @@ ifeq ("${CFG_MBEDTLS}", "1")
 ##MBEDTLS_SRC_DIRS += ./beken378/func/mbedtls/mbedtls-port/src/
 #SRC_C += $(foreach dir, $(MBEDTLS_SRC_DIRS), $(wildcard $(dir)/*.c))
 
+SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_hardware.c
+SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_mem.c
+ifeq ($(CFG_SUPPORT_MATTER), 1)
+MBEDTLS_LIB_DIRS += ./beken378/func/mbedtls/mbedtls-2.27.0/library
+SRC_C += $(foreach dir, $(MBEDTLS_LIB_DIRS), $(wildcard $(dir)/*.c))
+else
+SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/ecp_curves_alt.c
+SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/ecp_alt.c
 SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/timing_alt.c
 SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_certificate.c
 SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_client.c
-SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_hardware.c
-SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_mem.c
 SRC_C += ./beken378/func/mbedtls/mbedtls-port/src/tls_net.c
 SRC_C += ./beken378/func/mbedtls/mbedtls/library/aes.c
 SRC_C += ./beken378/func/mbedtls/mbedtls/library/aesni.c
@@ -670,94 +760,112 @@ SRC_C += ./beken378/func/mbedtls/mbedtls/library/x509write_csr.c
 SRC_C += ./beken378/func/mbedtls/mbedtls/library/xtea.c
 SRC_C += ./beken378/func/mbedtls/mbedtls_ui/sl_tls.c
 endif
+endif
 
 ifeq ($(CFG_SUPPORT_BLE),1)
 ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_4_2))
 #ble pub
-SRC_C += ./beken378/driver/ble/ble.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_ble.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_comm.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_sdp.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_sec.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_task.c
-SRC_C += ./beken378/driver/ble/plactform/driver/ble_icu/ble_icu.c
-SRC_C += ./beken378/driver/ble/plactform/driver/uart/ble_uart.c
-SRC_C += ./beken378/driver/ble/plactform/modules/arch/ble_arch_main.c
-SRC_C += ./beken378/driver/ble/plactform/modules/common/RomCallFlash.c
-SRC_C += ./beken378/driver/ble/plactform/modules/dbg/dbg.c
-SRC_C += ./beken378/driver/ble/plactform/modules/dbg/dbg_mwsgen.c
-SRC_C += ./beken378/driver/ble/plactform/modules/dbg/dbg_swdiag.c
-SRC_C += ./beken378/driver/ble/plactform/modules/dbg/dbg_task.c
-SRC_C += ./beken378/driver/ble/plactform/modules/rf/src/ble_rf_xvr.c
-SRC_C += ./beken378/driver/ble/profiles/comm/src/comm.c
-SRC_C += ./beken378/driver/ble/profiles/comm/src/comm_task.c
-SRC_C += ./beken378/driver/ble/profiles/prf/src/prf.c
-SRC_C += ./beken378/driver/ble/profiles/prf/src/prf_utils.c
-SRC_C += ./beken378/driver/ble/profiles/sdp/src/sdp_service.c
-SRC_C += ./beken378/driver/ble/profiles/sdp/src/sdp_service_task.c
+SRC_C += ./beken378/driver/ble/ble_4_2/ble.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_ble.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_comm.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_sdp.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_sec.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_task.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/driver/ble_icu/ble_icu.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/driver/uart/ble_uart.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/arch/ble_arch_main.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/common/RomCallFlash.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/dbg/dbg.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/dbg/dbg_mwsgen.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/dbg/dbg_swdiag.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/dbg/dbg_task.c
+SRC_C += ./beken378/driver/ble/ble_4_2/plactform/modules/rf/src/ble_rf_xvr.c
+SRC_C += ./beken378/driver/ble/ble_4_2/profiles/comm/src/comm.c
+SRC_C += ./beken378/driver/ble/ble_4_2/profiles/comm/src/comm_task.c
+SRC_C += ./beken378/driver/ble/ble_4_2/profiles/prf/src/prf.c
+SRC_C += ./beken378/driver/ble/ble_4_2/profiles/prf/src/prf_utils.c
+SRC_C += ./beken378/driver/ble/ble_4_2/profiles/sdp/src/sdp_service.c
+SRC_C += ./beken378/driver/ble/ble_4_2/profiles/sdp/src/sdp_service_task.c
 #ble mesh pub
 ifeq ($(CFG_SUPPORT_BLE_MESH),1)
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/mesh_api.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/mesh_api_msg.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/mesh_param_int.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/mm_api.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/mm_api_msg.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/m_api.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/mesh_api/m_api_msg.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/common/mm_route.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/common/mm_tb.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/common/mm_tb_bind.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/common/mm_tb_replay.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/common/mm_tb_state.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_bat.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_dtt.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_loc.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_lvl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_oo.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_plvl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_poo.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/gens/mm_gens_prop.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lightc/mm_lightc.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_ctl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_hsl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_ln.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_xyl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lights/mm_lights.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lights/mm_lights_ctl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lights/mm_lights_hsl.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/lights/mm_lights_ln.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/Scenes/m_fnd_Scenes.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/transition_time/m_fnd_generic_transition_time.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/vendor/mm_vendors.c
-SRC_C += ./beken378/driver/ble/beken_ble_sdk/mesh/src/models/vendor/mm_vendor_midea.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_mesh.c
-SRC_C += ./beken378/driver/ble/modules/app/src/app_mm_msg.c
-SRC_C += ./beken378/driver/ble/modules/gernel_api/mesh_general_api.c
-SRC_C += ./beken378/driver/ble/modules/mesh_model/ali/app_light_ali_server.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/mesh_api.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/mesh_api_msg.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/mesh_param_int.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/mm_api.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/mm_api_msg.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/m_api.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/mesh_api/m_api_msg.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/common/mm_route.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/common/mm_tb.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/common/mm_tb_bind.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/common/mm_tb_replay.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/common/mm_tb_state.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_bat.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_dtt.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_loc.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_lvl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_oo.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_plvl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_poo.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/gens/mm_gens_prop.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lightc/mm_lightc.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_ctl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_hsl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_ln.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lightc/mm_lightc_xyl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lights/mm_lights.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lights/mm_lights_ctl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lights/mm_lights_hsl.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/lights/mm_lights_ln.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/Scenes/m_fnd_Scenes.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/transition_time/m_fnd_generic_transition_time.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/vendor/mm_vendors.c
+SRC_C += ./beken378/driver/ble/ble_4_2/beken_ble_sdk/mesh/src/models/vendor/mm_vendor_midea.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_mesh.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/app/src/app_mm_msg.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/gernel_api/mesh_general_api.c
+SRC_C += ./beken378/driver/ble/ble_4_2/modules/mesh_model/ali/app_light_ali_server.c
 endif
 endif #BLE_VERSION_4_2
-ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_x))
+ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_1))
 # ble pub
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/prf/prf.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/prf/prf_utils.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/profiles/comm/src/comm.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/profiles/comm/src/comm_task.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/app/src/app_comm.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/app/src/app_ble.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/app/src/app_task.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/ui/ble_ui.c
-SRC_C += ./beken378/driver/ble_5_x_rw/platform/7231n/rwip/src/rwip.c
-SRC_C += ./beken378/driver/ble_5_x_rw/platform/7231n/rwip/src/rwble.c
-SRC_C += ./beken378/driver/ble_5_x_rw/platform/7231n/entry/ble_main.c
-SRC_C += ./beken378/driver/ble_5_x_rw/platform/7231n/driver/rf/rf_xvr.c
-SRC_C += ./beken378/driver/ble_5_x_rw/platform/7231n/driver/rf/ble_rf_port.c
-SRC_C += ./beken378/driver/ble_5_x_rw/platform/7231n/driver/uart/uart_ble.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/app/src/app_ble_init.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/app/src/app_sdp.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/profiles/sdp/src/sdp_common.c
-SRC_C += ./beken378/driver/ble_5_x_rw/ble_pub/profiles/sdp/src/sdp_comm_task.c
-endif #BLE_VERSION_5_x
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/prf/prf.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/prf/prf_utils.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/profiles/comm/src/comm.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/profiles/comm/src/comm_task.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_comm.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_ble.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_task.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/ui/ble_ui.c
+SRC_C += ./beken378/driver/ble/ble_5_1/platform/7231n/rwip/src/rwip.c
+SRC_C += ./beken378/driver/ble/ble_5_1/platform/7231n/rwip/src/rwble.c
+SRC_C += ./beken378/driver/ble/ble_5_1/platform/7231n/entry/ble_main.c
+SRC_C += ./beken378/driver/ble/ble_5_1/platform/7231n/driver/rf/rf_xvr.c
+SRC_C += ./beken378/driver/ble/ble_5_1/platform/7231n/driver/rf/ble_rf_port.c
+SRC_C += ./beken378/driver/ble/ble_5_1/platform/7231n/driver/uart/uart_ble.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_ble_init.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_sdp.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/profiles/sdp/src/sdp_common.c
+SRC_C += ./beken378/driver/ble/ble_5_1/ble_pub/profiles/sdp/src/sdp_comm_task.c
+endif #BLE_VERSION_5_1
+ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_2))
+# ble pub
+SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/profiles/bk_comm/src/comm.c
+SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/profiles/bk_comm/src/comm_task.c
+SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/app/src/app_comm.c
+SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/app/src/app_ble.c
+SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/app/src/app_task.c
+SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/ui/ble_ui.c
+SRC_C += ./beken378/driver/ble/ble_5_2/platform/7238/entry/ble_main.c
+SRC_C += ./beken378/driver/ble/ble_5_2/platform/7238/driver/rf/rf_xvr.c
+SRC_C += ./beken378/driver/ble/ble_5_2/platform/7238/driver/rf/ble_rf_port.c
+SRC_C += ./beken378/driver/ble/ble_5_2/platform/7238/driver/uart/uart_ble.c
+# SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/app/src/app_ble_init.c
+# SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/app/src/app_sdp.c
+# SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/profiles/sdp/src/sdp_common.c
+# SRC_C += ./beken378/driver/ble/ble_5_2/ble_pub/profiles/sdp/src/sdp_comm_task.c
+endif #BLE_VERSION_5_2
 endif #CFG_SUPPORT_BLE
 
 #operation system module
@@ -783,6 +891,16 @@ endif
 ifeq ($(CFG_USB),1)
 SRC_C += ./beken378/driver/usb/usb.c
 SRC_C += ./beken378/func/usb/fusb.c
+endif
+
+ifeq ($(CFG_QUICK_TRACK),1)
+SRC_C += ./beken378/func/controlappc/controlappc_main.c
+SRC_C += ./beken378/func/controlappc/controlapp_eloop.c
+SRC_C += ./beken378/func/controlappc/indigo_api.c
+SRC_C += ./beken378/func/controlappc/indigo_packet.c
+SRC_C += ./beken378/func/controlappc/utils.c
+SRC_C += ./beken378/func/controlappc/indigo_api_callback_dut.c
+SRC_C += ./beken378/func/controlappc/vendor_specific_dut.c
 endif
 
 SRC_C += ./beken378/func/ble_wifi_exchange/ble_wifi_port.c
@@ -813,10 +931,13 @@ SRC_IP_C =
 SRC_BLE_C =
 ifeq ($(CFG_SUPPORT_BLE),1)
 ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_4_2))
--include ./beken378/driver/ble/ble_lib_src.mk
+-include ./beken378/driver/ble/ble_4_2/ble_lib_src.mk
 endif
-ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_x))
--include ./beken378/driver/ble_5_x_rw/ble_lib_src.mk
+ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_1))
+-include ./beken378/driver/ble/ble_5_1/ble_lib_src.mk
+endif
+ifeq ($(CFG_BLE_VERSION),$(BLE_VERSION_5_2))
+-include ./beken378/driver/ble/ble_5_2/ble_lib_src.mk
 endif
 endif
 

@@ -5,6 +5,8 @@
 #include "str_pub.h"
 #include "mem_pub.h"
 #include "txu_cntrl.h"
+#include "rxu_cntrl.h"
+#include "llc.h"
 
 #include "lwip/pbuf.h"
 #ifdef CFG_WFA_CERTIFICATION
@@ -454,8 +456,14 @@ extern size_t xPortGetFreeHeapSize( void );
         #if NX_POWERSAVE
         txl_cntrl_dec_pck_cnt();
         #endif
+#if CFG_SUPPORT_RTT
+#if !defined(PKG_NETUTILS_IPERF)
+        os_printf("rwm_transfer no node\r\n");
+#endif
+#else
 #if !defined(CFG_IPERF_TEST_ACCEL) || (CFG_IPERF_TEST_ACCEL==0)
         os_printf("rwm_transfer no node\r\n");
+#endif
 #endif
         goto tx_exit;
     }
@@ -522,6 +530,11 @@ int qos_need_enabled(struct sta_info_tag *sta)
 {
 	if (!sta)
 		return 0;
+#if CFG_TKIP_SW_CRYPT
+    struct key_info_tag *key = *(sta->sta_sec_info.cur_key);
+	if ((NULL != key) && (key->cipher == MAC_RSNIE_CIPHER_TKIP))
+		return 0; /* disable QOS for TKIP */
+#endif
 	if (!(sta->info.capa_flags & STA_QOS_CAPA))
 		return 0;
 
@@ -592,7 +605,16 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
     txdesc_new = tx_txdesc_prepare(queue_idx);
     if(TXDESC_STA_USED == txdesc_new->status)
     {
+#if CFG_SUPPORT_RTT
+#if !defined(PKG_NETUTILS_IPERF)
         os_printf("rwm_transfer no txdesc \r\n");
+
+#endif
+#else
+#if !defined(CFG_IPERF_TEST_ACCEL) || (CFG_IPERF_TEST_ACCEL==0)
+        os_printf("rwm_transfer no txdesc \r\n");
+#endif
+#endif
         goto tx_exit;
     }
 
@@ -653,6 +675,135 @@ UINT32 rwm_get_rx_free_node(struct pbuf **p_ret, UINT32 len)
     return RW_SUCCESS;
 }
 
+static const uint8_t rfc1042_header[6] = { 0xaa, 0xaa, 0x03, 0x00, 0x00, 0x00 };
+static const uint8_t bridge_tunnel_header[6] = { 0xaa, 0xaa, 0x03, 0x00, 0xf8, 0x00 };
+void ethernetif_input_amsdu(RW_RXIFO_PTR rx_info, struct pbuf *p)
+{
+    struct pbuf *pbuf = NULL;
+    uint32_t du_len;
+    struct mac_addr temp_mac;
+
+    struct llc_snap *llc_snap;
+    struct ethernet_hdr *eth_hdr;
+    struct amsdu_hdr *amsdu_subfrm_hdr = (struct amsdu_hdr *)p->payload;
+    uint32_t mpdu_end = (uint32_t)p->payload + p->len;
+    uint16_t msdu_len_with_padding;
+#if 0//(RW_MESH_EN)
+    VIF_INF_PTR p_vif_entry = rwm_mgmt_vif_idx2ptr(rx_info->vif_idx);
+#endif //(RW_MESH_EN)
+
+    /*
+     * format of p->payload
+     ****************************************************
+     *  |  SUB_FRAME  |  SUB_FRAME  |  SUB_FRAME  |
+     ****************************************************
+     * format of SUB_FRAME
+     * 1 MESH type
+     ****************************************************
+     *  |  DA  |  SA  |  LENGTH  |  MESH_CONTROL  |  DATA  |  PADDING  |
+     ****************************************************
+     * 2 SNAP type
+     ***********************************************************************
+     *  |  DA  |  SA  |  LENGTH  |  LLC/SNAP  |  DATA  |  PADDING  |
+     ***********************************************************************
+     * 3 RAW type (should not happen actually)
+     ****************************************************
+     *  |  DA  |  SA  |  LENGTH  |  DATA  |  PADDING  |
+     ****************************************************
+     */
+
+    //os_printf("%s amsdu_len=%d\n", __FUNCTION__, p->len);
+    while ((uint32_t)amsdu_subfrm_hdr < mpdu_end)
+    {
+        //calculate msdu_len_with_padding first
+        du_len = ntohs(amsdu_subfrm_hdr->len);
+        msdu_len_with_padding = sizeof(struct amsdu_hdr) + du_len + sizeof(uint32_t) - 1;
+        msdu_len_with_padding = msdu_len_with_padding & ~(sizeof(uint32_t) - 1);
+        //os_printf("%s amsdu_subframe_len=%d,msdu_len_with_padding=%d\n", __FUNCTION__, du_len, msdu_len_with_padding);
+
+        //ieee802.11 amsdu_hdr to ieee802.3 ethernet_hdr
+#if 0//(RW_MESH_EN)
+        if ((p_vif_entry->type == VIF_MESH_POINT) && (rx_info->dst_idx != INVALID_STA_IDX))
+        {
+            /*
+                ****************************************************
+                *  |  DA  |  SA  |  LENGTH  |  MESH_CONTROL  |  DATA  |  PADDING  |
+                ****************************************************
+                * ==>
+                ****************************************************
+                *  DA  |  SA  |  ETHERTYPE  |  MESH_CONTROL  |  DATA  |  PADDING  |
+                ****************************************************
+                *  Keep subframe as mesh frame, since amsdu_hdr=ethernet_hdr
+                *  set eth_hdr->len as ethertype like rxu_cntrl_mac2eth_update
+                */
+            eth_hdr = (struct ethernet_hdr *)amsdu_subfrm_hdr;
+            llc_snap = (struct llc_snap *)((uint8_t *)amsdu_subfrm_hdr + sizeof(struct ethernet_hdr) + rx_status->mesh_ctrl_len);
+            eth_hdr->len = llc_snap->proto_id;
+            du_len += sizeof(struct ethernet_hdr);
+        }
+        else
+#endif //(RW_MESH_EN)
+        {
+            llc_snap = (struct llc_snap *)(amsdu_subfrm_hdr + 1);
+
+            if ((!memcmp(llc_snap, &rfc1042_header, sizeof(rfc1042_header))
+                 //&& (llc_snap->ether_type != RX_ETH_PROT_ID_AARP) - Appletalk depracated ?
+                 && (llc_snap->proto_id != RX_ETH_PROT_ID_IPX))
+                || (!memcmp(llc_snap, &bridge_tunnel_header, sizeof(bridge_tunnel_header))))
+            {
+                /*
+                    ****************************************************
+                    *  |  DA  |  SA  |  LENGTH  |  LLC/SNAP  |  DATA  |  PADDING  |
+                    ****************************************************
+                    * ==>
+                    ****************************************************
+                    *  |  DA  |  SA  |  DATA  |  PADDING  |
+                    ****************************************************
+                    */
+                eth_hdr = (struct ethernet_hdr *)((uint8_t *)amsdu_subfrm_hdr + sizeof(struct llc_snap_short) + sizeof(amsdu_subfrm_hdr->len));
+                du_len += sizeof(struct ethernet_hdr) - sizeof(struct llc_snap_short) - sizeof(amsdu_subfrm_hdr->len);
+                MAC_ADDR_CPY(&eth_hdr->sa, &amsdu_subfrm_hdr->sa);
+                MAC_ADDR_CPY(&eth_hdr->da, &amsdu_subfrm_hdr->da);
+            }
+            else
+            {
+                /*
+                    ****************************************************
+                    *  |  DA  |  SA  |  LENGTH  |  DATA  |  PADDING  |
+                    ****************************************************
+                    * ==>
+                    ****************************************************
+                    *  |  DA  |  SA  |  DATA  |  PADDING  |
+                    ****************************************************
+                    */
+                eth_hdr = (struct ethernet_hdr *)((uint8_t *)amsdu_subfrm_hdr + sizeof(amsdu_subfrm_hdr->len));
+                du_len += sizeof(struct ethernet_hdr) - sizeof(amsdu_subfrm_hdr->len);
+                MAC_ADDR_CPY(&temp_mac, &amsdu_subfrm_hdr->sa);
+                MAC_ADDR_CPY(&eth_hdr->sa, &temp_mac);
+                MAC_ADDR_CPY(&temp_mac, &amsdu_subfrm_hdr->da);
+                MAC_ADDR_CPY(&eth_hdr->da, &temp_mac);
+            }
+        }
+
+        //malloc/dma/callback
+        rwm_get_rx_free_node(&pbuf, du_len);
+        if (NULL == pbuf)
+        {
+            os_printf("%s rwm_get_rx_free_node(%d) failed\n", __FUNCTION__, du_len);
+        }
+        else
+        {
+            os_memcpy(pbuf->payload, (void *)eth_hdr, du_len);
+            ethernetif_input(rx_info->vif_idx, pbuf);
+        }
+
+        //next amsdu_subframe
+        amsdu_subfrm_hdr = (struct amsdu_hdr *)((uint8_t *)amsdu_subfrm_hdr + msdu_len_with_padding);
+    }
+
+    pbuf_free(p);
+}
+
 UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
 {
     struct pbuf *p = (struct pbuf *)rx_info->data;
@@ -671,7 +822,15 @@ UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
 	if (sta_entry)
 		sta_entry->rssi = rx_info->rssi;
 
-    ethernetif_input(rx_info->vif_idx, p);
+    if (rx_info->rx_dmadesc_flags & RX_FLAGS_IS_AMSDU_BIT)
+    {
+        /* A-MSDU subframe, convert like 'rxu_cntrl_mac2eth_update()' and then pass it to lwip */
+        ethernetif_input_amsdu(rx_info, p);
+    }
+    else
+    {
+        ethernetif_input(rx_info->vif_idx, p);
+    }
 
     return RW_SUCCESS;
 }
@@ -685,7 +844,7 @@ UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len)
     node_ptr = rwm_pop_rx_list();
     if(node_ptr)
     {
-        count = MIN(len, node_ptr->len);
+        count = _MIN(len, node_ptr->len);
 #if CFG_GENERAL_DMA && (CFG_SOC_NAME != SOC_BK7231N)
         gdma_memcpy(upper_buf, node_ptr->msdu_ptr, count);
 #else
@@ -859,7 +1018,7 @@ UINT8 rwm_mgmt_update_rate(void)
 	return 0;
 }
 
-UINT8 rwm_mgmt_get_hwkeyidx(UINT8 vif_idx, UINT8 staid)
+UINT8 rwm_mgmt_get_hwkeyidx(UINT8 vif_idx, UINT8 staid, UINT8 key_idx)
 {
     UINT8 hw_key_idx = MM_SEC_MAX_KEY_NBR + 1;
     struct key_info_tag *key = NULL;
@@ -870,8 +1029,12 @@ UINT8 rwm_mgmt_get_hwkeyidx(UINT8 vif_idx, UINT8 staid)
     if(staid == 0xff)   // group key
     {
         vif_entry = rwm_mgmt_vif_idx2ptr(vif_idx);
-        if(vif_entry)
-            key = vif_entry->default_key;
+#if NX_MFP
+        if (vif_entry && key_idx < MAC_DEFAULT_MFP_KEY_COUNT)
+#else
+        if (vif_entry && key_idx < MAC_DEFAULT_KEY_COUNT)
+#endif
+            key = &vif_entry->key_info[key_idx];
     }
     else
     {
@@ -880,7 +1043,7 @@ UINT8 rwm_mgmt_get_hwkeyidx(UINT8 vif_idx, UINT8 staid)
             key = *(sta_entry->sta_sec_info.cur_key);
     }
 
-    if(key)
+    if(key && key->valid)
     {
         hw_key_idx = key->hw_key_idx;
     }

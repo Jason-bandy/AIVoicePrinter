@@ -240,6 +240,8 @@ struct rxu_cntrl_reord_elt
     uint64_t pn;
     /// Host Buffer Address
     uint32_t host_id;
+    /// flag indicating that this position of the reordering table is used
+    bool used;
     /// flag indicating if the PN must be verified
     bool pn_check;
 };
@@ -489,8 +491,9 @@ uint8_t rxu_cntrl_get_pm(void);
 void rxu_cntrl_evt(int dummy);
 
 uint32_t rx_mgmt_filter(uint16_t framectrl, void *payload, uint16_t length);
-
-
+#if CFG_AP_MONITOR_COEXIST
+void rxl_mpdu_monitor_transfer(struct rx_swdesc *swdesc);
+#endif
 /// @}
 
 #endif // _RXU_CNTRL_H_

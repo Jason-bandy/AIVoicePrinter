@@ -14,12 +14,19 @@ struct in_addr
 	int s_addr;
 };
 
+struct in6_addr {
+	union {
+		unsigned int u32_addr[4];
+		unsigned char  u8_addr[16];
+	} un;
+};
+
 struct hostapd_ip_addr {
 	int af; /* AF_INET / AF_INET6 */
-	
+
 	union {
 		struct in_addr v4;
-		
+
 #ifdef CONFIG_IPV6
 		struct in6_addr v6;
 #endif /* CONFIG_IPV6 */

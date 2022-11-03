@@ -22,6 +22,8 @@ elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7221U'):
     rf_use_lib_name += '_7251'
 elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7271'):
     rf_use_lib_name += '_7271'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7238'):
+    rf_use_lib_name += '_7238'
 else:
     rf_use_lib_name += '_unknown'
     platform_match = 'no'

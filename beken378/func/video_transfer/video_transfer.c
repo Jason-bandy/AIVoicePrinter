@@ -323,9 +323,9 @@ static void tvideo_config_desc(void)
         {
             node_len = TVIDEO_RXNODE_SIZE_UDP - tvideo_pool.pkt_header_size;
         }
-        else
-        #endif
+        #else
             node_len = TVIDEO_RXNODE_SIZE_UDP;
+        #endif
 
     }
     else if (tvideo_pool.send_type == TVIDEO_SND_TCP)

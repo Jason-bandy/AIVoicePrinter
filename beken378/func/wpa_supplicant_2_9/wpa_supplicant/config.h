@@ -1165,6 +1165,19 @@ struct wpa_config {
 	int *sae_groups;
 
 	/**
+	 * sae_pwe - SAE mechanism for PWE derivation
+	 * 0 = hunting-and-pecking loop only
+	 * 1 = hash-to-element only
+	 * 2 = both hunting-and-pecking loop and hash-to-element enabled
+	 */
+	int sae_pwe;
+
+	/**
+	 * sae_pmkid_in_assoc - Whether to include PMKID in SAE Assoc Req
+	 */
+	int sae_pmkid_in_assoc;
+
+	/**
 	 * dtim_period - Default DTIM period in Beacon intervals
 	 *
 	 * This parameter can be used to set the default value for network
@@ -1565,7 +1578,7 @@ int wpa_config_get_value(const char *name, struct wpa_config *config,
 char ** wpa_config_get_all(struct wpa_ssid *ssid, int get_keys);
 char * wpa_config_get(struct wpa_ssid *ssid, const char *var);
 char * wpa_config_get_no_key(struct wpa_ssid *ssid, const char *var);
-void wpa_config_update_psk(struct wpa_ssid *ssid);
+int wpa_config_update_psk(struct wpa_ssid *ssid);
 int wpa_config_add_prio_network(struct wpa_config *config,
 				struct wpa_ssid *ssid);
 int wpa_config_update_prio_list(struct wpa_config *config);

@@ -533,7 +533,7 @@ void bk_enter_deep_sleep_mode ( PS_DEEP_CTRL_PARAM *deep_param )
 			deep_param->sleep_time = 0x1ffff;
 		}
 		
-		deep_param->sleep_time = 32768 * deep_param->sleep_time;
+		deep_param->sleep_time = 32000 * deep_param->sleep_time;
 	}
 	
 	GLOBAL_INT_DECLARATION();
@@ -566,8 +566,9 @@ void lowvol_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
 	deep_sleep_param.gpio_last_edge_map = 0;
 	deep_sleep_param.sleep_time = os_strtoul(argv[3], NULL, 16);
 	deep_sleep_param.wake_up_way = os_strtoul(argv[4], NULL, 16);
+	deep_sleep_param.sleep_mode = os_strtoul(argv[5], NULL, 16);
 
-	if(argc == 5)
+	if(argc == 6)
 	{
 		os_printf("---lowvol sleep test param : 0x%0X 0x%0X %d s  %d\r\n",
 					deep_sleep_param.gpio_index_map,
@@ -581,8 +582,9 @@ void lowvol_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
 	}
 	else
 	{
-		os_printf("---argc error!!! \r\n");
+		os_printf("---argc error: %d!!! \r\n", argc);
 	}
 }
+
 #endif
 

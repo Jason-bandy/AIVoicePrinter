@@ -16,12 +16,14 @@
 #include "ate_app.h"
 #include "start_type_pub.h"
 #include "bk7011_cal_pub.h"
+#include "power_save_pub.h"
 #include "reg_mdm_cfg.h"
 
 #if CFG_SUPPORT_LITEOS
 #include "los_context.h"
 #include "los_task.h"
 #endif
+#include "sys_ctrl_pub.h"
 
 beken_semaphore_t extended_app_sema = NULL;
 uint32_t  extended_app_stack_size = 2048;
@@ -61,6 +63,8 @@ void improve_rx_sensitivity(void)
 	mdm_cfgsmooth_setf(3);
 	rwnx_cal_dis_rx_filter_offset();
 	bk7011_reduce_vdddig_for_rx(1);
+#elif (CFG_SOC_NAME == SOC_BK7238)
+	rwnx_cal_en_rx_filter_offset();
 #endif
 }
 
@@ -77,6 +81,11 @@ static void extended_app_task_handler(void *arg)
     }
     else
     {
+#if (CFG_SOC_NAME == SOC_BK7238)
+		power_save_rf_hold_bit_set(RF_HOLD_RF_SLEEP_BIT);
+		improve_rx_sensitivity();
+		power_save_rf_hold_bit_clear(RF_HOLD_RF_SLEEP_BIT);
+#endif
 	    app_start();
     }
          
@@ -124,7 +133,7 @@ void __attribute__((weak)) OHOS_SystemInit(void)
 
 void entry_main(void)
 {  
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 	uart_fast_init();
 #endif
 
@@ -135,6 +144,9 @@ void entry_main(void)
 
 	ate_app_init();
 
+#if CFG_USE_DEEP_PS
+	bk_init_deep_wakeup_gpio_status();
+#endif
 	bk_misc_init_start_type();
 
 	/* step 1: driver layer initialization*/

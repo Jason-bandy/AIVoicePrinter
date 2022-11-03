@@ -73,6 +73,16 @@
 #define CFG_HWSCAN
 #define CFG_AUTOBCN
 #define CFG_WAPI
+#define CFG_COEX
+
+#if CFG_WIFI_FTM
+#if CFG_WIFI_FTM_INITIATOR
+#define CFG_FTM_INIT
+#endif
+#if CFG_WIFI_FTM_RESPONDER
+#define CFG_FTM_RSP
+#endif
+#endif
 
 #if CFG_IEEE80211N
 #define CFG_BWLEN
@@ -231,6 +241,37 @@
 
 #define CELL_GRANULARITY            (1024)
 #define CELL_COUNT                  (64)
+
+/**
+ *******************************************************************************
+ * @name FTM Configuration
+ * @{
+ *******************************************************************************
+ */
+#ifdef CFG_UMAC
+  /// FTM intiator Support
+  #ifdef CFG_FTM_INIT
+    #define NX_FTM_INITIATOR 1
+  #else // !CFG_FTM_INIT
+    #define NX_FTM_INITIATOR 0
+    #undef CFG_FTM_RSP
+  #endif // CFG_FTM_INIT
+
+  /// Fake FTM responder Support
+  #ifdef CFG_FTM_RSP
+    #define NX_FAKE_FTM_RSP 1
+  #else // !CFG_FTM_RSP
+    #define NX_FAKE_FTM_RSP 0
+  #endif // CFG_FTM_RSP
+#else
+#undef CFG_FTM_INIT
+#undef CFG_FTM_RSP
+/// FTM intiator Support
+#define NX_FTM_INITIATOR 0
+/// Fake FTM responder Support
+#define NX_FAKE_FTM_RSP 0
+#endif // CFG_UMAC
+/** @} FTM */
 
 
 /// UAPSD support
@@ -524,6 +565,16 @@
 #define TDLS_ENABLE 0
 #endif
 
+#if (1==CFG_HW_PARSER_TIM_ELEMENT)
+#define NX_HW_PARSER_TIM_ELEMENT 1
+#else
+#define NX_HW_PARSER_TIM_ELEMENT 0
+#endif
+#if( 1 ==CFG_NX_MAC_DEEP_CLKGATE)
+#define BK_NX_MAC_DEEP_CLKGATE 1
+#else
+#define BK_NX_MAC_DEEP_CLKGATE 0
+#endif
 /* system heap size*/
 #define CFG_HEAP_SIZE                            (256 * NX_VIRT_DEV_MAX \
                                                         + 256 * NX_REMOTE_STA_MAX \
@@ -535,6 +586,15 @@
 /* BK macro in IP */
 #define BK_NX_CONNECTION_MONITOR    1
 
+/// Send deauth before sending auth to AP
+//#define BK_DEAUTH_BEFORE_CONNECT    1
+
+/// Send null frames to AP after associated with AP to accelerate AP sending 1/4 EAPoL frame
+// #define BK_SEND_NULL_AFTER_ASSOC    1
+
+/// Retry send deauth frame to AP if no ACK received from AP
+// #define SM_DEAUTH_RETRY_ENABLE      1
+
 extern int rwnx_get_noht_rssi_thresold(void) __attribute__ ((weak));
 /**
  * hook for single rate by upper layer
@@ -544,6 +604,18 @@ extern int rwnx_get_noht_rssi_thresold(void) __attribute__ ((weak));
  */
 extern UINT32 rwnx_setting_for_single_rate(INT32 rate) __attribute__ ((weak));
 extern INT32 rwnx_printf_fun(const char *fmt, ...) __attribute__ ((weak));
+
+#if (1 == CFG_BK_NX_GET_WIFI_SNR)
+#define BK_NX_GET_RF_SNR            1
+#else
+#define BK_NX_GET_RF_SNR            0
+#endif
+
+#if (1 == CFG_BK7238_NX_POWTBL_ISSUE)
+#define BK_NX_POWTBL_ISSUE          1
+#else
+#define BK_NX_POWTBL_ISSUE          0
+#endif
 
 #endif // _RWNX_CONFIG_H_
 // eof

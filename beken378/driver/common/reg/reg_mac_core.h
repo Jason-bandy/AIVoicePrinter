@@ -5489,6 +5489,168 @@ __INLINE void nxmac_bb_service_a_setf(uint16_t bbservicea)
 
 /// @}
 
+
+#if defined(CFG_NO_POWTBL)
+/**
+ * @name DSSSMAX_POWER_LEVEL register definitions
+ * <table>
+ * <caption id="DSSSMAX_POWER_LEVEL_BF">DSSSMAX_POWER_LEVEL bitfields</caption>
+ * <tr><th>Bits <th>Field Name <th>HW Access <th>SW Access <th>Reset Value
+ * <tr><td>31:00 <td>   dsssMaxPwrLevel <td>R <td>R/W <td>0x404
+ * </table>
+ *
+ * @{
+ */
+
+/// Address of the DSSSMAX_POWER_LEVEL register
+#define NXMAC_DSSSMAX_POWER_LEVEL_ADDR   (REG_MAC_CORE_BASE_ADDR + 0x000000A0)
+/// Offset of the DSSSMAX_POWER_LEVEL register from the base address
+#define NXMAC_DSSSMAX_POWER_LEVEL_OFFSET 0x000000A0
+/// Index of the DSSSMAX_POWER_LEVEL register
+#define NXMAC_DSSSMAX_POWER_LEVEL_INDEX  0x00000028
+/// Reset value of the DSSSMAX_POWER_LEVEL register
+#define NXMAC_DSSSMAX_POWER_LEVEL_RESET  0x00000404
+
+/**
+ * @brief Returns the current value of the DSSSMAX_POWER_LEVEL register.
+ * The DSSSMAX_POWER_LEVEL register will be read and its value returned.
+ * @return The current value of the DSSSMAX_POWER_LEVEL register.
+ */
+__INLINE uint32_t nxmac_dsssmax_power_level_get(void)
+{
+    return REG_PL_RD(NXMAC_DSSSMAX_POWER_LEVEL_ADDR);
+}
+
+/**
+ * @brief Sets the DSSSMAX_POWER_LEVEL register to a value.
+ * The DSSSMAX_POWER_LEVEL register will be written.
+ * @param value - The value to write.
+ */
+__INLINE void nxmac_dsssmax_power_level_set(uint32_t value)
+{
+    REG_PL_WR(NXMAC_DSSSMAX_POWER_LEVEL_ADDR, value);
+}
+
+// field definitions
+/// DSSS_MAX_PWR_LEVEL field mask
+#define NXMAC_DSSS_MAX_PWR_LEVEL_MASK   ((uint32_t)0xFFFFFFFF)
+/// DSSS_MAX_PWR_LEVEL field LSB position
+#define NXMAC_DSSS_MAX_PWR_LEVEL_LSB    0
+/// DSSS_MAX_PWR_LEVEL field width
+#define NXMAC_DSSS_MAX_PWR_LEVEL_WIDTH  ((uint32_t)0x00000020)
+
+/// DSSS_MAX_PWR_LEVEL field reset value
+#define NXMAC_DSSS_MAX_PWR_LEVEL_RST    0x404
+
+/**
+ * @brief Returns the current value of the dsssMaxPwrLevel field in the DSSSMAX_POWER_LEVEL register.
+ *
+ * The DSSSMAX_POWER_LEVEL register will be read and the dsssMaxPwrLevel field's value will be returned.
+ *
+ * @return The current value of the dsssMaxPwrLevel field in the DSSSMAX_POWER_LEVEL register.
+ */
+__INLINE uint32_t nxmac_dsss_max_pwr_level_getf(void)
+{
+    uint32_t localVal = REG_PL_RD(NXMAC_DSSSMAX_POWER_LEVEL_ADDR);
+    ASSERT_ERR((localVal & ~((uint32_t)0xFFFFFFFF)) == 0);
+    return (localVal >> 0);
+}
+
+/**
+ * @brief Sets the dsssMaxPwrLevel field of the DSSSMAX_POWER_LEVEL register.
+ *
+ * The DSSSMAX_POWER_LEVEL register will be read, modified to contain the new field value, and written.
+ *
+ * @param[in] dsssmaxpwrlevel - The value to set the field to.
+ */
+__INLINE void nxmac_dsss_max_pwr_level_setf(uint32_t dsssmaxpwrlevel)
+{
+    ASSERT_ERR((((uint32_t)dsssmaxpwrlevel << 0) & ~((uint32_t)0xFFFFFFFF)) == 0);
+    REG_PL_WR(NXMAC_DSSSMAX_POWER_LEVEL_ADDR, (uint32_t)dsssmaxpwrlevel << 0);
+}
+
+/// @}
+
+/**
+ * @name OFDMMAX_POWER_LEVEL register definitions
+ * <table>
+ * <caption id="OFDMMAX_POWER_LEVEL_BF">OFDMMAX_POWER_LEVEL bitfields</caption>
+ * <tr><th>Bits <th>Field Name <th>HW Access <th>SW Access <th>Reset Value
+ * <tr><td>31:00 <td>   ofdmMaxPwrLevel <td>R <td>R/W <td>0x404
+ * </table>
+ *
+ * @{
+ */
+
+/// Address of the OFDMMAX_POWER_LEVEL register
+#define NXMAC_OFDMMAX_POWER_LEVEL_ADDR   (REG_MAC_CORE_BASE_ADDR + 0x000000A4)
+/// Offset of the OFDMMAX_POWER_LEVEL register from the base address
+#define NXMAC_OFDMMAX_POWER_LEVEL_OFFSET 0x000000A4
+/// Index of the OFDMMAX_POWER_LEVEL register
+#define NXMAC_OFDMMAX_POWER_LEVEL_INDEX  0x00000029
+/// Reset value of the OFDMMAX_POWER_LEVEL register
+#define NXMAC_OFDMMAX_POWER_LEVEL_RESET  0x00000404
+
+/**
+ * @brief Returns the current value of the OFDMMAX_POWER_LEVEL register.
+ * The OFDMMAX_POWER_LEVEL register will be read and its value returned.
+ * @return The current value of the OFDMMAX_POWER_LEVEL register.
+ */
+__INLINE uint32_t nxmac_ofdmmax_power_level_get(void)
+{
+    return REG_PL_RD(NXMAC_OFDMMAX_POWER_LEVEL_ADDR);
+}
+
+/**
+ * @brief Sets the OFDMMAX_POWER_LEVEL register to a value.
+ * The OFDMMAX_POWER_LEVEL register will be written.
+ * @param value - The value to write.
+ */
+__INLINE void nxmac_ofdmmax_power_level_set(uint32_t value)
+{
+    REG_PL_WR(NXMAC_OFDMMAX_POWER_LEVEL_ADDR, value);
+}
+
+// field definitions
+/// OFDM_MAX_PWR_LEVEL field mask
+#define NXMAC_OFDM_MAX_PWR_LEVEL_MASK   ((uint32_t)0xFFFFFFFF)
+/// OFDM_MAX_PWR_LEVEL field LSB position
+#define NXMAC_OFDM_MAX_PWR_LEVEL_LSB    0
+/// OFDM_MAX_PWR_LEVEL field width
+#define NXMAC_OFDM_MAX_PWR_LEVEL_WIDTH  ((uint32_t)0x00000020)
+
+/// OFDM_MAX_PWR_LEVEL field reset value
+#define NXMAC_OFDM_MAX_PWR_LEVEL_RST    0x404
+
+/**
+ * @brief Returns the current value of the ofdmMaxPwrLevel field in the OFDMMAX_POWER_LEVEL register.
+ *
+ * The OFDMMAX_POWER_LEVEL register will be read and the ofdmMaxPwrLevel field's value will be returned.
+ *
+ * @return The current value of the ofdmMaxPwrLevel field in the OFDMMAX_POWER_LEVEL register.
+ */
+__INLINE uint32_t nxmac_ofdm_max_pwr_level_getf(void)
+{
+    uint32_t localVal = REG_PL_RD(NXMAC_OFDMMAX_POWER_LEVEL_ADDR);
+    ASSERT_ERR((localVal & ~((uint32_t)0xFFFFFFFF)) == 0);
+    return (localVal >> 0);
+}
+
+/**
+ * @brief Sets the ofdmMaxPwrLevel field of the OFDMMAX_POWER_LEVEL register.
+ *
+ * The OFDMMAX_POWER_LEVEL register will be read, modified to contain the new field value, and written.
+ *
+ * @param[in] ofdmmaxpwrlevel - The value to set the field to.
+ */
+__INLINE void nxmac_ofdm_max_pwr_level_setf(uint32_t ofdmmaxpwrlevel)
+{
+    ASSERT_ERR((((uint32_t)ofdmmaxpwrlevel << 0) & ~((uint32_t)0xFFFFFFFF)) == 0);
+    REG_PL_WR(NXMAC_OFDMMAX_POWER_LEVEL_ADDR, (uint32_t)ofdmmaxpwrlevel << 0);
+}
+
+/// @}
+#else
 /**
  * @name MAX_POWER_LEVEL register definitions
  * <pre>
@@ -5633,6 +5795,7 @@ __INLINE void nxmac_ofdm_max_pwr_level_setf(uint8_t ofdmmaxpwrlevel)
 }
 
 /// @}
+#endif
 
 /**
  * @name ENCR_KEY_0 register definitions

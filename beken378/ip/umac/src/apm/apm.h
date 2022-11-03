@@ -32,6 +32,8 @@ struct apm
     struct co_list bss_config;
     /// Used in the Aging Algorithm
     uint8_t aging_sta_idx;
+    /// Indicate hostapd is started completely
+    bool start_done;
 };
 
 

@@ -48,6 +48,16 @@ typedef struct
     volatile UINT8 has_data; /* 1: has data      0: no data*/
     volatile UINT8 all_done; /* 1: all done      0: still sampling*/
     UINT8 channel;
+    //TODO: should refactory with bit-field option
+    #if 0//(CFG_SOC_NAME == SOC_BK7238)
+    /* mode:     ADC mode
+     *          00:  ADC power down mode
+     *          01:  ADC one-step mode
+     *          10:  ADC software control mode
+     *          11:  ADC continuous mode
+     */
+    UINT8 mode:1;
+    #else
     /* mode:     ADC mode
      * bit[0:1]: ADC operation mode
      *          00:  ADC power down mode
@@ -60,6 +70,7 @@ typedef struct
      * bit[7:3]: reserved
      */
     UINT8 mode;
+    #endif
     void (*p_Int_Handler)(void);
     unsigned char pre_div;					// ADC pre-divide clk
     unsigned char samp_rate;				// ADC sample rate

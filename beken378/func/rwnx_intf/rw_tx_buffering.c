@@ -228,7 +228,7 @@ static void rwm_flush_bufing_list(uint8_t client_idx,uint8_t flag)
                 break;
         }
     }
-    
+
     if(rtos_is_timer_running(bufing_timer))
     {
         ret = rtos_stop_timer(bufing_timer);
@@ -238,7 +238,11 @@ static void rwm_flush_bufing_list(uint8_t client_idx,uint8_t flag)
 
 void rwm_tx_bufing_end(uint8_t client_idx)
 {
-    uint8_t flag = VIF_AP;
+    UINT8  tx_vif_idx = sta_mgmt_get_vif_idx(client_idx);
+    uint8_t flag = vif_mgmt_get_type(tx_vif_idx);
+    tx_bufing_client *txbufing = rwm_get_bufing_chain(client_idx,flag);
+
+    txbufing->cntrl_src = 0;
     rwm_flush_bufing_list(client_idx,flag);
 }
 
@@ -436,7 +440,19 @@ bool rwm_check_tx_bufing(MSDU_NODE_T *node)
         return false;
     }
 
-    client_idx = node->sta_idx;
+    if(flag == VIF_STA)
+    {
+        client_idx = node->vif_idx;
+
+    }
+    else if(flag == VIF_AP)
+    {
+        client_idx = node->sta_idx;
+    }
+    else
+    {
+        return false;
+    }
     txbufing = rwm_get_bufing_chain(client_idx,flag);
 
     if ((client_idx >= MAX_BUFING_CLIENT_NUM) || (g_tx_bufing.tx_bufing_en == false)||txbufing == NULL)
@@ -454,7 +470,7 @@ bool rwm_check_tx_bufing(MSDU_NODE_T *node)
 
 void rwm_tx_bufing_init(void)
 {
-    g_tx_bufing.tx_bufing_en = false;
+    g_tx_bufing.tx_bufing_en = true;
 
     for( int i=0; i < MAX_BUFING_CLIENT_NUM; i++)
     {
@@ -478,8 +494,4 @@ void rwm_tx_bufing_init(void)
     }
 }
 
-void rwm_tx_bufing_reinit (bool var)
-{
-    g_tx_bufing.tx_bufing_en = var;
-}
 #endif

@@ -12,7 +12,11 @@
 #include "shell.h"
 #include "flash.h" 	
 #include <finsh.h>
+
+#ifdef PKG_USING_EASYFLASH
 #include "easyflash.h"
+#endif
+
 #include "test_config.h"
 
 #ifdef EASY_FLASH_TEST

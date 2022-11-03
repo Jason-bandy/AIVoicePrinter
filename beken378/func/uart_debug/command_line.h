@@ -23,11 +23,15 @@
  * Rather than doubling the size of the _ctype lookup table to hold a 'blank'
  * flag, just check for space or tab.
  */
-#ifndef isblank
-#define isblank(c)	(c == ' ' || c == '\t')
+#ifndef _isblank
+#define _isblank(c)	(c == ' ' || c == '\t')
 #endif
-#define isascii(c) (((unsigned char)(c))<=0x7f)
-#define toascii(c) (((unsigned char)(c))&0x7f)
+#ifndef _isascii
+#define _isascii(c) (((unsigned char)(c))<=0x7f)
+#endif
+#ifndef _toascii
+#define _toascii(c) (((unsigned char)(c))&0x7f)
+#endif
 
 /*
  * Error codes that commands return to cmd_process(). We use the standard 0

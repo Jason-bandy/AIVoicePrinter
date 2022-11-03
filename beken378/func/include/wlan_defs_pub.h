@@ -13,7 +13,7 @@ extern "C" {
 #define WLAN_SCAN_SSID_MAX      2  /* max # of SSIDs */
 #define WLAN_SSID_MAX_LEN       32
 #define WLAN_PASSPHRASE_MIN_LEN 8
-#define WLAN_PASSPHRASE_MAX_LEN 63
+#define WLAN_PASSPHRASE_MAX_LEN 64
 #define WLAN_PSK_HEX_LEN        32
 #define WLAN_PSK_HEX_STR_LEN    64 /* two characters per octet of PSK */
 
@@ -442,6 +442,20 @@ struct wlan_p2p_connect_param {
 	int method;
 	int intent;
 };
+
+/**
+ * @addr: softap deauth sta's mac addr, all 0xff for deauth all STA.
+ * @reason: reason code: <=0 for automatic select
+ */
+typedef struct {
+	uint8_t addr[6];
+	int     reason;
+} wlan_ap_sta_deauth_t;
+
+
+typedef struct {
+	uint8_t addr[6];
+} wlan_ap_blacklist_t;
 
 #ifdef __cplusplus
 }

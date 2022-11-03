@@ -11,9 +11,11 @@
 #define CFG_USE_UART1                              0
 #define CFG_JTAG_ENABLE                            0
 #define OSMALLOC_STATISTICAL                       0
+#define CFG_MEM_DEBUG                              0
 
 /*section 0-----app macro config-----*/
 #define CFG_IEEE80211N                             1
+#define CFG_IEEE80211N_HT40                        0
 
 /*section 1-----OS macro config-----*/
 #define RTOS_ALIOS_THINGS                          1
@@ -50,6 +52,11 @@
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
+#if CFG_AP_MONITOR_COEXIST
+#define CFG_AP_MONITOR_COEXIST_DEMO                0
+/*AP will switch to ori channel when tbtt arrive*/
+#define CFG_AP_MONITOR_COEXIST_TBTT                0
+#endif
 #define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         1
@@ -66,6 +73,13 @@
 #define CFG_WIFI_STA_VSIE                          0
 /* Vendor Specific IEs when AP Beacon  */
 #define CFG_WIFI_AP_VSIE                           0
+/* Custom softap basic rates, supported rates, ht mcs set */
+#define CFG_WIFI_AP_CUSTOM_RATES                   0
+/*
+ * Support set softap modes: BGN, BG, B. Macro
+ * CFG_AP_SUPPORT_HT_IE must be enabled to support N mode
+ */
+#define CFG_WIFI_AP_HW_MODE                        0
 
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -80,6 +94,8 @@
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
 #define CFG_OWE                                    0
+/* use wpa2 instead of wpa3-sae if in wpa3 transition mode */
+#define CFG_CFG_WPA2_PREFER_TO_SAE                 0
 #endif
 
 #define CFG_WFA_CERT                               0
@@ -91,6 +107,17 @@
 #define CFG_USE_CONV_UTF8                          0
 #define CFG_BK_AWARE                               0
 #define CFG_BK_AWARE_OUI                           "\xC8\x47\x8C"
+#define CFG_RESTORE_CONNECT                        0
+#define CFG_QUICK_TRACK                            0
+
+/* use mbedtls as wpa crypto functions */
+#define CFG_USE_MBEDTLS                            0
+#if CFG_USE_MBEDTLS
+#define CFG_MBEDTLS                                1
+#endif
+#if CFG_QUICK_TRACK
+#define _DUT_                                      1
+#endif
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
@@ -122,6 +149,10 @@
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
 #define CFG_IPERF_TEST                             0
+#if CFG_IPERF_TEST
+#define CFG_IPERF_TEST_ACCEL                       1
+#define CFG_IPERF_DONT_MALLOC_BUFFER               1
+#endif
 #define CFG_TCP_SERVER_TEST                        0
 #define CFG_AIRKISS_TEST                           0
 #define CFG_ENABLE_DEMO_TEST                       0
@@ -186,6 +217,9 @@
 #define CFG_USE_BLE_PS                             0
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
+#define CFG_LOW_VOLTAGE_PS                         0
+#define CFG_LOW_VOLTAGE_PS_32K_DIV                 0
+#define CFG_LOW_VOLTAGE_PS_TEST                    0
 
 /*section 17-----support sta power sleep*/
 #if CFG_RF_OTA_TEST

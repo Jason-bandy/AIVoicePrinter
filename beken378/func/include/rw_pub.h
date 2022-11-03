@@ -77,6 +77,7 @@ typedef struct cfg80211_scan_params
 {
     uint8_t num_ssids;
     uint8_t vif_idx;
+    uint8_t flag;
     struct mac_ssid ssids[SCAN_SSID_MAX];
     struct mac_addr bssid;
 	int freqs[14];	//FIXME: 5G
@@ -228,6 +229,7 @@ extern UINT32 rwm_uploaded_data_handle(UINT8 *upper_buf, UINT32 len);
 extern UINT32 rwm_get_rx_valid_node_len(void);
 extern int rw_msg_send(const void *msg_params, uint16_t reqid, void *cfm);
 extern int rw_msg_send_reset(void);
+extern int rw_send_me_rc_set_rate(u8 sta_idx, u16 rate_cfg);
 extern int rw_msg_send_start(void);
 extern int rw_msg_send_me_config_req(void);
 extern int rw_msg_send_me_chan_config_req(void);
@@ -239,6 +241,7 @@ extern int rw_msg_send_cancel_roc(u8 vif_index);
 extern int rw_msg_send_apm_start_req(u8 vif_index, u8 channel,
                      struct apm_start_cfm *cfm);
 extern int rw_msg_send_bcn_change(void *bcn_param);
+extern int rw_msg_send_apm_start_done_ind(bool);
 extern int rw_msg_send_me_sta_add(struct add_sta_st *param,
                      struct me_sta_add_cfm *cfm);
 extern int rw_msg_send_me_sta_del(u8 sta_idx, bool tdls_sta);
@@ -261,9 +264,11 @@ extern int rw_msg_set_power(u8 vif_idx, u8 power);
 extern int rw_msg_send_sm_auth_req(AUTH_PARAM_T *auth_param);
 extern int rw_msg_send_sm_external_auth_status(EXTERNAL_AUTH_PARAM_T *auth_param);
 extern int rw_msg_send_sm_set_operstate_req(SET_OPERATE_PARAM_T *param);
-
-
-
+#if CFG_AP_MONITOR_COEXIST_TBTT
+extern int rw_msg_set_ap_monitor_coexist_tbtt(u8 vif_idx, uint32_t enable);
+extern int rw_msg_set_ap_monitor_coexist_tbtt_dur(u8 vif_idx, uint32_t duration_ms);
+#endif
+int rw_msg_send_ftm_start(u8 vif_index, u8 ftm_per_burst, u8 nb_ftm_rsp);
 
 VIF_INF_PTR rwm_mgmt_vif_idx2ptr(UINT8 vif_idx);
 VIF_INF_PTR rwm_mgmt_vif_type2ptr(UINT8 vif_type);
@@ -273,7 +278,7 @@ UINT8 rwm_mgmt_sta_mac2idx(void *mac);
 UINT8 rwm_mgmt_vif_mac2idx(void *mac);
 UINT8 rwm_mgmt_vif_name2idx(char *name);
 UINT8 rwm_mgmt_update_rate(void);
-UINT8 rwm_mgmt_get_hwkeyidx(UINT8 vif_idx, UINT8 staid);
+UINT8 rwm_mgmt_get_hwkeyidx(UINT8 vif_idx, UINT8 staid, UINT8 key_idx);
 void rwm_mgmt_set_vif_netif(struct netif *net_if);
 struct netif *rwm_mgmt_get_vif2netif(UINT8 vif_idx);
 UINT8 rwm_mgmt_get_netif2vif(struct netif *netif);

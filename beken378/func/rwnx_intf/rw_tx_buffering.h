@@ -64,6 +64,5 @@ void rwm_gc_tx_bufing_timeout(void *data);
 void rwm_tx_bufing_timeout(void *data);
 void rwm_tx_bufing_end(uint8_t client_idx);
 void rwm_tx_bufing_init(void);
-void rwm_tx_bufing_reinit (bool var);
 #endif
 #endif

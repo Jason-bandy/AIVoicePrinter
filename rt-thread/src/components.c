@@ -226,7 +226,7 @@ void rt_application_init(void)
 
 static void rt_show_osk_revision(void)
 {
-    rt_kprintf("\nOSK Rev: %s\n", BEKEN_OSK_REV);
+    rt_kprintf("\nOSK Rev: %s %s\n", BEKEN_OSK_REV, OSK_COMMIT_ID);
 }
 
 int rtthread_startup(void)

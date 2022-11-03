@@ -7,7 +7,7 @@
 #if (CFG_SUPPORT_BLE)
 
 #include "ble.h"
-#if (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#if (CFG_BLE_VERSION != BLE_VERSION_4_2)
 #include "app_ble.h"
 #include "ble_api_5_x.h"
 #else
@@ -39,10 +39,13 @@ enum
 	TEST_IDX_FF02_VAL_CHAR,
 	TEST_IDX_FF02_VAL_VALUE,
 	TEST_IDX_FF02_VAL_IND_CFG,
+	TEST_IDX_FF03_VAL_CHAR,
+	TEST_IDX_FF03_VAL_VALUE,
+	TEST_IDX_FF03_VAL_NTF_CFG,
 	TEST_IDX_NB,
 };
 
-bk_attm_desc_t test_att_db[6] =
+bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 {
 	//  Service Declaration
 	[TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, BK_PERM_SET(RD, ENABLE), 0, 0},
@@ -59,6 +62,12 @@ bk_attm_desc_t test_att_db[6] =
 	//  Level Characteristic - Client Characteristic Configuration Descriptor
 
 	[TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+	[TEST_IDX_FF03_VAL_CHAR] = {BK_ATT_DECL_CHARACTERISTIC_128,	BK_PERM_SET(RD, ENABLE), 0, 0},
+	//  Level Characteristic Value
+	[TEST_IDX_FF03_VAL_VALUE] = {NOTIFY_CHARACTERISTIC_128,	   BK_PERM_SET(NTF, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+	//  Level Characteristic - Client Characteristic Configuration Descriptor
+	[TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+
 };
 
 ble_err_t bk_ble_init(void)
@@ -370,7 +379,7 @@ static void ble(int argc, char **argv)
 MSH_CMD_EXPORT(ble, ble command);
 #endif
 
-#if (CFG_BLE_VERSION == BLE_VERSION_5_x)
+#if (CFG_BLE_VERSION == BLE_VERSION_5_1)
 extern struct app_env_tag app_ble_ctx;
 
 #define BUILD_UINT16(loByte, hiByte) \

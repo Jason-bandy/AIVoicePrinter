@@ -261,6 +261,16 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7236 --buildlib=beken_rf_use -j8")
             DoSystemCall("scons --beken=bk7236 --buildlib=beken_uart_debug -j8")
             DoSystemCall("scons --beken=bk7236 --buildlib=beken_supplicant -j8")
+        elif GetOption('beken') == 'bk7238':
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_sensor -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_cal -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_rf_test -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_rf_use -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_uart_debug -j8")
+            DoSystemCall("scons --beken=bk7238 --buildlib=beken_supplicant -j8")
         elif GetOption('beken') == 'bk7271':
             DoSystemCall("scons --beken=bk7271 --buildlib=beken_ip -j8")
             DoSystemCall("scons --beken=bk7271 --buildlib=beken_vad -j8")
@@ -319,6 +329,16 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
             DoSystemCall("scons --beken=bk7236 --cleanlib=beken_rf_use -j8")
             DoSystemCall("scons --beken=bk7236 --cleanlib=beken_uart_debug -j8")
             DoSystemCall("scons --beken=bk7236 --cleanlib=beken_supplicant -j8")
+        elif GetOption('beken') == 'bk7238':
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_ip -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_ble -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_vad -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_sensor -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_cal -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_rf_test -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_rf_use -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_uart_debug -j8")
+            DoSystemCall("scons --beken=bk7238 --cleanlib=beken_supplicant -j8")
         elif GetOption('beken') == 'bk7271':
             DoSystemCall("scons --beken=bk7271 --cleanlib=beken_ip -j8")
             DoSystemCall("scons --beken=bk7271 --cleanlib=beken_vad -j8")

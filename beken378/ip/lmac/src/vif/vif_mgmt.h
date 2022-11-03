@@ -242,6 +242,12 @@ struct vif_info_tag
             uint8_t ps_sta_cnt;
             /// Control port ethertype
             uint16_t ctrl_port_ethertype;
+#if CFG_AP_MONITOR_COEXIST_TBTT
+            //AP will switch to ori channel when tbtt arrive
+            uint8_t ap_monitor_coexist_tbtt;
+            //when tbtt arrive, stay in AP ori channel duration in ms
+            uint8_t ap_monitor_coexist_tbtt_dur;
+#endif
         } ap;
     } u;    ///< Union of AP/STA specific parameter structures
 
@@ -529,6 +535,8 @@ struct vif_info_tag *vif_get_entry_by_mac_addr(struct mac_addr *addr);
 extern struct vif_info_tag* get_appoint_type_vif(int type);
 struct vif_info_tag *vif_mgmt_get_first_ap_entry(void);
 uint32_t vif_mgmt_get_first_ap_index(void);
+void vif_mgmt_bcn_to_evt(void *env);
+
 #endif // _VIF_MGMT_H_
 // eof
 

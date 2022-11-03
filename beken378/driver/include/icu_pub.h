@@ -44,7 +44,7 @@ enum
 #define PCLK_POSI_SPI                        (1 << 6)
 #define PCLK_POSI_PWMS                       (1 << 7)
 #define PCLK_POSI_SDIO                       (1 << 8)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define PCLK_POSI_EFUSE                      (1 << 9)
 #else
 #define PCLK_POSI_SARADC_AUD                 (1 << 9)
@@ -71,6 +71,7 @@ enum
 #define PWD_USB_CLK_BIT                      (1 << 18)
 #define PWD_SDIO_CLK_BIT                     (1 << 17)
 #define PWD_TL410_WATCHDOG_BIT               (1 << 16)
+#define PWD_GDMA_CLK_BIT                     (1 << 15)
 #define PWD_AUDIO_CLK_BIT                    (1 << 15)
 #define PWD_PWM5_CLK_BIT                     (1 << 14)
 #define PWD_PWM4_CLK_BIT                     (1 << 13)
@@ -165,7 +166,7 @@ enum
 #define TIMER_ARM_WAKEUP_EN_BIT                         (1 << 8)
 #endif
 #define BLE_ARM_WAKEUP_EN_BIT                       	 (1 << 30)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define BTDM_ARM_WAKEUP_EN_BIT                       	 (1 << 29)
 #endif
 #define MAC_ARM_WAKEUP_EN_BIT                       	 (1 << 26) 

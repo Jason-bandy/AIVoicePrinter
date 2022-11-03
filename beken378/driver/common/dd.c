@@ -19,10 +19,10 @@
 #include "irda_pub.h"
 #include "mac_phy_bypass_pub.h"
 #include "bk_timer_pub.h"
+#include "i2c_pub.h"
 
 #if CFG_USE_CAMERA_INTF
 #include "jpeg_encoder_pub.h"
-#include "i2c_pub.h"
 #endif
 
 #if CFG_USE_AUDIO
@@ -61,7 +61,7 @@
 #include "security_pub.h"
 #endif
 
-#if (SOC_BK7231N == CFG_SOC_NAME)
+#if (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7238)
 #include "calendar_pub.h"
 #endif
 
@@ -73,15 +73,15 @@ static DD_INIT_S dd_init_tbl[] =
     {WDT_DEV_NAME,          wdt_init,                   wdt_exit},
     {GPIO_DEV_NAME,         gpio_init,                  gpio_exit},
 
-#if (SOC_BK7231N == CFG_SOC_NAME)
+#if (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7238)
 	{CAL_DEV_NAME,			cal_init,					cal_exit},
 #endif
-    
+
     {UART2_DEV_NAME,        uart2_init,                 uart2_exit},
     {UART1_DEV_NAME,        uart1_init,                 uart1_exit},
 
     {FLASH_DEV_NAME,        flash_init,                 flash_exit},
-    
+
 #if CFG_GENERAL_DMA
     {GDMA_DEV_NAME,         gdma_init,                  gdma_exit},
 #endif
@@ -94,14 +94,20 @@ static DD_INIT_S dd_init_tbl[] =
     {QSPI_DEV_NAME,       qspi_init,                	qspi_exit},
 #endif
 
+#if CFG_USE_I2C1
+    {I2C1_DEV_NAME,         i2c1_init,                  i2c1_exit},
+#endif
+
+#if CFG_USE_I2C2
+    {I2C2_DEV_NAME,         i2c2_init,                  i2c2_exit},
+#endif
+
 #if CFG_USE_CAMERA_INTF
     {EJPEG_DEV_NAME,        ejpeg_init,                 ejpeg_exit},
-    {I2C1_DEV_NAME,         i2c1_init,                  i2c1_exit},        
-    {I2C2_DEV_NAME,         i2c2_init,                  i2c2_exit},            
 #endif
 
 #if CFG_USE_AUDIO
-    {AUD_DAC_DEV_NAME,      audio_init,                 audio_exit},        
+    {AUD_DAC_DEV_NAME,      audio_init,                 audio_exit},
 #endif
 
 #if CFG_SDIO || CFG_SDIO_TRANS

@@ -3,25 +3,29 @@
 #include <stdbool.h>
 #include "include.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef void (*FUNCPTR)(void);
 typedef void (*FUNC_1PARAM_PTR)(void *ctxt);
 typedef void (*FUNC_2PARAM_PTR)(void *arg, unsigned char vif_idx);
 typedef void (*FUNC_2PARAM_CB)(uint32_t larg, uint32_t rarg);
 
-#ifndef MAX
-#define MAX(x, y)                  (((x) > (y)) ? (x) : (y))
+#ifndef _MAX
+#define _MAX(x, y)                  (((x) > (y)) ? (x) : (y))
 #endif
 
-#ifndef MIN
-#define MIN(x, y)                  (((x) < (y)) ? (x) : (y))
+#ifndef _MIN
+#define _MIN(x, y)                  (((x) < (y)) ? (x) : (y))
 #endif
 
-#ifndef max
-#define max(x, y)                  (((x) > (y)) ? (x) : (y))
+#ifndef _max
+#define _max(x, y)                  (((x) > (y)) ? (x) : (y))
 #endif
 
-#ifndef min
-#define min(x, y)                  (((x) < (y)) ? (x) : (y))
+#ifndef _min
+#define _min(x, y)                  (((x) < (y)) ? (x) : (y))
 #endif
 
 extern void bk_printf(const char *fmt, ...);
@@ -106,20 +110,20 @@ extern void bk_printf(const char *fmt, ...);
 
 #define BIT(i)                   (1UL << (i))
 
-static inline unsigned short __bswap16( unsigned short _x)
+static inline unsigned short __bswap16_bk( unsigned short _x)
 {
 
 	return (( unsigned short)((_x >> 8) | ((_x << 8) & 0xff00)));
 }
 
-static inline  unsigned int __bswap32(unsigned int _x)
+static inline  unsigned int __bswap32_bk(unsigned int _x)
 {
 
 	return ((unsigned int)((_x >> 24) | ((_x >> 8) & 0xff00) |
 	    ((_x << 8) & 0xff0000) | ((_x << 24) & 0xff000000)));
 }
 
-static inline unsigned long long  __bswap64(unsigned long long _x)
+static inline unsigned long long  __bswap64_bk(unsigned long long _x)
 {
 
 	return ((unsigned long long)((_x >> 56) | ((_x >> 40) & 0xff00) |
@@ -129,8 +133,8 @@ static inline unsigned long long  __bswap64(unsigned long long _x)
 	    ((_x << 40) & ((unsigned long long)0xff << 48)) | ((_x << 56))));
 }
 
-#define __swab16(x) __bswap16((unsigned char *)&(x))
-#define __swab32(x) __bswap32((unsigned char *)&(x))
+#define __swab16(x) __bswap16_bk((unsigned char *)&(x))
+#define __swab32(x) __bswap32_bk((unsigned char *)&(x))
 
 #define cpu_to_le16(x)   (x)
 #define cpu_to_le32(x)   (x)
@@ -140,11 +144,21 @@ static inline unsigned long long  __bswap64(unsigned long long _x)
 #define __cpu_to_be16(x) __swab16((x))
 #define __be16_to_cpu(x) __swab16((x))
 
+#ifndef __htonl
+#define	__htonl(_x)	__bswap32_bk(_x)
+#endif
 
-#define	__htonl(_x)	__bswap32(_x)
-#define	__htons(_x)	__bswap16(_x)
-#define	__ntohl(_x)	__bswap32(_x)
-#define	__ntohs(_x)	__bswap16(_x)
+#ifndef __htons
+#define	__htons(_x)	__bswap16_bk(_x)
+#endif
+
+#ifndef __ntohl
+#define	__ntohl(_x)	__bswap32_bk(_x)
+#endif
+
+#ifndef __ntohs
+#define	__ntohs(_x)	__bswap16_bk(_x)
+#endif
 
 #define ___htonl(x) __cpu_to_be32(x)
 #define ___htons(x) __cpu_to_be16(x)
@@ -156,6 +170,12 @@ static inline unsigned long long  __bswap64(unsigned long long _x)
 #define ntohs(x) __ntohs(x)
 #define htonl(x) __htonl(x)
 #define ntohl(x) __ntohl(x)
+#endif
+
+extern size_t strnlen(const char * s, size_t len);
+
+#ifdef __cplusplus
+}
 #endif
 
 #endif // _GENERIC_H_

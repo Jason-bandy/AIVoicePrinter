@@ -16,6 +16,8 @@ static uint32_t g_wdt_period = 0;
 
 /*******************************************************************/
 #if 1
+extern void sctrl_dpll_delay200us(void);
+
 void wdt_init(void)
 {
 	sddev_register_dev(WDT_DEV_NAME, &wdt_op);
@@ -60,7 +62,9 @@ UINT32 wdt_ctrl(UINT32 cmd, void *param)
 			reg = WDT_1ST_KEY << WDT_KEY_POSI;
 			reg |= (g_wdt_period & WDT_PERIOD_MASK) << WDT_PERIOD_POSI;
 			REG_WRITE(WDT_CTRL_REG, reg);
-			
+
+			sctrl_dpll_delay200us();
+
 			reg = WDT_2ND_KEY << WDT_KEY_POSI;
 			reg |= (g_wdt_period & WDT_PERIOD_MASK) << WDT_PERIOD_POSI;
 			REG_WRITE(WDT_CTRL_REG, reg);
@@ -75,7 +79,9 @@ UINT32 wdt_ctrl(UINT32 cmd, void *param)
 			reg = WDT_1ST_KEY << WDT_KEY_POSI;
 			reg |= ((*(UINT32 *)param) & WDT_PERIOD_MASK) << WDT_PERIOD_POSI;
 			REG_WRITE(WDT_CTRL_REG, reg);
-			
+
+			sctrl_dpll_delay200us();
+
 			reg = WDT_2ND_KEY << WDT_KEY_POSI;
 			reg |= ((*(UINT32 *)param) & WDT_PERIOD_MASK) << WDT_PERIOD_POSI;
 			REG_WRITE(WDT_CTRL_REG, reg);

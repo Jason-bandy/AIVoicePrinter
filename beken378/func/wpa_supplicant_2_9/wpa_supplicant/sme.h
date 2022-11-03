@@ -27,6 +27,8 @@ static inline void sme_event_ch_switch(struct wpa_supplicant *wpa_s)
 }
 #endif
 
+void sme_clear_on_disassoc(struct wpa_supplicant *wpa_s);
+
 #ifdef CONFIG_SME
 
 void sme_authenticate(struct wpa_supplicant *wpa_s,
@@ -47,7 +49,6 @@ void sme_event_disassoc(struct wpa_supplicant *wpa_s,
 void sme_state_changed(struct wpa_supplicant *wpa_s);
 void sme_disassoc_while_authenticating(struct wpa_supplicant *wpa_s,
 				       const u8 *prev_pending_bssid);
-void sme_clear_on_disassoc(struct wpa_supplicant *wpa_s);
 void sme_deinit(struct wpa_supplicant *wpa_s);
 
 int sme_proc_obss_scan(struct wpa_supplicant *wpa_s);
@@ -101,10 +102,6 @@ static inline void sme_state_changed(struct wpa_supplicant *wpa_s)
 static inline void
 sme_disassoc_while_authenticating(struct wpa_supplicant *wpa_s,
 				  const u8 *prev_pending_bssid)
-{
-}
-
-static inline void sme_clear_on_disassoc(struct wpa_supplicant *wpa_s)
 {
 }
 

@@ -128,6 +128,7 @@ struct rt_serial_rx_fifo
     rt_uint16_t put_index, get_index;
 
     rt_bool_t is_full;
+    rt_uint32_t continue_fifo_full_start_tick;
 };
 
 struct rt_serial_tx_fifo

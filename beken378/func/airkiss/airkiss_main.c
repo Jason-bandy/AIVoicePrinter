@@ -115,8 +115,10 @@ void airkiss_count_usefull_packet(const unsigned char *frame, int size)
         return;
 
     if((MAC_FCTRL_BEACON == (fmac_hdr->fctl & MAC_FCTRL_TYPESUBTYPE_MASK)) 
-		|| (MAC_FCTRL_PROBERSP == (fmac_hdr->fctl & MAC_FCTRL_TYPESUBTYPE_MASK)))
+        || (MAC_FCTRL_PROBERSP == (fmac_hdr->fctl & MAC_FCTRL_TYPESUBTYPE_MASK)))
     {
+        uint32_t min_cnt = 0xffffffff;
+        int min_idx = 0;
         cur_chan->bcn_cnt++;
         var_part_addr = CPU2HW(frm->variable);
         var_part_len = size - MAC_BEACON_VARIABLE_PART_OFT;
@@ -125,7 +127,7 @@ void airkiss_count_usefull_packet(const unsigned char *frame, int size)
         {
             channel = co_read8p(elmt_addr + MAC_DS_CHANNEL_OFT);
         }
-		
+
         for(i = 0; i < g_macs.mac_cnt; i++)
         {
             if((mac_crc == g_macs.mac[i].mac_crc))
@@ -136,16 +138,37 @@ void airkiss_count_usefull_packet(const unsigned char *frame, int size)
                 }
                 break;
             }
+            else
+            {
+                // record the min frame_cnt
+                if(min_cnt > g_macs.mac[i].frame_cnt)
+                {
+                    min_cnt = g_macs.mac[i].frame_cnt;
+                    min_idx = i;
+                }
+            }
         }
-		
+
         if(i == g_macs.mac_cnt)
         {
-            g_macs.mac[i].mac_crc = mac_crc;
-            if(channel != 0)
+            if(g_macs.mac_cnt < MAX_MAC)
             {
-                g_macs.mac[i].channel = channel;
+                g_macs.mac[i].mac_crc = mac_crc;
+                if(channel != 0)
+                {
+                    g_macs.mac[i].channel = channel;
+                }
+                g_macs.mac_cnt++;
             }
-            g_macs.mac_cnt++;
+            else
+            {
+                // all full, chose the min frame idx
+                g_macs.mac[min_idx].mac_crc = mac_crc;
+                if(channel != 0)
+                {
+                    g_macs.mac[min_idx].channel = channel;
+                }
+            }
         }
     }
     else if(MAC_FCTRL_DATA_T == (fmac_hdr->fctl & MAC_FCTRL_TYPE_MASK))

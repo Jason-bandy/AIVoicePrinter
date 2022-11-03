@@ -12,7 +12,7 @@
  */
 #define FLAG_MASK                       (0x1u)
 #define FLAG_POSI                       (7)
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 #define GAIN_MASK                       (0x7fu)
 #else
 #define GAIN_MASK                       (0x1fu)

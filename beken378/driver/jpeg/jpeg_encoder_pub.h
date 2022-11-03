@@ -74,5 +74,9 @@ void ejpeg_init(void);
 void ejpeg_exit(void);
 void ejpeg_set_target_bitrate_size(UINT32 ppi_type);
 
+UINT32 ejpeg_is_on(void);
+void ejpeg_off(void);
+UINT32 ejpeg_get_quant_base_value(void);
+
 #endif // CFG_USE_JPEG_ENCODER
 #endif // __JPEG_ENCODER_PUB_H__

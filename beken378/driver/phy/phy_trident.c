@@ -590,6 +590,519 @@ const uint32_t agc_ram_parameter[] =
 	0x00000000,
 	0x00000000,
 	0x14090b11
+#elif (CFG_SOC_NAME == SOC_BK7238)
+	0x30000000,
+	0x01000000,
+	0xa8000012,
+	0x00000000,
+	0x30000000,
+	0x91000000,
+	0x04000034,
+	0x00000000,
+	0x2000008f,
+	0x04000067,
+	0x00000000,
+	0x34014000,
+	0x10000001,
+	0x08000016,
+	0x00000000,
+	0x240c808f,
+	0x080001b5,
+	0x00000000,
+	0x30000000,
+	0x20fffe43,
+	0x0400000b,
+	0x00000000,
+	0x30000000,
+	0x41000000,
+	0x0400001a,
+	0x00000000,
+	0x30000000,
+	0x51000101,
+	0x0400001e,
+	0x00000000,
+	0x34028000,
+	0x12004483,
+	0x08704822,
+	0x00000000,
+	0x30000000,
+	0x01000000,
+	0x04000026,
+	0x00000000,
+	0x34008001,
+	0x64000001,
+	0x0800002a,
+	0x00000000,
+	0x3402800f,
+	0x68002101,
+	0x0800002e,
+	0x00000000,
+	0x0000139f,
+	0x00000000,
+	0x4400438f,
+	0xa4104980,
+	0x081049a9,
+	0x00000000,
+	0x70000000,
+	0x51000101,
+	0x18500046,
+	0x10000042,
+	0x0c00003a,
+	0x00000000,
+	0x30000000,
+	0x13001b01,
+	0x1c00003e,
+	0x00000000,
+	0x30000000,
+	0x61020202,
+	0x0400004a,
+	0x00000000,
+	0x30000000,
+	0x13001b01,
+	0x1c00004a,
+	0x00000000,
+	0x30000000,
+	0x13001b01,
+	0x1c00004a,
+	0x00000000,
+	0x30000000,
+	0x52000000,
+	0x0400004e,
+	0x00000000,
+	0x2400c000,
+	0x08000051,
+	0x00000000,
+	0x30000000,
+	0x80000000,
+	0x04104855,
+	0x00000000,
+	0x3400400f,
+	0x52000000,
+	0x08000059,
+	0x00000000,
+	0x340204af,
+	0x31191910,
+	0x0800005d,
+	0x00000000,
+	0x30000eaf,
+	0x51000101,
+	0x04000061,
+	0x00000000,
+	0x80000eaf,
+	0x14600082,
+	0x10904882,
+	0x1090d87f,
+	0x0c000067,
+	0x00000000,
+	0x3400ceaf,
+	0x13000021,
+	0x1c20486b,
+	0x00000000,
+	0x50000eaf,
+	0x96000000,
+	0x0c41407f,
+	0x04000070,
+	0x00000000,
+	0x340204af,
+	0x31191910,
+	0x08000074,
+	0x00000000,
+	0x30000eaf,
+	0x51000101,
+	0x04000078,
+	0x00000000,
+	0x20000eaf,
+	0x0400007b,
+	0x00000000,
+	0x44028eaf,
+	0x61704885,
+	0x08000085,
+	0x00000000,
+	0x24050eaf,
+	0x09800085,
+	0x00000000,
+	0x24030eaf,
+	0x09800085,
+	0x00000000,
+	0x60000eaf,
+	0x6580488a,
+	0x6580008e,
+	0x04104892,
+	0x00000000,
+	0x30000eaf,
+	0x41000300,
+	0x04000096,
+	0x00000000,
+	0x30000eaf,
+	0x41000100,
+	0x04000096,
+	0x00000000,
+	0x30000eaf,
+	0x41000000,
+	0x04000096,
+	0x00000000,
+	0x40000eaf,
+	0xa400009e,
+	0x0400009a,
+	0x00000000,
+	0x30000000,
+	0x14eaed03,
+	0x1c00009e,
+	0x00000000,
+	0x24008000,
+	0x080000a1,
+	0x00000000,
+	0x30000000,
+	0x80000000,
+	0x041048a5,
+	0x00000000,
+	0x30000000,
+	0x10000000,
+	0x040000a9,
+	0x00000000,
+	0x34014005,
+	0x63000102,
+	0x080000ad,
+	0x00000000,
+	0x30000007,
+	0x50000001,
+	0x040000b1,
+	0x00000000,
+	0x30000007,
+	0x32202071,
+	0x040000b5,
+	0x00000000,
+	0x30000007,
+	0x61030303,
+	0x040000b9,
+	0x00000000,
+	0x340202ef,
+	0x31202021,
+	0x080000bd,
+	0x00000000,
+	0x34050aef,
+	0x90000000,
+	0x080000c1,
+	0x00000000,
+	0x30000aef,
+	0x12000004,
+	0x040000c5,
+	0x00000000,
+	0x30000aef,
+	0x33000001,
+	0x040000c9,
+	0x00000000,
+	0x60000eaf,
+	0x658048ce,
+	0x658000d2,
+	0x041048d6,
+	0x00000000,
+	0x30000eaf,
+	0x41000301,
+	0x040000e2,
+	0x00000000,
+	0x30000eaf,
+	0x41000101,
+	0x040000e2,
+	0x00000000,
+	0x30000eaf,
+	0x41000001,
+	0x040000da,
+	0x00000000,
+	0x30000eaf,
+	0x51000001,
+	0x040000de,
+	0x00000000,
+	0x30000eaf,
+	0x3400109c,
+	0x040000e2,
+	0x00000000,
+	0x34190bef,
+	0x52000000,
+	0x080000e6,
+	0x00000000,
+	0x30000aef,
+	0x33000101,
+	0x040000ea,
+	0x00000000,
+	0xa0000eaf,
+	0x6da048f1,
+	0x658048f5,
+	0x619000fd,
+	0x69b000f9,
+	0x04104901,
+	0x00000000,
+	0x30000eaf,
+	0x41030002,
+	0x04000109,
+	0x00000000,
+	0x30000eaf,
+	0x41000302,
+	0x04000129,
+	0x00000000,
+	0x30000eaf,
+	0x41010002,
+	0x04000109,
+	0x00000000,
+	0x30000eaf,
+	0x41000102,
+	0x04000129,
+	0x00000000,
+	0x30000eaf,
+	0x41000002,
+	0x04000105,
+	0x00000000,
+	0x3000028f,
+	0x51000001,
+	0x0400019c,
+	0x00000000,
+	0x5000028f,
+	0x51000001,
+	0xa000019c,
+	0x0400010e,
+	0x00000000,
+	0x3401428f,
+	0x10000001,
+	0x08000112,
+	0x00000000,
+	0x34010000,
+	0x14eaed03,
+	0x08000116,
+	0x00000000,
+	0x30000000,
+	0x10000000,
+	0x0400011a,
+	0x00000000,
+	0x24014005,
+	0x0800011d,
+	0x00000000,
+	0x3000128f,
+	0x3400289c,
+	0x04000121,
+	0x00000000,
+	0x3000128f,
+	0x35d4509c,
+	0x04000125,
+	0x00000000,
+	0x3000128f,
+	0x50000100,
+	0x0400016d,
+	0x00000000,
+	0x7432028f,
+	0x65000003,
+	0x7c00012f,
+	0x80104965,
+	0x08000169,
+	0x00000000,
+	0x3000028f,
+	0x41000000,
+	0x04000133,
+	0x00000000,
+	0x8432028f,
+	0x84000165,
+	0x80104965,
+	0x08104939,
+	0x8810493d,
+	0x00000000,
+	0x3000008f,
+	0x41000000,
+	0x881049a9,
+	0x00000000,
+	0x3000008f,
+	0x41000000,
+	0x04104830,
+	0x00000000,
+	0x34004005,
+	0x61020202,
+	0x08104945,
+	0x00000000,
+	0x6419000f,
+	0x8010494a,
+	0x08000139,
+	0x8810493d,
+	0x00000000,
+	0x3000000f,
+	0x15eeea07,
+	0x1c000152,
+	0x00000000,
+	0x3000000f,
+	0x51000001,
+	0x04000156,
+	0x00000000,
+	0x3000000f,
+	0x10000001,
+	0x0400014e,
+	0x00000000,
+	0x24008000,
+	0x08000159,
+	0x00000000,
+	0x30000000,
+	0x10000000,
+	0x0400015d,
+	0x00000000,
+	0x34010005,
+	0x61030303,
+	0x08000161,
+	0x00000000,
+	0x30000007,
+	0x50000001,
+	0x04000165,
+	0x00000000,
+	0x3000008f,
+	0x41000000,
+	0x88104830,
+	0x00000000,
+	0x3000038f,
+	0x01000000,
+	0x0400019c,
+	0x00000000,
+	0x4577138f,
+	0x70000175,
+	0x08000171,
+	0x00000000,
+	0x3000038f,
+	0x51000100,
+	0x0400019c,
+	0x00000000,
+	0x3000138f,
+	0x41000000,
+	0x04000179,
+	0x00000000,
+	0x3000138f,
+	0x65000003,
+	0x0400017d,
+	0x00000000,
+	0x2000108f,
+	0x881049a9,
+	0x00000000,
+	0x3000018f,
+	0x66000001,
+	0x04000184,
+	0x00000000,
+	0x34018000,
+	0x10000001,
+	0x08104988,
+	0x00000000,
+	0x30000000,
+	0x61010101,
+	0x0400018c,
+	0x00000000,
+	0x2403c00f,
+	0x0800018f,
+	0x00000000,
+	0x5405000f,
+	0x95000000,
+	0xb4000194,
+	0x08000198,
+	0x00000000,
+	0x3000000f,
+	0x52000001,
+	0x04000008,
+	0x00000000,
+	0x3000000f,
+	0x52000000,
+	0x0400000b,
+	0x00000000,
+	0x5401438f,
+	0x10000001,
+	0x201049a5,
+	0x081049a1,
+	0x00000000,
+	0x34028000,
+	0x12004403,
+	0x087049ad,
+	0x00000000,
+	0x34010000,
+	0x14ecec03,
+	0x087049ad,
+	0x00000000,
+	0x34004000,
+	0x95000000,
+	0x0810480b,
+	0x00000000,
+	0x30000000,
+	0x80000000,
+	0x041049b1,
+	0x00000000,
+	0x34028000,
+	0x95000000,
+	0x04104822,
+	0x00000000,
+	0x3000008f,
+	0x14eaed03,
+	0x1c0001b9,
+	0x00000000,
+	0x34010000,
+	0x52000000,
+	0x080001bd,
+	0x00000000,
+	0x34008000,
+	0x10000000,
+	0x080001c1,
+	0x00000000,
+	0x24014005,
+	0x080001c4,
+	0x00000000,
+	0x3000128f,
+	0x3400209c,
+	0x040001c8,
+	0x00000000,
+	0x3000128f,
+	0x35d4509c,
+	0x040001cc,
+	0x00000000,
+	0x3000128f,
+	0x50000100,
+	0x040001d0,
+	0x00000000,
+	0x4577138f,
+	0x700001d4,
+	0x08000171,
+	0x00000000,
+	0x3000138f,
+	0x41000000,
+	0x040001d8,
+	0x00000000,
+	0x3000138f,
+	0x65000003,
+	0x040001dc,
+	0x00000000,
+	0x2000138f,
+	0x881049a9,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x150c0811,
 #elif (SOC_BK7231 == CFG_SOC_NAME)
     0x30000000,
     0x01000000,
@@ -1647,7 +2160,14 @@ void phy_pre_agc_init(void)
     {
         *dst ++ = *src ++;
     }
-
+#if (CFG_SOC_NAME == SOC_BK7238)
+#if !CFG_IPERF_TEST_ACCEL
+    if (get_ate_mode_state())
+#endif
+    {
+        REG_WRITE(PHY_AGC_UCODE_ADDR + 0x2E * 4, 0x0000139f);
+    }
+#endif
 	mdm_agcclkforce_setf(1); /*the issue about reset agc*/
 	
     agc_cntl_reg = agc_rwnxagccntl_get();
@@ -1826,6 +2346,46 @@ static void adjust_txdiggains(uint32_t dc_cmp)
  * prepares the modem for rx or tx.
  ****************************************************************************************
  */
+ #if ( 1 == CFG_LOW_VOLTAGE_PS)&&(CFG_SOC_NAME == SOC_BK7231N)
+ static void phy_mdm_init(uint32_t tx_dc_off_comp)
+{
+    //turn on the 3 blocks: TX, AGC-CCA, RX - they are at 1 by default in regs ...
+    mdm_rxtxpwrctrl_pack(1, 1, 1);
+
+    mdm_dcoffset0_set(tx_dc_off_comp);
+    adjust_txdiggains(tx_dc_off_comp);
+
+    // Parameters for 40MHz bandwidth by default
+    mdm_txctrl0_set(0x00000168);
+
+    mdm_rxctrl0_set(0x00160005);
+    mdm_tbectrl0_set(0x0C0F0702);
+
+#if (NX_MDM_VER == 11)
+    mdm_tbectrl2_set(0x0FF07005);
+#endif
+
+    mdm_waithtstf_setf(15);
+    mdm_delaynormalgi_setf(17);
+
+    // CPE mode
+    mdm_cpemode_setf(0);
+
+    // Enable CCA lock IRQ
+    mdm_irqctrl_set(MDM_IRQCCATIMEOUTEN_BIT);
+
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
+    REG_WRITE((REG_MDM_CFG_BASE_ADDR + 0x226 * 4), REG_READ(REG_MDM_CFG_BASE_ADDR + 0x226 * 4) & 0xFFFE); //peak_cancel_bypass=0
+#endif
+
+#if (CFG_SOC_NAME == SOC_BK7238)
+	/* huaming20220722 fix access TRX/RCB bus issue */
+	mdm_fe1clkforce_setf(1);
+#endif
+
+    PHY_WPRT("phy_mdm_init-->Static MDM settings done\r\n");
+}
+#else
 static void phy_mdm_init(uint32_t tx_dc_off_comp)
 {
     intc_service_register(FIQ_MODEM, PRI_FIQ_MODEM, phy_mdm_isr);
@@ -1850,7 +2410,7 @@ static void phy_mdm_init(uint32_t tx_dc_off_comp)
     mdm_delaynormalgi_setf(17);
 
     // CPE mode
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
     /* qunshan20210721: keep MDM_REG202<23>=1 for rx in ATE mode */
     if(!get_ate_mode_state())
 #endif
@@ -1859,14 +2419,19 @@ static void phy_mdm_init(uint32_t tx_dc_off_comp)
     // Enable CCA lock IRQ
     mdm_irqctrl_set(MDM_IRQCCATIMEOUTEN_BIT);
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
     REG_WRITE((REG_MDM_CFG_BASE_ADDR + 0x226 * 4), REG_READ(REG_MDM_CFG_BASE_ADDR + 0x226 * 4) & 0xFFFE); //peak_cancel_bypass=0
     REG_WRITE((REG_MDM_CFG_BASE_ADDR + 0xC0C * 4), 1); //11B_TX_GAUSS_FILTER_ENABLE=1
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7238)
+	/* huaming20220722 fix access TRX/RCB bus issue */
+	mdm_fe1clkforce_setf(1);
+#endif
+
     PHY_WPRT("phy_mdm_init-->Static MDM settings done\r\n");
 }
-
+#endif
 
 void phy_enable_lsig_intr(void)
 {
@@ -1897,27 +2462,17 @@ void phy_disable_lsig_intr(void)
  * @brief AGC initialization function.
  ****************************************************************************************
  */
+#if ( 1 == CFG_LOW_VOLTAGE_PS)&&(CFG_SOC_NAME == SOC_BK7231N)
 static void phy_agc_init(void)
 {
-    uint32_t agccca1;
-
     phy_pre_agc_init();
 
     // AGC events
 #if (NX_MDM_VER == 10)
     agc_rwnxagcevt2_set(0x3955b004);
 #else
-#if (SOC_BK7231 == CFG_SOC_NAME)
-    agc_rwnxagcevtsat_set(0x05044804);
-    agc_rwnxagcevtdet_set(0x3D449008);
-    agc_rwnxagcevtdis_set(0x3955B00B);
-    agc_rwnxagcevtdsssdet_set(0x04F7480F);
-
-    // ADC sat thd
-    agc_rwnxagcsat_set(0x08393537);
-#elif (SOC_BK7231N == CFG_SOC_NAME)
-    /* qunshan20210325 change from 0x806 to 0x506,aim to increase RSSI +3 */
-    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, 0x506);  // Enable AGC OPT
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, 0x806);  // Enable AGC OPT
     agc_rwnxagcevtsat_set(0x05044804);
     agc_rwnxagcevtdet_set(0x3D401008);
     agc_rwnxagcevtdis_set(0x3955B00B);
@@ -1946,8 +2501,128 @@ static void phy_agc_init(void)
     agc_rwnxagcramp_set(0x07200710);
 
     // RWNXAGCCCA1 (CCA{FALL,RISE}THRDBM)
-    // for when RWNXAGCCCACTRL[CCAENERGYEN] is on, clear bit8(saturation cca enable)
+    // for when RWNXAGCCCACTRL[CCAENERGYEN] is on
+#if defined(CFG_SYS_CLOSE_CCA)
+    agc_rwnxagccca1_set((agc_rwnxagccca1_get() & ~0x000ff0ff) | 0x000bf0c3);
+#else
+    agc_rwnxagccca1_set((agc_rwnxagccca1_get() & ~0x000ff1ff) | 0x000bf0c3);
+#endif
+    //os_printf("agc_rwnxagccca1=0x%x\n", agc_rwnxagccca1_get());
+
+    // RWNXAGCCCACTRL
+    agc_rwnxagcccactrl_set((agc_rwnxagcccactrl_get() & ~0x00000fff) | 0x00000377);
+
+    // Configure CCA timeout
+    agc_rwnxagcccatimeout_set(8000000); // 100ms
+
+    // AGCGain Range
 #if (CFG_SOC_NAME == SOC_BK7231N)
+    agc_rwnxagcgainrg_set(0x4e08);
+#else
+    agc_rfgainmaxdb_setf(0x4b);
+#endif
+
+    // AGC Power Estimate Bias
+#if (CFG_SOC_NAME == SOC_BK7231N)
+    agc_vpeakadcqdbv_setf((uint8_t) - 32); //change MDM_reg819<23:16> from 0xEC to 0xE0 by cunliang20201112
+#else
+    agc_vpeakadcqdbv_setf((uint8_t) - 32);
+#endif
+
+    PHY_WPRT("phy_agc_init-->cca\r\n");
+
+}
+#else
+static void phy_agc_init(void)
+{
+    uint32_t agccca1;
+
+    phy_pre_agc_init();
+
+    // AGC events
+#if (NX_MDM_VER == 10)
+    agc_rwnxagcevt2_set(0x3955b004);
+#else
+#if (SOC_BK7231 == CFG_SOC_NAME)
+    agc_rwnxagcevtsat_set(0x05044804);
+    agc_rwnxagcevtdet_set(0x3D449008);
+    agc_rwnxagcevtdis_set(0x3955B00B);
+    agc_rwnxagcevtdsssdet_set(0x04F7480F);
+
+    // ADC sat thd
+    agc_rwnxagcsat_set(0x08393537);
+
+    agc_rfgainmaxdb_setf(0x4b);
+
+    // AGCCROSS (disable crossing detection)
+    agc_rwnxagccross_set(0x002803f0);
+
+    // AGCRAMP (reduce ramp-down detection level)
+    agc_rwnxagcramp_set(0x07200710);
+#elif (SOC_BK7231N == CFG_SOC_NAME)
+    /* qunshan20210325 change from 0x806 to 0x506,aim to increase RSSI +3 */
+    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, 0x506);  // Enable AGC OPT
+    agc_rwnxagcevtsat_set(0x05044804);
+    agc_rwnxagcevtdet_set(0x3D401008);
+    agc_rwnxagcevtdis_set(0x3955B00B);
+    agc_rwnxagcevtdsssdet_set(0x3ff7500f);
+
+	// AGCGain Range
+    agc_rwnxagcgainrg_set(0x4e08);
+
+    // ADC sat thd
+    agc_rwnxagcsat_set(0x8373335);
+
+    // AGCCROSS (disable crossing detection)
+    agc_rwnxagccross_set(0x002803f0);
+
+    // AGCRAMP (reduce ramp-down detection level)
+    agc_rwnxagcramp_set(0x07200710);
+#elif (CFG_SOC_NAME == SOC_BK7238)
+	agc_rwnxagcevtsat_set(0x05044804);
+	agc_rwnxagcevtdet_set(0x3D449008);
+	agc_rwnxagcevtdis_set(0x3955B00B);
+	agc_rwnxagcevtdsssdet_set(0x04F7480F);
+
+	// ADC sat thd
+	agc_rwnxagcsat_set(0x8373335);
+
+	// AGCGain Range
+	agc_rwnxagcgainrg_set(0x4d7e);      //max_gain=77, min_gain=-7
+
+	agc_adcpowsupdbmthr_setf(0xB3);     //thrd=-77
+
+    // AGCCROSS (disable crossing detection)
+    agc_rwnxagccross_set(0x00200200);
+	/* yiming20221020 0x7->0x4: rampup demodulation time reduce from 4.8us to 2.4us */
+	agc_rampupndlindex_setf(0x4);
+	/* yiming20221020 0x5D->0x55: signal disappear threshold decrease 5dB */
+	agc_adcpowdisthrdbv_setf(0x55);
+#else
+    REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, (REG_PL_RD(REG_AGC_BASE_ADDR + 0x890) | 0x2));  // Enable AGC OPT
+    agc_rwnxagcevtsat_set(0x05044804);
+    agc_rwnxagcevtdet_set(0x3D401008);
+    agc_rwnxagcevtdis_set(0x3955B00B);
+    agc_rwnxagcevtdsssdet_set(0x3ff7500f);
+
+    // ADC sat thd
+    agc_rwnxagcsat_set(0x8373335);
+
+    agc_rfgainmaxdb_setf(0x4b);
+
+    // AGCCROSS (disable crossing detection)
+    agc_rwnxagccross_set(0x002803f0);
+
+    // AGCRAMP (reduce ramp-down detection level)
+    agc_rwnxagcramp_set(0x07200710);
+#endif
+#endif
+
+    //agc_rwnxagcevt2_set(0x3955b004);
+
+    // RWNXAGCCCA1 (CCA{FALL,RISE}THRDBM)
+    // for when RWNXAGCCCACTRL[CCAENERGYEN] is on, clear bit8(saturation cca enable)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
     //Modem_81D[07:00]=RiseThreshold, CCA=1 when interference > RiseThreshold
     //Modem_81D[19:12]=FallThreshold, CCA=0 when interference < FallThreshold
     if (get_ate_mode_state())
@@ -1971,15 +2646,8 @@ static void phy_agc_init(void)
     // Configure CCA timeout
     agc_rwnxagcccatimeout_set(8000000); // 100ms
 
-    // AGCGain Range
-#if (SOC_BK7231N == CFG_SOC_NAME)
-    agc_rwnxagcgainrg_set(0x4e08);
-#else
-    agc_rfgainmaxdb_setf(0x4b);
-#endif
-
     // AGC Power Estimate Bias
-#if (SOC_BK7231N == CFG_SOC_NAME)
+#if (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7238)
     agc_vpeakadcqdbv_setf((uint8_t) - 32); //change MDM_reg819<23:16> from 0xEC to 0xE0 by cunliang20201112
 #else
     agc_vpeakadcqdbv_setf((uint8_t) - 32);
@@ -1988,7 +2656,7 @@ static void phy_agc_init(void)
     PHY_WPRT("phy_agc_init-->cca\r\n");
 
 }
-
+#endif
 /**
  ****************************************************************************************
  * @brief Set band 2.4GHz/5GHz in RC and RF chips.
@@ -2021,11 +2689,6 @@ static void phy_set_band(uint8_t band, uint16_t freq)
  * @return Boolean value of lock state: true=locked, false=lock failed
  ****************************************************************************************
  */
-static bool phy_locked(void)
-{
-    return true;
-}
-
 #if !CFG_SUPPORT_CALIBRATION
 #define RC_TRX_REG28_ADDR          0x08628078
 
@@ -2116,19 +2779,16 @@ static void phy_rf_init(void)
 
     while(rc_beken_spi_get() & 0x0fffffff);   //wait rf register write done
 
+#if (CFG_SOC_NAME != SOC_BK7238)
     rc_ch0_rx_onoff_delay_pack(  1, 1);
     rc_ch0_tx_onoff_delay_pack(  1, 1);   //old on delay 0x41
     rc_ch0_pa_onoff_delay_pack(  1, 0x10);//old on delay 0x41
     rc_ch0_shdn_onoff_delay_pack(1, 1);
+#endif
     rc_ch0_en_setf(1);
 
     rc_rc_en_setf(1);
     PHY_WPRT("phy_rf_init-->RC static regs set and RC enabled\r\n");
-
-    if (!phy_locked())
-    {
-        //todo do what???
-    }
 }
 
 /**
@@ -2226,17 +2886,18 @@ static int force2040_toggle(uint8_t chantype)
     rxmodes = (mdm_rxmodes_get() & ~f2040_msk) | f2040_val;
 
     mdm_rxmodes_set(rxmodes);
-    for(i = 0; i < 1000; i ++);
-
+    if(phy_env->chnl_type != PHY_CHNL_BW_OTHER)
+        for(i = 0; i < 1000; i ++);
     /*
     modem reset
     */
     sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MODEM_CORE_RESET, 0);
 
     /* init some paramters of rf */
-    phy_trident_init();
-    phy_rf_init();
-
+    if(phy_env->chnl_type != PHY_CHNL_BW_OTHER){
+        phy_trident_init();
+        phy_rf_init();
+    }
     return 0;
 }
 
@@ -2666,14 +3327,15 @@ void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
     rc_rc_en_setf(1);
 
     //Lock--------------------------------------------------------------------------------
-    if (!phy_locked())
-    {
-        //failure measures - reset, shut down...
-    }
+//    if (!phy_locked())
+//    {
+//        //failure measures - reset, shut down...
+//    }
 
+#if (CFG_SOC_NAME != SOC_BK7238)
     rc_ch0_tx_onoff_delay_set(0x00010010);
     rc_ch0_pa_onoff_delay_set(0x000A00E0);
-
+#endif
     if(type == PHY_CHNL_BW_40) {
         rwnx_cal_set_40M_setting();
 #if (SOC_BK7231N == CFG_SOC_NAME)
@@ -2685,7 +3347,7 @@ void phy_set_channel(uint8_t band, uint8_t type, uint16_t prim20_freq,
     }
     else
     {
-#if (SOC_BK7231N == CFG_SOC_NAME)
+#if (SOC_BK7231N == CFG_SOC_NAME) || (CFG_SOC_NAME == SOC_BK7238)
         rwnx_cal_set_20M_setting();
 #endif
         //agc_rwnxagcsat_set(0x8393537);
@@ -2850,7 +3512,82 @@ void phy_get_rf_gain_capab(int8_t *max, int8_t *min)
         *min = PHY_TRIDENT_MIN_PWR_5G;
     }
 }
+#if (1 == CFG_LOW_VOLTAGE_PS)
 
+#define CFG_USE_11B_LOW_POWER   1
+#if CFG_USE_11B_LOW_POWER
+uint8_t enter_11b_flag = 0;
+#endif
+void phy_enter_11b_low_power(void)
+{
+#if CFG_USE_11B_LOW_POWER
+    if(enter_11b_flag == 0)
+    {
+        uint32_t reg;
+        os_null_printf("enter_11b_lp\r\n");
+
+        reg = REG_PL_RD(RC_TRX_REG5_ADDR);//0x25
+        reg &= ~(0x7 << 20);
+        reg |= (0x3<< 20);
+        REG_PL_WR(RC_TRX_REG5_ADDR,reg);
+
+        reg = REG_PL_RD(RC_TRX_REG8_ADDR);//0x28
+        reg &= ~(0xf << 2);
+        reg |= (0x0<< 2);
+        reg &= ~(0x3 << 0);
+        reg |= (0x0<< 0);
+        REG_PL_WR(RC_TRX_REG8_ADDR,reg);
+
+        reg = REG_PL_RD(RC_TRX_REG9_ADDR);//0x29
+        reg &= ~(0x7 << 5);
+        reg |= (0x1<< 5);
+        REG_PL_WR(RC_TRX_REG9_ADDR,reg);
+
+        reg = REG_PL_RD(RC_TRX_REG12_ADDR);//0x2c
+        reg &= ~(0xf << 24);
+        reg |= (0x4<< 24);
+        REG_PL_WR(RC_TRX_REG12_ADDR,reg);
+
+        enter_11b_flag = 1;
+    }
+#endif
+}
+
+void phy_exit_11b_low_power(void)
+{
+#if CFG_USE_11B_LOW_POWER
+    if(enter_11b_flag == 1)
+    {
+        uint32_t reg;
+        os_null_printf("exit_11b_lp\r\n");
+
+        reg = REG_PL_RD(RC_TRX_REG5_ADDR);
+        reg &= ~(0x7 << 20);
+        reg |= (0x4<< 20);
+        REG_PL_WR(RC_TRX_REG5_ADDR,reg);
+
+        reg = REG_PL_RD(RC_TRX_REG8_ADDR);
+        reg &= ~(0xf << 2);
+        reg |= (0x2<< 2);
+        reg &= ~(0x3 << 0);
+        reg |= (0x1<< 0);
+        REG_PL_WR(RC_TRX_REG8_ADDR,reg);
+
+        reg = REG_PL_RD(RC_TRX_REG9_ADDR);
+        reg &= ~(0x7 << 5);
+        reg |= (0x3<< 5);
+        REG_PL_WR(RC_TRX_REG9_ADDR,reg);
+
+        reg = REG_PL_RD(RC_TRX_REG12_ADDR);
+        reg &= ~(0xf << 24);
+        reg |= (0x7<< 24);
+        REG_PL_WR(RC_TRX_REG12_ADDR,reg);
+
+        enter_11b_flag = 0;
+    }
+#endif
+}
+#endif
 void rc_reset_patch(void)
 {
     if(rc_rc_en_getf() == 0)
@@ -2877,7 +3614,7 @@ void phy_init_after_wakeup(void)
     phy_set_channel(PHY_BAND_2G4, PHY_CHNL_BW_20, freq, freq, 0, PHY_PRIM);
 }
 
-#if (CFG_SOC_NAME == SOC_BK7231N)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 void phy_wakeup_rf_reinit(void)
 {
     struct phy_env_tag phy_env_sleep;
@@ -2891,8 +3628,8 @@ void phy_wakeup_rf_reinit(void)
     phy_env->band                =
     phy_env->chnl_prim20_freq    =
     phy_env->chnl_center1_freq   =
-    phy_env->chnl_center2_freq   =
-    phy_env->chnl_type           = PHY_UNUSED;
+    phy_env->chnl_center2_freq   = PHY_UNUSED;
+    phy_env->chnl_type           = PHY_CHNL_BW_OTHER;
 
     // recover trx setting
     rwnx_cal_recover_rf_setting();

@@ -7,11 +7,15 @@
 #include "wlan_dev.h"
 #include "rtdef.h"
 #include "direct_connect.h"
+
+#ifdef PKG_USING_EASYFLASH
 #include "easyflash.h"
+#endif
+
 #include "msh.h"
 #include "net.h"
 
-#define AP_DIERCT_CONNECT_TEST
+//#define AP_DIERCT_CONNECT_TEST
 #ifdef AP_DIERCT_CONNECT_TEST
 
 direct_ap_info_t direct_ap_info;

@@ -334,17 +334,16 @@ static void temp_detect_polling_handler(void)
                     cur_val,
                     g_temp_detect_config.detect_thre);
 
-#if CFG_USE_STA_PS
-    UINT32 reg = RF_HOLD_BY_TEMP_BIT;
     UINT16 thre = g_temp_detect_config.detect_thre;
-	
+#if CFG_USE_STA_PS
     ps_set_temp_prevent();
-    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_SET, &reg);
+    power_save_rf_hold_bit_set(RF_HOLD_BY_TEMP_BIT);
     bk_wlan_dtim_rf_ps_mode_do_wakeup();
     rwnx_cal_do_temp_detect(cur_val, thre, &g_temp_detect_config.last_detect_val);
     ps_clear_temp_prevent();
-    reg = RF_HOLD_BY_TEMP_BIT;
-    sddev_control(SCTRL_DEV_NAME, CMD_RF_HOLD_BIT_CLR, &reg);
+    power_save_rf_hold_bit_clear(RF_HOLD_BY_TEMP_BIT);
+#else
+    rwnx_cal_do_temp_detect(cur_val, thre, &g_temp_detect_config.last_detect_val);
 #endif
 
     if(g_temp_detect_config.detect_intval_change == ADC_TMEP_DETECT_INTVAL_CHANGE)
@@ -559,7 +558,9 @@ static void temp_detect_handler(void)
     else
     {
         sum = sum / count;
-#if (CFG_SOC_NAME != SOC_BK7231)
+#if (CFG_SOC_NAME == SOC_BK7238)
+        sum = sum / 2;
+#elif (CFG_SOC_NAME != SOC_BK7231)
         sum = sum / 4;
 #endif
         tmp_detect_desc.pData[target] = sum;
@@ -700,13 +701,20 @@ static void temp_single_detect_handler(void)
         sum1 = tmp_single_desc.pData[6] + tmp_single_desc.pData[7];
         sum2 = tmp_single_desc.pData[8] + tmp_single_desc.pData[9];
         sum = sum1 / 2 + sum2 / 2;
+        sum = sum / 2;
+        sum = sum / 4;
+#elif (CFG_SOC_NAME == SOC_BK7238)
+        sum1 = tmp_single_desc.pData[1] + tmp_single_desc.pData[2];
+        sum2 = tmp_single_desc.pData[3] + tmp_single_desc.pData[4];
+        sum = sum1 / 2 + sum2 / 2;
+        sum = sum / 4;
 #else
         sum1 = tmp_single_desc.pData[1] + tmp_single_desc.pData[2];
         sum2 = tmp_single_desc.pData[3] + tmp_single_desc.pData[4];
         sum = sum1 / 2 + sum2 / 2;
-#endif
         sum = sum / 2;
         sum = sum / 4;
+#endif
 
         tmp_single_desc.pData[0] = sum;
         #else

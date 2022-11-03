@@ -866,12 +866,13 @@ static UINT32 i2c2_open(UINT32 op_flag)
     REG_WRITE(REG_I2C2_CONFIG, reg);
     REG_WRITE(REG_I2C2_STA, reg1);
 
-    if (op_flag)
+    if (op_flag >> 4)
     {
         i2c2_set_freq_div(op_flag);
     }
     else
     {
+        I2C2_PRT("set default baud_rate:%d\r\n", I2C_DEFAULT_BAUD);
         i2c2_set_freq_div(I2C_CLK_DIVID(I2C_DEFAULT_BAUD));
     }
 

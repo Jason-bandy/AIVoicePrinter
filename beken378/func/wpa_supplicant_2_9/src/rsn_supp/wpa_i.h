@@ -87,11 +87,14 @@ struct wpa_sm {
 	int rsn_enabled; /* Whether RSN is enabled in configuration */
 	int mfp; /* 0 = disabled, 1 = optional, 2 = mandatory */
 	int ocv; /* Operating Channel Validation */
+	int sae_pwe; /* SAE PWE generation options */
 
 	u8 *assoc_wpa_ie; /* Own WPA/RSN IE from (Re)AssocReq */
 	size_t assoc_wpa_ie_len;
-	u8 *ap_wpa_ie, *ap_rsn_ie;
-	size_t ap_wpa_ie_len, ap_rsn_ie_len;
+	u8 *assoc_rsnxe; /* Own RSNXE from (Re)AssocReq */
+	size_t assoc_rsnxe_len;
+	u8 *ap_wpa_ie, *ap_rsn_ie, *ap_rsnxe;
+	size_t ap_wpa_ie_len, ap_rsn_ie_len, ap_rsnxe_len;
 
 #ifdef CONFIG_TDLS
 	struct wpa_tdls_peer *tdls;
@@ -407,6 +410,12 @@ static inline int wpa_sm_channel_info(struct wpa_sm *sm,
 	if (!sm->ctx->channel_info)
 		return -1;
 	return sm->ctx->channel_info(sm->ctx->ctx, ci);
+}
+
+static inline void wpa_sm_transition_disable(struct wpa_sm *sm, u8 bitmap)
+{
+	if (sm->ctx->transition_disable)
+		sm->ctx->transition_disable(sm->ctx->ctx, bitmap);
 }
 
 

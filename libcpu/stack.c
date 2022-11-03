@@ -13,6 +13,7 @@
 #include <rtthread.h>
 #include <string.h>
 #include "arm_mcu_pub.h"
+#include "rthw.h"
 
 /*****************************/
 /* CPU Mode                  */
@@ -214,6 +215,32 @@ void rt_hw_stack_print_after_exception(void)
 void rt_hw_stack_print(rt_thread_t thread)
 {
 	rt_hw_thread_stack_print(thread, RT_FALSE);
+}
+
+void rt_dump_all_thread_stack(void)
+{
+    struct rt_object_information *info;
+    struct rt_list_node *node;
+    struct rt_thread *thread;
+    rt_base_t int_level = 0;
+
+    int_level = rt_hw_interrupt_disable();
+
+    info = rt_object_get_information(RT_Object_Class_Thread);
+    if (NULL == info)
+    {
+        rt_kprintf("can't find thread list\n");
+        rt_hw_interrupt_enable(int_level);
+        return;
+    }
+
+    for (node = info->object_list.next; node != &info->object_list; node = node->next)
+    {
+        thread = rt_list_entry(node, struct rt_thread, list);
+        rt_hw_stack_print(thread);
+    }
+
+    rt_hw_interrupt_enable(int_level);
 }
 
 void rt_stack_print(int argc, char **argv)

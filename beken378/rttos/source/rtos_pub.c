@@ -694,6 +694,17 @@ OSStatus rtos_change_period( beken_timer_t* timer, uint32_t time_ms)
     return kNoErr;
 }
 
+OSStatus rtos_change_period_1( beken2_timer_t* timer, uint32_t time_ms)
+{
+    rt_uint32_t timeout_value;
+
+    timeout_value = rt_tick_from_millisecond(time_ms);
+    rt_timer_control(timer->handle, RT_TIMER_CTRL_SET_TIME, (void *)&timeout_value);
+    rt_timer_start(timer->handle);
+
+    return kNoErr;
+}
+
 OSStatus rtos_init_timer( beken_timer_t* timer, uint32_t time_ms, timer_handler_t function, void* arg)
 {
 	OSStatus ret = kNoErr;

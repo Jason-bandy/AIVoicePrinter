@@ -511,6 +511,12 @@ static void app_demo_softap_main(beken_thread_arg_t data)
 
 app_demo_softap_exit:
 
+#if APP_DEMO_CFG_USE_UDP_SDP
+    vudp_sdp_stop();
+#endif
+
+    bk_wlan_stop(BK_SOFT_AP);
+
     rtos_deinit_queue(&g_demo_softap->msg_que);
 
     app_demo_softap_free_buffer();
@@ -608,7 +614,7 @@ void app_demo_softap_start(char *oob_ssid, char *connect_key)
 
 void app_demo_softap_exit(void)
 {
-    APP_DEMO_SOFTAP_PRT("app_demo_sta_exit\r\n");
+    APP_DEMO_SOFTAP_PRT("app_demo_softap_exit\r\n");
 
     if (g_demo_softap)
     {

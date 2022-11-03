@@ -292,7 +292,14 @@ enum mm_msg_tag
 
 	///Beacon tagged parameters change
 	MM_TAGGED_PARAM_CHANGE,
-
+#if CFG_AP_MONITOR_COEXIST_TBTT
+	//enable or disable feature:AP will switch to ori channel when tbtt arrive
+	MM_SET_AP_MONITOR_COEXIST_TBTT_REQ,
+	MM_SET_AP_MONITOR_COEXIST_TBTT_CFM,
+    //when tbtt arrive, stay in AP ori channel duration in ms
+	MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_REQ,
+	MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_CFM,
+#endif
     /// MAX number of messages
     MM_MAX,
 };
@@ -1027,6 +1034,40 @@ struct mm_mu_group_update_req
         uint8_t user_pos;
     } groups[];
 };
+
+#if CFG_AP_MONITOR_COEXIST_TBTT
+/// Structure containing the parameters of the @ref MM_SET_AP_MONITOR_COEXIST_TBTT_REQ message
+struct mm_set_ap_monitor_coexist_tbtt_req
+{
+    /// Index of the interface for which the parameter is configured
+    uint8_t inst_nbr;
+    /// 1:enalbe, 0:disable
+    int8_t enable;
+};
+
+/// Structure containing the parameters of the @ref MM_SET_AP_MONITOR_COEXIST_TBTT_CFM message
+struct mm_set_ap_monitor_coexist_tbtt_cfm
+{
+    /// Status of the operation
+    uint8_t status;
+};
+
+/// Structure containing the parameters of the @ref MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_REQ message
+struct mm_set_ap_monitor_coexist_tbtt_dur_req
+{
+    /// Index of the interface for which the parameter is configured
+    uint8_t inst_nbr;
+    /// 0-50
+    uint8_t duration_ms;
+};
+
+/// Structure containing the parameters of the @ref MM_SET_AP_MONITOR_COEXIST_TBTT_DUR_CFM message
+struct mm_set_ap_monitor_coexist_tbtt_dur_cfm
+{
+    /// Status of the operation
+    uint8_t status;
+};
+#endif
 
 /*
  * TASK DESCRIPTOR DECLARATIONS

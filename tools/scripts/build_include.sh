@@ -1,6 +1,6 @@
 #! /bin/bash
 
-SUPPORTED_BUILD_PLATFORMS="bk7231n bk7231u bk7251"
+SUPPORTED_BUILD_PLATFORMS="bk7231n bk7231u bk7251 bk7238"
 
 modify_config()
 {

@@ -9,6 +9,7 @@ src = []
 
 hostapd_path = ""
 src += [hostapd_path + "wpa_supplicant/op_classes.c"]
+src += [hostapd_path + "wpa_supplicant/sme.c"]
 
 if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     src += [hostapd_path + "src/common/sae.c"]
@@ -22,8 +23,6 @@ if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     src += [hostapd_path + "src/crypto/sha256.c"]
     src += [hostapd_path + "src/crypto/sha256-internal.c"]
     src += [hostapd_path + "src/crypto/sha256-prf.c"]
-    src += [hostapd_path + "src/rsn_supp/pmksa_cache.c"]
-    src += [hostapd_path + "wpa_supplicant/sme.c"]
     src += ["../wolfssl/wolfcrypt/src/wolfmath.c"]
     src += ["../wolfssl/wolfcrypt/src/memory.c"]
     src += ["../wolfssl/wolfcrypt/src/tfm.c"]
@@ -38,6 +37,82 @@ if (GetLocalDepend(options, 'CFG_OWE') == 1):
     src += ["../wolfssl/wolfcrypt/src/md5.c"]
     src += ["../wolfssl/wolfcrypt/src/hmac.c"]
     src += ["../wolfssl/wolfcrypt/src/sha.c"]
+
+if (GetLocalDepend(options, 'CFG_WIFI_WPS') == 1):
+    src += [hostapd_path + "src/crypto/crypto_internal-cipher.c"]
+    src += [hostapd_path + "src/crypto/crypto_internal-modexp.c"]
+    src += [hostapd_path + "src/crypto/crypto_internal-rsa.c"]
+    src += [hostapd_path + "src/crypto/crypto_internal.c"]
+    src += [hostapd_path + "src/crypto/des-internal.c"]
+    src += [hostapd_path + "src/crypto/sha1-tprf.c"]
+    src += [hostapd_path + "src/crypto/sha384-internal.c"]
+    src += [hostapd_path + "src/crypto/sha512-internal.c"]
+    src += [hostapd_path + "src/crypto/tls_internal.c"]
+    src += [hostapd_path + "src/tls/asn1.c"]
+    src += [hostapd_path + "src/tls/bignum.c"]
+    src += [hostapd_path + "src/tls/pkcs1.c"]
+    src += [hostapd_path + "src/tls/pkcs5.c"]
+    src += [hostapd_path + "src/tls/pkcs8.c"]
+    src += [hostapd_path + "src/tls/rsa.c"]
+    src += [hostapd_path + "src/crypto/aes-cbc.c"]
+    src += [hostapd_path + "src/eap_common/eap_common.c"]
+    src += [hostapd_path + "src/eap_peer/eap.c"]
+    src += [hostapd_path + "src/eap_peer/eap_methods.c"]
+    src += [hostapd_path + "src/eapol_supp/eapol_supp_sm.c"]
+    src += [hostapd_path + "src/rsn_supp/preauth.c"]
+    src += [hostapd_path + "src/utils/base64.c"]
+    src += [hostapd_path + "src/utils/bitfield.c"]
+    src += [hostapd_path + "wpa_supplicant/eap_register.c"]
+    src += [hostapd_path + "src/eap_common/eap_wsc_common.c"]
+    src += [hostapd_path + "src/eap_peer/eap_wsc.c"]
+    src += [hostapd_path + "src/crypto/aes-ctr.c"]
+    src += [hostapd_path + "src/crypto/aes-omac1.c"]
+    src += [hostapd_path + "src/crypto/aes-siv.c"]
+    src += [hostapd_path + "src/crypto/dh_group5.c"]
+    src += [hostapd_path + "src/crypto/dh_groups.c"]
+    src += [hostapd_path + "src/crypto/sha256.c"]
+    src += [hostapd_path + "src/crypto/sha256-internal.c"]
+    src += [hostapd_path + "src/crypto/sha256-prf.c"]
+    src += [hostapd_path + "src/crypto/sha256-tlsprf.c"]
+    src += [hostapd_path + "src/utils/uuid.c"]
+    src += [hostapd_path + "src/wps/wps.c"]
+    src += [hostapd_path + "src/wps/wps_attr_build.c"]
+    src += [hostapd_path + "src/wps/wps_attr_parse.c"]
+    src += [hostapd_path + "src/wps/wps_attr_process.c"]
+    src += [hostapd_path + "src/wps/wps_common.c"]
+    src += [hostapd_path + "src/wps/wps_dev_attr.c"]
+    src += [hostapd_path + "src/wps/wps_enrollee.c"]
+    src += [hostapd_path + "src/wps/wps_registrar.c"]
+    src += [hostapd_path + "wpa_supplicant/wps_supplicant.c"]
+
+if (GetLocalDepend(options, 'CFG_WIFI_P2P') == 1):
+    src += [hostapd_path + "wpa_supplicant/ap.c"]
+    src += [hostapd_path + "src/p2p/p2p.c"]
+    src += [hostapd_path + "src/p2p/p2p_build.c"]
+    src += [hostapd_path + "src/p2p/p2p_dev_disc.c"]
+    src += [hostapd_path + "src/p2p/p2p_go_neg.c"]
+    src += [hostapd_path + "src/p2p/p2p_group.c"]
+    src += [hostapd_path + "src/p2p/p2p_invitation.c"]
+    src += [hostapd_path + "src/p2p/p2p_parse.c"]
+    src += [hostapd_path + "src/p2p/p2p_pd.c"]
+    src += [hostapd_path + "src/p2p/p2p_sd.c"]
+    src += [hostapd_path + "src/p2p/p2p_utils.c"]
+    src += [hostapd_path + "src/ap/p2p_hostapd.c"]
+    src += [hostapd_path + "wpa_supplicant/p2p_supplicant.c"]
+    src += [hostapd_path + "wpa_supplicant/p2p_supplicant_sd.c"]
+    src += [hostapd_path + "wpa_supplicant/offchannel.c"]
+    src += [hostapd_path + "src/common/gas.c"]
+
+if (GetLocalDepend(options, 'CFG_WIFI_P2P_GO') == 1):
+    src += [hostapd_path + "src/ap/wps_hostapd.c"]
+    src += [hostapd_path + "src/ap/bss_load.c"]
+    src += [hostapd_path + "src/ap/eap_user_db.c"]
+    src += [hostapd_path + "src/eap_server/eap_server.c"]
+    src += [hostapd_path + "src/eap_server/eap_server_methods.c"]
+    src += [hostapd_path + "src/eap_server/eap_server_wsc.c"]
+    src += [hostapd_path + "src/eap_server/eap_server_identity.c"]
+    src += [hostapd_path + "src/eapol_auth/eapol_auth_sm.c"]
+
 
 src += [hostapd_path + "bk_patch/ddrv.c"]
 src += [hostapd_path + "bk_patch/signal.c"]
@@ -97,6 +172,7 @@ src += [hostapd_path + "src/l2_packet/l2_packet_none.c"]
 #src += [hostapd_path + "src/rsn_supp/preauth.c"]
 src += [hostapd_path + "src/rsn_supp/wpa.c"]
 src += [hostapd_path + "src/rsn_supp/wpa_ie.c"]
+src += [hostapd_path + "src/rsn_supp/pmksa_cache.c"]
 src += [hostapd_path + "src/utils/common.c"]
 src += [hostapd_path + "src/utils/eloop.c"]
 src += [hostapd_path + "src/utils/os_none.c"]
@@ -131,6 +207,8 @@ elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7221U'):
     supplicant_lib_name += '_7251'
 elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7271'):
     supplicant_lib_name += '_7271'
+elif (GetLocalDepend(options, 'CFG_SOC_NAME') == 'SOC_BK7238'):
+    supplicant_lib_name += '_7238'
 else:
     supplicant_lib_name += '_unknown'
     platform_match = 'no'

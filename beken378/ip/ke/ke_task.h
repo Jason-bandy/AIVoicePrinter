@@ -68,7 +68,7 @@ enum
     /// APM task
     TASK_APM,
     #endif
-    
+
     /// BAM task
     TASK_BAM,
 
@@ -76,11 +76,15 @@ enum
     /// MESH task
     TASK_MESH,
     #endif
-    
+
     /// RXU task
     TASK_RXU,
+
+    /// FTM task
+    TASK_FTM,
+
     // This is used to define the last task that is running on the EMB processor
-    TASK_LAST_EMB = TASK_RXU,
+    TASK_LAST_EMB = TASK_FTM,
 
     // nX API task
     TASK_API,

@@ -55,7 +55,7 @@ void *os_realloc(void *ptr, size_t size)
 	#endif
 }
 
-#if !OSMALLOC_STATISTICAL
+#if !OSMALLOC_STATISTICAL && !CFG_MEM_DEBUG
 void *os_malloc(size_t size)
 {
     if(platform_is_in_interrupt_context())

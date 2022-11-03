@@ -81,6 +81,11 @@ extern void tls_mbedtls_mem_free(void *ptr);
 #define MBEDTLS_ECP_FIXED_POINT_OPTIM  0
 #define MBEDTLS_ECP_NIST_OPTIM
 #define MBEDTLS_ENTROPY_MAX_SOURCES    2
+#if CFG_WPA3 && CFG_USE_MBEDTLS
+// If wpa3 feature is enabled and use cryto_mbedtls, use ecp and ecp_curves alternative
+// to choose the right ecc curves (especially the A parameter of curve.).
+#define MBEDTLS_ECP_ALT
+#endif
 #if 0
 #define MBEDTLS_SSL_CIPHERSUITES                        \
     MBEDTLS_TLS_RSA_WITH_AES_256_CBC_SHA256

@@ -60,9 +60,7 @@ uint64_t cal_get_time_us(void)
 		pre_cnt_s = cnt_s;
 		pre_cnt_us = cnt_us;
 	}
-
 	val = (uint64_t)cnt_s * 1000000 + (uint64_t)cnt_us * CAL_3125_TU_VAL / 100;
-
 	return val;
 }
 

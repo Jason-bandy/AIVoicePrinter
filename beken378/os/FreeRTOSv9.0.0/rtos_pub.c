@@ -165,11 +165,12 @@ OSStatus rtos_print_thread_status(char *pcWriteBuffer, int xWriteBufferLen)
 	unsigned portBASE_TYPE uxCurrentNumberOfTasks = uxTaskGetNumberOfTasks();
 	volatile UBaseType_t uxArraySize, x;
 	char cStatus;
-	char pcTaskStatusStr[48];
+	char pcTaskStatusStr[100] = {0};
 	char *pcTaskStatusStrTmp;
 
 	/* Make sure the write buffer does not contain a string. */
 	*pcWriteBuffer = 0x00;
+	os_memset(pcTaskStatusStr, 0x0, sizeof(pcTaskStatusStr));
 
 	/* Take a snapshot of the number of tasks in case it changes while this
 	function is executing. */
@@ -180,7 +181,7 @@ OSStatus rtos_print_thread_status(char *pcWriteBuffer, int xWriteBufferLen)
 	 equate to NULL. */
 	pxTaskStatusArray = pvPortMalloc(uxCurrentNumberOfTasks * sizeof(TaskStatus_t));
 
-	cmd_printf("%-12s Status     Prio    Stack   TCB\r\n", "Name");
+	cmd_printf("%-12s Status     Prio    Stack   TCB    ptr\r\n", "Name");
 	cmd_printf("-------------------------------------------\r\n");
 
 	xWriteBufferLen -= strlen(pcWriteBuffer);
@@ -221,10 +222,10 @@ OSStatus rtos_print_thread_status(char *pcWriteBuffer, int xWriteBufferLen)
 			//pcWriteBuffer = prvWriteNameToBuffer( pcWriteBuffer, pxTaskStatusArray[x].pcTaskName );
 
 			/* Write the rest of the string. */
-			sprintf(pcTaskStatusStrTmp, "\t%c\t%u\t%u\t%u\r\n", cStatus,
+			snprintf( pcTaskStatusStrTmp, sizeof(pcTaskStatusStr), "\t%c\t%u\t%u\t%u\t%p\r\n", cStatus,
 					BK_PRIORITY_TO_NATIVE_PRIORITY((unsigned int) pxTaskStatusArray[x].uxCurrentPriority),
 					(unsigned int) pxTaskStatusArray[x].usStackHighWaterMark,
-					(unsigned int) pxTaskStatusArray[x].xTaskNumber);
+					(unsigned int) pxTaskStatusArray[x].xTaskNumber, pxTaskStatusArray[x].xHandle);
 
 			if (xWriteBufferLen < strlen(pcTaskStatusStr)) {
 				for (x = 0; x < xWriteBufferLen; x++)
@@ -572,6 +573,7 @@ OSStatus rtos_start_oneshot_timer(beken2_timer_t *timer)
 
 	return kNoErr;
 }
+#if ( configTIMER_STATE == 1 )
 
 void rtos_beken_timer_delete_hook(xTimerHandle handle)
 {
@@ -602,7 +604,7 @@ void rtos_beken_timer_delete_hook(xTimerHandle handle)
 		}\
 	}\
 }while(0);
-
+#endif
 static OSStatus deinit_oneshot_timer(beken2_timer_t *timer, bool block)
 {
 	OSStatus ret = kNoErr;
@@ -620,11 +622,11 @@ static OSStatus deinit_oneshot_timer(beken2_timer_t *timer, bool block)
 		timer->beken_magic = 0;
 	}
 	GLOBAL_INT_RESTORE();
-
+#if ( configTIMER_STATE == 1 )
 	if (block && (ret == kNoErr)) {
 		WAIT_BEKEN_TIMER_DELETED(timer);
 	}
-
+#endif
 	return ret;
 }
 
@@ -811,7 +813,27 @@ OSStatus rtos_change_period(beken_timer_t *timer, uint32_t time_ms)
 	return kNoErr;
 
 }
+OSStatus rtos_change_period_1(beken2_timer_t *timer, uint32_t time_ms)
+{
+	signed portBASE_TYPE result;
 
+	if (platform_is_in_interrupt_context() == RTOS_SUCCESS) {
+		signed portBASE_TYPE xHigherPriorityTaskWoken;
+		result = xTimerChangePeriodFromISR(timer->handle,
+										   (portTickType)(time_ms / ms_to_tick_ratio),
+										   &xHigherPriorityTaskWoken);
+		portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
+	} else
+		result = xTimerChangePeriod(timer->handle,
+									(portTickType)(time_ms / ms_to_tick_ratio),
+									0);
+
+	if (result != pdPASS)
+		return kGeneralErr;
+
+	return kNoErr;
+
+}
 static OSStatus deinit_timer(beken_timer_t *timer, bool block)
 {
 	OSStatus ret = kNoErr;
@@ -826,10 +848,11 @@ static OSStatus deinit_timer(beken_timer_t *timer, bool block)
 	}
 	GLOBAL_INT_RESTORE();
 
+#if ( configTIMER_STATE == 1 )
 	if (block && (ret == kNoErr)) {
 		WAIT_BEKEN_TIMER_DELETED(timer);
 	}
-
+#endif
 	return ret;
 }
 
@@ -976,6 +999,7 @@ void vApplicationStackOverflowHook(xTaskHandle *pxTask, signed portCHAR *pcTaskN
 /*-----------------------------------------------------------*/
 void vApplicationMallocFailedHook(void)
 {
+	bk_printf("malloc failed");
 }
 
 /*-----------------------------------------------------------*/

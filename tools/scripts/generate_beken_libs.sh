@@ -4,6 +4,13 @@
 # example:
 # generate_beken_lib.sh bk7231u [SDK_path]
 
+platform=$1
+soc=$platform
+
+if [ "$soc" == "bk7238_no_ble" ]; then
+	soc=bk7238
+fi
+
 source ./tools/scripts/build_include.sh
 
 if [ "$2" == "" ]; then
@@ -14,7 +21,7 @@ fi
 
 echo "making ${1} libs..."
 
-SYS_CFG_FILE=${BEKEN_SDK_DIR}/app/config/sys_config_${1}.h
+SYS_CFG_FILE=${BEKEN_SDK_DIR}/app/config/sys_config_${soc}.h
 if [ ! -f ${SYS_CFG_FILE} ]; then
 	echo "${SYS_CFG_FILE}: no such file!"
 	exit 1
@@ -22,7 +29,7 @@ fi
 echo "backup ${SYS_CFG_FILE}"
 cp -f ${SYS_CFG_FILE} ${SYS_CFG_FILE}.bak
 
-case $1 in
+case $platform in
 	bk7231n)
 		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 1
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
@@ -46,6 +53,17 @@ case $1 in
 		modify_config ${SYS_CFG_FILE} CFG_USB 1
 		make_target="beken_ip beken_usb beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
 		;;
+	bk7238)
+		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 1
+		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
+		make_target="beken_ip beken_ble beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
+		;;
+	bk7238_no_ble)
+		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 0
+		modify_config ${SYS_CFG_FILE} CFG_USE_BLE_PS 0
+		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
+		make_target="beken_ip beken_ble beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
+		;;
 	*)
 		echo "unsupported platform"
 		exit 1
@@ -55,7 +73,7 @@ esac
 for sub in ${make_target}
 do
 	echo "making lib ${sub}..."
-	scons --beken=$1 --buildlib=$sub -j8
+	scons --beken=$soc --buildlib=$sub -j8
 	if [ $? != 0 ]; then
 		echo "make lib $sub fail"
 		exit 1

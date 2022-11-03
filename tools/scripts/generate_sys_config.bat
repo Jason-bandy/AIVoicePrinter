@@ -30,6 +30,12 @@ set new_linkscript=config\bk72xx.lds
 set new_rt_config=config\rtconfig\rtconfig_bk7251.h
 goto update_sys_config
 )
+if "%1" equ "bk7238" (
+set new_sys_config=beken378\app\config\sys_config_bk7238.h
+set new_linkscript=config\bk7238_boot.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7238.h
+goto update_sys_config
+)
 if "%1" equ "bk7231" (
 set new_sys_config=beken378\app\config\sys_config_bk7231.h
 set new_linkscript=config\bk72xx.lds
@@ -76,6 +82,28 @@ if exist %old_sys_config% (
 
 if !new_hash! neq !old_hash! (
 	copy %new_sys_config% %old_sys_config% /Y
+)
+
+set new_hash=
+set old_hash=
+
+setlocal enabledelayedexpansion
+
+if exist %new_rt_config% (
+	for /f "eol=C skip=1 tokens=*" %%i in ('certutil -hashfile %new_rt_config% MD5') do set new_hash=!new_hash!%%i
+	set new_hash=!new_hash: =!
+	echo hash^(%new_rt_config%^)=!new_hash!
+) else (
+    echo %new_rt_config% not exist!
+	goto :EOF
+)
+if exist %old_rtconfig% (
+	for /f "eol=C skip=1 tokens=*" %%i in ('certutil -hashfile %old_rtconfig% MD5') do set old_hash=!old_hash!%%i
+	set old_hash=!old_hash: =!
+	echo hash^(%old_rtconfig%^)=!old_hash!
+)
+
+if !new_hash! neq !old_hash! (
 	copy %new_rt_config% %old_rtconfig% /Y
 )
 

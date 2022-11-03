@@ -287,6 +287,12 @@ static void app_demo_sta_main(beken_thread_arg_t data)
 
 app_demo_sta_exit:
 
+#if APP_DEMO_CFG_USE_UDP_SDP
+    vudp_sdp_stop();
+#endif
+
+    bk_wlan_stop(BK_STATION);
+
     rtos_deinit_queue(&g_demo_sta->msg_que);
 
     app_demo_sta_free_buffer();

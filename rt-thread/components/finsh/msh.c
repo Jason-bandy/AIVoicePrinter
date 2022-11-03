@@ -137,7 +137,8 @@ static int msh_split(char *cmd, rt_size_t length, char *argv[FINSH_ARG_MAX])
         /* handle string */
         if (*ptr == '"')
         {
-            ptr ++; position ++;
+            char *sptr; /* pointer to store unescaped chars */
+            ptr ++; position ++; sptr = ptr;
             argv[argc] = ptr; argc ++;
 
             /* skip this string */
@@ -150,12 +151,14 @@ static int msh_split(char *cmd, rt_size_t length, char *argv[FINSH_ARG_MAX])
                         ptr ++; position ++;
                     }
                 }
-                ptr ++; position ++;
+                *sptr = *ptr;
+
+                sptr ++; ptr ++; position ++;
             }
             if (position >= length) break;
 
             /* skip '"' */
-            *ptr = '\0'; ptr ++; position ++;
+            *sptr = '\0'; ptr ++; position ++;
         }
         else
         {
@@ -282,34 +285,54 @@ int system(const char *command)
 RTM_EXPORT(system);
 #endif
 
-static int _msh_exec_cmd(char *cmd, rt_size_t length, int *retp)
+static int _msh_exec_cmd(char *_cmd, rt_size_t length, int *retp)
 {
     int argc;
     rt_size_t cmd0_size = 0;
     cmd_function_t cmd_func;
     char *argv[FINSH_ARG_MAX];
+    char *cmd;
 
-    RT_ASSERT(cmd);
+    RT_ASSERT(_cmd);
     RT_ASSERT(retp);
+
+    /* duplicate original cmd */
+    cmd = (char *) rt_malloc(length + 1);
+    if (cmd == RT_NULL)
+        return -RT_ENOMEM;
+
+    memcpy(cmd, _cmd, length);
+    cmd[length] = '\0';
 
     /* find the size of first command */
     while ((cmd[cmd0_size] != ' ' && cmd[cmd0_size] != '\t') && cmd0_size < length)
         cmd0_size ++;
     if (cmd0_size == 0)
+    {
+        rt_free(cmd);
         return -RT_ERROR;
+    }
 
     cmd_func = msh_get_cmd(cmd, cmd0_size);
     if (cmd_func == RT_NULL)
+    {
+        rt_free(cmd);
         return -RT_ERROR;
+    }
 
     /* split arguments */
     memset(argv, 0x00, sizeof(argv));
     argc = msh_split(cmd, length, argv);
     if (argc == 0)
+    {
+        rt_free(cmd);
         return -RT_ERROR;
+    }
 
     /* exec this command */
     *retp = cmd_func(argc, argv);
+
+    rt_free(cmd);
     return 0;
 }
 
@@ -408,8 +431,8 @@ void msh_auto_complete_path(char *path)
     ptr = path;
     for (;;)
     {
-        if (*ptr == '/') index = ptr + 1; 
-        if (!*ptr) break; 
+        if (*ptr == '/') index = ptr + 1;
+        if (!*ptr) break;
 
         ptr ++;
     }

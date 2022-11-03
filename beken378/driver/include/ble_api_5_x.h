@@ -1,6 +1,15 @@
 #ifndef _BLE_API_5_X_H_
 #define _BLE_API_5_X_H_
 #include "typedef.h"
+
+#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+#include "gatt.h"
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #define MAX_ADV_DATA_LEN           (0x1F)
 #define MAX_SCAN_NUM               (15)
 
@@ -240,6 +249,7 @@ typedef enum  {
 
 	BLE_5_INIT_CONNECT_EVENT,
 	BLE_5_INIT_DISCONNECT_EVENT,
+	BLE_5_INIT_CONNECT_FAILED_EVENT,
 
 	BLE_5_SDP_REGISTER_FAILED,
 } ble_notice_t;
@@ -333,6 +343,15 @@ typedef struct
 	uint8_t prf_id;
 } create_db_t;
 
+typedef struct{
+	uint8_t status;
+	uint8_t operation;  ///0:INDICATE; 1:notify
+	uint8_t prf_id;
+	uint16_t att_id;
+	uint16_t up_con_idx;
+}ble_slave_con_ind_nty_t;
+
+#if (CFG_BLE_VERSION == BLE_VERSION_5_1)
 typedef struct
 {
 	/// 16 bits UUID LSB First
@@ -346,6 +365,21 @@ typedef struct
 	/// note: for included service, contains target service handle
 	uint16_t max_size;
 }bk_attm_desc_t;
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
+typedef struct
+{
+	/// Attribute UUID (LSB First)
+	uint8_t  uuid[16];
+	/// Attribute information bit field (@see enum gatt_att_info_bf)
+	uint16_t info;
+	/// Attribute extended information bit field (@see enum gatt_att_ext_info_bf)
+	/// Note:
+	///   - For Included Services and Characteristic Declarations, this field contains targeted handle.
+	///   - For Characteristic Extended Properties, this field contains 2 byte value
+	///   - For Client Characteristic Configuration and Server Characteristic Configuration, this field is not used.
+	uint16_t ext_info;
+}bk_attm_desc_t;
+#endif //(CFG_BLE_VERSION == BLE_VERSION_5_2)
 
 struct bk_ble_db_cfg
 {
@@ -408,10 +442,19 @@ ble_err_t bk_ble_create_scaning(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_start_scaning(uint8_t actv_idx, uint16_t scan_intv, uint16_t scan_wd, ble_cmd_cb_t callback);
 ble_err_t bk_ble_stop_scaning(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_delete_scaning(uint8_t actv_idx, ble_cmd_cb_t callback);
+ble_err_t bk_ble_send_ind_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
+ble_err_t bk_ble_send_ntf_value( uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
 
 extern void ble_ps_enable_set(void);
 extern void ble_ps_enable_clear(void);
 extern UINT32 ble_ps_enabled(void );
+
+extern ble_err_t bk_ble_conidx_send_ntf(uint8_t conidx,uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
+extern ble_err_t bk_ble_conidx_send_ind(uint8_t conidx,uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

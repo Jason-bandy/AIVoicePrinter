@@ -25,6 +25,11 @@ case $1 in
 		new_linkscript=config/bk7231n_boot.lds
 		new_rt_config=config/rtconfig/rtconfig_bk7231n.h
 		;;
+	bk7238)
+		new_sys_config=beken378/app/config/sys_config_bk7238.h
+		new_linkscript=config/bk7238_boot.lds
+		new_rt_config=config/rtconfig/rtconfig_bk7238.h
+		;;
 	bk7251)
 		new_sys_config=beken378/app/config/sys_config_bk7251.h
 		new_linkscript=config/bk72xx.lds

@@ -105,8 +105,12 @@ UINT32 rw_ieee80211_init(void)
     struct ieee80211_sta_ht_cap ht_cap = RWNX_HT_CAPABILITIES;
     struct ieee80211_sta_vht_cap vht_cap = RWNX_VHT_CAPABILITIES;
 
-	rwnx_hw = &g_rwnx_hw;
-	memset(rwnx_hw, 0, sizeof(*rwnx_hw));
+#if CFG_IEEE80211N_HT40
+    ht_cap.cap |= CO_BIT(1);
+#endif
+
+    rwnx_hw = &g_rwnx_hw;
+    memset(rwnx_hw, 0, sizeof(*rwnx_hw));
 
     g_wiphy.bands[IEEE80211_BAND_2GHZ].num_channels = sizeof(rw_2ghz_channels) /
             sizeof(rw_2ghz_channels[0]);

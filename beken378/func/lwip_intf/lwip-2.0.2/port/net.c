@@ -30,6 +30,10 @@
 #include "param_config.h"
 #include "net.h"
 #include "netif.h"
+#include "low_voltage_ps.h"
+#include "calendar_pub.h"
+
+#include "bk_log.h"
 
 /* forward declaration */
 FUNC_1PARAM_PTR bk_wlan_get_status_cb(void);
@@ -136,7 +140,6 @@ void net_ipv6stack_init(struct netif *netif)
 {
 	wifi_get_mac_address((char*)netif->hwaddr, BK_STATION);
 	netif->hwaddr_len = 6;
-	netif_create_ip6_linklocal_address(netif, 1);
 }
 
 static void wm_netif_ipv6_status_callback(struct netif *n)
@@ -237,7 +240,7 @@ static void wm_netif_status_callback(struct netif *n)
 			if (dhcp->state == DHCP_STATE_BOUND)
             {
 				// dhcp success
-				os_printf("IP up: %x\r\n", ip_addr_get_ip4_u32(&n->ip_addr));
+				os_printf("IP up: %d.%d.%d.%d\r\n",BK_IP4_STR(ip_addr_get_ip4_u32(&n->ip_addr)));
 
 #if CFG_ROLE_LAUNCH
                 rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
@@ -249,6 +252,16 @@ static void wm_netif_status_callback(struct netif *n)
 					(*fn)(&val);
 				}
 				mhdr_set_station_status(RW_EVT_STA_GOT_IP);
+#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
+				if((ps_info.ps_print_enable == 1)&&(ps_info.connection_loss_flag == 1))
+				{
+					//re-enter into ps if connection loss
+					bk_wlan_dtim_rf_ps_mode_enable();
+					ps_info.connection_loss_flag = 0;
+					ps_info.connection_loss_time_end = cal_get_time_us();
+					ps_info.wakeup_time_in_total -= ps_info.connection_loss_time_end - ps_info.connection_loss_time_start;
+				}
+#endif
 				/* dhcp success*/
                 if(sta_ipup_cb != NULL)
                     sta_ipup_cb(NULL);
@@ -315,6 +328,11 @@ void *net_sock_to_interface(int sock)
 	getpeername(sock, (struct sockaddr *)&peer, &peerlen);
 	req_iface = net_ip_to_interface(peer.sin_addr.s_addr);
 	return req_iface;
+}
+
+void net_send_gratuitous_arp(void)
+{
+	etharp_gratuitous(&g_mlan.netif);
 }
 
 void *net_get_sta_handle(void)
@@ -785,6 +803,13 @@ void net_wlan_add_netif(void *mac)
 	else
 	{
         vif_entry->priv = &wlan_if->netif;
+#if LWIP_IPV6
+		if(vif_entry->type == VIF_STA) {
+			netif_create_ip6_linklocal_address(&wlan_if->netif, 1);
+			netif_set_ip6_autoconfig_enabled(&wlan_if->netif, 1);
+			wlan_if->netif.flags |= NETIF_FLAG_MLD6;
+		}
+#endif
     }
 
     os_printf("[net]addvif_idx:%d\r\n", vif_idx);

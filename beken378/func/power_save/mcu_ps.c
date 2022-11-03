@@ -13,6 +13,12 @@
 #include "fake_clock_pub.h"
 #include "bk_timer_pub.h"
 #include "drv_model_pub.h"
+#include "low_voltage_ps.h"
+#include "phy_trident.h"
+#include "bk7011_cal_pub.h"
+#include "calendar_pub.h"
+#include "ps.h"
+#include "net.h"
 
 static MCU_PS_INFO mcu_ps_info = {
 	.mcu_ps_on = 0,
@@ -26,7 +32,17 @@ MCU_PS_TSF mcu_ps_tsf_save;
 MCU_PS_MACHW_TM mcu_ps_machw_save;
 int increase_tick = 0;
 #endif
-
+static struct mac_addr bssid;;
+static UINT64 last_tsf = 0;
+UINT32 dtim30_wake_count = 0;
+uint64_t dtim30_null_time = 0;
+uint64_t dtim30_arp_time = 0;
+#if (1 == CFG_LOW_VOLTAGE_PS)
+#define TX_RECOVER_INIT     0
+#define TX_RECOVER_SLEEP    1
+#define TX_RECOVER_RECOVER  2
+volatile UINT32 is_tx_recover = TX_RECOVER_INIT;
+#endif
 #if CFG_USE_MCU_PS
 #if (CFG_SUPPORT_ALIOS)
 static UINT32 sleep_pwm_t, wkup_type;
@@ -92,20 +108,94 @@ void mcu_ps_disable ( void )
 	GLOBAL_INT_RESTORE();
 }
 
+void ps_printf_sleep_flags(void)
+{
+	os_printf("mcu_ps_on:%d\r\n",  mcu_ps_info.mcu_ps_on);
+	os_printf("peri_busy_count_get():%d\r\n",  peri_busy_count_get());
+	os_printf("mcu_prevent_get():%d\r\n",  mcu_prevent_get());
+	os_printf("txl_sleep_check:%d\r\n",  txl_sleep_check());
+	os_printf("power_save_if_rf_sleep:%d\r\n",  power_save_if_rf_sleep());
+	os_printf("sctrl_if_rf_sleep:%d\r\n",  sctrl_if_rf_sleep());
+}
+
+uint32_t ps_may_sleep(void)
+{
+	uint32_t sleep = 0;
+
+	if ( ( mcu_ps_info.mcu_ps_on == 1 )
+		&& (peri_busy_count_get() == 0)
+		&& (mcu_prevent_get() == 0)
+#if ( 1 == CFG_LOW_VOLTAGE_PS)
+	#if (CFG_USE_STA_PS && NX_POWERSAVE)
+		&& (txl_sleep_check())
+	#endif
+#endif
+	)
+	{
+		sleep = 1;
+	}
+	else
+	{
+#if 0
+		os_printf("ps_may_sleep: %d, %d ,%d ,%d \r\n",mcu_ps_info.mcu_ps_on,
+		peri_busy_count_get(),mcu_prevent_get(),txl_sleep_check());
+#endif
+	}
+
+	return sleep;
+}
+UINT32 mcu_power_check_tx_recovery(void)
+{
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    return (is_tx_recover != TX_RECOVER_SLEEP) ? 1: 0;
+#else
+    return 1;
+#endif
+}
+
+void mcu_power_set_tx_recovery(void)
+{
+#if (1 == CFG_LOW_VOLTAGE_PS)
+//    rwnx_cal_recover_tx_setting();
+	rwnx_cal_recover_wifi_setting();
+    phy_exit_11b_low_power();
+    //rwnxl_reset_handle(0);
+    is_tx_recover = TX_RECOVER_RECOVER;
+#endif
+}
+
+void mcu_power_clear_tx_recovery(void)
+{
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    is_tx_recover = TX_RECOVER_SLEEP;
+#endif
+}
 UINT32 mcu_power_save ( UINT32 sleep_tick )
 {
-	UINT32 sleep_ms, sleep_pwm_t, param, uart_miss_us = 0, miss_ticks = 0;
+	UINT32 sleep_ms, sleep_pwm_t, param, uart_miss_us = 0, exit_type = 0, miss_ticks = 0;
 	UINT32 wkup_type, wastage = 0;
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
-	if ( ( mcu_ps_info.mcu_ps_on == 1 )
-	     && ( peri_busy_count_get() == 0 )
-	     && ( mcu_prevent_get() == 0 )) {
+#if CFG_MUC_PS_EXIT_LOG
+	if(lv_ps_is_got_anchor_point() && (!ps_may_sleep()))
+	{
+		ps_printf_sleep_flags();
+		sctrl_printf_mcu_sleep_flags();
+	}
+#endif
+
+	if (ps_may_sleep()
+#if (1 == CFG_LOW_VOLTAGE_PS)
+		&& lv_ps_is_got_anchor_point()
+#endif
+		)
+    {
 		do {
 			sleep_ms = BK_TICKS_TO_MS ( sleep_tick );
 
 			if ( sleep_ms <= 2 ) {
+				exit_type = 1;
 				break;
 			}
 
@@ -113,6 +203,7 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 			sleep_pwm_t = ( sleep_ms * 32 );
 
 			if ( ( int32 ) sleep_pwm_t <= 64 ) {
+				exit_type = 2;
 				break;
 			}
 
@@ -127,11 +218,11 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 
 			if ( sctrl_if_mcu_can_sleep() ) {
 #if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME != SOC_BK7231)))
-
+#if ( 0 == CFG_LOW_VOLTAGE_PS)
 				if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 					ps_pwm_disable();
 				}
-
+#endif
 				ps_timer3_enable ( sleep_pwm_t );
 #else
 				ps_pwm_suspend_tick ( sleep_pwm_t );
@@ -167,10 +258,11 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 				}
 				else {
 					miss_ticks =  ( ps_timer3_disable() + ( uart_miss_us + wastage ) / 1000 ) / FCLK_DURATION_MS;
-
+#if ( 0 == CFG_LOW_VOLTAGE_PS)
 					if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 						ps_pwm_enable();
 					}
+#endif
 				}
 			}
 
@@ -196,12 +288,27 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 			}
 			ps_pwm_resume_tick();
 #endif
+#if (1 == CFG_LOW_VOLTAGE_PS)
+//			if ( 1 == wkup_type )
+			{
+				mcu_power_clear_tx_recovery();
+				power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
+				mcu_ps_check_tx();
+			}
+			if ( 1 != wkup_type )
+			{
+				PS_DBG("wkup_type = %d\r\n",wkup_type);
+			}
+#endif
 		}
 		while ( 0 );
 	}
 	else {
 	}
-
+	if(exit_type)
+	{
+		PS_DBG("exit_type:%x\r\n", exit_type);
+	}
 	mcu_ps_cal_increase_tick ( & miss_ticks );
 	GLOBAL_INT_RESTORE();
 	if(miss_ticks <0){
@@ -242,7 +349,7 @@ int aos_mcu_ps_timer_start ( UINT32 tm_us )
 			if ( sleep_pwm_t < 64 )
 				sleep_pwm_t = 64;
 				
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (SOC_BK7238 == CFG_SOC_NAME)))
 				
 		if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 			ps_pwm_disable();
@@ -263,7 +370,7 @@ void aos_mcu_ps_sleep()
 {
 	UINT32 param;
 	GLOBAL_INT_DECLARATION();
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (SOC_BK7238 == CFG_SOC_NAME)))
 	param = ( 0xfffff & ( ~PWD_TIMER_32K_CLK_BIT ) & ( ~PWD_UART2_CLK_BIT )
 	          & ( ~PWD_UART1_CLK_BIT )
 	        );
@@ -274,7 +381,7 @@ void aos_mcu_ps_sleep()
 #endif
 	GLOBAL_INT_DISABLE();
 	sctrl_mcu_sleep ( param );
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (SOC_BK7238 == CFG_SOC_NAME)))
 	ps_timer3_measure_prepare();
 #endif
 	wkup_type = sctrl_mcu_wakeup();
@@ -284,7 +391,7 @@ void aos_mcu_ps_sleep()
 int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 {
 	UINT32 miss_ticks = 0, wastage = 0;
-#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME)))
+#if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (SOC_BK7238 == CFG_SOC_NAME)))
 	
 	if ( 1 == wkup_type ) {
 		wastage = 768;
@@ -324,6 +431,26 @@ int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 }
 #endif
 
+void mcu_ps_check_tx(void)
+{
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    if(cal_get_time_us() - dtim30_null_time > LOW_VOL_NULL_SEND_INTERVAL/*10s*/)
+    {
+        ps_send_null();
+        dtim30_null_time = cal_get_time_us();
+    }
+    ps_run_td_timer(0);
+#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
+    if((ps_info.ps_arp_enable == 1)&&(cal_get_time_us() - dtim30_arp_time > ps_info.ps_arp_period*1000000))
+    {
+        net_send_gratuitous_arp();
+        dtim30_arp_time = cal_get_time_us();
+    }
+#endif
+#endif
+}
+
+
 void mcu_ps_dump ( void )
 {
 	os_printf ( "mcu:%x\r\n", mcu_ps_info.mcu_ps_on );
@@ -346,20 +473,28 @@ void mcu_init_timer3 ( void )
 }
 #endif
 
+extern void lvc_init(void);
+extern void lv_ps_init(void);
 void mcu_ps_init ( void )
 {
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
-
+#if ( 0 == CFG_LOW_VOLTAGE_PS)
 	if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 		mcu_init_timer3();
 	}
-
+#endif
 	if ( 0 == mcu_ps_info.mcu_ps_on ) {
 		sctrl_mcu_init();
 		mcu_ps_info.mcu_ps_on = 1;
 		mcu_ps_info.peri_busy_count = 0;
 		os_printf ( "%s %d\r\n", __FUNCTION__, mcu_ps_info.mcu_prevent );
+
+#if (CFG_LOW_VOLTAGE_PS == 1)
+		lvc_init();
+		lv_ps_init();
+#endif
+
 	}
 
 	mcu_ps_machw_init();
@@ -384,13 +519,26 @@ void mcu_ps_exit ( void )
 #endif
 
 #if CFG_USE_TICK_CAL
-static struct mac_addr bssid;
-static UINT64 last_tsf = 0;
+//static struct mac_addr bssid;
+//static UINT64 last_tsf = 0;
 extern UINT32 use_cal_net;
 void mcu_ps_bcn_callback ( uint8_t *data, int len, wifi_link_info_t *info )
 {
 	struct bcn_frame *bcn = ( struct bcn_frame * ) data;
 	UINT64 tsf_start_peer = bcn->tsf;
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    if(lv_ps_get_start_flag())
+    {
+        if(mm_ap_beacon_rate_is_11b())
+        {
+            phy_enter_11b_low_power();
+        }
+        else
+        {
+            phy_exit_11b_low_power();
+        }
+    }
+#endif
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 

@@ -19,7 +19,7 @@
 
 /** @brief Number of registers in the REG_AGC peripheral.
  */
-#define REG_AGC_COUNT 2091
+#define REG_AGC_COUNT 2092
 
 /** @brief Decoding mask of the REG_AGC peripheral registers from the CPU point of view.
  */
@@ -9617,6 +9617,190 @@ __INLINE void agc_inbdpowdbvthr_setf(uint8_t inbdpowdbvthr)
 {
     ASSERT_ERR((((uint32_t)inbdpowdbvthr << 0) & ~((uint32_t)0x000000FF)) == 0);
     REG_PL_WR(AGC_RWNXAGCDSP3_ADDR, (uint32_t)inbdpowdbvthr << 0);
+}
+
+/// @}
+
+/**
+ * @name RWNXAGCDSP4 register definitions
+ * <table>
+ * <caption id="RWNXAGCDSP4_BF">RWNXAGCDSP4 bitfields</caption>
+ * <tr><th>Bits <th>Field Name <th>HW Access <th>SW Access <th>Reset Value
+ * <tr><td>23:16 <td>      ADCPOWMINDBM <td>R <td>R/W <td>0xBF
+ * <tr><td>15:08 <td>    ADCPOWBIASQDBM <td>R <td>R/W <td>0xBF
+ * <tr><td>07:00 <td>   ADCPOWSUPDBMTHR <td>R <td>R/W <td>0xBF
+ * </table>
+ *
+ * @{
+ */
+
+/// Address of the RWNXAGCDSP4 register
+#define AGC_RWNXAGCDSP4_ADDR   (REG_AGC_BASE_ADDR + 0x000020AC)
+/// Offset of the RWNXAGCDSP4 register from the base address
+#define AGC_RWNXAGCDSP4_OFFSET 0x000020AC
+/// Index of the RWNXAGCDSP4 register
+#define AGC_RWNXAGCDSP4_INDEX  0x0000082B
+/// Reset value of the RWNXAGCDSP4 register
+#define AGC_RWNXAGCDSP4_RESET  0x00BFBFBF
+
+/**
+ * @brief Returns the current value of the RWNXAGCDSP4 register.
+ * The RWNXAGCDSP4 register will be read and its value returned.
+ * @return The current value of the RWNXAGCDSP4 register.
+ */
+__INLINE uint32_t agc_rwnxagcdsp4_get(void)
+{
+    return REG_PL_RD(AGC_RWNXAGCDSP4_ADDR);
+}
+
+/**
+ * @brief Sets the RWNXAGCDSP4 register to a value.
+ * The RWNXAGCDSP4 register will be written.
+ * @param value - The value to write.
+ */
+__INLINE void agc_rwnxagcdsp4_set(uint32_t value)
+{
+    REG_PL_WR(AGC_RWNXAGCDSP4_ADDR, value);
+}
+
+// field definitions
+/// ADCPOWMINDBM field mask
+#define AGC_ADCPOWMINDBM_MASK      ((uint32_t)0x00FF0000)
+/// ADCPOWMINDBM field LSB position
+#define AGC_ADCPOWMINDBM_LSB       16
+/// ADCPOWMINDBM field width
+#define AGC_ADCPOWMINDBM_WIDTH     ((uint32_t)0x00000008)
+/// ADCPOWBIASQDBM field mask
+#define AGC_ADCPOWBIASQDBM_MASK    ((uint32_t)0x0000FF00)
+/// ADCPOWBIASQDBM field LSB position
+#define AGC_ADCPOWBIASQDBM_LSB     8
+/// ADCPOWBIASQDBM field width
+#define AGC_ADCPOWBIASQDBM_WIDTH   ((uint32_t)0x00000008)
+/// ADCPOWSUPDBMTHR field mask
+#define AGC_ADCPOWSUPDBMTHR_MASK   ((uint32_t)0x000000FF)
+/// ADCPOWSUPDBMTHR field LSB position
+#define AGC_ADCPOWSUPDBMTHR_LSB    0
+/// ADCPOWSUPDBMTHR field width
+#define AGC_ADCPOWSUPDBMTHR_WIDTH  ((uint32_t)0x00000008)
+
+/// ADCPOWMINDBM field reset value
+#define AGC_ADCPOWMINDBM_RST       0xBF
+/// ADCPOWBIASQDBM field reset value
+#define AGC_ADCPOWBIASQDBM_RST     0xBF
+/// ADCPOWSUPDBMTHR field reset value
+#define AGC_ADCPOWSUPDBMTHR_RST    0xBF
+
+/**
+ * @brief Constructs a value for the RWNXAGCDSP4 register given values for its fields
+ * and writes the value to the register.
+ *
+ * @param[in] adcpowmindbm - The value to use for the ADCPOWMINDBM field.
+ * @param[in] adcpowbiasqdbm - The value to use for the ADCPOWBIASQDBM field.
+ * @param[in] adcpowsupdbmthr - The value to use for the ADCPOWSUPDBMTHR field.
+ */
+__INLINE void agc_rwnxagcdsp4_pack(uint8_t adcpowmindbm, uint8_t adcpowbiasqdbm, uint8_t adcpowsupdbmthr)
+{
+    ASSERT_ERR((((uint32_t)adcpowmindbm << 16) & ~((uint32_t)0x00FF0000)) == 0);
+    ASSERT_ERR((((uint32_t)adcpowbiasqdbm << 8) & ~((uint32_t)0x0000FF00)) == 0);
+    ASSERT_ERR((((uint32_t)adcpowsupdbmthr << 0) & ~((uint32_t)0x000000FF)) == 0);
+    REG_PL_WR(AGC_RWNXAGCDSP4_ADDR,  ((uint32_t)adcpowmindbm << 16) | ((uint32_t)adcpowbiasqdbm << 8) | ((uint32_t)adcpowsupdbmthr << 0));
+}
+
+/**
+ * @brief Unpacks RWNXAGCDSP4's fields from current value of the RWNXAGCDSP4 register.
+ *
+ * Reads the RWNXAGCDSP4 register and populates all the _field variables with the corresponding
+ * values from the register.
+ *
+ * @param[out] adcpowmindbm - Will be populated with the current value of this field from the register.
+ * @param[out] adcpowbiasqdbm - Will be populated with the current value of this field from the register.
+ * @param[out] adcpowsupdbmthr - Will be populated with the current value of this field from the register.
+ */
+__INLINE void agc_rwnxagcdsp4_unpack(uint8_t* adcpowmindbm, uint8_t* adcpowbiasqdbm, uint8_t* adcpowsupdbmthr)
+{
+    uint32_t localVal = REG_PL_RD(AGC_RWNXAGCDSP4_ADDR);
+
+    *adcpowmindbm = (localVal & ((uint32_t)0x00FF0000)) >> 16;
+    *adcpowbiasqdbm = (localVal & ((uint32_t)0x0000FF00)) >> 8;
+    *adcpowsupdbmthr = (localVal & ((uint32_t)0x000000FF)) >> 0;
+}
+
+/**
+ * @brief Returns the current value of the ADCPOWMINDBM field in the RWNXAGCDSP4 register.
+ *
+ * The RWNXAGCDSP4 register will be read and the ADCPOWMINDBM field's value will be returned.
+ *
+ * @return The current value of the ADCPOWMINDBM field in the RWNXAGCDSP4 register.
+ */
+__INLINE uint8_t agc_adcpowmindbm_getf(void)
+{
+    uint32_t localVal = REG_PL_RD(AGC_RWNXAGCDSP4_ADDR);
+    return ((localVal & ((uint32_t)0x00FF0000)) >> 16);
+}
+
+/**
+ * @brief Sets the ADCPOWMINDBM field of the RWNXAGCDSP4 register.
+ *
+ * The RWNXAGCDSP4 register will be read, modified to contain the new field value, and written.
+ *
+ * @param[in] adcpowmindbm - The value to set the field to.
+ */
+__INLINE void agc_adcpowmindbm_setf(uint8_t adcpowmindbm)
+{
+    ASSERT_ERR((((uint32_t)adcpowmindbm << 16) & ~((uint32_t)0x00FF0000)) == 0);
+    REG_PL_WR(AGC_RWNXAGCDSP4_ADDR, (REG_PL_RD(AGC_RWNXAGCDSP4_ADDR) & ~((uint32_t)0x00FF0000)) | ((uint32_t)adcpowmindbm << 16));
+}
+
+/**
+ * @brief Returns the current value of the ADCPOWBIASQDBM field in the RWNXAGCDSP4 register.
+ *
+ * The RWNXAGCDSP4 register will be read and the ADCPOWBIASQDBM field's value will be returned.
+ *
+ * @return The current value of the ADCPOWBIASQDBM field in the RWNXAGCDSP4 register.
+ */
+__INLINE uint8_t agc_adcpowbiasqdbm_getf(void)
+{
+    uint32_t localVal = REG_PL_RD(AGC_RWNXAGCDSP4_ADDR);
+    return ((localVal & ((uint32_t)0x0000FF00)) >> 8);
+}
+
+/**
+ * @brief Sets the ADCPOWBIASQDBM field of the RWNXAGCDSP4 register.
+ *
+ * The RWNXAGCDSP4 register will be read, modified to contain the new field value, and written.
+ *
+ * @param[in] adcpowbiasqdbm - The value to set the field to.
+ */
+__INLINE void agc_adcpowbiasqdbm_setf(uint8_t adcpowbiasqdbm)
+{
+    ASSERT_ERR((((uint32_t)adcpowbiasqdbm << 8) & ~((uint32_t)0x0000FF00)) == 0);
+    REG_PL_WR(AGC_RWNXAGCDSP4_ADDR, (REG_PL_RD(AGC_RWNXAGCDSP4_ADDR) & ~((uint32_t)0x0000FF00)) | ((uint32_t)adcpowbiasqdbm << 8));
+}
+
+/**
+ * @brief Returns the current value of the ADCPOWSUPDBMTHR field in the RWNXAGCDSP4 register.
+ *
+ * The RWNXAGCDSP4 register will be read and the ADCPOWSUPDBMTHR field's value will be returned.
+ *
+ * @return The current value of the ADCPOWSUPDBMTHR field in the RWNXAGCDSP4 register.
+ */
+__INLINE uint8_t agc_adcpowsupdbmthr_getf(void)
+{
+    uint32_t localVal = REG_PL_RD(AGC_RWNXAGCDSP4_ADDR);
+    return ((localVal & ((uint32_t)0x000000FF)) >> 0);
+}
+
+/**
+ * @brief Sets the ADCPOWSUPDBMTHR field of the RWNXAGCDSP4 register.
+ *
+ * The RWNXAGCDSP4 register will be read, modified to contain the new field value, and written.
+ *
+ * @param[in] adcpowsupdbmthr - The value to set the field to.
+ */
+__INLINE void agc_adcpowsupdbmthr_setf(uint8_t adcpowsupdbmthr)
+{
+    ASSERT_ERR((((uint32_t)adcpowsupdbmthr << 0) & ~((uint32_t)0x000000FF)) == 0);
+    REG_PL_WR(AGC_RWNXAGCDSP4_ADDR, (REG_PL_RD(AGC_RWNXAGCDSP4_ADDR) & ~((uint32_t)0x000000FF)) | ((uint32_t)adcpowsupdbmthr << 0));
 }
 
 /// @}

@@ -9,6 +9,10 @@
 #include "los_compiler.h"
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #pragma once
 
 #define RTOS_SUCCESS                       (1)
@@ -18,10 +22,6 @@
 
 #define BEKEN_DEFAULT_WORKER_PRIORITY      (6)
 #define BEKEN_APPLICATION_PRIORITY         (7)
-
-#define kNanosecondsPerSecond              1000000000UUL
-#define kMicrosecondsPerSecond             1000000UL
-#define kMillisecondsPerSecond             1000
 
 #define BEKEN_NEVER_TIMEOUT                (0xFFFFFFFF)
 #define BEKEN_WAIT_FOREVER                 (0xFFFFFFFF)
@@ -628,6 +628,7 @@ OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer);
 BOOL rtos_is_oneshot_timer_init( beken2_timer_t* timer);
 OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer);
 OSStatus rtos_change_period( beken_timer_t* timer, uint32_t time_ms);
+OSStatus rtos_change_period_1( beken2_timer_t* timer, uint32_t time_ms);
 
 
 /** @brief    Starts a RTOS timer running
@@ -718,6 +719,11 @@ int rtos_init_event_fd(beken_event_t event_handle);
 int rtos_deinit_event_fd(int fd);
 uint32_t rtos_get_tick_count(void);
 OSStatus rtos_push_to_queue_front(beken_queue_t* queue, void* message, uint32_t timeout_ms);
+
+#ifdef __cplusplus
+}
+#endif
+
 #endif // __RTOS_PUB__
 // EOF
 

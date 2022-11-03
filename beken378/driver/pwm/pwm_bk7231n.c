@@ -1,7 +1,7 @@
 #include "include.h"
 #include "arm_arch.h"
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236)
+#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
 #include "pwm_pub.h"
 #include "drv_model_pub.h"
 #include "intc_pub.h"
@@ -615,6 +615,34 @@ bk_err_t pwm_update_param_enable(UINT8 channel)
 	return BK_OK;
 }
 
+bk_err_t pwm_single_update_param_enable(UINT8 channel,UINT32 level)
+{
+	UINT32 value;
+
+	if (channel >= PWM_COUNT)
+		return BK_ERR_PARAM;
+
+	if (channel < 2) {
+		current_group = 0;
+		current_channel = channel;
+	} else  if (channel < 4) {
+		current_group = 1;
+		current_channel = channel - 2;
+	} else {
+		current_group = 2;
+		current_channel = channel - 4;
+	}
+
+	// cfg_updata and initial level update enable
+	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
+	value &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(current_channel));
+	value |= PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel)
+		  | (level << PWM_GROUP_PWM_INT_LEVL_BIT(current_channel));
+	os_printf("value:%x\r\n", value);
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
+
+	return BK_OK;
+}
 
 bk_err_t pwm_group_update_param_enable(UINT8 channel1, UINT8 channel2)
 {
@@ -735,7 +763,6 @@ void pwm_exit(void)
 {
 	sddev_unregister_dev(PWM_DEV_NAME);
 }
-
 
 UINT32 pwm_ctrl(UINT32 cmd, void *param)
 {

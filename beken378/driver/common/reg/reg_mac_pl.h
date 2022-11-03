@@ -17,6 +17,23 @@
 #include "arch.h"
 #include "reg_access.h"
 
+
+#if (BK_NX_MAC_DEEP_CLKGATE)
+#define NXMAC_MAC_DEEP_CLKGATE_ADDR   0xC000857C
+#define DEEP_CLKGATE_OPEN             REG_PL_WR(NXMAC_MAC_DEEP_CLKGATE_ADDR, 0x6)
+#define DEEP_CLKGATE_CLOSE            REG_PL_WR(NXMAC_MAC_DEEP_CLKGATE_ADDR, 0x0)
+#define DEEP_CLKGATE_DISABLE          do {              \
+                                            uint32_t    save = REG_PL_RD(NXMAC_MAC_DEEP_CLKGATE_ADDR);   \
+                                            REG_PL_WR(NXMAC_MAC_DEEP_CLKGATE_ADDR, 0x0)
+#define DEEP_CLKGATE_ENABLE           REG_PL_WR(NXMAC_MAC_DEEP_CLKGATE_ADDR, save);  \
+                                         }while(0)
+#else
+#define DEEP_CLKGATE_OPEN
+#define DEEP_CLKGATE_CLOSE
+#define DEEP_CLKGATE_DISABLE
+#define DEEP_CLKGATE_ENABLE
+#endif
+
 /*lint -e(91)*/
 /** @brief Number of registers in the REG_MAC_PL peripheral.
  */
@@ -7029,7 +7046,9 @@ __INLINE uint32_t nxmac_dma_cntrl_get(void)
  */
 __INLINE void nxmac_dma_cntrl_set(uint32_t value)
 {
+    DEEP_CLKGATE_DISABLE;
     REG_PL_WR(NXMAC_DMA_CNTRL_SET_ADDR, value);
+    DEEP_CLKGATE_ENABLE;
 }
 
 // field definitions
@@ -7789,8 +7808,11 @@ __INLINE void nxmac_tx_bcn_new_tail_setf(uint8_t txbcnnewtail)
  */
 __INLINE void nxmac_dma_cntrl_clear(uint32_t value)
 {
+    DEEP_CLKGATE_DISABLE;
     REG_PL_WR(NXMAC_DMA_CNTRL_CLEAR_ADDR, value);
+    DEEP_CLKGATE_ENABLE;
 }
+
 
 // fields defined in symmetrical set/clear register
 /**

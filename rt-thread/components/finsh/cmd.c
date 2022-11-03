@@ -58,6 +58,7 @@ long hello(void)
 FINSH_FUNCTION_EXPORT(hello, say hello world);
 
 extern void rt_show_version(void);
+#ifdef PKG_USING_RT_OTA
 #include <rt_ota.h>
 long version(void)
 {
@@ -78,6 +79,7 @@ long version(void)
 }
 FINSH_FUNCTION_EXPORT(version, show RT-Thread version information);
 MSH_CMD_EXPORT(version, show RT-Thread version information);
+#endif
 
 static int object_name_maxlen(const char *type_name, struct rt_list_node *list)
 {

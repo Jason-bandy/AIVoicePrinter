@@ -707,6 +707,12 @@ void gdma_init(void)
     intc_service_register(IRQ_GENERDMA, PRI_IRQ_GENERDMA, gdma_isr);
     sddev_register_dev(GDMA_DEV_NAME, &gdma_op);
 
+#if (CFG_SOC_NAME == SOC_BK7238)
+	UINT32 param;
+	param = PWD_GDMA_CLK_BIT;
+	sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);//clk power up
+#endif
+
     #if (CFG_SOC_NAME != SOC_BK7231)
     for(int i=0; i<GDMA_CHANNEL_MAX; i++) {
         p_dma_fin_handler[i] = NULL;

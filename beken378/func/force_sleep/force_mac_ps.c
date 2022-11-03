@@ -21,15 +21,13 @@
 #include "txl_frame.h"
 #include "vif_mgmt.h"
 #include "phy_trident.h"
+#include "sys_ctrl_pub.h"
 
 UINT32 force_ps_mac_hwtimer_unmask = 0;
 uint8_t prev_mac_state = 0;
 extern bool rwnxl_get_status_in_doze(void);
 extern void phy_init_after_wakeup(void);
 extern void rwnxl_reset_handle(int dummy);
-#if (CFG_SOC_NAME == SOC_BK7231N)
-extern void sctrl_fix_dpll_div(void);
-#endif
 
 static void force_mac_ps_recover_mac_modem(void);
 
@@ -366,14 +364,15 @@ static void force_mac_ps_recover_mac_modem(void)
 	}
 
 	if (g_mac_sleep.cfg.off_modem) {
-#if (CFG_SOC_NAME != SOC_BK7231N)
-		phy_init_after_wakeup();
-#else
 #if (CFG_SOC_NAME == SOC_BK7231N)
 		sctrl_fix_dpll_div();
-#endif
 		phy_wakeup_rf_reinit();
 		phy_wakeup_wifi_reinit();
+#elif (CFG_SOC_NAME == SOC_BK7238)
+		phy_wakeup_rf_reinit();
+		phy_wakeup_wifi_reinit();
+#else
+		phy_init_after_wakeup();
 #endif
 	}
 

@@ -38,8 +38,13 @@
  * Traffic Detection default threshold (number of RX or TX packets needed to consider that
  * traffi is occurring)
  */
-#define TD_DEFAULT_PCK_NB_THRES     (3)
-
+#if (1 == CFG_LOW_VOLTAGE_PS)
+#define TD_DEFAULT_PCK_NB_THRES        (1)
+#define TD_DEFAULT_TX_PCK_NB_THRES     (2)
+#else
+#define TD_DEFAULT_PCK_NB_THRES        (3)
+#define TD_DEFAULT_TX_PCK_NB_THRES     (3)
+#endif
 /**
  * ENUMERATIONS
  ****************************************************************************************

@@ -472,6 +472,7 @@ int freq_range_list_includes(const struct wpa_freq_range_list *list,
 char * freq_range_list_str(const struct wpa_freq_range_list *list);
 
 int int_array_len(const int *a);
+int char_array_len(const uint8_t *a);
 void int_array_concat(int **res, const int *a);
 void int_array_sort_unique(int *a);
 void int_array_add_unique(int **res, int a);
