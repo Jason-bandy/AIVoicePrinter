@@ -1,0 +1,16 @@
+Import('RTT_ROOT')
+from building import *
+
+cwd = GetCurrentDir()
+
+LIBS    = []
+LIBPATH = []
+src = ['mic_aec_play.c']
+path = [cwd]
+
+LIBPATH += [cwd]
+LIBS += ['libaec.a']
+
+group = DefineGroup('rt_aec', src, depend = ['MIC_AEC_TEST'], CPPPATH = path, LIBS = LIBS, LIBPATH = LIBPATH)
+
+Return('group')
