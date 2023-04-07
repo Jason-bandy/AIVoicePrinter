@@ -41,8 +41,13 @@ gather_out_files()
 	PLATFORM=$1
 	OUT_FOLDER=$2
 
-	if [ ! -f ./out/all_2M.1220.bin ]; then
-		echo "Not found firmware all_2M.1220.bin"
+	files=$(ls ./out/*".bin")
+	#echo $files
+
+	if [[ "$files" == *"all_"* ]];then
+		echo "exist all_*M.1220.bin"
+	else
+		echo "Not found firmware all_*M.1220.bin"
 		return 1
 	fi
 

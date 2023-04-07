@@ -39,7 +39,7 @@
  * traffi is occurring)
  */
 #if (1 == CFG_LOW_VOLTAGE_PS)
-#define TD_DEFAULT_PCK_NB_THRES        (1)
+#define TD_DEFAULT_PCK_NB_THRES        (2)
 #define TD_DEFAULT_TX_PCK_NB_THRES     (2)
 #else
 #define TD_DEFAULT_PCK_NB_THRES        (3)

@@ -5,6 +5,8 @@
 
 /** dhcp-server-main.c: CLI based APIs for the DHCP Server
  */
+#include "sys_config.h"
+#if CFG_USE_DHCPD
 #include <string.h>
 #include "rtos_pub.h"
 #include "dhcp-priv.h"
@@ -59,5 +61,6 @@ void dhcp_server_stop(void)
 		dhcp_w("server not dhcpd_running.\r\n");
 	}
 }
+#endif // CFG_USE_DHCPD
 // eof
 

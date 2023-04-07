@@ -52,6 +52,8 @@
  *         Simon Goldschmidt
  *
  */
+#include "include.h"
+#include "mem_pub.h"
 
 #include "lwip/opt.h"
 #include "lwip/mem.h"
@@ -90,6 +92,7 @@ mem_trim(void *mem, mem_size_t size)
 
 #if MEM_LIBC_MALLOC
 /* lwIP heap implemented using C library malloc() */
+#define os_calloc(nmemb,size)   ((size) && (nmemb) > (~( unsigned int) 0)/(size))?0:os_zalloc((nmemb)*(size))
 
 /* in case C library malloc() needs extra protection,
  * allow these defines to be overridden.

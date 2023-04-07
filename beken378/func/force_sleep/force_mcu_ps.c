@@ -574,7 +574,7 @@ UINT32 force_mcu_ps(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us, UINT32 sleep
         #endif
 		force_mcu_ps_entry(wake_up_way,sleep_us);
 		force_mcu_ps_exit();
-        
+
 #if (CFG_BLE_VERSION == BLE_VERSION_5_1)
         if((g_mcu_sleep.cfg.off_ble == 1) && (ble_up == 1))
             ble_entry();
@@ -583,8 +583,9 @@ UINT32 force_mcu_ps(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us, UINT32 sleep
 	}
 
 	sleep_tick = BK_MS_TO_TICKS(sleep_ms);
-
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 	mcu_ps_cal_increase_tick(&sleep_tick);
+#endif
 	fclk_update_tick(sleep_tick);
 #endif
 

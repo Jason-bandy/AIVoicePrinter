@@ -654,8 +654,10 @@ enum {
 	PRISM2_HOSTAPD_LEAVE_MESH = 35,
 #endif
 
+	PRISM2_HOSTAPD_GET_CHANNEL_REQ = 36,
+
 #ifdef CONFIG_SME
-	PRISM2_HOSTAPD_AUTHENTICATE = 36,
+	PRISM2_HOSTAPD_AUTHENTICATE = 37,
 	PRISM2_HOSTAPD_REG_AUTH_CALLBACK,
 	PRISM2_HOSTAPD_SET_OPER_STATE,
 #endif
@@ -692,6 +694,15 @@ struct prism2_hostapd_param {
 			FUNC_2PARAM_PTR cb;
 			void *arg;
 		} reg_scan_cfm;
+
+		struct {
+			u32 frequency;
+			int chanwidth;
+			int sec_channel;
+			int center_frq1;
+			int center_frq2;
+			u8 seg1_idx;
+		} channel_info;
 
 		struct {
 			FUNC_2PARAM_PTR cb;
@@ -792,6 +803,9 @@ struct prism2_hostapd_param {
 			u32 group_suite;
 			u8 auth_alg;
 			u8 mfp;
+			s8 rssi;
+			u16 cap_info;
+			u16 beacon_period;
 			u16 ie_len;
 			u32 ie_buf[64];		// assoc ie
 			u16 bcn_len;

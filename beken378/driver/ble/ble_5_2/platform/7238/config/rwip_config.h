@@ -45,8 +45,19 @@
 #define CFG_APP
 #define CFG_GAIA
 #define CFG_PRF
+#define CFG_EXT_ADV
+//#define CFG_PHY_UPD
+//#define CFG_SMP
+//#define CFG_SMP_SEC_CON
+//#define CFG_SMP_RPA
+//#define CFG_EATT
+//#define CFG_CLK_ACC
+//#define CFG_PER_SYNC
+//#define CFG_PER_ADV
 
+#if (CFG_USE_PTA)
 #define CFG_WLAN_COEX
+#endif
 
 //   <o> CFG_BLE Role
 //              <0=> BROADCASTER
@@ -81,6 +92,64 @@
 #define CFG_INIT_ENABLE		0
 #endif
 
+#if defined(CFG_SMP)
+	#define CFG_BLE_SMP			1
+	#if defined(CFG_SMP_RPA)
+	#define CFG_BLE_RPA			1
+	#endif
+	#if defined(CFG_SMP_SEC_CON)
+	#define CFG_ECC_P256_ACC	1
+	#endif
+#else //CFG_SMP
+	#define CFG_BLE_SMP			0
+	#define CFG_BLE_RPA			0
+	#define CFG_ECC_P256_ACC	0
+#endif
+
+#if (CFG_BLE_SMP)
+#define BLE_APP_SEC			1
+#define BK_BLE_ENCRYPT_PATCH	1
+#else
+#define BLE_APP_SEC			0
+#endif
+
+#if defined(CFG_EATT)
+#define CFG_BLE_EATT		1
+#else
+#define CFG_BLE_EATT		0
+#endif
+
+#if defined(CFG_PER_SYNC)
+#define CFG_BLE_PER_SYNC	1
+#else
+#define CFG_BLE_PER_SYNC	0
+#endif
+
+#if defined(CFG_PER_ADV)
+#define CFG_BLE_PER_ADV		1
+#else
+#define CFG_BLE_PER_ADV		0
+#endif
+
+#if defined(CFG_CLK_ACC)
+#define CFG_BLE_CLK_ACC		1
+#else
+#define CFG_BLE_CLK_ACC		0
+#endif
+
+#if defined(CFG_EXT_ADV)
+#define CFG_BLE_EXT_ADV		1
+#define CFG_BLE_AUX_CHAIN	0
+#else
+#define CFG_BLE_EXT_ADV		0
+#endif
+
+#if defined(CFG_PHY_UPD)
+#define CFG_BLE_PHY_UPD		1
+#else
+#define CFG_BLE_PHY_UPD		0
+#endif
+
 //	 <o> CFG_ACT <1-10>
 //   <i> CFG NUMBER OF ACTIVITIES IN BLE SIMULTANEOUS (1 -- 10)
 #define CFG_ACT                 CFG_BLE_ADV_NUM + CFG_BLE_SCAN_NUM + CFG_BLE_INIT_NUM + CFG_BLE_CONN_NUM
@@ -97,6 +166,7 @@
 
 // resolvable address number
 #define CFG_RAL                 4
+
 #define CFG_NB_PRF              10
 
 /*
@@ -606,11 +676,21 @@
 #define BLE_PWR_CLASS_1_SUPPORT                     0
 #else // RIPPLE
 #define BLE_PHY_1MBPS_SUPPORT                       1
+#if (CFG_BLE_PHY_UPD)
 #define BLE_PHY_2MBPS_SUPPORT                       1
 #define BLE_PHY_CODED_SUPPORT                       1
+#else
+#define BLE_PHY_2MBPS_SUPPORT                       0
+#define BLE_PHY_CODED_SUPPORT                       0
+#endif
 #define BLE_STABLE_MOD_IDX_TX_SUPPORT               0
 #define BLE_STABLE_MOD_IDX_RX_SUPPORT               0
 #define BLE_PWR_CLASS_1_SUPPORT                     0
+#define BLE_FEAT_EXT_ADV_SUPPORT                    CFG_BLE_EXT_ADV
+#define BLE_FEAT_PER_ADV_SUPPORT                    CFG_BLE_PER_ADV
+#define BLE_FEAT_SMP_SUPPORT                        CFG_BLE_SMP
+#define BLE_FEAT_PER_ADV_SYNC_SUPPORT               CFG_BLE_PER_SYNC
+#define BLE_FEAT_SLEEP_CLK_ACC_UPD_SUPPORT          CFG_BLE_CLK_ACC
 #endif
 
 /******************************************************************************************/
@@ -887,6 +967,9 @@ enum KERNEL_TASK_TYPE
     // allocate a certain number of profiles task
     TASK_BLE_PRF_MAX = (TASK_BLE_GAPC + BLE_NB_PROFILES),
     #endif // (BLE_HL_MSG_API)
+    #if (CFG_INIT_ENABLE)
+    TASK_BLE_SDP,
+    #endif
 #endif // (BLE_HOST_PRESENT)
 
     #if (AHI_TL_SUPPORT)

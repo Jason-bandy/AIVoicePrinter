@@ -15,7 +15,6 @@
 #define IPERF_PORT          5001
 #define IPERF_BUFSZ         (4 * 1024)
 
-#define IPERF_MODE_STOPPING     (-1)
 #define IPERF_MODE_STOP     0
 #define IPERF_MODE_SERVER   1
 #define IPERF_MODE_CLIENT   2
@@ -40,7 +39,7 @@ static void iperf_client(void *thread_param)
 	for (i = 0; i < IPERF_BUFSZ; i++)
 		send_buf[i] = i & 0xff;
 
-	while (param.mode == IPERF_MODE_CLIENT) {
+	while (param.mode != IPERF_MODE_STOP) {
 		sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
 		if (sock < 0) {
 			os_printf("create socket failed!\n");
@@ -78,7 +77,7 @@ static void iperf_client(void *thread_param)
 		tick_delta = 0;
 		sentlen = 0;
 
-		while (param.mode == IPERF_MODE_CLIENT) {
+		while (param.mode != IPERF_MODE_STOP) {
 			tick2 = rtos_get_time();
 			tick2 /= 1000;
 			if (tick2 - tick1 >= 5) {
@@ -103,9 +102,8 @@ static void iperf_client(void *thread_param)
 		rtos_delay_milliseconds(1000 * 2);
 	}
 	os_free(send_buf);
-	os_printf("disconnected!\n");
-	param.mode = IPERF_MODE_STOP;
 	rtos_delete_thread(NULL);
+	os_printf("disconnected!\n");
 }
 
 void iperf_server(void *thread_param)
@@ -114,6 +112,7 @@ void iperf_server(void *thread_param)
 	uint32_t sin_size, tick1, tick2, tick_delta;
 	int sock = -1, connected, bytes_received, recvlen;
 	struct sockaddr_in server_addr, client_addr;
+
 	recv_data = (uint8_t *)os_malloc(IPERF_BUFSZ);
 	if (recv_data == NULL) {
 		os_printf("No memory\n");
@@ -189,6 +188,7 @@ void iperf_server(void *thread_param)
 __exit:
 	if (sock >= 0) closesocket(sock);
 	if (recv_data) os_free(recv_data);
+	os_printf("iperf: iperf is stopped\n");
 	rtos_delete_thread(NULL);
 }
 
@@ -224,10 +224,7 @@ void iperf(int argc, char **argv)
 		if (os_strcmp(argv[1], "-h") == 0) goto __usage;
 		else if (os_strcmp(argv[1], "--stop") == 0) {
 			/* stop iperf */
-			if(param.mode == IPERF_MODE_CLIENT)
-				param.mode = IPERF_MODE_STOPPING;
-			else
-				param.mode = IPERF_MODE_STOP;
+			param.mode = IPERF_MODE_STOP;
 			return;
 		} else if (os_strcmp(argv[1], "-s") == 0) {
 			mode = IPERF_MODE_SERVER; /* server mode */
@@ -255,10 +252,7 @@ void iperf(int argc, char **argv)
 	}
 
 	/* start iperf */
-	if (param.mode == IPERF_MODE_STOPPING) {
-		os_printf("Iperf is stoping, please try after disconnected! \n");
-	}
-	else if (param.mode == IPERF_MODE_STOP) {
+	if (param.mode == IPERF_MODE_STOP) {
 		param.mode = mode;
 		param.port = port;
 		if (param.host) {

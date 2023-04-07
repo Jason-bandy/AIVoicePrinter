@@ -86,7 +86,7 @@ int sa_station_send_associate_cmd(CONNECT_PARAM_T *connect_param)
 #else
 	if (connect_param->chan.freq) {
 		/* for fast connect */
-		connect_param->chan.band = 0;
+		connect_param->chan.band = PHY_BAND_2G4;
 		connect_param->chan.flags = 0;
 		connect_param->chan.tx_power = 10;
 	} else

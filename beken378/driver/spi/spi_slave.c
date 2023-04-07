@@ -15,7 +15,7 @@
 #include "error.h"
 #include "rtos_pub.h"
 
-#if CFG_USE_SPI_SLAVE
+#if ((CFG_USE_SPI_SLAVE) && (CFG_USE_SPI))
 
 #define SPI_SLAVE_RX_FIFO_LEN      (512)
 

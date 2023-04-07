@@ -47,4 +47,5 @@ typedef struct mbps_txs_mfr_st {
 
 extern void mpb_init(void);
 extern void mpb_exit(void);
+extern void mpb_regs_reset(void);
 #endif // _MAC_PHY_BYPASS_PUB_H_

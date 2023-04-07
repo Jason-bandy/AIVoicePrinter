@@ -98,6 +98,13 @@ OSStatus rtos_delete_thread(beken_thread_t *thread)
 	return kNoErr;
 }
 
+OSStatus rtos_thread_set_priority(beken_thread_t *thread, int priority)
+{
+	if (thread)
+		vTaskPrioritySet(*thread, BK_PRIORITY_TO_NATIVE_PRIORITY(priority));
+	return kNoErr;
+}
+
 OSStatus rtos_thread_join(beken_thread_t *thread)
 {
 	while (xTaskIsTaskFinished(*thread) != pdTRUE)
@@ -413,6 +420,33 @@ OSStatus rtos_deinit_mutex(beken_mutex_t *mutex)
 	return kNoErr;
 }
 
+OSStatus rtos_init_recursive_mutex(beken_mutex_t *mutex)
+{
+	/* Mutex uses priority inheritance */
+	*mutex = xSemaphoreCreateRecursiveMutex();
+	if (*mutex == NULL)
+		return kGeneralErr;
+
+	return kNoErr;
+}
+
+OSStatus rtos_lock_recursive_mutex(beken_mutex_t *mutex, uint32_t timeout)
+{
+	if (xSemaphoreTakeRecursive(*mutex, timeout) != pdPASS)
+		return kGeneralErr;
+
+	return kNoErr;
+}
+
+
+OSStatus rtos_unlock_recursive_mutex(beken_mutex_t *mutex)
+{
+	if (xSemaphoreGiveRecursive(*mutex) != pdPASS)
+		return kGeneralErr;
+
+	return kNoErr;
+}
+
 OSStatus rtos_init_queue(beken_queue_t *queue, const char *name, uint32_t message_size, uint32_t number_of_messages)
 {
 	UNUSED_PARAMETER(name);
@@ -526,6 +560,11 @@ BOOL rtos_is_queue_full(beken_queue_t *queue)
 	return (result != 0) ? true : false;
 }
 
+int rtos_queue_len(beken_queue_t *queue)
+{
+	return uxQueueMessagesWaiting(*queue);;
+}
+
 static void timer_callback2(xTimerHandle handle)
 {
 	beken2_timer_t *timer = (beken2_timer_t *) pvTimerGetTimerID(handle);
@@ -535,6 +574,10 @@ static void timer_callback2(xTimerHandle handle)
 
 	if (timer->state == BEKEN_TIMER_DELETING) {
 		timer->state = BEKEN_TIMER_DELETED;
+		return;
+	}
+
+	if (timer->handle == NULL) {
 		return;
 	}
 
@@ -549,6 +592,10 @@ static void timer_callback1(xTimerHandle handle)
 
 	if (timer->state == BEKEN_TIMER_DELETING) {
 		timer->state = BEKEN_TIMER_DELETED;
+		return;
+	}
+
+	if (timer->handle == NULL) {
 		return;
 	}
 
@@ -615,7 +662,6 @@ static OSStatus deinit_oneshot_timer(beken2_timer_t *timer, bool block)
 		ret = kGeneralErr;
 	else {
 		timer->state = BEKEN_TIMER_DELETING;
-		timer->handle = 0;
 		timer->function = 0;
 		timer->left_arg = 0;
 		timer->right_arg = 0;
@@ -625,8 +671,20 @@ static OSStatus deinit_oneshot_timer(beken2_timer_t *timer, bool block)
 #if ( configTIMER_STATE == 1 )
 	if (block && (ret == kNoErr)) {
 		WAIT_BEKEN_TIMER_DELETED(timer);
+		if(timer->state == BEKEN_TIMER_DELETING) {
+			// if block failed, timer may free soon, after call deinit_timer
+			// so clear timer_id in os_ptimer to prevent call callback when do delete timer in os_timerthread
+			GLOBAL_INT_DISABLE();
+			vTimerSetTimerID(timer->handle, NULL);
+			GLOBAL_INT_RESTORE();
+		}
 	}
 #endif
+	GLOBAL_INT_DISABLE();
+	timer->handle = 0;
+	timer->state = BEKEN_TIMER_DELETED;
+	GLOBAL_INT_RESTORE();
+
 	return ret;
 }
 
@@ -843,7 +901,6 @@ static OSStatus deinit_timer(beken_timer_t *timer, bool block)
 	if (xTimerDelete(timer->handle, BEKEN_WAIT_FOREVER) != pdPASS) {
 		ret = kGeneralErr;
 	} else {
-		timer->handle = 0;
 		timer->state = BEKEN_TIMER_DELETING;
 	}
 	GLOBAL_INT_RESTORE();
@@ -851,8 +908,21 @@ static OSStatus deinit_timer(beken_timer_t *timer, bool block)
 #if ( configTIMER_STATE == 1 )
 	if (block && (ret == kNoErr)) {
 		WAIT_BEKEN_TIMER_DELETED(timer);
+		if(timer->state == BEKEN_TIMER_DELETING) {
+			// if block failed, timer may free soon, after call deinit_timer
+			// so clear timer_id in os_ptimer to prevent call callback when do delete timer in os_timerthread
+			GLOBAL_INT_DISABLE();
+			vTimerSetTimerID(timer->handle, NULL);
+			GLOBAL_INT_RESTORE();
+		}
 	}
 #endif
+
+	GLOBAL_INT_DISABLE();
+	timer->handle = 0;
+	timer->state = BEKEN_TIMER_DELETED;
+	GLOBAL_INT_RESTORE();
+
 	return ret;
 }
 

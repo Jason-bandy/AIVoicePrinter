@@ -32,6 +32,23 @@
 #include "role_launch.h"
 #endif
 
+static const char *crypto_str[] = {
+	"None",
+	"WEP",
+	"WPA_TKIP",
+	"WPA_AES",
+	"WPA_MIXED",
+	"WPA2_TKIP",
+	"WPA2_AES",
+	"WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
+	"WPA3_SAE", 		/**< WPA3 SAE */
+	"WPA3_WPA2_MIXED",	/** WPA3 SAE or WPA2 AES */
+	"EAP",
+	"OWE",
+	"AUTO",
+};
+
+
 static void scan_cb(void *ctxt, uint8_t param)
 {
 #if !CFG_WPA_CTRL_IFACE
@@ -93,21 +110,6 @@ static void scan_cb(void *ctxt, uint8_t param)
 	sr_release_scan_results(scan_rst);
 
 #else	/* CFG_WPA_CTRL_IFACE */
-	static const char *crypto_str[] = {
-		"None",
-		"WEP",
-		"WPA_TKIP",
-		"WPA_AES",
-		"WPA_MIXED",
-		"WPA2_TKIP",
-		"WPA2_AES",
-		"WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
-		"WPA3_SAE",	  		/**< WPA3 SAE */
-		"WPA3_WPA2_MIXED",	/** WPA3 SAE or WPA2 AES */
-		"EAP",
-		"OWE",
-		"AUTO",
-	};
 
 	ScanResult_adv apList;
 	if (wlan_sta_scan_result(&apList) == 0) {
@@ -159,7 +161,7 @@ void demo_softap_app_init(char *ap_ssid, char *ap_key)
         return;
     }
 	
-    if (KEY_MAX_LEN < key_len)
+    if (AP_KEY_MAX_LEN < key_len)
     {
         bk_printf("key more than 64 Bytes\r\n");
         return;
@@ -194,14 +196,14 @@ void demo_sta_app_init(char *oob_ssid,char *connect_key)
 		return;
 	}
 
-	if (KEY_MAX_LEN < key_len)
+	if (STA_KEY_MAX_LEN < key_len)
 	{
-		bk_printf("key more than 64 Bytes\r\n");
+		bk_printf("key more than buffer Bytes(107)\r\n");
 		return;
 	}
 
-	os_strcpy((char *)wNetConfig.wifi_ssid, oob_ssid);
-	os_strcpy((char *)wNetConfig.wifi_key, connect_key);
+	os_strlcpy((char *)wNetConfig.wifi_ssid, oob_ssid, sizeof(wNetConfig.wifi_ssid));
+	os_strlcpy((char *)wNetConfig.wifi_key, connect_key, sizeof(wNetConfig.wifi_key));
 
 	wNetConfig.wifi_mode = BK_STATION;
 	wNetConfig.dhcp_mode = DHCP_CLIENT;
@@ -306,86 +308,17 @@ void demo_state_app_init(void)
 		os_memset(&linkStatus, 0x0, sizeof(LinkStatusTypeDef));
 		bk_wlan_get_link_status(&linkStatus);
 		os_memcpy(ssid, linkStatus.ssid, 33);
-		bk_printf("sta:rssi=%d,ssid=%s,bssid=" MACSTR ",aid=%d,channel=%d,cipher_type:",
-				  linkStatus.wifi_strength, ssid, MAC2STR(linkStatus.bssid), linkStatus.aid, linkStatus.channel);
-		switch (bk_sta_cipher_type()) {
-		case BK_SECURITY_TYPE_NONE:
-			bk_printf("OPEN\r\n");
-			break;
-		case BK_SECURITY_TYPE_WEP :
-			bk_printf("WEP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA_TKIP:
-			bk_printf("TKIP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA_AES:
-			bk_printf("WPA_AES\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA_MIXED:
-			bk_printf("WPA_MIXED\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA2_AES:
-			bk_printf("CCMP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA2_TKIP:
-			bk_printf("WPA2_TKIP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA2_MIXED:
-			bk_printf("WPA/WPA2 MIXED\r\n");
-			break;
-		case BK_SECURITY_TYPE_AUTO:
-			bk_printf("AUTO\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA3_SAE:
-			bk_printf("WPA3\n");
-			break;
-		case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
-			bk_printf("WPA2/WPA3 MIXED\n");
-			break;
-		case BK_SECURITY_TYPE_EAP:
-			bk_printf("EAP\n");
-			break;
-		default:
-			bk_printf("Error\r\n");
-			break;
-		}
+		bk_printf("sta:rssi=%d,ssid=%s,bssid=" MACSTR ",aid=%d,channel=%d,cipher_type:%s\n",
+				  linkStatus.wifi_strength, ssid, MAC2STR(linkStatus.bssid), linkStatus.aid, linkStatus.channel,
+				  crypto_str[linkStatus.security]);
 	}
 
 	if (uap_ip_is_start()) {
 		os_memset(&ap_info, 0x0, sizeof(network_InitTypeDef_ap_st));
 		bk_wlan_ap_para_info_get(&ap_info);
 		os_memcpy(ssid, ap_info.wifi_ssid, 33);
-		bk_printf("softap:ssid=%s,channel=%d,dhcp=%d,cipher_type:",
-				  ssid, ap_info.channel, ap_info.dhcp_mode);
-		switch (ap_info.security) {
-		case BK_SECURITY_TYPE_NONE:
-			bk_printf("OPEN\r\n");
-			break;
-		case BK_SECURITY_TYPE_WEP :
-			bk_printf("WEP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA_TKIP:
-			bk_printf("TKIP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA2_AES:
-			bk_printf("CCMP\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA2_MIXED:
-			bk_printf("WPA/WPA2 MIXED\r\n");
-			break;
-		case BK_SECURITY_TYPE_AUTO:
-			bk_printf("AUTO\r\n");
-			break;
-		case BK_SECURITY_TYPE_WPA3_SAE:
-			bk_printf("WPA3\n");
-			break;
-		case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
-			bk_printf("WPA2/WPA3 MIXED\n");
-			break;
-		default:
-			bk_printf("Error\r\n");
-			break;
-		}
+		bk_printf("softap:ssid=%s,channel=%d,dhcp=%d,cipher_type:%s\n",
+				  ssid, ap_info.channel, ap_info.dhcp_mode, crypto_str[ap_info.security]);
 		bk_printf("ip=%s,gate=%s,mask=%s,dns=%s\r\n",
 				  ap_info.local_ip_addr, ap_info.gateway_ip_addr, ap_info.net_mask, ap_info.dns_server_ip_addr);
 	}

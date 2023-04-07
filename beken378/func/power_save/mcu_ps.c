@@ -17,8 +17,7 @@
 #include "phy_trident.h"
 #include "bk7011_cal_pub.h"
 #include "calendar_pub.h"
-#include "ps.h"
-#include "net.h"
+#include "sys_ctrl.h"
 
 static MCU_PS_INFO mcu_ps_info = {
 	.mcu_ps_on = 0,
@@ -27,26 +26,48 @@ static MCU_PS_INFO mcu_ps_info = {
 
 };
 
-#if CFG_USE_TICK_CAL
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 MCU_PS_TSF mcu_ps_tsf_save;
 MCU_PS_MACHW_TM mcu_ps_machw_save;
 int increase_tick = 0;
-#endif
+
 static struct mac_addr bssid;;
 static UINT64 last_tsf = 0;
-UINT32 dtim30_wake_count = 0;
-uint64_t dtim30_null_time = 0;
-uint64_t dtim30_arp_time = 0;
-#if (1 == CFG_LOW_VOLTAGE_PS)
-#define TX_RECOVER_INIT     0
-#define TX_RECOVER_SLEEP    1
-#define TX_RECOVER_RECOVER  2
-volatile UINT32 is_tx_recover = TX_RECOVER_INIT;
+extern UINT32 use_cal_net;
 #endif
 #if CFG_USE_MCU_PS
 #if (CFG_SUPPORT_ALIOS)
 static UINT32 sleep_pwm_t, wkup_type;
 #endif
+
+/// indicate whether center bias could be closed when mcu enter sleep
+static UINT8 center_bias_hold_state = 0;
+
+void mcu_ps_cb_hold_on(CB_HOLD_ON_TYPE type)
+{
+	if (0 == center_bias_hold_state){
+		center_bias_hold_state = type;
+	} else {
+		MCU_PS_PRT("center bias already holds on!\r\n");
+	}
+}
+
+void mcu_ps_cb_release(void)
+{
+	if (0 != center_bias_hold_state) {
+		center_bias_hold_state = 0;
+	} else {
+		MCU_PS_PRT("center bias already releases!\r\n");
+	}
+}
+
+UINT8 mcu_ps_get_cb_hold(void)
+{
+	if (0 != center_bias_hold_state) {
+		MCU_PS_PRT("center bias hold on by %d!\r\n", center_bias_hold_state);
+	}
+	return center_bias_hold_state;
+}
 
 void mcu_ps_cal_increase_tick ( UINT32 *lost_p );
 
@@ -125,11 +146,6 @@ uint32_t ps_may_sleep(void)
 	if ( ( mcu_ps_info.mcu_ps_on == 1 )
 		&& (peri_busy_count_get() == 0)
 		&& (mcu_prevent_get() == 0)
-#if ( 1 == CFG_LOW_VOLTAGE_PS)
-	#if (CFG_USE_STA_PS && NX_POWERSAVE)
-		&& (txl_sleep_check())
-	#endif
-#endif
 	)
 	{
 		sleep = 1;
@@ -144,143 +160,105 @@ uint32_t ps_may_sleep(void)
 
 	return sleep;
 }
-UINT32 mcu_power_check_tx_recovery(void)
-{
-#if (1 == CFG_LOW_VOLTAGE_PS)
-    return (is_tx_recover != TX_RECOVER_SLEEP) ? 1: 0;
-#else
-    return 1;
-#endif
-}
 
-void mcu_power_set_tx_recovery(void)
-{
-#if (1 == CFG_LOW_VOLTAGE_PS)
-//    rwnx_cal_recover_tx_setting();
-	rwnx_cal_recover_wifi_setting();
-    phy_exit_11b_low_power();
-    //rwnxl_reset_handle(0);
-    is_tx_recover = TX_RECOVER_RECOVER;
-#endif
-}
-
-void mcu_power_clear_tx_recovery(void)
-{
-#if (1 == CFG_LOW_VOLTAGE_PS)
-    is_tx_recover = TX_RECOVER_SLEEP;
-#endif
-}
-UINT32 mcu_power_save ( UINT32 sleep_tick )
+UINT32 mcu_power_save(UINT32 sleep_tick)
 {
 	UINT32 sleep_ms, sleep_pwm_t, param, uart_miss_us = 0, exit_type = 0, miss_ticks = 0;
 	UINT32 wkup_type, wastage = 0;
+
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
-#if CFG_MUC_PS_EXIT_LOG
-	if(lv_ps_is_got_anchor_point() && (!ps_may_sleep()))
-	{
-		ps_printf_sleep_flags();
-		sctrl_printf_mcu_sleep_flags();
-	}
-#endif
-
-	if (ps_may_sleep()
-#if (1 == CFG_LOW_VOLTAGE_PS)
-		&& lv_ps_is_got_anchor_point()
-#endif
-		)
+	if ( ps_may_sleep() )
     {
 		do {
-			sleep_ms = BK_TICKS_TO_MS ( sleep_tick );
+			sleep_ms = BK_TICKS_TO_MS(sleep_tick);
 
-			if ( sleep_ms <= 2 ) {
+			if (sleep_ms <= 2) {
 				exit_type = 1;
 				break;
 			}
 
 			sleep_ms = sleep_ms - FCLK_DURATION_MS;//early wkup
-			sleep_pwm_t = ( sleep_ms * 32 );
+			sleep_pwm_t = (sleep_ms * 32);
 
-			if ( ( int32 ) sleep_pwm_t <= 64 ) {
+			if ((int32)sleep_pwm_t <= 64) {
 				exit_type = 2;
 				break;
 			}
 
 #if (CFG_SOC_NAME == SOC_BK7231)
-
-			if ( sleep_pwm_t > 65535 )
+			if (sleep_pwm_t > 65535)
 				sleep_pwm_t = 65535;
 			else
 #endif
-				if ( sleep_pwm_t < 64 )
-					sleep_pwm_t = 64;
+			if (sleep_pwm_t < 64)
+				sleep_pwm_t = 64;
 
-			if ( sctrl_if_mcu_can_sleep() ) {
+			if (sctrl_if_mcu_can_sleep()) {
 #if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME != SOC_BK7231)))
-#if ( 0 == CFG_LOW_VOLTAGE_PS)
-				if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
+#if (0 == CFG_LOW_VOLTAGE_PS)
+				if (fclk_get_tick_id() >= BK_PWM_TIMER_ID0)
 					ps_pwm_disable();
-				}
 #endif
-				ps_timer3_enable ( sleep_pwm_t );
+				ps_timer3_enable(sleep_pwm_t);
 #else
-				ps_pwm_suspend_tick ( sleep_pwm_t );
+				ps_pwm_suspend_tick(sleep_pwm_t);
 #endif
 			}
 
 #if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME != SOC_BK7231)))
-			param = ( 0xfffff  & ( ~PWD_TIMER_26M_CLK_BIT ) & ( ~PWD_TIMER_32K_CLK_BIT ) & ( ~PWD_UART2_CLK_BIT )
-			          & ( ~PWD_UART1_CLK_BIT )
-			        );
+			param = (0xfffff & (~PWD_TIMER_26M_CLK_BIT) & (~PWD_TIMER_32K_CLK_BIT) & (~PWD_UART2_CLK_BIT)
+					 & (~PWD_UART1_CLK_BIT));
 #else
-			param = ( 0xfffff & ( ~PWD_MCU_WAKE_PWM_BIT ) & ( ~PWD_UART2_CLK_BIT )
-			          & ( ~PWD_UART1_CLK_BIT )
-			        );
+			param = (0xfffff & (~PWD_MCU_WAKE_PWM_BIT) & (~PWD_UART2_CLK_BIT)
+					 & (~PWD_UART1_CLK_BIT));
 #endif
-			sctrl_mcu_sleep ( param );
+			/* put MCU in sleep mode */
+			sctrl_mcu_sleep(param);
+
+			/* now MCU waked up by interrupt */
 #if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME != SOC_BK7231)))
 			ps_timer3_measure_prepare();
 #endif
 			wkup_type = sctrl_mcu_wakeup();
 #if (CHIP_U_MCU_WKUP_USE_TIMER && (CFG_SOC_NAME != SOC_BK7231))
-
-			if ( 1 == wkup_type ) {
+			if (1 == wkup_type) {
 				wastage = 768;
 
-				if ( ! ( sctrl_if_rf_sleep() || power_save_if_rf_sleep()
+				if (!(sctrl_if_rf_sleep() || power_save_if_rf_sleep()
 #if CFG_SUPPORT_BLE
-					|| ble_switch_mac_sleeped
+					  || ble_switch_mac_sleeped
 #endif
-					) ) {
+					  )) {
 					ps_timer3_disable();
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 					mcu_ps_machw_cal();
+#endif
 				}
 				else {
 					miss_ticks =  ( ps_timer3_disable() + ( uart_miss_us + wastage ) / 1000 ) / FCLK_DURATION_MS;
-#if ( 0 == CFG_LOW_VOLTAGE_PS)
 					if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 						ps_pwm_enable();
 					}
-#endif
 				}
 			}
 
-#else
+#else /* (CHIP_U_MCU_WKUP_USE_TIMER && (CFG_SOC_NAME != SOC_BK7231)) */
 			{
-				if ( 1 == wkup_type ) {
+				if (1 == wkup_type)
 					wastage = 24;
-				}
 
-				if ( ps_pwm_int_status() ) {
-					miss_ticks = ( sleep_pwm_t + ( uart_miss_us >> 5 ) + wastage ) / ( FCLK_DURATION_MS * 32 );
-				}
-				else {
-					if ( ! ( sctrl_if_rf_sleep() || power_save_if_rf_sleep() ) ) {
+				if (ps_pwm_int_status()) {
+					miss_ticks = (sleep_pwm_t + (uart_miss_us >> 5) + wastage) / (FCLK_DURATION_MS * 32);
+				} else {
+					if (!(sctrl_if_rf_sleep() || power_save_if_rf_sleep())) {
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 						mcu_ps_machw_cal();
+#endif
 					}
 					else {
-						miss_ticks = ( ( uart_miss_us >> 5 ) + wastage ) / ( FCLK_DURATION_MS * 32 );
+						miss_ticks = ((uart_miss_us >> 5) + wastage) / (FCLK_DURATION_MS * 32);
 					}
 				}
 
@@ -288,34 +266,25 @@ UINT32 mcu_power_save ( UINT32 sleep_tick )
 			}
 			ps_pwm_resume_tick();
 #endif
-#if (1 == CFG_LOW_VOLTAGE_PS)
-//			if ( 1 == wkup_type )
-			{
-				mcu_power_clear_tx_recovery();
-				power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
-				mcu_ps_check_tx();
-			}
-			if ( 1 != wkup_type )
-			{
-				PS_DBG("wkup_type = %d\r\n",wkup_type);
-			}
-#endif
 		}
 		while ( 0 );
 	}
-	else {
-	}
-	if(exit_type)
+	else
 	{
+		WFI();
+	}
+
+	if (exit_type)
 		PS_DBG("exit_type:%x\r\n", exit_type);
-	}
-	mcu_ps_cal_increase_tick ( & miss_ticks );
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
+	mcu_ps_cal_increase_tick(&miss_ticks);
+#endif
 	GLOBAL_INT_RESTORE();
-	if(miss_ticks <0){
+	if (miss_ticks < 0)
 		os_printf("miss_ticks error\r\n");
-	}
 	return miss_ticks;
 }
+
 
 #if (CFG_SUPPORT_ALIOS)
 int aos_mcu_ps_timer_start ( UINT32 tm_us )
@@ -348,9 +317,9 @@ int aos_mcu_ps_timer_start ( UINT32 tm_us )
 #endif
 			if ( sleep_pwm_t < 64 )
 				sleep_pwm_t = 64;
-				
+
 #if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (SOC_BK7238 == CFG_SOC_NAME)))
-				
+
 		if ( fclk_get_tick_id() >= BK_PWM_TIMER_ID0 ) {
 			ps_pwm_disable();
 		}
@@ -392,7 +361,7 @@ int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 {
 	UINT32 miss_ticks = 0, wastage = 0;
 #if (CHIP_U_MCU_WKUP_USE_TIMER && ((CFG_SOC_NAME == SOC_BK7231U) || (SOC_BK7231N == CFG_SOC_NAME) || (SOC_BK7238 == CFG_SOC_NAME)))
-	
+
 	if ( 1 == wkup_type ) {
 		wastage = 768;
 	}
@@ -415,7 +384,9 @@ int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 		}
 		else {
 			if ( ! ( sctrl_if_rf_sleep() || power_save_if_rf_sleep() ) ) {
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 				mcu_ps_machw_cal();
+#endif
 			}
 			else {
 				miss_ticks = ( wastage ) * 32;
@@ -430,25 +401,6 @@ int aos_mcu_ps_timer_stop ( UINT64 *tm_us )
 	return 0;
 }
 #endif
-
-void mcu_ps_check_tx(void)
-{
-#if (1 == CFG_LOW_VOLTAGE_PS)
-    if(cal_get_time_us() - dtim30_null_time > LOW_VOL_NULL_SEND_INTERVAL/*10s*/)
-    {
-        ps_send_null();
-        dtim30_null_time = cal_get_time_us();
-    }
-    ps_run_td_timer(0);
-#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
-    if((ps_info.ps_arp_enable == 1)&&(cal_get_time_us() - dtim30_arp_time > ps_info.ps_arp_period*1000000))
-    {
-        net_send_gratuitous_arp();
-        dtim30_arp_time = cal_get_time_us();
-    }
-#endif
-#endif
-}
 
 
 void mcu_ps_dump ( void )
@@ -497,7 +449,9 @@ void mcu_ps_init ( void )
 
 	}
 
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 	mcu_ps_machw_init();
+#endif
 	GLOBAL_INT_RESTORE();
 }
 
@@ -513,32 +467,99 @@ void mcu_ps_exit ( void )
 		os_printf ( "%s %d\r\n", __FUNCTION__, mcu_ps_info.mcu_prevent );
 	}
 
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 	mcu_ps_machw_reset();
+#endif
 	GLOBAL_INT_RESTORE();
 }
 #endif
 
-#if CFG_USE_TICK_CAL
-//static struct mac_addr bssid;
-//static UINT64 last_tsf = 0;
-extern UINT32 use_cal_net;
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
+UINT32 mcu_ps_tsf_cal ( UINT64 tsf )
+{
+#if (CFG_SUPPORT_ALIOS)
+	UINT64 fclk, tmp2, tmp4;
+#else
+	UINT32 fclk, tmp2, tmp4;
+#endif
+	UINT64 machw, tmp1, tmp3;
+	INT32 loss;
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+
+	if ( ( 0 == tsf ) || ( 0 == mcu_ps_tsf_save.first_tsf ) ) {
+		goto TSF_RESET;
+	}
+
+	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
+	machw = tsf;
+	tmp3 = mcu_ps_tsf_save.first_tsf;
+	tmp4 = mcu_ps_tsf_save.first_tick;
+
+	if ( machw < mcu_ps_tsf_save.first_tsf ) {
+		goto TSF_RESET;
+	}
+	else {
+		tmp1 = machw - mcu_ps_tsf_save.first_tsf;
+	}
+
+	tmp2 = ( fclk - mcu_ps_tsf_save.first_tick );
+	tmp1 /= 1000;
+	loss = ( INT32 ) ( tmp1  - ( UINT64 ) tmp2 );
+
+	if ( loss > 0 ) {
+		if ( loss > 5000 ) {
+			os_printf ( "tsf cal_:%x \r\n", loss );
+#if (CFG_SUPPORT_ALIOS)
+			os_printf ( "%x %x\r\n", ( UINT32 ) ( fclk >> 32 ), ( UINT32 ) ( fclk ) );
+			os_printf ( "%x %x\r\n", ( UINT32 ) ( tmp2 >> 32 ), ( UINT32 ) ( tmp2 ) );
+			os_printf ( "%x %x\r\n", ( UINT32 ) ( tmp4 >> 32 ), ( UINT32 ) ( tmp4 ) );
+#else
+			os_printf ( "%x %x %x\r\n", fclk, tmp2, tmp4 );
+#endif
+			os_printf ( "tsf:%x %x\r\n", ( UINT32 ) ( machw >> 32 ), ( UINT32 ) machw );
+			os_printf ( "tmp3:%x %x\r\n", ( UINT32 ) ( tmp3 >> 32 ), ( UINT32 ) tmp3 );
+			os_printf ( "tmp1:%x %x\r\n", ( UINT32 ) ( tmp1 >> 32 ), ( UINT32 ) tmp1 );
+
+			if ( loss > 50000 ) {
+				goto TSF_RESET;
+			}
+		}
+
+		fclk_update_tick ( BK_MS_TO_TICKS ( loss ) );
+		mcu_ps_machw_init();
+		increase_tick = 0;
+	}
+	else {
+		if ( loss < 0 ) {
+			if ( loss < ( -50000 ) ) {
+				goto TSF_RESET;
+			}
+
+			increase_tick = loss;
+		}
+	}
+
+	GLOBAL_INT_RESTORE();
+	return 0 ;
+TSF_RESET:
+	mcu_ps_tsf_save.first_tsf = tsf;
+	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
+	mcu_ps_tsf_save.first_tick = fclk;
+	os_printf ( "mcu_ps_tsf_cal init\r\n" );
+	GLOBAL_INT_RESTORE();
+	return 0 ;
+}
+
+/**
+ * mcu_ps_bcn_callback
+ * 
+ * decide whether use tsf_cal after beacon received.
+*/
 void mcu_ps_bcn_callback ( uint8_t *data, int len, wifi_link_info_t *info )
 {
 	struct bcn_frame *bcn = ( struct bcn_frame * ) data;
 	UINT64 tsf_start_peer = bcn->tsf;
-#if (1 == CFG_LOW_VOLTAGE_PS)
-    if(lv_ps_get_start_flag())
-    {
-        if(mm_ap_beacon_rate_is_11b())
-        {
-            phy_enter_11b_low_power();
-        }
-        else
-        {
-            phy_exit_11b_low_power();
-        }
-    }
-#endif
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
 
@@ -564,6 +585,7 @@ void mcu_ps_increase_clr ( void )
 {
 	increase_tick = 0;
 }
+
 void mcu_ps_cal_increase_tick ( UINT32 *lost_p )
 {
 	int32 lost = * lost_p;
@@ -595,7 +617,6 @@ void mcu_ps_cal_increase_tick ( UINT32 *lost_p )
 	GLOBAL_INT_RESTORE();
 }
 
-
 uint32 mcu_ps_need_pstick ( void )
 {
 	static uint32 need_pass = 0;
@@ -625,83 +646,6 @@ uint32 mcu_ps_need_pstick ( void )
 	return ret;
 }
 
-
-UINT32 mcu_ps_tsf_cal ( UINT64 tsf )
-{
-#if (CFG_SUPPORT_ALIOS)
-	UINT64 fclk, tmp2, tmp4;
-#else
-	UINT32 fclk, tmp2, tmp4;
-#endif
-	UINT64 machw, tmp1, tmp3;
-	INT32 loss;
-	GLOBAL_INT_DECLARATION();
-	GLOBAL_INT_DISABLE();
-
-	if ( ( 0 == tsf ) || ( 0 == mcu_ps_tsf_save.first_tsf ) ) {
-		goto TFS_RESET;
-	}
-
-	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
-	machw = tsf;
-	tmp3 = mcu_ps_tsf_save.first_tsf;
-	tmp4 = mcu_ps_tsf_save.first_tick;
-
-	if ( machw < mcu_ps_tsf_save.first_tsf ) {
-		goto TFS_RESET;
-	}
-	else {
-		tmp1 = machw - mcu_ps_tsf_save.first_tsf;
-	}
-
-	tmp2 = ( fclk - mcu_ps_tsf_save.first_tick );
-	tmp1 /= 1000;
-	loss = ( INT32 ) ( tmp1  - ( UINT64 ) tmp2 );
-
-	if ( loss > 0 ) {
-		if ( loss > 5000 ) {
-			os_printf ( "tsf cal_:%x \r\n", loss );
-#if (CFG_SUPPORT_ALIOS)
-			os_printf ( "%x %x\r\n", ( UINT32 ) ( fclk >> 32 ), ( UINT32 ) ( fclk ) );
-			os_printf ( "%x %x\r\n", ( UINT32 ) ( tmp2 >> 32 ), ( UINT32 ) ( tmp2 ) );
-			os_printf ( "%x %x\r\n", ( UINT32 ) ( tmp4 >> 32 ), ( UINT32 ) ( tmp4 ) );
-#else
-			os_printf ( "%x %x %x\r\n", fclk, tmp2, tmp4 );
-#endif
-			os_printf ( "tsf:%x %x\r\n", ( UINT32 ) ( machw >> 32 ), ( UINT32 ) machw );
-			os_printf ( "tmp3:%x %x\r\n", ( UINT32 ) ( tmp3 >> 32 ), ( UINT32 ) tmp3 );
-			os_printf ( "tmp1:%x %x\r\n", ( UINT32 ) ( tmp1 >> 32 ), ( UINT32 ) tmp1 );
-
-			if ( loss > 50000 ) {
-				goto TFS_RESET;
-			}
-		}
-
-		fclk_update_tick ( BK_MS_TO_TICKS ( loss ) );
-		mcu_ps_machw_init();
-		increase_tick = 0;
-	}
-	else {
-		if ( loss < 0 ) {
-			if ( loss < ( -50000 ) ) {
-				goto TFS_RESET;
-			}
-
-			increase_tick = loss;
-		}
-	}
-
-	GLOBAL_INT_RESTORE();
-	return 0 ;
-TFS_RESET:
-	mcu_ps_tsf_save.first_tsf = tsf;
-	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
-	mcu_ps_tsf_save.first_tick = fclk;
-	os_printf ( "mcu_ps_tsf_cal init\r\n" );
-	GLOBAL_INT_RESTORE();
-	return 0 ;
-}
-
 UINT32 mcu_ps_machw_reset ( void )
 {
 	GLOBAL_INT_DECLARATION();
@@ -728,7 +672,7 @@ UINT32 mcu_ps_machw_init ( void )
 	return 0;
 }
 
-UINT32 mcu_ps_machw_cal ( void )
+UINT32 mcu_ps_machw_cal(void)
 {
 #if (CFG_SUPPORT_ALIOS)
 	UINT64 fclk, tmp2;
@@ -739,49 +683,48 @@ UINT32 mcu_ps_machw_cal ( void )
 	UINT32 lost;
 	GLOBAL_INT_DECLARATION();
 
-	if ( ! ( ( 1 == bk_unconditional_sleep_mode_get() ) ||
-	         ( mcu_ps_is_on() && power_save_if_ps_rf_dtim_enabled() ) ) ) {
+	if (!((1 == bk_unconditional_sleep_mode_get()) ||
+		  (mcu_ps_is_on() && power_save_if_ps_rf_dtim_enabled())))
 		return 0;
-	}
-	if ( ( 0 == mcu_ps_machw_save.machw_tm ) || ( 0xdead5555 == mcu_ps_machw_save.machw_tm )
-	     || ( 0xdead5555 == hal_machw_time() ) ) {
+
+	if ((0 == mcu_ps_machw_save.machw_tm) || (0xdead5555 == mcu_ps_machw_save.machw_tm)
+		|| (0xdead5555 == hal_machw_time())) {
 		mcu_ps_machw_init();
 		return 0 ;
 	}
 
 	GLOBAL_INT_DISABLE();
-	fclk = BK_TICKS_TO_MS ( fclk_get_tick() );
+	fclk = BK_TICKS_TO_MS(fclk_get_tick());
 	machw = hal_machw_time();
-	tmp1 = ( machw - mcu_ps_machw_save.machw_tm );
-	tmp2 = ( fclk - mcu_ps_machw_save.fclk_tick );
+	tmp1 = (machw - mcu_ps_machw_save.machw_tm);
+	tmp2 = (fclk - mcu_ps_machw_save.fclk_tick);
 	tmp1 /= 1000;
-	lost = ( INT32 ) ( tmp1  - tmp2 );
+	lost = (INT32)(tmp1  - tmp2);
 
-	if ( ( lost < ( 0xFFFFFFFF >> 1 ) ) && ( lost > 0 ) ) {
-		if ( lost > 5000 ) {
-			os_printf ( "hw cal_:%x %x %x\r\n", lost, machw, mcu_ps_machw_save.machw_tm );
+	if ((lost < (0xFFFFFFFF >> 1)) && (lost > 0)) {
+		if (lost > 5000) {
+			os_printf("hw cal_:%x %x %x\r\n", lost, machw, mcu_ps_machw_save.machw_tm);
 
-			if ( lost > 50000 ) {
+			if (lost > 50000)
 				goto HWCAL_RESET;
-			}
 		}
 
 		//os_printf("mc:%d\r\n",lost);
-		mcu_ps_cal_increase_tick ( &lost );
-		fclk_update_tick ( BK_MS_TO_TICKS ( lost ) );
+		mcu_ps_cal_increase_tick(&lost);
+		fclk_update_tick(BK_MS_TO_TICKS(lost));
 		mcu_ps_machw_init();
 		//os_printf("rmc:%d\r\n",lost);
 	}
-	else {
-	}
 
 	GLOBAL_INT_RESTORE();
-	return 0 ;
+	return 0;
+
 HWCAL_RESET:
 	mcu_ps_machw_init();
 	GLOBAL_INT_RESTORE();
 	return 0 ;
 }
+
 #endif
 
 UINT32 mcu_ps_is_on ( void )

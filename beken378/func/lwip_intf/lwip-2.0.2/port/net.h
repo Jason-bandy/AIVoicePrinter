@@ -11,6 +11,7 @@ extern void uap_ip_down(void);
 extern void uap_ip_start(void);
 extern void sta_ip_down(void);
 extern void sta_ip_start(void);
+extern void sta_ip_get_start_time(void);
 extern uint32_t uap_ip_is_start(void);
 extern uint32_t sta_ip_is_start(void);
 extern void net_send_gratuitous_arp(void);

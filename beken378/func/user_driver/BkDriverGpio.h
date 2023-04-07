@@ -68,7 +68,8 @@ typedef enum
     INPUT_PULL_DOWN,           /* Input with an internal pull-down resistor - use with devices that actively drive the signal high - e.g. button connected to a power rail */
     INPUT_NORMAL,
     OUTPUT_NORMAL,
-    GPIO_SECOND_FNNC
+    GPIO_SECOND_FNNC,
+    GPIO_HIGH_IMPENDANCE,
 } platform_pin_config_t;
 
 /**

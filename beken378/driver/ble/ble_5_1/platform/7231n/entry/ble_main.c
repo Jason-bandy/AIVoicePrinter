@@ -197,6 +197,7 @@ extern void intc_service_change_handler(UINT8 int_num, FUNCPTR isr);
 
 void enter_dut_fcc_mode(void)
 {
+#if CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST
 	bk_printf("enter dut mode\r\n");
 	uint32_t reg;
 	static uint32_t default_mclk_mux = MCLK_SELECT_DPLL;
@@ -238,7 +239,7 @@ void enter_dut_fcc_mode(void)
 					break;
 				case BLE_DUT_EXIT:
 					bk_printf("exit ble dut\r\n");
-					//bk7011_reduce_vdddig_for_rx(0);
+					bk7011_reduce_vdddig_for_rx(1);
 					ble_dut_status = DUT_IDLE;
 					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_SELECT, &default_mclk_mux);
 					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIVISION, &default_mclk_div);
@@ -254,7 +255,7 @@ void enter_dut_fcc_mode(void)
 					break;
 				case BLE_DUT_START:
 					bk_printf("enter ble dut\r\n");
-					//bk7011_reduce_vdddig_for_rx(1);
+					bk7011_reduce_vdddig_for_rx(0);
 					ble_dut_status = DUT_RUNNING;
 					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_MUX_GET, &default_mclk_mux);
 					sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_MCLK_DIV_GET, &default_mclk_div);
@@ -307,6 +308,7 @@ exit_dut_loop:
 
 	GLOBAL_INT_RESTORE();
 }
+#endif
 }
 
 void enter_normal_app_mode(void)

@@ -377,6 +377,7 @@ void ble_switch_rf_to_ble(void)
             // Disable MAC interrupts and clear all existing ones
             ble_switch_clear_mac_interrupts();
         }
+        (void)v_tmp;
     }
     else{
 		///ble_switch_old_state = HW_IDLE;

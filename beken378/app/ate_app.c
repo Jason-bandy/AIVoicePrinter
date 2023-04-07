@@ -101,6 +101,10 @@ void ate_start(void)
 
     ATE_PRT("ate_start\r\n");
 }
-
+#else
+uint32_t get_ate_mode_state(void)
+{
+	return 0;
+}
 #endif /*ATE_APP_FUN */
 // eof

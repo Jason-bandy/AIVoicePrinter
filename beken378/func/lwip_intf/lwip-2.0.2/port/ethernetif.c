@@ -81,6 +81,12 @@
 #define IFNAME0 'e'
 #define IFNAME1 'n'
 
+#define AP_IFNAME0 'a'
+#define AP_IFNAME1 'p'
+
+#define SA_IFNAME0 'w'
+#define SA_IFNAME1 '0'
+
 #include "uart_pub.h"
 
 #define ETH_INTF_DEBUG
@@ -263,6 +269,7 @@ err_t
 ethernetif_init(struct netif *netif)
 {
     LWIP_ASSERT("netif != NULL", (netif != NULL));
+    VIF_INF_PTR vif_entry = (VIF_INF_PTR)netif->state;
 
     /*
      * Initialize the snmp variables and counters inside the struct netif.
@@ -271,8 +278,16 @@ ethernetif_init(struct netif *netif)
      */
     NETIF_INIT_SNMP(netif, snmp_ifType_ethernet_csmacd, 10000000);
 
-    netif->name[0] = IFNAME0;
-    netif->name[1] = IFNAME1;
+    if (vif_entry->type == VIF_STA) {
+        netif->name[0] = SA_IFNAME0;
+        netif->name[1] = SA_IFNAME1;
+    } else if (vif_entry->type == VIF_AP) {
+        netif->name[0] = AP_IFNAME0;
+        netif->name[1] = AP_IFNAME1;
+    } else {
+        netif->name[0] = IFNAME0;
+        netif->name[1] = IFNAME1;
+    }
     /* We directly use etharp_output() here to save a function call.
      * You can instead declare your own function an call etharp_output()
      * from it if you have to do some checks before sending (e.g. if link

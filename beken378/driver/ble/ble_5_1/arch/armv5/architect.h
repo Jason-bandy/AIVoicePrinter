@@ -49,6 +49,8 @@
 /// Reset platform and reload FW
 #define    RESET_AND_LOAD_FW      0xC3C3C3C3
 
+#define    BK_BLE_ASSERT          0
+
 /**
  ****************************************************************************************
  * @brief Print the assertion error reason and loop forever.
@@ -87,6 +89,7 @@ void assert_warn(int param0, int param1, const char * file, int line);
 
 void platform_reset(uint32_t error);
 
+#if (BK_BLE_ASSERT)
 #define BLE_ASSERT_ERR(cond)                              \
     do {                                             \
         if (!(cond)) {                                \
@@ -109,5 +112,10 @@ void platform_reset(uint32_t error);
              assert_warn((int)param0, (int)param1, __MODULE__, __LINE__); \
         }                                             \
     } while(0)
+#else
+#define BLE_ASSERT_ERR(cond)
+#define BLE_ASSERT_INFO(cond, param0, param1)
+#define BLE_ASSERT_WARN(cond, param0, param1)
+#endif
 
 #endif // _ARCHITECT_H_

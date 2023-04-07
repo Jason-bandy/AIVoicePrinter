@@ -81,11 +81,32 @@
  */
 #define CFG_WIFI_AP_HW_MODE                        0
 
+#define CfG_MACRO_MAYBE_UNUSED                     1
+#if CfG_MACRO_MAYBE_UNUSED
+#define CFG_WIFI_RSSI                              1
+#define CFG_WIFI_VERSION                           1
+#define CFG_WIFI_CHANNEL                           1
+#define CFG_WIFI_SLOTTIME                          1
+#define CFG_WIFI_DBG_TROGGER                       1
+#define CFG_MODE_SET                               1
+#define CFG_FILTER_SET                             1
+#define CFG_RC_STATS                               1
+#endif
+
 /* PMF */
 #define CFG_IEEE80211W                             0
 #if CFG_WPA_CTRL_IFACE
 #undef CFG_ROLE_LAUNCH
 #define CFG_ROLE_LAUNCH                            0
+#endif
+
+/*Use macro to shut down some unused functions*/
+#define CFG_WPA_MAYBE_UNUSED                       1
+#if CFG_WPA_MAYBE_UNUSED
+#define CONFIG_NOTIFICATION                        1
+#define CONFIG_EID_FLAG                            1
+#define CONFIG_PMKSA_EXISTS                        1
+#define CONFIG_GTK_REKEY                           1
 #endif
 
 #define CFG_WPA3                                   0
@@ -175,8 +196,11 @@
 #define CFG_UART_DEBUG                             0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
-#define CFG_IPERF_TEST                             0
-#if CFG_IPERF_TEST
+#define IPERF_CLOSE                                0  /* close iperf */
+#define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
+#define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 #define CFG_IPERF_TEST_ACCEL                       1
 #define CFG_IPERF_DONT_MALLOC_BUFFER               1
 #endif

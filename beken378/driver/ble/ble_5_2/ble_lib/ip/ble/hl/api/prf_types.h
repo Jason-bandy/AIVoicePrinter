@@ -235,6 +235,19 @@ typedef struct prf_svc
     uint16_t ehdl;
 } prf_svc_t;
 
+/// Service information structure
+typedef struct bk_prf_svc
+{
+    ////// UUID type (@see enum gatt_uuid_type)
+    uint8_t uuid_type;
+    ////// UUID - LSB first (0 for GATT_ATT_NONE)
+    uint8_t uuid[16];
+    /// start handle
+    uint16_t start_hdl;
+    /// end handle
+    uint16_t end_hdl;
+} bk_prf_svc_t;
+
 /// Included Service information structure
 typedef struct prf_incl_svc
 {
@@ -299,7 +312,31 @@ typedef struct prf_desc_def
     uint8_t char_code;
 } prf_desc_def_t;
 
+/// Characteristic Descriptor definition
+typedef struct bk_prf_desc_def
+{
+    /// UUID type (@see enum gatt_uuid_type)
+    uint8_t uuid_type;
+    /// Characteristic Descriptor uuid
+    uint16_t uuid[16];
+    /// Characteristic Descriptor handle
+    uint16_t desc_hdl;
+    /// Characteristic properties
+    uint8_t prop;
+} bk_prf_desc_def_t;
 
+/// Characteristic definition
+typedef struct bk_prf_char_def
+{
+    /// UUID type (@see enum gatt_uuid_type)
+    uint8_t uuid_type;
+    /// Characteristic UUID
+    uint16_t uuid[16];
+    /// Characteristic Value handle
+    uint16_t val_hdl;
+    /// Characteristic properties
+    uint8_t prop;
+} bk_prf_char_def_t;
 /*
  * CALLBACK FUNCTION DEFINITIONS
  ****************************************************************************************

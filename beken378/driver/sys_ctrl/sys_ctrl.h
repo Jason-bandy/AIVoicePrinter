@@ -680,6 +680,14 @@ UINT32    int_enable_cfg;
 extern UINT32 sctrl_ctrl(UINT32 cmd, void *parm);
 extern void sctrl_sub_reset(void);
 extern void sctrl_mclk_select(UINT32 mode,UINT32 div);
+extern void WFI( void );
+#if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
+extern void lv_ps_info_mcu_sleep(uint64_t current_time);
+extern void lv_ps_info_rf_sleep(bool pre_flag);
+extern void lv_ps_info_rf_wakeup(bool restart_flag);
+#endif
+extern void sctrl_disable_rosc_timer(void);
+extern void sctrl_enable_rosc_timer(UINT32 rosc_period);
 
 #if CFG_USE_BLE_PS
 void sctrl_ble_ps_init(void);

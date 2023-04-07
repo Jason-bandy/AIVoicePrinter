@@ -458,6 +458,7 @@ memp_free(memp_t type, void *mem)
 
 void memp_dump_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
 {
+#if (LWIP_STATS)
     int i;
         struct memp_desc* tmp;
 
@@ -480,4 +481,5 @@ void memp_dump_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char
                                         lwip_stats.mem.max);
 
     SYS_ARCH_UNPROTECT(old_level);
+#endif
 }

@@ -306,7 +306,7 @@ int wc_Md5Update(wc_Md5* md5, const byte* data, word32 len)
         return BUFFER_E;
 
     while (len) {
-        word32 add = min(len, WC_MD5_BLOCK_SIZE - md5->buffLen);
+        word32 add = _min(len, WC_MD5_BLOCK_SIZE - md5->buffLen);
         XMEMCPY(&local[md5->buffLen], data, add);
 
         md5->buffLen += add;

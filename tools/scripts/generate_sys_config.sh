@@ -73,7 +73,8 @@ if [ "$new_hash" != "$old_hash" ]; then
 #	echo "update $old_sys_config with $new_sys_config"
 fi
 
-cp -f $new_linkscript link.lds
+${ARM_GCC_TOOLCHAIN}/arm-none-eabi-gcc -E -x c -P $new_linkscript -o link.lds
+#cp -f $new_linkscript link.lds
 
 rm -f .platform
 echo $1 > .platform

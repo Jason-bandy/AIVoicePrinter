@@ -28,8 +28,9 @@
 #endif
 
 void ethernetif_input(int iface, struct pbuf *p);
-UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag);
+UINT32 rwm_transfer_node(MSDU_NODE_T *node, u16 flag);
 extern int bmsg_ps_handler_rf_ps_mode_real_wakeup(void);
+UINT8 rwn_mgmt_is_valid_sta(struct sta_info_tag *sta);
 
 LIST_HEAD_DEFINE(msdu_rx_list);
 
@@ -93,15 +94,21 @@ void rwm_tx_confirm(void *param)
 
 	if(txdesc && txdesc->host.msdu_node)
 	{
+#if CFG_NX_SOFTWARE_TX_RETRY
+		if(rwn_check_sw_tx_retry(txdesc))
+		{
+			return;
+		}
+#endif
 		if(txdesc->host.callback)
 		{
-            (*txdesc->host.callback)(txdesc->host.param);
+			(*txdesc->host.callback)(txdesc->host.param);
 		}
-
 		os_null_printf("flush_desc:0x%x\r\n", txdesc->host.msdu_node);
 
 		os_free(txdesc->host.msdu_node);
 		txdesc->host.msdu_node = NULL;
+		txdesc->status = TXDESC_STA_IDLE;
 	}
 }
 
@@ -133,7 +140,7 @@ void * rwm_raw_frame_prepare_space(uint8_t *buffer, int length)
 {
 	MSDU_NODE_T *node;
 	uint8_t *pkt = buffer;
-	
+
 	node = rwm_tx_node_alloc(length);
 	if (node == NULL) {
 		bk_printf("rwm_raw_frame_prepare_space failed\r\n");
@@ -182,8 +189,16 @@ int rwm_raw_frame_with_cb(uint8_t *buffer, int len, void *cb, void *param)
 	txdesc_new->host.flags = TXU_CNTRL_MGMT;
 	txdesc_new->host.orig_addr = (UINT32)node->msdu_ptr;
 	txdesc_new->host.packet_addr = (UINT32)content_ptr;
-	txdesc_new->host.packet_len = len;
+#if CFG_NX_SOFTWARE_TX_RETRY
+	// record total retry times, used for rate contrl in low mac
+	txdesc_new->host.status_desc_addr = 0;
+	txdesc_new->host.access_category = queue_idx;
+	txdesc_new->host.flags |= TXU_CNTRL_EN_SW_RETRY_CHECK;
+	txdesc_new->lmac.hw_desc->thd.statinfo = 0;
+#else
 	txdesc_new->host.status_desc_addr = (UINT32)content_ptr;
+#endif
+	txdesc_new->host.packet_len = len;
 	txdesc_new->host.tid = 0xff;
 	txdesc_new->host.callback = (mgmt_tx_cb_t)cb;
 #if CFG_BK_AWARE
@@ -307,6 +322,7 @@ UINT32 rwm_get_rx_valid_node_len(void)
     return len;
 }
 
+#if !CFG_RWNX_QOS_MSDU
 UINT8 rwm_get_tid()
 {
     return g_tid;
@@ -323,6 +339,8 @@ void rwm_set_tid(UINT8 tid)
         g_tid = tid & MAC_QOSCTRL_UP_MSK;
     }
 }
+#endif // !CFG_RWNX_QOS_MSDU
+
 #if CFG_USE_P2P_PS
 void rwm_p2p_ps_change_ind_handler(void *msg)
 {
@@ -342,7 +360,7 @@ void rwm_p2p_ps_change_ind_handler(void *msg)
     }
     else if (ind->ps_state == PS_MODE_ON)
     {
-        rwm_trigger_tx_bufing_start(TX_BUFING_SRC_P2P_PS, ind->vif_index); 
+        rwm_trigger_tx_bufing_start(TX_BUFING_SRC_P2P_PS, ind->vif_index);
     }
 #endif
 }
@@ -351,14 +369,11 @@ void rwm_p2p_ps_change_ind_handler(void *msg)
 void rwm_msdu_ps_change_ind_handler(void *msg)
 {
     struct ke_msg *msg_ptr = (struct ke_msg *)msg;
-#if CFG_WIFI_P2P
     struct mm_ps_change_ind *ind;
-#endif
 
     if(!msg_ptr || !msg_ptr->param)
         return;
 
-#if CFG_WIFI_P2P
     ind = (struct mm_ps_change_ind *)msg_ptr->param;
     if (ind->ps_state == PS_MODE_OFF)
     {
@@ -368,9 +383,7 @@ void rwm_msdu_ps_change_ind_handler(void *msg)
     {
         rwm_trigger_tx_bufing_start(TX_BUFING_SRC_STA_PS, ind->sta_idx);
     }
-#endif
 }
-
 #endif
 
 void rwm_msdu_init(void)
@@ -378,7 +391,9 @@ void rwm_msdu_init(void)
 #if CFG_TX_BUFING
     rwm_tx_bufing_init();
 #endif
+#if !CFG_RWNX_QOS_MSDU
     g_tid = 0xFF;
+#endif
 }
 
 #ifdef CFG_WFA_CERTIFICATION
@@ -431,6 +446,7 @@ uint8_t classify8021d(UINT8 *buf)
 #endif
 }
 
+static bool tx_use_low_rate_once = false;
 UINT32 rwm_transfer(UINT8 vif_idx, UINT8 *buf, UINT32 len, int sync, void *args)
 {
     UINT32 ret = 0;
@@ -482,7 +498,17 @@ extern size_t xPortGetFreeHeapSize( void );
         return ret;
     }
 #endif
-    rwm_transfer_node(node, 0);
+
+    if ( true == tx_use_low_rate_once )
+    {
+        tx_use_low_rate_once = false;
+        /// use RETRY_IMMEDIATELY to transfer at a low rate
+        rwm_transfer_node(node, TXU_CNTRL_RETRY_IMMEDIATELY);
+    }
+    else
+    {
+        rwm_transfer_node(node, 0);
+    }
 
 tx_exit:
     return ret;
@@ -528,10 +554,12 @@ int sta_11n_nss(uint8_t *mcs_set)
 
 int qos_need_enabled(struct sta_info_tag *sta)
 {
-	if (!sta)
+	if(rwn_mgmt_is_valid_sta(sta) == 0)
 		return 0;
 #if CFG_TKIP_SW_CRYPT
-    struct key_info_tag *key = *(sta->sta_sec_info.cur_key);
+	if(sta->sta_sec_info.cur_key == NULL)
+		return 0;
+	struct key_info_tag *key = *(sta->sta_sec_info.cur_key);
 	if ((NULL != key) && (key->cipher == MAC_RSNIE_CIPHER_TKIP))
 		return 0; /* disable QOS for TKIP */
 #endif
@@ -542,7 +570,7 @@ int qos_need_enabled(struct sta_info_tag *sta)
 }
 #endif
 
-UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
+UINT32 rwm_transfer_node(MSDU_NODE_T *node, u16 flag)
 {
     UINT8 tid;
     UINT32 ret = 0;
@@ -632,7 +660,15 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u8 flag)
     txdesc_new->host.packet_addr      = (UINT32)content_ptr + 14;
     txdesc_new->host.packet_len       = node->len - 14;
 #endif
+#if CFG_NX_SOFTWARE_TX_RETRY
+    // record total retry times, used for rate contrl in low mac
+    txdesc_new->host.status_desc_addr = 0;
+    txdesc_new->host.access_category = queue_idx;
+    txdesc_new->host.flags |= TXU_CNTRL_EN_SW_RETRY_CHECK;
+    txdesc_new->lmac.hw_desc->thd.statinfo = 0;
+#else
     txdesc_new->host.status_desc_addr = (UINT32)content_ptr + 14;
+#endif
     txdesc_new->host.ethertype        = eth_hdr_ptr->e_proto;
     txdesc_new->host.tid              = tid;
 
@@ -688,9 +724,7 @@ void ethernetif_input_amsdu(RW_RXIFO_PTR rx_info, struct pbuf *p)
     struct amsdu_hdr *amsdu_subfrm_hdr = (struct amsdu_hdr *)p->payload;
     uint32_t mpdu_end = (uint32_t)p->payload + p->len;
     uint16_t msdu_len_with_padding;
-#if 0//(RW_MESH_EN)
     VIF_INF_PTR p_vif_entry = rwm_mgmt_vif_idx2ptr(rx_info->vif_idx);
-#endif //(RW_MESH_EN)
 
     /*
      * format of p->payload
@@ -785,16 +819,21 @@ void ethernetif_input_amsdu(RW_RXIFO_PTR rx_info, struct pbuf *p)
             }
         }
 
-        //malloc/dma/callback
-        rwm_get_rx_free_node(&pbuf, du_len);
-        if (NULL == pbuf)
+
+        // If the frame's src addr not equal to us.
+        if (p_vif_entry && os_memcmp(&eth_hdr->sa, &p_vif_entry->mac_addr, ETH_ALEN))
         {
-            os_printf("%s rwm_get_rx_free_node(%d) failed\n", __FUNCTION__, du_len);
-        }
-        else
-        {
-            os_memcpy(pbuf->payload, (void *)eth_hdr, du_len);
-            ethernetif_input(rx_info->vif_idx, pbuf);
+            //malloc/dma/callback
+            rwm_get_rx_free_node(&pbuf, du_len);
+            if (NULL == pbuf)
+            {
+                os_printf("%s rwm_get_rx_free_node(%d) failed\n", __FUNCTION__, du_len);
+            }
+            else
+            {
+                os_memcpy(pbuf->payload, (void *)eth_hdr, du_len);
+                ethernetif_input(rx_info->vif_idx, pbuf);
+            }
         }
 
         //next amsdu_subframe
@@ -807,7 +846,7 @@ void ethernetif_input_amsdu(RW_RXIFO_PTR rx_info, struct pbuf *p)
 UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
 {
     struct pbuf *p = (struct pbuf *)rx_info->data;
-	STA_INF_PTR sta_entry;
+    STA_INF_PTR sta_entry;
 
     os_null_printf("s:%d, v:%d, d:%d, r:%d, c:%d, l:%d, %p\r\n",
                    rx_info->sta_idx,
@@ -818,9 +857,9 @@ UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
                    rx_info->length,
                    rx_info->data);
 
-	sta_entry = rwm_mgmt_sta_idx2ptr(rx_info->sta_idx);
-	if (sta_entry)
-		sta_entry->rssi = rx_info->rssi;
+    sta_entry = rwm_mgmt_sta_idx2ptr(rx_info->sta_idx);
+    if (sta_entry)
+        sta_entry->rssi = rx_info->rssi;
 
     if (rx_info->rx_dmadesc_flags & RX_FLAGS_IS_AMSDU_BIT)
     {
@@ -829,7 +868,25 @@ UINT32 rwm_upload_data(RW_RXIFO_PTR rx_info)
     }
     else
     {
-        ethernetif_input(rx_info->vif_idx, p);
+        struct vif_info_tag *p_vif_entry = rwm_mgmt_vif_idx2ptr(rx_info->vif_idx);
+
+        if (p_vif_entry)
+        {
+            if (p->len > sizeof(struct ethernet_hdr))
+            {
+                struct ethernet_hdr *eth_hdr = (struct ethernet_hdr *)p->payload;
+
+                // If the frame's src addr not equal to us.
+                if (os_memcmp(&eth_hdr->sa, &p_vif_entry->mac_addr, ETH_ALEN))
+                {
+                    ethernetif_input(rx_info->vif_idx, p);
+                    return RW_SUCCESS;
+                }
+            }
+        }
+
+        // drop packet
+        pbuf_free(p);
     }
 
     return RW_SUCCESS;
@@ -1192,6 +1249,111 @@ UINT8 rwn_mgmt_if_ap_stas_empty()
     return 0;
 }
 
+UINT8 rwn_mgmt_is_valid_sta(struct sta_info_tag *sta)
+{
+    uint8_t sta_idx = 0xff;
+    if(sta)
+    {
+        sta_idx = CO_GET_INDEX(sta, sta_info_tab);
+        if(sta_idx < STA_MAX)
+        {
+            if((sta->inst_nbr != 0xff) && (sta->staid == sta_idx))
+            {
+                return 1;
+            }
+        }
+    }
+    return 0;
+}
+
+#if CFG_NX_SOFTWARE_TX_RETRY
+UINT32 rwn_check_sw_tx_retry(struct txdesc *txdesc)
+{
+    #define PKTS_STATUS_NULL             0  // null
+    #define PKTS_STATUS_TX_DONE          1  // done but no sw retry
+    #define PKTS_STATUS_TX_DROP          2  // droped but other case
+    #define PKTS_STATUS_TX_RETRY_DONE    3  // done with sw retry
+    #define PKTS_STATUS_TX_RETRY_FAIL    4  // droped with sw retry
+    #define PKTS_STATUS_TX_RETRYING      5  // sw retry txing
+    uint32_t pkt_status = PKTS_STATUS_NULL;
+
+    if(txdesc->host.flags & TXU_CNTRL_EN_SW_RETRY_CHECK)
+    {
+        uint32_t cfm_status = txdesc->lmac.hw_desc->cfm.status;
+        uint32_t txstatus = txdesc->lmac.hw_desc->thd.statinfo;
+        uint32_t tx_acked = ((txstatus & (DESC_DONE_TX_BIT | FRAME_SUCCESSFUL_TX_BIT)) == (DESC_DONE_TX_BIT | FRAME_SUCCESSFUL_TX_BIT));
+        uint32_t retry_cnt = ((txstatus & NUM_MPDU_RETRIES_MSK) >> NUM_MPDU_RETRIES_OFT);
+        uint32_t retry_limit = ((txstatus & RETRY_LIMIT_REACHED_BIT) != 0);
+        uint32_t failures = retry_cnt + retry_limit;
+        uint32_t last_retry = (uint32_t)txdesc->host.status_desc_addr;
+        uint32_t total_retry;
+
+        total_retry = last_retry + failures;
+
+        #define SW_RETRY_LIMITED_COUNT      (30)
+        if(tx_acked)
+        {
+            total_retry += 1; // total send times
+            if(last_retry)
+                pkt_status = PKTS_STATUS_TX_RETRY_DONE;
+            else
+            {
+                pkt_status = PKTS_STATUS_TX_DONE;
+            }
+        }
+        else if(total_retry < SW_RETRY_LIMITED_COUNT)
+        {
+            uint32_t need_drop = 0;
+            uint32_t sw_done = ((cfm_status & TX_STATUS_SW_RETRY_REQUIRED) != 0);
+            if(txl_check_reset())
+                need_drop |= (1<<0);
+            else if(sw_done)
+            {
+                need_drop |= (1<<1); // drop mac flush pkts
+            }
+            if(need_drop == 0)
+            {
+                uint8_t access_category = txdesc->host.access_category;
+
+                pkt_status = PKTS_STATUS_TX_RETRYING;
+
+                // record total retry times, used for rate contrl in low mac
+                txdesc->host.status_desc_addr = (UINT32)total_retry;
+                txdesc->host.flags |= TXU_CNTRL_RETRY;
+                txdesc->lmac.hw_desc->cfm.status = 0;
+                txdesc->status = TXDESC_STA_USED;
+                txdesc->lmac.hw_desc->thd.statinfo = 0;
+                txu_cntrl_push(txdesc, access_category);
+                txl_cntrl_inc_pck_cnt();
+                //os_printf("txing: 0x%08x-0x%08x, %d, %d,\r\n", txstatus, cfm_status, pkt_status, total_retry);
+                return 1;
+            }
+            else
+            {
+                pkt_status = PKTS_STATUS_TX_DROP;
+            }
+        }
+        else
+        {
+            pkt_status = PKTS_STATUS_TX_RETRY_FAIL;
+        }
+        pkt_status = pkt_status;
+        //os_printf("txend: 0x%08x-0x%08x, %d, %d\r\n", txstatus, cfm_status, pkt_status, total_retry);
+    }
+
+    return 0;
+}
+#endif
+
+/**
+ * next package will be sent at a low rate for once
+ * Notice that only packages sent by rwm_transfer() can use this function and
+ * it won't work only if CFG_NX_SOFTWARE_TX_RETRY or CFG_LOW_VOLTAGE_PS is on for now.
+*/
+void rwn_set_tx_low_rate_once(void)
+{
+    tx_use_low_rate_once = true;
+}
 
 // eof
 

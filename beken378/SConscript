@@ -75,6 +75,10 @@ src += ["app/http/lite-log.c"]
 if (GetLocalDepend(options, 'CFG_PCM_RESAMPLER') == 1):
 	src += ["func/pcm_resampler/pcm_resampler_port.c"]
 
+if (GetLocalDepend(options, 'CFG_LOW_VOLTAGE_PS') == 1):
+	src += ["func/power_save/low_voltage_ps.c"]
+	src += ["func/power_save/low_voltage_compensation.c"]
+
 if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7271')):
 	src += ["driver/i2c/i2c1_bk7271.c"]
 	src += ["driver/mailbox/mailbox.c"]
@@ -94,12 +98,9 @@ else:
 
 src += ["demo/ieee802_11_demo.c"]
 src += ["func/func.c"]
-src += ["func/bk_aware/bk_aware.c"]
 src += ["func/audio/audio_intf.c"]
 src += ["func/power_save/power_save.c"]
 src += ["func/power_save/mcu_ps.c"]
-src += ["func/power_save/low_voltage_ps.c"]
-src += ["func/power_save/low_voltage_compensation.c"]
 src += ["func/power_save/manual_ps.c"]
 src += ["func/power_save/ap_idle.c"]
 src += ["func/rwnx_intf/rw_msg_rx.c"]
@@ -133,6 +134,29 @@ src += ["func/lwip_intf/dhcpd/dhcp-server.c"]
 src += ["func/lwip_intf/dhcpd/dhcp-server-main.c"]
 src += ["func/force_sleep/force_mac_ps.c"]
 src += ["func/force_sleep/force_mcu_ps.c"]
+
+if (GetLocalDepend(options, 'CFG_WRAP_LIBC') == 1):
+    src += ["func/libc/errno/lib_errno.c"]
+    src += ["func/libc/math/lib_exp.c"]
+    src += ["func/libc/math/lib_libexpi.c"]
+    src += ["func/libc/math/lib_log.c"]
+    src += ["func/libc/math/lib_pow.c"]
+    src += ["func/libc/stdio/lib_libvscanf.c"]
+    src += ["func/libc/stdio/lib_memsistream.c"]
+    src += ["func/libc/stdio/lib_meminstream.c"]
+    src += ["func/libc/stdio/lib_sscanf.c"]
+    src += ["func/libc/stdio/lib_vsscanf.c"]
+    src += ["func/libc/stdlib/lib_checkbase.c"]
+    src += ["func/libc/stdlib/lib_strtod.c"]
+    src += ["func/libc/stdlib/lib_qsort.c"]
+    src += ["func/libc/stdlib/lib_srand.c"]
+    src += ["func/libc/stdlib/lib_strtol.c"]
+    src += ["func/libc/stdlib/lib_strtoll.c"]
+    src += ["func/libc/stdlib/lib_strtoul.c"]
+    src += ["func/libc/stdlib/lib_strtoull.c"]
+    src += ["func/libc/string/lib_isbasedigit.c"]
+
+
 path = []
 path += [cwd + '/app']
 path += [cwd + '/app/config']
@@ -267,6 +291,9 @@ path += [cwd + '/func/sensor']
 path += [cwd + '/func/force_sleep']
 if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     path += [cwd + '/func/wolfssl']
+
+if (GetLocalDepend(options, 'CFG_WRAP_LIBC') == 1):
+    path += [cwd + '/func/libc']
 
 if (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7231N')) or (0 == string.find(GetLocalDepend(options, 'CFG_SOC_NAME'), 'SOC_BK7238')):
     src += ["driver/calendar/calendar.c"]

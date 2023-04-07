@@ -1155,6 +1155,8 @@ struct wpa_driver_associate_params {
 	 */
 	size_t fils_erp_rrk_len;
 
+	s8 rssi;
+	u16 cap_info;
 	u8 *bcn_ie;
 	int bcn_len;
 };

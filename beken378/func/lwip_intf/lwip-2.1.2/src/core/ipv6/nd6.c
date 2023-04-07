@@ -289,6 +289,7 @@ nd6_process_autoconfig_prefix(struct netif *netif,
 }
 #endif /* LWIP_IPV6_AUTOCONFIG */
 
+static uint32_t g_reserved=0;
 /**
  * Process an incoming neighbor discovery message
  *
@@ -453,6 +454,13 @@ nd6_input(struct pbuf *p, struct netif *inp)
     }
 
     ns_hdr = (struct ns_header *)p->payload;
+
+    if (ns_hdr->reserved == g_reserved) {
+      os_printf("reserved is %08x, it equals our reserved, drop this NS!\r\n",
+                ns_hdr->reserved);
+      pbuf_free(p);
+      return;
+    }
 
     /* Create an aligned, zoned copy of the target address. */
     ip6_addr_copy_from_packed(target_address, ns_hdr->target_address);
@@ -1287,7 +1295,9 @@ nd6_send_ns(struct netif *netif, const ip6_addr_t *target_addr, u8_t flags)
   ns_hdr->type = ICMP6_TYPE_NS;
   ns_hdr->code = 0;
   ns_hdr->chksum = 0;
-  ns_hdr->reserved = 0;
+  g_reserved = bk_rand();
+  os_printf("reserved is %08x, !\r\n", g_reserved);
+  ns_hdr->reserved = g_reserved;
   ip6_addr_copy_to_packed(ns_hdr->target_address, *target_addr);
 
   if (lladdr_opt_len != 0) {

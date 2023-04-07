@@ -1,7 +1,9 @@
 #ifndef _ATE_APP_H_
 #define _ATE_APP_H_
 
-#define ATE_APP_FUN 1
+#include "sys_config.h"
+
+#define ATE_APP_FUN (CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST)
 
 #if ATE_APP_FUN
 #include "gpio_pub.h"
@@ -25,10 +27,10 @@ void ate_gpio_init(void);
 uint32_t ate_mode_check(void);
 
 void ate_app_init(void);
-uint32_t get_ate_mode_state(void);
 void ate_start(void);
-
 #endif /*ATE_APP_FUN */
+
+uint32_t get_ate_mode_state(void);
 #endif // _ATE_APP_H_
 // eof
 

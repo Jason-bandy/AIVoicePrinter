@@ -29,7 +29,7 @@
 #endif
 #include "param_config.h"
 #include "net.h"
-#include "netif.h"
+//#include "netif.h"
 #include "low_voltage_ps.h"
 #include "calendar_pub.h"
 
@@ -40,6 +40,8 @@ FUNC_1PARAM_PTR bk_wlan_get_status_cb(void);
 
 struct ipv4_config sta_ip_settings;
 struct ipv4_config uap_ip_settings;
+struct os_reltime sta_start_time;
+
 static int up_iface;
 uint32_t sta_ip_start_flag = 0;
 uint32_t uap_ip_start_flag = 0;
@@ -252,15 +254,16 @@ static void wm_netif_status_callback(struct netif *n)
 					(*fn)(&val);
 				}
 				mhdr_set_station_status(RW_EVT_STA_GOT_IP);
-#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
-				if((ps_info.ps_print_enable == 1)&&(ps_info.connection_loss_flag == 1))
-				{
-					//re-enter into ps if connection loss
-					bk_wlan_dtim_rf_ps_mode_enable();
-					ps_info.connection_loss_flag = 0;
-					ps_info.connection_loss_time_end = cal_get_time_us();
-					ps_info.wakeup_time_in_total -= ps_info.connection_loss_time_end - ps_info.connection_loss_time_start;
-				}
+
+#if (1 == CFG_LOW_VOLTAGE_PS)
+				//re-enter into ps if connection loss/deauth/disassoc
+				auto_check_dtim_rf_ps_mode();
+
+				#if(1 == CFG_LOW_VOLTAGE_PS_TEST)
+				extern void lv_ps_info_reconnect();
+				lv_ps_info_reconnect();
+				#endif
+
 #endif
 				/* dhcp success*/
                 if(sta_ipup_cb != NULL)
@@ -394,6 +397,10 @@ void sta_ip_down(void)
 	}
 }
 
+void sta_ip_get_start_time(void){
+	os_get_reltime(&sta_start_time);
+}
+
 void sta_ip_start(void)
 {
     struct wlan_ip_config address = {0};
@@ -401,6 +408,17 @@ void sta_ip_start(void)
 	if(!sta_ip_start_flag)
 	{
 		os_printf("sta_ip_start\r\n");
+#if CFG_WLAN_FAST_CONNECT || CFG_WLAN_FAST_CONNECT_WPA3
+		if (os_reltime_initialized(&sta_start_time)){
+			struct os_reltime now, diff;
+			os_get_reltime(&now);
+			os_reltime_sub(&now, &sta_start_time, &diff);
+			sta_start_time.sec = 0;
+			sta_start_time.usec = 0;
+			os_printf("STA completed in %ld.%06ld seconds\r\n",
+				diff.sec, diff.usec);
+		}
+#endif
 		sta_ip_start_flag = 1;
 		net_configure_address(&sta_ip_settings, net_get_sta_handle());
 
@@ -463,7 +481,9 @@ void uap_ip_down(void)
 
 		netifapi_netif_set_down(&g_uap.netif);
 		netif_set_status_callback(&g_uap.netif, NULL);
+		#if CFG_USE_DHCPD
 		dhcp_server_stop();
+		#endif
 	}
 }
 
@@ -588,15 +608,19 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
          // we always set sta netif as the default.
          sta_set_default_netif();
 	} else {
+		#if CFG_USE_DHCPD
 		// softap IP up, start dhcp server;
 		dhcp_server_start(net_get_uap_handle());
+		#else
+		net_d("warning: dhcpd no open\r\n");
+		#endif
 		up_iface = 0;
 
         // as the default netif is sta's netif, so ap need to send
         // boardcast or not sub net packets, need set ap netif before
         // send those packets, after finish sending, reset default netif
         // to sta's netif.
-        os_printf("def netif is no ap's netif, sending boardcast or no-subnet ip packets may failed\r\n");
+        os_null_printf("def netif is no ap's netif, sending boardcast or no-subnet ip packets may failed\r\n");
 	}
 
 	return 0;

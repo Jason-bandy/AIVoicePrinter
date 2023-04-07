@@ -1407,6 +1407,7 @@ void wpas_request_disconnection(struct wpa_supplicant *wpa_s);
 int wpas_build_ext_capab(struct wpa_supplicant *wpa_s, u8 *buf, size_t buflen);
 int wpas_update_random_addr(struct wpa_supplicant *wpa_s, int style);
 int wpas_update_random_addr_disassoc(struct wpa_supplicant *wpa_s);
+void wpa_s_setup_sae_pt(struct wpa_config *conf, struct wpa_ssid *ssid);
 void add_freq(int *freqs, int *num_freqs, int freq);
 
 void wpas_rrm_reset(struct wpa_supplicant *wpa_s);

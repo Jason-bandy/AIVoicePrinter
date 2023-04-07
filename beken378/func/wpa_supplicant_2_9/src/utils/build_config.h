@@ -37,6 +37,11 @@
 /* Driver interface for beken driver */
 #define CONFIG_DRIVER_BEKEN                        1
 
+/* ocv verify operating channel should enable the MFP */
+#if CFG_WIFI_OCV
+#define CONFIG_OCV
+#endif
+
 /* WPA2/IEEE 802.11i RSN pre-authentication */
 //#define CONFIG_RSN_PREAUTH   1
 
@@ -245,6 +250,8 @@
 #define CONFIG_ECC
 #define CONFIG_SAE_SMALL_STACK
 #define CONFIG_SAE_OVERCLOCK
+//#define CONFIG_SHA384
+
 #if CFG_SME
 #define CONFIG_SME
 #endif

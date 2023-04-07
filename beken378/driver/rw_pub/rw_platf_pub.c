@@ -2,7 +2,9 @@
 #include "sys_config.h"
 #include "reg_mac_core.h"
 #include "reg_mac_pl.h"
+#if CFG_USE_MCU_PS && CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 #include "mcu_ps_pub.h"
+#endif
 
 extern void rwnxl_violence_reset_patch(void);
 UINT32 mcu_ps_machw_reset(void);
@@ -27,7 +29,7 @@ void hal_machw_init_diagnostic_ports(void)
 
 void hal_machw_before_reset_patch(void)
 {
-    #if CFG_USE_MCU_PS
+    #if CFG_USE_MCU_PS && CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
     mcu_ps_machw_cal();
     mcu_ps_machw_reset();
     #endif
@@ -35,7 +37,7 @@ void hal_machw_before_reset_patch(void)
 
 void hal_machw_after_reset_patch(void)
 {
-    #if CFG_USE_MCU_PS
+    #if CFG_USE_MCU_PS && CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
     mcu_ps_machw_init();
     #endif
 }

@@ -44,7 +44,7 @@
 #endif
 
 /// Beacon loss threshold above which we consider the connection as lost
-#define MM_BEACON_LOSS_THD          (180) 
+#define MM_BEACON_LOSS_THD          (180)
 
 /// Periodicity of keep-alive NULL frame transmission
 #define MM_KEEP_ALIVE_PERIOD        (1000000)   // 1s
@@ -99,7 +99,7 @@
                              NXMAC_ACCEPT_BEACON_BIT | NXMAC_ACCEPT_OTHER_MGMT_FRAMES_BIT | \
                              NXMAC_ACCEPT_BAR_BIT | NXMAC_ACCEPT_BA_BIT |                \
                              NXMAC_ACCEPT_DATA_BIT | NXMAC_ACCEPT_Q_DATA_BIT |           \
-                             NXMAC_ACCEPT_QO_S_NULL_BIT | NXMAC_ACCEPT_OTHER_DATA_FRAMES_BIT)                             
+                             NXMAC_ACCEPT_QO_S_NULL_BIT | NXMAC_ACCEPT_OTHER_DATA_FRAMES_BIT)
 #endif
 /// Number of supported Default+Pairwise keys
 #if NX_KEY_RAM_CONFIG
@@ -532,6 +532,9 @@ uint8_t mm_sec_machwkey_wr(struct mm_key_add_req const *param);
  ****************************************************************************************
  */
 void mm_sec_machwkey_del(uint8_t hw_key_idx);
+
+uint8_t mm_sec_machwkey_wr_custom(const struct mac_addr *mac, const struct mac_sec_key *key);
+void mm_sec_machwkey_del_custom(const struct mac_addr *mac);
 
 /**
  ****************************************************************************************

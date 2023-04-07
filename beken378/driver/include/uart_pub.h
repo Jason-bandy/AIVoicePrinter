@@ -8,7 +8,8 @@
 
 #define warning_prf                    bk_printf
 #define fatal_prf                      bk_printf
-#define null_prf                       os_null_printf
+#define null_prf(fmt, ...)
+#define os_null_printf(fmt, ...)
 
 #define UART_SUCCESS                 (0)
 #define UART_FAILURE                 ((UINT32)-1)
@@ -119,7 +120,6 @@ extern void uart2_init(void);
 extern void uart2_exit(void);
 extern void uart2_isr(void);
 
-extern INT32 os_null_printf(const char *fmt, ...);
 extern void fatal_print(const char *fmt, ...);
 extern void bk_printf(const char *fmt, ...);
 extern void uart_send_byte(UINT8 ch, UINT8 data);

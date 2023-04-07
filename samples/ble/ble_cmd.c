@@ -534,6 +534,14 @@ void ble_notice_cb(ble_notice_t notice, void *param)
 		bk_printf("BLE_5_INIT_DISCONNECT_EVENT:conn_idx:%d,reason:%d\r\n", d_ind->conn_idx,d_ind->reason);
 		break;
 	}
+	case BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:
+	{
+		conn_param_t *d_ind = (conn_param_t *)param;
+		bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:conn_idx:%d,intv_min:%d,intv_max:%d,time_out:%d\r\n",d_ind->conn_idx,
+			d_ind->intv_min,d_ind->intv_max,d_ind->time_out);
+		app_ble_send_conn_param_update_cfm(d_ind->conn_idx,true);
+		break;
+	}
 	default:
 		break;
 	}
@@ -630,6 +638,7 @@ static void ble(int argc, char **argv)
 		struct adv_param adv_info;
 		adv_info.channel_map = 7;
 		adv_info.duration = 0;
+		adv_info.prop = (1 << ADV_PROP_CONNECTABLE_POS) | (1 << ADV_PROP_SCANNABLE_POS);
 		adv_info.interval_min = 160;
 		adv_info.interval_max = 160;
 		adv_info.advData[0] = 0x02;

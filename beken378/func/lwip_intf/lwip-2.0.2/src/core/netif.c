@@ -86,6 +86,8 @@
 #include "lwip/nd6.h"
 #endif
 
+#include "rw_pub.h"
+
 #if LWIP_NETIF_STATUS_CALLBACK
 #define NETIF_STATUS_CALLBACK(n) do{ if (n->status_callback) { (n->status_callback)(n); }}while(0)
 #if LWIP_IPV6
@@ -252,6 +254,7 @@ netif_add(struct netif *netif,
 #endif
 
   LWIP_ASSERT("No init function given", init != NULL);
+  VIF_INF_PTR vif_entry = (VIF_INF_PTR)state;
 
   /* reset new interface configuration state */
 #if LWIP_IPV4
@@ -297,7 +300,13 @@ netif_add(struct netif *netif,
 
   /* remember netif specific state information data */
   netif->state = state;
-  netif->num = netif_num++;
+  if (vif_entry->type == VIF_STA) {
+    netif->num = 0;
+  } else if (vif_entry->type == VIF_AP) {
+    netif->num = 1;
+  } else {
+    netif->num = netif_num++;
+  }
   netif->input = input;
 
   NETIF_SET_HWADDRHINT(netif, NULL);

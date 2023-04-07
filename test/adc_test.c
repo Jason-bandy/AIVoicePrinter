@@ -15,8 +15,8 @@
 #include "test_config.h"
 #include "bk7011_cal_pub.h"
 
-#define ADC_TEST
-#ifdef  ADC_TEST
+//#define ADC_TEST			1
+#if ((ADC_TEST == 1) && (CFG_SARADC_INTFACE == 1))
 
 int Step_Flag ;
 int Adctest_Flag ;

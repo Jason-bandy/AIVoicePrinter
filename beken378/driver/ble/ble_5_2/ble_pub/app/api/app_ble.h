@@ -243,6 +243,12 @@ struct conn_info {
 	struct bd_addr peer_addr;
 	/// Role of device in connection (0 = Master / 1 = Slave)
 	uint8_t role;
+	//master sdp end
+	uint8_t sdp_end;
+	//master sdp doing
+	uint8_t sdp_ing;
+	//master sdp dummy param
+	void const *sdp_param;
 };
 
 struct actv_info {
@@ -331,12 +337,14 @@ uint8_t app_ble_find_actv_idx_handle(uint16_t gap_actv_idx);
 uint8_t app_ble_get_connhdl(int conn_idx);
 void app_ble_run(uint8_t idx, ble_cmd_t cmd, uint32_t op_mask, ble_cmd_cb_t callback);
 void app_ble_reset(void);
-ble_err_t app_ble_create_advertising(uint8_t actv_idx, uint8_t chnl_map, uint32_t intv_min, uint32_t intv_max);
+ble_err_t app_ble_create_advertising(uint8_t actv_idx, struct adv_param *adv);
+ble_err_t app_ble_create_extended_advertising(uint8_t actv_idx, ext_adv_param_cfg_t * param);
 ble_err_t app_ble_start_advertising(uint8_t actv_idx, uint16 duration);
 ble_err_t app_ble_stop_advertising(uint8_t actv_idx);
+ble_err_t app_ble_get_con_rssi(uint8_t conn_idx);
 ble_err_t app_ble_delete_advertising(uint8_t actv_idx);
-ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsigned char adv_len);
-ble_err_t app_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, unsigned char scan_len);
+ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, uint16_t adv_len);
+ble_err_t app_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, uint16_t scan_len);
 ble_err_t app_ble_update_param(uint8_t conn_idx, struct gapc_conn_param *conn_param);
 ble_err_t app_ble_disconnect(uint8_t conn_idx, uint8_t reason);
 ble_err_t app_ble_gatt_mtu_change(uint8_t conn_idx);
@@ -344,6 +352,12 @@ ble_err_t app_ble_create_scaning(uint8_t actv_idx);
 ble_err_t app_ble_start_scaning(uint8_t actv_idx, uint16_t scan_intv, uint16_t scan_wd);
 ble_err_t app_ble_stop_scaning(uint8_t actv_idx);
 ble_err_t app_ble_delete_scaning(uint8_t actv_idx);
+ble_err_t app_ble_set_le_pkt_size(uint8_t conn_idx);
+ble_err_t app_ble_get_peer_feature(uint8_t conn_idx);
+ble_err_t app_ble_mtu_get(uint8_t conn_idx, uint16_t *p_mtu);
+ble_err_t app_ble_mtu_exchange(uint8_t conn_idx);
+void app_ble_send_conn_param_update_cfm(uint8_t con_idx,bool accept);
+uint8_t app_ble_get_connect_status(uint8_t con_idx);
 void app_ble_next_operation(uint8_t idx, uint8_t status);
 
 #define BLE_APP_MASTER_GET_CONN_IDX_OP_MASK(conn_idx)   app_ble_env.connections[(conn_idx)].conn_op_mask

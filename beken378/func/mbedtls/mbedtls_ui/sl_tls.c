@@ -135,7 +135,7 @@ int ssl_txdat_sender(MbedTLSSession *tls_session,int len,char *data)
 		{
 		#if defined(MBEDTLS_SSL_MAX_FRAGMENT_LENGTH)
 			max_len = mbedtls_ssl_get_max_frag_len( &tls_session->ssl );
-			max_len = min(1024,max_len);
+			max_len = _min(1024,max_len);
 		#endif
 			///bk_printf("[AS]frag len:%d,mlen:%d\r\n",max_len,len);
 			sd_len = len;

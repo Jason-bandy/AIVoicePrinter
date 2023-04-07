@@ -73,7 +73,9 @@
 #define CFG_HWSCAN
 #define CFG_AUTOBCN
 #define CFG_WAPI
+#if (CFG_USE_PTA)
 #define CFG_COEX
+#endif
 
 #if CFG_WIFI_FTM
 #if CFG_WIFI_FTM_INITIATOR
@@ -615,6 +617,24 @@ extern INT32 rwnx_printf_fun(const char *fmt, ...) __attribute__ ((weak));
 #define BK_NX_POWTBL_ISSUE          1
 #else
 #define BK_NX_POWTBL_ISSUE          0
+#endif
+
+#if (1 == CFG_NX_SOFTWARE_TX_RETRY)
+#define BK_NX_SOFTWARE_TX_RETRY     1
+#else
+#define BK_NX_SOFTWARE_TX_RETRY     0
+#endif
+
+#if (1 == CFG_LOW_VOLTAGE_PS)
+#define NX_LOW_VOLTAGE_PS        1
+#else
+#define NX_LOW_VOLTAGE_PS        0
+#endif
+
+#if (1 == CFG_NX_OPTIMIZE_WEAKSIGNAL)
+#define BK_NX_OPTIMIZE_WEAKSIGNAL   1
+#else
+#define BK_NX_OPTIMIZE_WEAKSIGNAL   0
 #endif
 
 #endif // _RWNX_CONFIG_H_

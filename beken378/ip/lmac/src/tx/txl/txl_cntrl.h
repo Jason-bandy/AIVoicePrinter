@@ -65,6 +65,9 @@
 /// BCN queue timeout
 #define TX_BCN_TIMEOUT      150000   ///< Beacon - 150ms
 
+/// tx check timer intval
+#define TX_CHECK_TIMER_INTVAL  10000  /// 10ms
+
 /// Tx trigger descriptor status check states
 enum
 {
@@ -449,6 +452,8 @@ void txl_cntrl_inc_pck_cnt(void);
 void txl_packet_trace(struct txdesc * txdesc);
 #endif
 
+uint8_t txl_timer_check(uint8_t access_category);
+uint8_t txl_check_reset(void);
 /// @}
 /// @}
 

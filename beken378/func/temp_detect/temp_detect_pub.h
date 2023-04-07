@@ -13,6 +13,7 @@
 #endif
 
 #if (CFG_SOC_NAME == SOC_BK7221U)
+#define ADC_VOLT_SENSER_CHANNEL                     0
 #define ADC_TEMP_SENSER_CHANNEL                     8
 #elif (CFG_SOC_NAME == SOC_BK7231N)
 #define ADC_VOLT_SENSER_CHANNEL                     0

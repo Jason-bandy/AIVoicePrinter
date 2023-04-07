@@ -64,6 +64,7 @@ $(NAME)_SOURCES +=  bk_patch/ddrv.c \
                     src/common/wpa_common.c \
                     src/common/notifier.c \
                     src/common/wpa_psk_cache.c \
+                    src/common/ocv.c \
                     src/crypto/aes-unwrap.c \
                     src/crypto/rc4.c \
                     src/crypto/sha1-pbkdf2.c \
@@ -142,7 +143,7 @@ $(NAME)_SOURCES +=  src/crypto/crypto_wolfssl.c \
 		    ../wolfssl/wolfcrypt/src/random.c \
 		    ../wolfssl/wolfcrypt/src/sha256.c
 
-ifeq ($(CFG_OWE),1)
+#ifeq ($(CFG_OWE),1)
 $(NAME)_SOURCES +=  src/crypto/sha256-kdf.c \
                     src/crypto/sha384-kdf.c \
                     src/crypto/sha512-kdf.c \
@@ -150,7 +151,7 @@ $(NAME)_SOURCES +=  src/crypto/sha256-kdf.c \
 		    ../wolfssl/wolfcrypt/src/md5.c \
 		    ../wolfssl/wolfcrypt/src/hmac.c \
 		    ../wolfssl/wolfcrypt/src/sha.c
-endif
+#endif
 endif
 
 ifeq ($(CFG_WIFI_P2P_GO),1)

@@ -74,12 +74,14 @@ static void extended_app_task_handler(void *arg)
     func_init_extended();  
 
     /* step 1: startup application layer*/
+#if CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST
     if(get_ate_mode_state())
     {
 	    ate_start();
 	    improve_rx_sensitivity();
     }
     else
+#endif
     {
 #if (CFG_SOC_NAME == SOC_BK7238)
 		power_save_rf_hold_bit_set(RF_HOLD_RF_SLEEP_BIT);
@@ -142,8 +144,9 @@ void entry_main(void)
 	LOS_KernelInit();
 #endif
 
+#if CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST
 	ate_app_init();
-
+#endif
 #if CFG_USE_DEEP_PS
 	bk_init_deep_wakeup_gpio_status();
 #endif

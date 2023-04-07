@@ -3367,6 +3367,9 @@
 #include MBEDTLS_USER_CONFIG_FILE
 #endif
 
+// Fixed matter compile issue when open wpa3
+#define MBEDTLS_ECDH_LEGACY_CONTEXT
+
 #include "mbedtls/check_config.h"
 
 #endif /* MBEDTLS_CONFIG_H */

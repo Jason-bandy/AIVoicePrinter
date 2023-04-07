@@ -1350,7 +1350,7 @@ void
 lwip_netconn_do_connect(void *m)
 {
   struct api_msg *msg = (struct api_msg *)m;
-  err_t err;
+  err_t err = ERR_VAL;
 
   if (msg->conn->pcb.tcp == NULL) {
     /* This may happen when calling netconn_connect() a second time */

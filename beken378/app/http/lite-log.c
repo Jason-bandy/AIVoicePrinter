@@ -172,7 +172,7 @@ int log_multi_line_internal(const char *f, const int l,
     }
 
     LITE_printf("[%s] %s(%d): %s (Length: %d Bytes)\r\n",
-                lvl_names[LITE_get_loglevel()], f, l, title, (int)strlen(payload));
+                lvl_names[LITE_get_loglevel()], f, l, title, (int)os_strlen(payload));
 
     pos = payload;
     while (pos && *pos) {

@@ -224,7 +224,7 @@
  */
 #if ((defined(CFG_LWIP_MEM_POLICY))&&(CFG_LWIP_MEM_POLICY == LWIP_REDUCE_THE_PLAN))
 #if (CFG_SUPPORT_MATTER)
-#define PBUF_POOL_SIZE                  24
+#define PBUF_POOL_SIZE                  12
 #else
 #define PBUF_POOL_SIZE                  3
 #endif
@@ -307,12 +307,18 @@
 /**
  * LWIP_STATS==1: Enable statistics collection in lwip_stats.
  */
-#define LWIP_STATS                      1
+#define LWIP_STATS                      0
 
 /**
  * LWIP_STATS_DISPLAY==1: Compile in the statistics output functions.
  */
 #define LWIP_STATS_DISPLAY              0
+
+/* Disable lwIP asserts */
+#define LWIP_NOASSERT
+
+/* Disable lwIP error log */
+#define LWIP_ERROR(message, expression, handler)
 
 /*
    ----------------------------------
@@ -480,17 +486,22 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 #define MEMP_NUM_REASSDATA              0
 #define IP_FRAG                         0
 
-#define MEM_LIBC_MALLOC                (0)
+#define MEM_LIBC_MALLOC                (1)
 
-#define DEFAULT_UDP_RECVMBOX_SIZE       3 //each udp socket max buffer 3 packets.
-
-#define MEMP_MEM_MALLOC (0)
+#define MEMP_MEM_MALLOC (1)
 #define TCP_MSL (TCP_TMR_INTERVAL)
 
 #define LWIP_COMPAT_MUTEX_ALLOWED       (1)
 
+#if (LWIP_STATS)
 #define MEMP_STATS                       1
 #define MEM_STATS                        1
+#endif
+#define TCPIP_MBOX_SIZE                 16
+#define DEFAULT_ACCEPTMBOX_SIZE         8
+#define DEFAULT_RAW_RECVMBOX_SIZE       4
+#define DEFAULT_UDP_RECVMBOX_SIZE       8
+#define DEFAULT_TCP_RECVMBOX_SIZE       8
 
 #define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
 

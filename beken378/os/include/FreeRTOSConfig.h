@@ -134,4 +134,6 @@ to exclude the API function. */
 
 #define configMAX_SYSCALL_INTERRUPT_PRIORITY  191 /* equivalent to 0xb0, or priority 11. */
 
+#define configUSE_RECURSIVE_MUTEXES			1
+
 #endif /* FREERTOS_CONFIG_H */

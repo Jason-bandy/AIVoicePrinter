@@ -84,7 +84,8 @@ static struct ieee80211_channel rw_5ghz_a_channels[] =
 
 WIPHY_T g_wiphy;
 struct rwnx_hw g_rwnx_hw;
-UINT8 beacon[149] =
+
+const UINT8 beacon[149] =
 {
     128, 0, 0, 0, 255, 255, 255, 255, 255, 255, 18, 113, 17, 113, 11, 113,
     18, 113, 17, 113, 11, 113, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,

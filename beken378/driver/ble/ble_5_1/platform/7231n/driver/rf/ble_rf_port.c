@@ -30,7 +30,7 @@
 #include "common_bt.h"
 #include "arm_arch.h"
 #include "power_save_pub.h"
-#include "gapc_task.h" 
+#include "gapc_task.h"
 #include "bk7011_cal_pub.h"
 
 #ifdef BLE_CHOOSE_WIFI_IDLE
@@ -39,6 +39,7 @@ uint8_t ble_is_revert_all = 0;
 uint8_t ble_delegate_ps_restore_mac = 0;
 #endif
 
+/// Indicates RF is switched to BLE
 uint8_t ble_switch_mac_sleeped;
 UINT32 rf_wifi_used = 0;
 extern uint8_t tx_pwr_idx;

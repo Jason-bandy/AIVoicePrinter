@@ -69,6 +69,8 @@ struct me_env_tag
     uint16_t tx_lft;
     /// Flag indicating whether HT is supported
     bool ht_supported;
+    /// Fast connect chan
+    struct scan_chan_tag fc_chan;
 
 #if NX_VHT
     /// VHT capabilities of the device
@@ -90,6 +92,9 @@ struct me_env_tag
 #if NX_P2P
     /// VIF index of apm active req
     uint8_t apm_active_vif_idx;
+#endif
+#if CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST
+    struct me_mgmt_tx_req *tx_req;
 #endif
 };
 

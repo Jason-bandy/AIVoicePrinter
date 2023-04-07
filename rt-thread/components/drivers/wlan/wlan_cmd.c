@@ -24,6 +24,7 @@
 #include <lwip/dhcp.h>
 #include "wlan_cmd.h"
 #include "wlan_ui_pub.h"
+#include "ieee802_11_demo.h"
 
 #ifdef LWIP_USING_DHCPD
 #include <dhcp_server.h>
@@ -56,6 +57,22 @@ static int network_mode      = WIFI_STATION;
 #ifdef PKG_USING_CJSON
 #include <cJSON_util.h>
 #endif
+
+static const char *crypto_str[] = {
+	"None",
+	"WEP",
+	"WPA_TKIP",
+	"WPA_AES",
+	"WPA_MIXED",
+	"WPA2_TKIP",
+	"WPA2_AES",
+	"WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
+	"WPA3_SAE", 		/**< WPA3 SAE */
+	"WPA3_WPA2_MIXED",	/** WPA3 SAE or WPA2 AES */
+	"EAP",
+	"OWE",
+	"AUTO",
+};
 
 int wifi_get_mode(void)
 {
@@ -487,17 +504,21 @@ int wifi(int argc, char **argv)
 
 		if (netif_is_link_up(wlan->parent.netif)) {
 			LinkStatusTypeDef linkStatus = {0};
+			network_InitTypeDef_ap_st ap_info = {0};
 
 			mode = wlan->info->mode;
 			if (WIFI_STATION == mode) {
 				rt_kprintf("get wifi_sta status\n");
 				bk_wlan_get_link_status(&linkStatus);
 				wlan->info->channel = linkStatus.channel;
+				wlan->info->security = linkStatus.security;
 				bk_wifi_get_station_mac_address((char *)wlan->info->bssid);
 			} else if (WIFI_AP == mode) {
 				rt_kprintf("get wifi_ap status\n");
-				wlan->info->channel = bk_wlan_ap_get_channel_config();
+				bk_wlan_ap_para_info_get(&ap_info);
+				wlan->info->channel = ap_info.channel;
 				bk_wifi_get_softap_mac_address((char *)wlan->info->bssid);
+				wlan->info->security = ap_info.security;
 			} else
 				rt_kprintf("wlan->info->mode =%d\n", wlan->info->mode);
 
@@ -513,6 +534,7 @@ int wifi(int argc, char **argv)
 			rt_kprintf(" Channel: %d\n", wlan->info->channel);
 			rt_kprintf("DataRate: %dMbps\n", wlan->info->datarate / 1000000);
 			rt_kprintf("    RSSI: %d\n", rssi);
+			rt_kprintf("Security: %s\n", crypto_str[wlan->info->security]);
 		} else
 			rt_kprintf("wifi disconnected!\n");
 

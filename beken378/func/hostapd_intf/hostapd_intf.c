@@ -851,8 +851,14 @@ int wpa_send_assoc_req(struct prism2_hostapd_param *param, int len)
 	if (connect_param->bcn_len)
 		os_memcpy((UINT8 *)connect_param->bcn_buf, (UINT8 *)param->u.assoc_req.bcn_buf, connect_param->bcn_len);
 
+#if CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
+	connect_param->rssi = param->u.assoc_req.rssi;
+	connect_param->cap_info = param->u.assoc_req.cap_info;
+	connect_param->beacon_period = param->u.assoc_req.beacon_period;
+#endif
+
 	connect_param->auth_type = param->u.assoc_req.auth_alg;
-#if CFG_WIFI_P2P
+#if CFG_WIFI_P2P || CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
 	connect_param->chan.band = PHY_BAND_2G4;
 	connect_param->chan.freq = param->u.assoc_req.freq;
 #endif
@@ -914,6 +920,23 @@ int wpa_send_external_auth_status(struct prism2_hostapd_param *param, int len)
 	return rw_msg_send_sm_external_auth_status(&oper_param);
 }
 #endif
+
+int wpa_get_channel_info(struct prism2_hostapd_param *param, int len)
+{
+	 int ret = 0;
+	 PHY_CHAN_INFO_T channel_info = {0};
+
+	 ret = rw_msg_get_channel_info(param->vif_idx, &channel_info);
+
+	 param->u.channel_info.seg1_idx = channel_info.seg1_idx;
+	 param->u.channel_info.chanwidth = channel_info.chanwidth;
+	 param->u.channel_info.frequency = channel_info.frequency;
+	 param->u.channel_info.sec_channel = channel_info.sec_channel;
+	 param->u.channel_info.center_frq1 = channel_info.center_frq1;
+	 param->u.channel_info.center_frq2 = channel_info.center_frq2;
+
+	 return ret;
+}
 
 int wpa_get_bss_info(struct prism2_hostapd_param *param, int len)
 {
@@ -1214,6 +1237,12 @@ int hapd_intf_ioctl(unsigned long arg)
         ret = wpa_get_bss_info(param, len);
         break;
 
+#ifdef CONFIG_OCV
+    case PRISM2_HOSTAPD_GET_CHANNEL_REQ:
+        ret = wpa_get_channel_info(param, len);
+        break;
+#endif
+
 #ifdef CONFIG_SAE_EXTERNAL
 	case PRISM2_HOSTAPD_EXTERNAL_AUTH_STATUS:
 		ret = wpa_send_external_auth_status(param, len);
@@ -1237,6 +1266,66 @@ int hapd_intf_ioctl(unsigned long arg)
 ioctl_exit:
     return ret;
 }
+
+#if CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST
+/**
+ * send mlme frames to RA, mainly used to send deauth frames to AP
+ *
+ * @mpdu          mlme frame
+ * @payload_size  mlme length
+ * @vif_index     vif index to where the frame is sent
+ * @freq          freq to send
+ * @encrypt       if frame is going to be encrypted
+ * @pn            PN for CCMP
+ * @seq           802.11 seqence no
+ * @ra            Receiver address
+ * @key           CCMP pairwise key
+ */
+int me_mgmt_tx_mlme_before_connect(uint8_t *mpdu, int payload_size, uint8_t vif_index, uint16_t freq,
+	bool encrypt, uint8_t *pn, uint16_t seq, struct mac_addr *ra, struct mac_sec_key *key)
+{
+	int param_len;
+	uint8_t *buf;
+	struct ke_msg *kmsg_dst;
+	struct me_mgmt_tx_req *mgmt_tx_ptr;
+
+	param_len = sizeof(struct me_mgmt_tx_req);
+	kmsg_dst = (struct ke_msg *)os_zalloc(sizeof(struct ke_msg) + param_len);
+	if (!kmsg_dst)
+		return -1;
+
+	buf = os_malloc(payload_size);
+	if (!buf) {
+		os_free(kmsg_dst);
+		return -1;
+	}
+
+	os_memcpy(buf, mpdu, payload_size);
+
+	kmsg_dst->id = ME_MGMT_TX_REQ;
+	kmsg_dst->dest_id = TASK_ME;
+	kmsg_dst->src_id  = 100;
+	kmsg_dst->param_len = param_len;
+
+	mgmt_tx_ptr = (struct me_mgmt_tx_req *)kmsg_dst->param;
+	mgmt_tx_ptr->addr = (UINT32)buf;
+	mgmt_tx_ptr->hostid = (UINT32)buf;
+	mgmt_tx_ptr->len = payload_size;
+	mgmt_tx_ptr->req_malloc_flag = 1;
+	mgmt_tx_ptr->vif_idx = vif_index;
+	mgmt_tx_ptr->freq = freq;
+	mgmt_tx_ptr->preauth = true;
+	mgmt_tx_ptr->encrypt = encrypt;
+	mgmt_tx_ptr->seq = seq;
+	os_memcpy(mgmt_tx_ptr->pn, pn, sizeof(mgmt_tx_ptr->pn));
+	os_memcpy(&mgmt_tx_ptr->ra, ra, sizeof(*ra));
+	os_memcpy(&mgmt_tx_ptr->key, key, sizeof(mgmt_tx_ptr->key));
+
+	ke_msg_send(ke_msg2param(kmsg_dst));
+
+	return 0;
+}
+#endif
 
 void hapd_intf_ke_rx_handle(int dummy)
 {

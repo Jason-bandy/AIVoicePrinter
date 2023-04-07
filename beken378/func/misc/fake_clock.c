@@ -31,10 +31,7 @@ static volatile UINT32 current_seconds = 0;
 static UINT32 second_countdown = FCLK_SECOND;
 #endif
 static BK_HW_TIMER_INDEX fclk_id = BK_PWM_TIMER_ID0;
-static CAL_TICK_T cal_tick_save;
-UINT32 use_cal_net = 0;
 
-extern void mcu_ps_increase_clr(void);
 static inline UINT64 fclk_freertos_get_tick64(void);
 
 #if (CFG_OS_FREERTOS)
@@ -115,7 +112,7 @@ bk_err_t bk_wdt_driver_init(void)
 
 void fclk_hdl(UINT8 param)
 {
-#if CFG_USE_TICK_CAL
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
 	if(!mcu_ps_need_pstick()) {
 		return;
 	}
@@ -130,6 +127,12 @@ void fclk_hdl(UINT8 param)
     {
         current_seconds ++;
         second_countdown = FCLK_SECOND;
+
+#if CFG_USE_TICK_CAL && (1 == CFG_LOW_VOLTAGE_PS)
+        if( current_seconds % 15 == 0) {
+            fclk_cal_tick();
+        }
+#endif
     }
 
 #if (CFG_INT_WDG_ENABLED)
@@ -151,7 +154,6 @@ void fclk_hdl(UINT8 param)
 }
 
 #if !(CFG_SUPPORT_RTT || CFG_SUPPORT_ALIOS || CFG_SUPPORT_LITEOS)
-#if (0 == CFG_LOW_VOLTAGE_PS)
 static UINT32 fclk_freertos_update_tick(UINT32 tick)
 {
     current_clock += tick;
@@ -175,11 +177,9 @@ static UINT32 fclk_freertos_update_tick(UINT32 tick)
     return 0;
 }
 #endif
-#endif
 
 UINT32 fclk_update_tick(UINT32 tick)
 {
-#if (0 == CFG_LOW_VOLTAGE_PS)
 #if (CFG_SUPPORT_RTT)
     rtt_update_tick(tick);
 #elif (CFG_SUPPORT_ALIOS)
@@ -191,11 +191,12 @@ UINT32 fclk_update_tick(UINT32 tick)
         return 0;
 
     GLOBAL_INT_DISABLE();
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
     mcu_ps_increase_clr();
+#endif
     fclk_freertos_update_tick(tick);
     vTaskStepTick( tick );
     GLOBAL_INT_RESTORE();
-#endif
 #endif
     return 0;
 }
@@ -250,6 +251,67 @@ void fclk_reset_count(void)
 }
 
 #if CFG_USE_TICK_CAL
+/// save last tick for runtime tick calibration
+static CAL_TICK_T cal_tick_save;
+/// indicate whether use tsf to calibrate tick
+UINT32 use_cal_net = 0;
+
+/* Forward Declaration */
+#if (0 == CFG_LOW_VOLTAGE_PS)
+void cal_timer_set(void);
+void cal_timer_deset(void);
+#else
+void fclk_cal_init(void);
+#endif
+
+/**
+ * Init os tick calibration.
+ * when normal sleep    use 26M & mac & tsf
+ * when low voltage     use 32k
+ * @param setting indicates whether use tsf to calibrate tick
+*/
+UINT32 bk_cal_init(UINT32 setting)
+{
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+
+    if(1 == setting)
+    {
+        use_cal_net = 1;
+#if (0 == CFG_LOW_VOLTAGE_PS)
+        cal_timer_deset();
+        mcu_ps_machw_init();
+#else
+        fclk_cal_init();
+#endif
+#if (CFG_OS_FREERTOS)
+        os_printf("decset:%d %d %d %d\r\n",use_cal_net, fclk_freertos_get_tick32(), fclk_get_second(), xTaskGetTickCount());
+#endif
+    }
+    else
+    {
+        use_cal_net = 0;
+#if (0 == CFG_LOW_VOLTAGE_PS)
+        mcu_ps_machw_cal();
+        cal_timer_set();
+        mcu_ps_machw_reset();
+#else
+        fclk_cal_init();
+#endif
+#if (CFG_OS_FREERTOS)
+        os_printf("cset:%d %d %d %d\r\n",use_cal_net, fclk_freertos_get_tick32(), fclk_get_second(), xTaskGetTickCount());
+#endif
+    }
+    GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+#if (0 == CFG_LOW_VOLTAGE_PS)
+/**
+ * use 26M timer to calibrate tick
+ * timer period setted to 15s
+*/
 UINT32 timer_cal_init(void)
 {
     UINT32 fclk;
@@ -336,35 +398,50 @@ void cal_timer_deset(void)
     ASSERT(BK_TIMER_SUCCESS == ret);
     timer_cal_init();
 }
-
-UINT32 bk_cal_init(UINT32 setting)
+#else
+/**
+ * Use 32K time_us to calibrate tick by calculate
+ * the lost tick, please notice that there are two
+ * places (fclk_hdl & lv_ps_sleep_check) we do tick cal.
+*/
+void fclk_cal_init(void)
 {
+    UINT64 fclk, time_us;
+
+    fclk = BK_TICKS_TO_MS(fclk_get_tick());
+    time_us = cal_get_time_us();
+
+    cal_tick_save.fclk_tick = fclk;
+    cal_tick_save.time_us = time_us;
+}
+
+void fclk_cal_tick(void)
+{
+    UINT64 delta_fclk, delta_time;
+    INT32 lost;
+
     GLOBAL_INT_DECLARATION();
     GLOBAL_INT_DISABLE();
-    
-    if(1 == setting)
-    {
-        cal_timer_deset();
-        use_cal_net = 1;
-        mcu_ps_machw_init();
-#if (CFG_OS_FREERTOS)
-        os_printf("decset:%d %d %d %d\r\n",use_cal_net, fclk_freertos_get_tick32(), fclk_get_second(), xTaskGetTickCount());
-#endif
-    }
-    else
-    {
-        mcu_ps_machw_cal();
-        cal_timer_set();
-        use_cal_net = 0;
-        mcu_ps_machw_reset();
-#if (CFG_OS_FREERTOS)
-        os_printf("cset:%d %d %d %d\r\n",use_cal_net, fclk_freertos_get_tick32(), fclk_get_second(), xTaskGetTickCount());
-#endif
-    }
-    GLOBAL_INT_RESTORE();
 
-	return 0;
+    delta_fclk = fclk_get_tick() - cal_tick_save.fclk_tick;
+    delta_time = cal_get_time_us() - cal_tick_save.time_us;
+
+    lost = (INT32)(delta_time/1000 - BK_TICKS_TO_MS(delta_fclk));
+    os_null_printf("tick lost:%d\r\n", lost);
+
+    if( lost >= (2*FCLK_DURATION_MS) )
+    {
+        lost -= FCLK_DURATION_MS;
+        fclk_update_tick(BK_MS_TO_TICKS(lost));
+    }
+    else if( lost < 0 )
+    {
+        os_printf("tick go fast:%d\r\n", lost);
+    }
+
+    GLOBAL_INT_RESTORE();
 }
+#endif
 #endif
 
 UINT32 fclk_cal_endvalue(UINT32 mode)

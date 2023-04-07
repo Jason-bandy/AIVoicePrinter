@@ -21,6 +21,7 @@ enum
 	BLE_DUT_EXIT,
 	BLE_MSG_SLEEP,
 	BLE_MSG_NULL,
+	BLE_THREAD_EXIT,
 };
 
 enum system_run_mode {
@@ -36,6 +37,9 @@ uint8_t ble_get_sys_mode(void);
 void ble_send_msg(UINT32 data);
 UINT32 ble_ctrl( UINT32 cmd, void *param );
 void ble_switch_rf_to_wifi(void);
-
+void ble_entry(void);
+void ble_thread_exit(void);
+bool ble_thread_is_up(void);
+void ble_set_ext_wkup(uint8_t enable);
 #endif
 

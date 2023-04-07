@@ -48,6 +48,33 @@ typedef struct wlan_ap_vsie {
 	uint8_t len;
 } wlan_ap_vsie_t;
 
+typedef struct {
+	uint8_t bssid[ETH_ALEN];
+	uint8_t ssid[WLAN_SSID_MAX_LEN];
+	uint8_t ssid_len;
+	uint16_t freq;
+	u16 beacon_int;
+	uint16_t caps;
+	int level;
+	// u64 tsf;
+	uint16_t ie_len;
+	uint8_t  ies[0];  /* FIXME: use dynamic len */
+} wlan_sta_add_bss_t;
+
+typedef struct {
+	int8_t rssi;
+	int len;
+	uint8_t bcn[0];
+} wlan_sta_new_rx_beacon_t;
+
+typedef struct {
+	uint8_t bssid[ETH_ALEN];
+	int akmp;
+	uint8_t pmk_len;
+	uint8_t pmk[64];
+	uint8_t pmkid[16];
+} wlan_sta_add_pmksa_cache_entry_t;
+
 /**
  * @brief Wlan station configuration field definition
  */
@@ -70,6 +97,7 @@ typedef enum wlan_sta_field {
 	WLAN_STA_FIELD_FREQ,	/* only used in fast connect */
 	WLAN_STA_FIELD_SAE_GROUPS,
 	WLAN_STA_FIELD_MFP,
+	WLAN_STA_FIELD_OCV,
 	WLAN_STA_FIELD_EAP,
 	WLAN_STA_FIELD_IDENTITY,
 	WLAN_STA_FIELD_CA_CERT,
@@ -117,8 +145,10 @@ typedef struct wlan_sta_config {
 		 * WPA preshared key in one of the optional formats:
 		 *   - an ASCII string of passphrase, length is [8, 63]
 		 *   - a hex string of PSK (two characters per octet of PSK), length is 64
+		 *   - when the encryption is WPA3, the maximum supported key length is 107 bits.
+		 *     If it exceeds 107 bits,the error "input buffer overflow" will return.
 		 */
-		char psk[65];
+		char psk[108];
 
 		/**
 		 * WEP key in one of the optional formats:
@@ -186,6 +216,9 @@ typedef struct wlan_sta_config {
 		int sae_groups[16];
 
 		int ieee80211w;
+
+		/* ocv capability */
+		int ocv;
 
 		int debug_level;
 		int debug_show_keys;

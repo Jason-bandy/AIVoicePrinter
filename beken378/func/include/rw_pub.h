@@ -35,6 +35,11 @@ typedef struct cfg80211_connect_params
     struct mac_addr bssid;
     struct mac_ssid ssid;
     struct scan_chan_tag chan;
+#if CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
+    int8_t rssi;
+    uint16_t cap_info;
+    uint16_t beacon_period;
+#endif
     uint16_t ie_len;
     uint32_t ie_buf[64];
     uint16_t bcn_len;
@@ -136,6 +141,15 @@ typedef struct
     uint8_t bssid[6];
     uint16_t freq;
 }BSS_INFO_T;
+
+typedef struct {
+	u32 frequency;
+	int chanwidth;
+	int sec_channel;
+	int center_frq1;
+	int center_frq2;
+	u8 seg1_idx;
+} PHY_CHAN_INFO_T;
 
 enum nl80211_iftype {
 	NL80211_IFTYPE_UNSPECIFIED,
@@ -251,8 +265,11 @@ extern int rw_msg_send_key_del(u8 hw_key_idx);
 extern int rw_msg_send_scanu_req(SCAN_PARAM_T *scan_param);
 extern int rw_msg_send_connection_loss_ind(u8 vif_index);
 extern int rw_msg_get_bss_info(u8 vif_idx, void *cfm);
+extern int rw_msg_get_channel_info(u8 vif_idx, PHY_CHAN_INFO_T *channel_info);
 extern int rw_msg_get_channel(void *cfm);
+#if CFG_FILTER_SET
 extern int rw_msg_set_filter(uint32_t filter);
+#endif
 extern int rw_msg_set_channel(uint32_t channel, uint32_t band_width, void *cfm);
 extern int rw_msg_send_scan_cancel_req(void *cfm);
 extern int rw_msg_send_sm_disconnect_req(DISCONNECT_PARAM_T *param);
@@ -322,7 +339,7 @@ __INLINE void *rwm_mgmt_get_addr(u8 vif_idx)
 }
 
 
-extern UINT8 beacon[149];
+extern const UINT8 beacon[149];
 
 UINT8 rw_ieee80211_init_scan_chan(struct scanu_start_req *req);
 UINT8 rw_ieee80211_is_scan_rst_in_countrycode(UINT8 freq);

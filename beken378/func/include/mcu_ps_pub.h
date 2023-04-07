@@ -45,16 +45,28 @@ extern void ps_pwm_disable ( void );
 extern void ps_pwm_enable ( void );
 extern UINT32 ps_timer3_disable ( void );
 extern void ps_timer3_enable ( UINT32 );
+extern UINT32 ps_timer3_measure_prepare ( void );
 extern UINT32 ps_pwm_int_status ( void );
 extern UINT32 rtt_update_tick ( UINT32 tick );
+extern UINT32 mcu_ps_is_on ( void );
 
-extern UINT32 ps_timer3_measure_prepare ( void );
-extern UINT32 mcu_ps_tsf_cal ( UINT64 );
+typedef enum
+{
+    CB_HOLD_BY_TEMP_DETECT = 1,
+    CB_HOLD_BY_VOLTAGE_DETECT,
+} CB_HOLD_ON_TYPE;
+
+extern void mcu_ps_cb_hold_on ( CB_HOLD_ON_TYPE type );
+extern void mcu_ps_cb_release ( void );
+extern UINT8 mcu_ps_get_cb_hold ( void );
+
+#if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
+extern void mcu_ps_increase_clr(void);
 extern UINT32 mcu_ps_machw_cal ( void );
 extern UINT32 mcu_ps_machw_reset ( void );
 extern UINT32 mcu_ps_machw_init ( void );
-extern UINT32 mcu_ps_is_on ( void );
-uint32 mcu_ps_need_pstick ( void );
+extern uint32 mcu_ps_need_pstick ( void );
+#endif
 
 #define  PS_PWM_ID  FCLK_PWM_ID
 #if (PS_PWM_ID == PWM0)

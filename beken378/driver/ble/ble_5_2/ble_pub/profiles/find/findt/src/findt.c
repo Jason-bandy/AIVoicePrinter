@@ -22,7 +22,7 @@
  * INCLUDE FILES
  ****************************************************************************************
  */
-#include "rwip_config.h"
+#include "rwprf_config.h"
 
 #if (BLE_FINDME_TARGET)
 #include "findt.h"
@@ -144,7 +144,6 @@ __STATIC void findt_cb_att_val_set(uint8_t conidx, uint8_t user_lid, uint16_t to
             status = GAP_ERR_NO_ERROR;
         }
     }
-
     gatt_srv_att_val_set_cfm(conidx, user_lid, token, status);
 }
 

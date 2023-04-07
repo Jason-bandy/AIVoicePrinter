@@ -56,7 +56,13 @@ void soc_driver_init(void)
     ate_app_init();
 	#endif
 
+#if CFG_USE_DEEP_PS
+    bk_init_deep_wakeup_gpio_status();
+#endif
+    bk_misc_init_start_type();
+
     driver_init();
+    bk_misc_check_start_type();
 }
 
 void soc_system_init(void)

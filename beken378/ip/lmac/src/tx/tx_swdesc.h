@@ -68,6 +68,8 @@ struct hostdesc
     uint32_t packet_addr;
     /// Size of the payload
     uint16_t packet_len;
+
+    uint8_t access_category;
     #endif //(NX_AMSDU_TX)
 
     /// Address of the status descriptor in host memory (used for confirmation upload)

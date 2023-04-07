@@ -1,5 +1,9 @@
 /** dhcp-server.c: The DHCP Server
  */
+#include "sys_config.h"
+#include "typedef.h"
+#include "generic.h"
+#if CFG_USE_DHCPD
 #include <string.h>
 #include "rtos_pub.h"
 #include "dhcp-bootp.h"
@@ -867,7 +871,9 @@ static int get_gateway_from_interface(uint32_t *gw, void *interface_handle)
 {
 	return net_get_if_gw_addr(gw, interface_handle);
 }
+#endif // CFG_USE_DHCPD
 
+#if CFG_USE_DHCPD
 uint8_t* dhcp_lookup_mac(uint8_t *chaddr)
 {
 	/* returns ip address, if mac address is present in cache */
@@ -888,3 +894,10 @@ uint8_t* dhcp_lookup_mac(uint8_t *chaddr)
 	}
 	return 0;
 }
+#else
+uint8_t* dhcp_lookup_mac(uint8_t *chaddr)
+{
+	return NULL;
+}
+#endif
+

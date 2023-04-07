@@ -435,15 +435,18 @@ static void wlan_scan_display_one_ap(const char* ssid, int bk_security, int8_t r
 {
 
 	static const char *wlan_sec_type_string[] = {
-		"NONE",
+		"None",
 		"WEP",
-		"WPA-TKIP",
-		"WPA-AES",
-		"WPA2-TKIP",
-		"WPA2-AES",
-		"WPA2-MIX",
-		"WPA3-SAE",
-		"WPA3-WPA2-MIX",
+		"WPA_TKIP",
+		"WPA_AES",
+		"WPA_MIXED",
+		"WPA2_TKIP",
+		"WPA2_AES",
+		"WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
+		"WPA3_SAE", 		/**< WPA3 SAE */
+		"WPA3_WPA2_MIXED",	/** WPA3 SAE or WPA2 AES */
+		"EAP",
+		"OWE",
 		"AUTO",
 	};
 	static const char *unknow_security_str = "unknow";
@@ -594,8 +597,8 @@ static rt_err_t _wifi_easyjoin(rt_device_t dev, void *passwd)
 	if (passwd == NULL)
 		rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
 	else {
-		if (KEY_MAX_LEN < rt_strlen(passwd)) {
-			rt_kprintf("wifi key is more than 64 Bytes\r\n");
+		if (STA_KEY_MAX_LEN < rt_strlen(passwd)) {
+			rt_kprintf("wifi key is more than buffer Bytes(107)\r\n");
 			return -RT_ERROR;
 		}
 		rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
@@ -644,7 +647,7 @@ static rt_err_t _wifi_softap(rt_device_t dev, void *passwd)
 	if (passwd == NULL)
 		rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
 	else {
-		if (KEY_MAX_LEN < rt_strlen(passwd)) {
+		if (AP_KEY_MAX_LEN < rt_strlen(passwd)) {
 			rt_kprintf("wifi key is more than 64 Bytes\r\n");
 			return -RT_ERROR;
 		}

@@ -97,7 +97,15 @@ typedef struct {
     INT8 p_index_delta_ble;
 } VOLT_PWR_ST, *VOLT_PWR_PTR;
 
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
+#if (CFG_SOC_NAME == SOC_BK7238)
+typedef struct tmp_pwr_st {
+    unsigned trx0x0c_12_15 : 4; //not used on BK7238 actually
+    signed p_index_delta : 6;
+    signed p_index_delta_g : 6;
+    signed p_index_delta_ble : 6;
+    signed xtal_c_dlta : 10; //8bits xtalh_ctune on BK7238
+} TMP_PWR_ST, *TMP_PWR_PTR;
+#elif (CFG_SOC_NAME == SOC_BK7231N)
 typedef struct tmp_pwr_st {//do
     unsigned trx0x0c_12_15 : 4; //not used on BK7231N actually
     signed p_index_delta : 6;
@@ -188,7 +196,7 @@ extern void manual_cal_set_xtal(UINT32 xtal);
 extern void manual_cal_set_lpf_iq(UINT32 lpf_i, UINT32 lpf_q);
 extern void manual_cal_load_lpf_iq_tag_flash(void);
 extern void manual_cal_load_xtal_tag_flash(void);
-extern void manual_cal_do_xtal_temp_delta_set(INT8 shift);
+extern void manual_cal_do_xtal_temp_delta_set(INT16 shift);
 extern void manual_cal_do_xtal_cali(UINT16 cur_val, UINT16 *last, UINT16 thre, UINT16 init_val);
 extern UINT32 manual_cal_get_xtal(void);
 extern INT8 manual_cal_get_dbm_by_rate(UINT32 rate, UINT32 bandwidth);
@@ -238,7 +246,7 @@ extern int bk7011_find_power_index(UINT32 pwr_gain);
 extern void rwnx_cal_initial_calibration(void);
 
 extern UINT32 rwnx_tpc_pwr_idx_translate(UINT32 pwr_gain, UINT32 rate, UINT32 print_log );
-extern UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log);
+extern UINT32 rwnx_tpc_get_pwridx_by_rate(UINT32 rate, UINT32 print_log, UINT32 ex_shift);
 extern void rwnx_use_tpc_set_pwr(void);
 extern void rwnx_no_use_tpc_set_pwr(void);
 extern UINT32 rwnx_is_tpc_bit_on(void);

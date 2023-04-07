@@ -16,7 +16,7 @@
 #include "general_dma.h"
 #include "spi_bk7231n.h"
 
-#if CFG_USE_SPI_MASTER
+#if ((CFG_USE_SPI_MASTER) && (CFG_USE_SPI))
 struct bk_spi_dev {
 	UINT8 *tx_ptr;
 	UINT32 tx_len;
@@ -364,8 +364,6 @@ int bk_spi_master_deinit(void)
 }
 
 #if CFG_USE_SPI_DMA
-static UINT32 spi_repeat_cnt = 0;
-
 #define SPI_TEST_POART1		0
 #define SPI_TEST_POART2		1
 #define SPI_TX_BUFFER_SIZE		30*24
@@ -413,15 +411,17 @@ static void spi_dma_master_tx_finish_callback(int port, void *param)
 
 void bk_spi_dma_tx_loop_finish_callback(UINT32 param)
 {
-	if (!spi_repeat_cnt) {
-		spi_dma_tx_enable(0);
-		BK_SPI_PRT("spi repeat end:%d\r\n", spi_repeat_cnt);
+	GDMA_CFG_ST en_cfg;
+	if ((spi_dev->flag & TX_FINISH_FLAG) == 0)
+	{
+		en_cfg.channel = SPI_TX_DMA_CHANNEL;
+		en_cfg.param = 0;
+		sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, (void *)&en_cfg);
+
+		spi_dev->flag |= TX_FINISH_FLAG;
 		rtos_set_semaphore(&spi_dev->tx_sem);
 	}
 
-	BK_SPI_PRT("spi_dma repeat cnt:%d\r\n", spi_repeat_cnt);
-
-	spi_repeat_cnt --;
 }
 
 int spi_dma_master_tx_init(struct spi_message *spi_msg)
@@ -456,15 +456,15 @@ int spi_dma_master_tx_init(struct spi_message *spi_msg)
 		spi_dev_cb.param = NULL;
 		sddev_control(SPI_DEV_NAME, CMD_SPI_SET_TX_FINISH_INT_CALLBACK, (void *)&spi_dev_cb);
 
-		//enable tx finish int 
+		//enable tx finish int
 		UINT32 param = 1;
 		sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
 	} else {
 		// may lost data, beacause dma fin earier than spi tx finish
-		// but if len large thanÁË4096, spi finish int will nerve happend.
+		// but if len large than 4096, spi finish int will nerve happend.
 		init_cfg.fin_handler = bk_spi_dma_tx_finish_handler;
 
-		//disable tx finish int 
+		//disable tx finish int
 		UINT32 param = 0;
 		sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
 	}
@@ -797,6 +797,7 @@ int spi_dma_master_tx_loop_init(struct spi_message *spi_msg)
 {
 	GDMACFG_TPYES_ST init_cfg;
 	GDMA_CFG_ST en_cfg;
+	UINT32 transfer_len;
 
 	BK_SPI_PRT("spi dma tx init\r\n");
 	os_memset(&init_cfg, 0, sizeof(GDMACFG_TPYES_ST));
@@ -815,15 +816,46 @@ int spi_dma_master_tx_loop_init(struct spi_message *spi_msg)
 	init_cfg.u.type4.src_loop_start_addr = spi_msg->send_buf;
 	init_cfg.u.type4.src_loop_end_addr = spi_msg->send_buf + spi_msg->send_len;
 
-	init_cfg.half_fin_handler = spi_dma_tx_half_handler;
-	init_cfg.fin_handler = bk_spi_dma_tx_loop_finish_callback;
+	init_cfg.half_fin_handler = NULL;
+
+	transfer_len = (spi_msg->repeat_cnt != 0)? spi_msg->repeat_cnt * spi_msg->send_len : spi_msg->send_len;
+	if (transfer_len < SPI_TX_LENGTH_MAX) 
+	{
+		struct spi_callback_des spi_dev_cb;
+		// Not use dma finish, for may lost data, beacause dma fin earier than spi tx finish.
+		// Don't care about dma finish, although dma transfer will continue, but spi only transfer with setting length.
+		init_cfg.fin_handler = NULL;
+		spi_dev_cb.callback = spi_dma_master_tx_finish_callback;
+		spi_dev_cb.param = NULL;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_SET_TX_FINISH_INT_CALLBACK, (void *)&spi_dev_cb);
+
+		// enable tx finish int 
+		UINT32 param = 1;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
+
+		// set spi transfer len
+		sddev_control(SPI_DEV_NAME, CMD_SPI_TXTRANS_EN, (void *)&transfer_len);
+	} else {
+		// but if len large than 4096, spi finish int will nerve happend.
+		// it may lost data, beacause dma fin earier than spi tx finish.
+		// we finish transfer in dma finish isr
+		init_cfg.fin_handler = bk_spi_dma_tx_loop_finish_callback;
+
+		// disable tx finish int
+		UINT32 param = 0;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
+
+		// Set spi transfer len to 0, means never stop
+		param = 0;
+		sddev_control(SPI_DEV_NAME, CMD_SPI_TXTRANS_EN, (void *)&param);
+	}
 
 	init_cfg.src_module = GDMA_X_SRC_DTCM_RD_REQ;
 	init_cfg.dst_module = GDMA_X_DST_GSPI_TX_REQ;
 	sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE4, (void *)&init_cfg);
 
 	en_cfg.channel = SPI_TX_DMA_CHANNEL;
-	en_cfg.param = spi_msg->send_len;		// dma translen
+	en_cfg.param = transfer_len;		// dma translen
 	sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
 
 	en_cfg.channel = SPI_TX_DMA_CHANNEL;
@@ -913,8 +945,6 @@ int bk_spi_master_dma_tx_loop_deinit(void)
 int bk_spi_master_dma_send_loop(struct spi_message *spi_msg)
 {
 	UINT32 ret = 0;
-
-	spi_repeat_cnt = spi_msg->repeat_cnt;
 
 	GLOBAL_INT_DECLARATION();
 	ASSERT(spi_msg != NULL);

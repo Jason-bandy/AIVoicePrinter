@@ -175,5 +175,10 @@ int ate_status_dump(int argc, char *argv[])
 }
 FINSH_FUNCTION_EXPORT_ALIAS(ate_status_dump, __cmd_ate_dump, ate status dump);
 #endif
+#else
+uint32_t get_ate_mode_state(void)
+{
+	return 0;
+}
 #endif /*ATE_APP_FUN */
 // eof

@@ -304,7 +304,7 @@ void ps_msg_process(UINT8 ps_msg)
         bmsg_ps_handler_rf_ps_mode_real_wakeup();
         break;
 
-    case PS_BMSG_IOCTL_RF_DISANABLE:
+    case PS_BMSG_IOCTL_RF_DISABLE:
         bmsg_ps_handler_rf_ps_mode_real_wakeup();
         power_save_dtim_disable();
         break;
@@ -314,7 +314,7 @@ void ps_msg_process(UINT8 ps_msg)
         mcu_ps_init();
         break;
 
-    case PS_BMSG_IOCTL_MCU_DISANABLE:
+    case PS_BMSG_IOCTL_MCU_DISABLE:
         mcu_ps_exit();
         break;
 #endif
@@ -325,23 +325,6 @@ void ps_msg_process(UINT8 ps_msg)
 #endif
         break;
 
-        #if PS_USE_KEEP_TIMER
-        case PS_BMSG_IOCTL_RF_KP_HANDLER:
-            power_save_keep_timer_real_handler();
-            break;
-
-        case PS_BMSG_IOCTL_RF_KP_SET:
-#if (1 == CFG_LOW_VOLTAGE_PS)
-            power_save_set_keep_timer_time(lv_ps_get_keep_timer_duration());
-#endif
-            power_save_keep_timer_set();
-            break;
-
-        case PS_BMSG_IOCTL_RF_KP_STOP:
-            power_save_keep_timer_stop();
-            break;
-        #endif
-
         #if PS_USE_WAIT_TIMER
         case PS_BMSG_IOCTL_WAIT_TM_HANDLER:
             power_save_wait_timer_real_handler();
@@ -350,14 +333,31 @@ void ps_msg_process(UINT8 ps_msg)
             power_save_wait_timer_start();
             break;
         #endif
+
+        #if PS_USE_KEEP_TIMER
+        case PS_BMSG_IOCTL_RF_KP_HANDLER:
+            power_save_keep_timer_real_handler();
+            break;
+
+        case PS_BMSG_IOCTL_RF_KP_SET:
+            power_save_keep_timer_set();
+            break;
+
+        case PS_BMSG_IOCTL_RF_KP_STOP:
+            power_save_keep_timer_stop();
+            break;
+
         case PS_BMSG_IOCTL_RF_PS_TIMER_INIT:
-#if (0 == CFG_LOW_VOLTAGE_PS)
+#if (1 == CFG_LOW_VOLTAGE_PS)
+            power_save_set_keep_timer_time(lv_ps_get_keep_timer_duration());
+#else
             power_save_set_keep_timer_time(20);
 #endif
             break;
         case PS_BMSG_IOCTL_RF_PS_TIMER_DEINIT:
             power_save_set_keep_timer_time(0);
             break;
+        #endif
 #endif
 #if CFG_USE_AP_IDLE
     case PS_BMSG_IOCTL_AP_PS_RUN:
@@ -387,7 +387,7 @@ void bmsg_null_sender(void)
     msg.len = 0;
     msg.sema = NULL;
 
-    if((0 == g_wifi_core.io_queue) 
+    if((0 == g_wifi_core.io_queue)
 		|| !rtos_is_queue_empty(&g_wifi_core.io_queue))
     {
         return;
@@ -609,7 +609,7 @@ static void core_thread_main( void *arg )
             {
 #if CFG_USE_STA_PS
             case BMSG_STA_PS_TYPE:
-                if(msg.arg == PS_BMSG_IOCTL_RF_DISANABLE)
+                if(msg.arg == PS_BMSG_IOCTL_RF_DISABLE)
                 {
                     bmsg_ps_handler(&msg);
                 }

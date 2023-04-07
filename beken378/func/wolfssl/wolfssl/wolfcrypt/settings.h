@@ -200,6 +200,7 @@
 #endif
 
 #include "sys_config.h"
+#include "generic.h"
 #include "xfile.h"
 
 /* make sure old RNG name is used with CTaoCrypt FIPS */
@@ -222,8 +223,8 @@
 #if defined(WOLFSSL_BEKEN)
 #if CFG_OS_FREERTOS
 #define FREERTOS
-#define WOLFSSL_HAVE_MIN
 #endif
+#define WOLFSSL_HAVE_MIN
 #define SIZEOF_LONG_LONG 8
 #define WOLFSSL_HAVE_MAX
 #define WOLFSSL_NO_CURRDIR

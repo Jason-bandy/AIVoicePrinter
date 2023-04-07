@@ -14,6 +14,9 @@
 #include "temp_detect_pub.h"
 #include "temp_detect.h"
 #include "power_save_pub.h"
+#if (1 == CFG_USE_MCU_PS) && (0 == CFG_LOW_VOLTAGE_PS)
+#include "mcu_ps_pub.h"
+#endif
 
 saradc_desc_t tmp_single_desc;
 UINT16 tmp_single_buff[ADC_TEMP_BUFFER_SIZE];
@@ -312,6 +315,12 @@ static void temp_detect_timer_poll(void)
         rtos_reload_timer(&g_temp_detect_config.detect_timer);
         TMP_DETECT_PRT("temp_detect_enable failed, restart detect timer, \r\n");
     }
+#if (1 == CFG_USE_MCU_PS) && (0 == CFG_LOW_VOLTAGE_PS)
+    else
+    {
+        mcu_ps_cb_hold_on(CB_HOLD_BY_TEMP_DETECT);
+    }
+#endif
 }
 
 static void temp_detect_polling_handler(void)
@@ -326,6 +335,13 @@ static void temp_detect_polling_handler(void)
     #endif // (CFG_SOC_NAME != SOC_BK7231)
 
     g_temp_detect_config.detect_intval_change++;
+#if (CFG_SOC_NAME == SOC_BK7238)
+    if ((g_temp_detect_config.detect_intval_change > 1)
+    && (g_temp_detect_config.detect_intval_change < ADC_TMEP_DETECT_INTVAL_CHANGE)) {
+        cur_val = (UINT16)((float)cur_val * 0.7 + (float)g_temp_detect_config.last_detect_val * 0.3);
+        //os_printf("temp_code %d&%d->%d\r\n", tmp_detect_desc.pData[0], g_temp_detect_config.last_detect_val, cur_val);
+    }
+#endif
 
     TMP_DETECT_PRT("%d:%d seconds: last:%d, cur:%d, thr:%d\r\n",
                     g_temp_detect_config.detect_intval,
@@ -338,7 +354,6 @@ static void temp_detect_polling_handler(void)
 #if CFG_USE_STA_PS
     ps_set_temp_prevent();
     power_save_rf_hold_bit_set(RF_HOLD_BY_TEMP_BIT);
-    bk_wlan_dtim_rf_ps_mode_do_wakeup();
     rwnx_cal_do_temp_detect(cur_val, thre, &g_temp_detect_config.last_detect_val);
     ps_clear_temp_prevent();
     power_save_rf_hold_bit_clear(RF_HOLD_BY_TEMP_BIT);
@@ -364,6 +379,10 @@ static void temp_detect_polling_handler(void)
         ASSERT(kNoErr == err);
 #endif
     }
+
+#if (1 == CFG_USE_MCU_PS) && (0 == CFG_LOW_VOLTAGE_PS)
+    mcu_ps_cb_release();
+#endif
 }
 #endif
 
@@ -377,6 +396,12 @@ static void volt_detect_timer_poll(void)
         err = rtos_reload_timer(&g_temp_detect_config.detect_timer);
         TMP_DETECT_PRT("volt_detect_enable failed, restart detect timer\r\n");
     }
+#if (1 == CFG_USE_MCU_PS) && (0 == CFG_LOW_VOLTAGE_PS)
+    else
+    {
+        mcu_ps_cb_hold_on(CB_HOLD_BY_VOLTAGE_DETECT);
+    }
+#endif
 }
 
 static void volt_detect_polling_handler(void)
@@ -404,6 +429,10 @@ static void volt_detect_polling_handler(void)
     {
         TMP_DETECT_FATAL("volt_detect_polling_handler, restart detect timer failed\r\n");
     }
+
+#if (1 == CFG_USE_MCU_PS) && (0 == CFG_LOW_VOLTAGE_PS)
+    mcu_ps_cb_release();
+#endif
 }
 #endif
 
@@ -545,7 +574,11 @@ static void temp_detect_handler(void)
     for (; index < ADC_TEMP_BUFFER_SIZE; index++)
     {
         /* 0 is invalid, but saradc may return 0 in power save mode */
+#if (CFG_SOC_NAME == SOC_BK7238)
+        if ((0 != tmp_detect_desc.pData[index]) && (1023 != tmp_detect_desc.pData[index]))
+#else
         if ((0 != tmp_detect_desc.pData[index]) && (2048 != tmp_detect_desc.pData[index]))
+#endif
         {
             sum += tmp_detect_desc.pData[index];
             count++;
@@ -554,6 +587,7 @@ static void temp_detect_handler(void)
     if (count == 0)
     {
         tmp_detect_desc.pData[target] = 0;
+        return ;
     }
     else
     {

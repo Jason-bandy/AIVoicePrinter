@@ -86,7 +86,9 @@ enum
     ME_UAPSD_TRAFFIC_IND_CFM,
 #if RC_ENABLE
     /// Request RC statistics to a station
+#if CFG_RC_STATS
     ME_RC_STATS_REQ,
+#endif
     /// RC statistics confirmation
     ME_RC_STATS_CFM,
     /// Request RC fixed rate
@@ -179,9 +181,26 @@ struct me_mgmt_tx_req
     /// Boolean indicating if the frame is sent off-channel
     bool off_channel;
 #if NX_MFP
-	/// robust mgmt
-	bool robust;
+    /// robust mgmt
+    bool robust;
 #endif
+#if CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST
+    // Frame send before authentication
+    bool preauth;
+    // Frame needed to be encrypted
+    bool encrypt;
+    // PN, valid if preauth is set to true
+    uint8_t pn[8];
+    // Seq, valid if preauth is set to true
+    uint16_t seq;
+    // Freq, valid if preauth is set to true
+    uint16_t freq;
+    // RA, valid if preauth is set to true
+    struct mac_addr ra;
+    // RA, valid if preauth is set to true
+    struct mac_sec_key key;
+#endif
+
     /// VIF index
     uint8_t vif_idx;
 

@@ -19,6 +19,7 @@
 #define TURING_ADC_TASK_STACK_SIZE          (1024 * 1)
 #define TURING_ADC_QITEM_COUNT              (3)
 
+#if CFG_SARADC_INTFACE
 volatile uint8_t step_flag = 1;
 volatile uint8_t adctest_flag = 1;
 volatile uint8_t adc_accuracy = 0;
@@ -611,6 +612,7 @@ static void adc_check(int argc, char **argv)
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
         os_printf("saradc[ch%d]=%d\r\n", (UINT32)p_ADC_drv_desc->channel, (UINT32)p_ADC_drv_desc->pData[0]);
 #else
+        float voltage = 0.0;
         voltage = saradc_calculate(p_ADC_drv_desc->pData[0]);
         os_printf("voltage is [%d] mv\r\n", (UINT32)(voltage * 1000));
 #endif
@@ -637,6 +639,7 @@ void adc_detect_callback(int new_mv, void *user_data)
     ADC_OBJ *cfg = (ADC_OBJ*)user_data;
 
     TADC_WARNING_PRINTF("new:%d, %d\r\n", new_mv, cfg->channel);
+    (void)cfg;
 }
 
 void adc_detect_configuration(UINT32 channel)
@@ -656,3 +659,4 @@ void adc_detect_configuration(UINT32 channel)
     adc_obj_start(&adc_test);
 }
 
+#endif

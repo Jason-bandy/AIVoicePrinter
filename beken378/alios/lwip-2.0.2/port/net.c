@@ -483,7 +483,9 @@ void uap_ip_down(void)
 		wifi_uap_changed(0);
 		netifapi_netif_set_down(&g_uap.netif);
 		netif_set_status_callback(&g_uap.netif, NULL);
+		#if CFG_USE_DHCPD
 		dhcp_server_stop();
+		#endif
 	}
 }
 
@@ -599,8 +601,13 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
          // we always set sta netif as the default.
          sta_set_default_netif();
 	} else {
+		#if CFG_USE_DHCPD
 		// softap IP up, start dhcp server;
 		dhcp_server_start(net_get_uap_handle());
+		#else
+		net_d("warning: dhcpd no open\r\n");
+		#endif
+
 		up_iface = 0;
 		wifi_uap_changed(1);
 
@@ -608,7 +615,7 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
         // boardcast or not sub net packets, need set ap netif before
         // send those packets, after finish sending, reset default netif
         // to sta's netif.
-        os_printf("def netif is no ap's netif, sending boardcast or no-subnet ip packets may failed\r\n");
+        os_null_printf("def netif is no ap's netif, sending boardcast or no-subnet ip packets may failed\r\n");
 	}
 
 	return 0;

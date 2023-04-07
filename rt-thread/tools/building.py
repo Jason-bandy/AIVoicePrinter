@@ -371,7 +371,14 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
         os.system("tools\\scripts\\generate_sys_config.bat " + beken_target)
     else:
         os.system("tools/scripts/generate_sys_config.sh " + beken_target)
-    rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + '\n'
+
+    sys_config = os.path.join('.', 'config', 'sys_config.h')
+    sys_config_options = LocalOptions(sys_config)
+
+    flash_size_def = GetLocalDepend(sys_config_options, 'CFG_FLASH_SELECTION_TYPE')
+    flash_size = GetLocalDepend(sys_config_options, flash_size_def)
+
+    rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size +'\n'
 
     Env = env
     Rtt_Root = os.path.abspath(root_directory)

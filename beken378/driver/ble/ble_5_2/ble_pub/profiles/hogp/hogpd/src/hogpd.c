@@ -21,7 +21,7 @@
  * INCLUDE FILES
  ****************************************************************************************
  */
-#include "rwip_config.h"
+#include "rwprf_config.h"
 
 #if (BLE_HID_DEVICE)
 #include "hogpd.h"

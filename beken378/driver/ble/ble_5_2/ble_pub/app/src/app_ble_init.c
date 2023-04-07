@@ -8,20 +8,11 @@
 #include "rwip.h"
 #include "app_ble_init.h"
 #include "app_sdp.h"
-#include "sdp_comm_pub.h"
-
+#include "gapm_msg.h"
 #include "kernel_timer.h"
-#include "gap.h"                     // GAP Definition
-#include "gapm_task.h"               // GAP Manager Task API
-#include "gapc_task.h"               // GAP Controller Task API
-#include "gattc_task.h"
-///#include "co_bt.h"                   // Common BT Definition
-///#include "co_math.h"                 // Common Maths Definition
-//#include "sdp_service_task.h"
-//#include "sdp_service.h"
-//#include "prf_utils.h"
+#include "gap.h"
 
-#include "ble_api_5_x.h" ///#include "ble_api.h"
+#include "ble_api_5_x.h"
 #include "app_ble.h"
 #include "app_ble_init.h"
 
@@ -104,9 +95,9 @@ void app_ble_create_initing(uint8_t con_idx)
 {
 	// Prepare the GAPM_ACTIVITY_CREATE_CMD message
 	struct gapm_activity_create_cmd *p_cmd = KERNEL_MSG_ALLOC(GAPM_ACTIVITY_CREATE_CMD,
-	                                                      TASK_BLE_GAPM,
-	                                                      KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(con_idx)),
-	                                                      gapm_activity_create_cmd);
+															TASK_BLE_GAPM,
+															KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(con_idx)),
+															gapm_activity_create_cmd);
 
 	// Set operation code
 	p_cmd->operation = GAPM_CREATE_INIT_ACTIVITY;
@@ -141,7 +132,6 @@ ble_err_t appm_create_initing(uint8_t con_idx,unsigned short con_interval,
 		app_ble_env.connections[con_idx].u.master.conn_dev_to = APP_CONN_DRV_TO;
 		app_ble_env.connections[con_idx].conn_op_mask = 1 << BLE_OP_CREATE_INIT_POS;
 		app_ble_env.connections[con_idx].conn_op_cb = NULL;
-		app_ble_env.connections[con_idx].con_interval += (con_idx * APP_CONN_IND_DELT_TIME);
 	#if APP_INIT_REUSE_ACTV_IDX
 		unsigned char unused_init_actv = appm_get_stop_init_actv_idx();
 		#if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
@@ -186,14 +176,14 @@ ble_err_t appm_start_connecting(uint8_t con_idx)
 	{
 		// Prepare the GAPM_ACTIVITY_START_CMD message
 		struct gapm_activity_start_cmd *p_cmd = KERNEL_MSG_ALLOC(GAPM_ACTIVITY_START_CMD,
-		                                         TASK_BLE_GAPM,
-		                                         KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(con_idx)),
-		                                         gapm_activity_start_cmd);
+																	TASK_BLE_GAPM,
+																	KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(con_idx)),
+																	gapm_activity_start_cmd);
 
 		p_cmd->operation = GAPM_START_ACTIVITY;
 		p_cmd->actv_idx = app_ble_env.connections[con_idx].gap_actv_idx;
 
-		p_cmd->u_param.init_param.type = GAPM_INIT_TYPE_DIRECT_CONN_EST;///GAPM_INIT_TYPE_NAME_DISC;///GAPM_INIT_TYPE_AUTO_CONN_EST;///GAPM_INIT_TYPE_DIRECT_CONN_EST;
+		p_cmd->u_param.init_param.type = GAPM_INIT_TYPE_DIRECT_CONN_EST;
 
 		p_cmd->u_param.init_param.prop = GAPM_INIT_PROP_1M_BIT;
 
@@ -208,17 +198,15 @@ ble_err_t appm_start_connecting(uint8_t con_idx)
 		p_cmd->u_param.init_param.conn_param_1m.conn_latency = app_ble_env.connections[con_idx].con_latency;
 		p_cmd->u_param.init_param.conn_param_1m.supervision_to = app_ble_env.connections[con_idx].sup_to;
 
-		p_cmd->u_param.init_param.conn_to = 1000;
-		///p_cmd->u_param.init_param.peer_addr.addr_type = 0;   ///ADDR_PUBLIC
+		p_cmd->u_param.init_param.conn_to = 0;
 		p_cmd->u_param.init_param.peer_addr.addr_type = addr_type;
-		//  {{0x0f, 0x43, 0x45, 0x67, 0x89, 0xAB}}
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
 		bk_printf("con address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
 			bdaddr->addr[0], bdaddr->addr[1], bdaddr->addr[2],
 			bdaddr->addr[3], bdaddr->addr[4], bdaddr->addr[5]);
 #endif
 
-		memcpy(p_cmd->u_param.init_param.peer_addr.addr.addr,bdaddr->addr,GAP_BD_ADDR_LEN);
+		memcpy(p_cmd->u_param.init_param.peer_addr.addr,bdaddr->addr,GAP_BD_ADDR_LEN);
 
 		p_cmd->u_param.init_param.scan_param_1m.scan_intv = app_ble_env.connections[con_idx].u.master.scan_intv;
 		p_cmd->u_param.init_param.scan_param_1m.scan_wd = app_ble_env.connections[con_idx].u.master.scan_wd;

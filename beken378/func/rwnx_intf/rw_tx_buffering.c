@@ -7,7 +7,7 @@
  *
  * TX buffering module supports buffering data upon MAC layer when MAC is not
  * able to transmit successfully as some known reasons which the transmitting data
- * will be NOT delivered to receiver, such as the receiver is in PS mode, and channel 
+ * will be NOT delivered to receiver, such as the receiver is in PS mode, and channel
  * was switched to un-operation channel...
  *
  * Copyright (C) BEKEN corperation 2021
@@ -219,7 +219,7 @@ static void rwm_flush_bufing_list(uint8_t client_idx,uint8_t flag)
 
     if(rwm_get_client_bufing_count(client_idx,flag))
     {
-        while(1) 
+        while(1)
         {
             node_ptr = rwm_pop_bufing_data(client_idx,flag);
             if(node_ptr)
@@ -290,7 +290,7 @@ void rwm_trigger_tx_bufing_stop(uint32_t trigger_source, uint8_t client_idx)
     {
          return;
     }
-    
+
     if ((txbufing->cntrl_src & trigger_source) == 0)
     {
         return;
@@ -382,7 +382,9 @@ void rwm_tx_bufing_restore_data(uint32_t cid_and_flag)
     uint8_t flag = (uint8_t)((0xFF00&cid_and_flag)>>8);
     uint8_t client_idx = (uint8_t)(0x00FF&cid_and_flag);
     tx_bufing_client *txbufing = rwm_get_bufing_chain(client_idx,flag);
+#if CFG_WIFI_P2P
     struct vif_info_tag *p_vif_entry = &vif_info_tab[client_idx];
+#endif
     struct sta_info_tag *sta = &sta_info_tab[client_idx];
 
     if (txbufing ==NULL || (client_idx >= MAX_BUFING_CLIENT_NUM) || (g_tx_bufing.tx_bufing_en == false))
@@ -390,7 +392,11 @@ void rwm_tx_bufing_restore_data(uint32_t cid_and_flag)
         return;
     }
 
-    if( sta->ps_state == PS_MODE_ON||txbufing->cntrl_src != 0||!p2p_is_present(p_vif_entry->p2p_index))
+    if (sta->ps_state == PS_MODE_ON || txbufing->cntrl_src != 0
+#if CFG_WIFI_P2P
+        || !p2p_is_present(p_vif_entry->p2p_index)
+#endif
+    )
     {
         return;
     }
@@ -401,7 +407,7 @@ void rwm_tx_bufing_restore_data(uint32_t cid_and_flag)
     {
         return;
     }
-    
+
     bufing_cnt = rwm_get_client_bufing_count(client_idx,flag);
     rwm_transfer_node(node, TXU_CNTRL_MORE_DATA);
 

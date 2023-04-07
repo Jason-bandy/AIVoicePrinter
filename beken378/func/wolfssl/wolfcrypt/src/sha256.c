@@ -805,7 +805,7 @@ static int InitSha256(wc_Sha256* sha256)
             return BUFFER_E;
 
         if (sha256->buffLen > 0) {
-            word32 add = min(len, WC_SHA256_BLOCK_SIZE - sha256->buffLen);
+            word32 add = _min(len, WC_SHA256_BLOCK_SIZE - sha256->buffLen);
             XMEMCPY(&local[sha256->buffLen], data, add);
 
             sha256->buffLen += add;

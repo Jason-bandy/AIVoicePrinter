@@ -46,6 +46,8 @@ int wpa_get_psk_from_cache(struct wpa_ssid *ssid);
 int __wpa_get_psk_from_cache(u8 *ssid, size_t ssid_len, char *passphrase, u8 *psk, size_t psk_len);
 int wpa_psk_request(u8 *ssid, size_t ssid_len, char *passphrase, u8 *psk, size_t psk_len);
 void start_wpa_psk_cal_thread();
+void wpa_psk_thread_lower_prio();
+void wpa_psk_thread_restore_prio();
 
 #else /* !CONFIG_WPA_PSK_CACHE */
 static inline void wpa_psk_cache_init(void)
@@ -61,6 +63,8 @@ static inline int wpa_psk_request(u8 *ssid, size_t ssid_len, char *passphrase, u
 {
 	return -1;
 }
+static inline void wpa_psk_thread_lower_prio() {}
+static inline void wpa_psk_thread_restore_prio() {}
 
 #endif // CONFIG_WPA_PSK_CACHE
 #endif // __WPA_PSK_CACHE_H_

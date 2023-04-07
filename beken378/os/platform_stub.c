@@ -81,7 +81,7 @@ size_t __wrap_strnlen(const char *s, size_t max_len)
 	return i;
 }
 
-void __assert_func(const char *file, int line, const char *func, const char *failedexpr)
+void __wrap___assert_func(const char *file, int line, const char *func, const char *failedexpr)
 {
 	os_printf("%s %d func %s expr %s\n", file, line, func, failedexpr);
 	ASSERT(0);

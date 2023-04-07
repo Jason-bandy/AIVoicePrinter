@@ -14,6 +14,7 @@
 #ifndef _RWPRF_CONFIG_H_
 #define _RWPRF_CONFIG_H_
 
+#include "rwip_config.h"
 
 /**
  ****************************************************************************************
@@ -24,13 +25,31 @@
  * @{
  ****************************************************************************************
  */
+//#define CFG_PRF_BASS
+//#define CFG_PRF_HOGPD
+//#define CFG_PRF_FMPT
+//#define CFG_PRF_DISS
+
+#if CFG_INIT_ENABLE
+#define CFG_PRF_SDP
+#endif
+
+#if BLE_PERIPHERAL
 #define CFG_PRF_COMM
+#endif
 
 #if defined(CFG_PRF_COMM)
 #define BLE_COMM_SERVER        1
 #else
 #define BLE_COMM_SERVER        0
 #endif
+
+///SDP Profile
+#if defined(CFG_PRF_SDP)
+#define BLE_SDP_CLIENT        1
+#else
+#define BLE_SDP_CLIENT        0
+#endif // defined(CFG_PRF_SDP))
 
 //ATT DB,Testing and Qualification related flags
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
@@ -168,6 +187,12 @@
 #else
 #define BLE_HID_DEVICE          0
 #endif // defined(CFG_PRF_HOGPD)
+
+#if (BLE_HID_DEVICE)
+#define BLE_APP_HID               1
+#else
+#define BLE_APP_HID               0
+#endif
 
 ///HID Boot Host Role
 #if defined(CFG_PRF_HOGPBH)
@@ -448,7 +473,7 @@
         || BLE_RSC_COLLECTOR || BLE_CSC_COLLECTOR || BLE_CP_COLLECTOR || BLE_LN_COLLECTOR || BLE_AN_CLIENT \
         || BLE_PAS_CLIENT || BLE_IPS_CLIENT || BLE_ENV_CLIENT || BLE_WSC_CLIENT \
         || BLE_UDS_CLIENT || BLE_BCS_CLIENT || BLE_WPT_CLIENT || BLE_PLX_CLIENT \
-        || BLE_CGM_CLIENT || BLE_CSIS_COORD || BLE_OT_CLIENT || BLE_DBG_THPP || BLE_MESH)
+        || BLE_CGM_CLIENT || BLE_CSIS_COORD || BLE_OT_CLIENT || BLE_DBG_THPP || BLE_MESH || CFG_INIT_ENABLE)
 #define BLE_CLIENT_PRF          1
 #else
 #define BLE_CLIENT_PRF          0
@@ -836,6 +861,7 @@ enum rwprf_id
 
     #if (BLE_COMM_SERVER)
     PRF_ID_COMM,
+    PRF_ID_COMM_MAX = PRF_ID_COMM + BLE_NB_PROFILES,
     #endif
 
     #if (BLE_MESH)

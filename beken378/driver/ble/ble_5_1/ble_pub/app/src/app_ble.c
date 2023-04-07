@@ -184,10 +184,7 @@ void app_ble_reset(void)
 	app_ble_env.app_status = APP_BLE_READY;
 }
 
-ble_err_t app_ble_create_advertising(uint8_t actv_idx,
-						uint8_t chnl_map,
-						uint32_t intv_min,
-						uint32_t intv_max)
+ble_err_t app_ble_create_advertising(uint8_t actv_idx, struct adv_param *adv)
 {
 	ble_err_t ret = ERR_SUCCESS;
 
@@ -208,15 +205,15 @@ ble_err_t app_ble_create_advertising(uint8_t actv_idx,
 			#else
 			p_cmd->own_addr_type = GAPM_STATIC_ADDR;
 			#endif
-			p_cmd->adv_param.type = GAPM_ADV_TYPE_LEGACY;//GAPM_ADV_TYPE_EXTENDED;//;
-			p_cmd->adv_param.prop = GAPM_ADV_PROP_UNDIR_CONN_MASK ;//| GAPM_ADV_PROP_SCAN_REQ_NTF_EN_BIT;//GAPM_ADV_PROP_BROADCAST_NON_SCAN_MASK;//GAPM_ADV_PROP_UNDIR_CONN_MASK;
+			p_cmd->adv_param.type = GAPM_ADV_TYPE_LEGACY;
+			p_cmd->adv_param.prop = adv->prop;//GAPM_ADV_PROP_UNDIR_CONN_MASK;
 			p_cmd->adv_param.filter_pol = ADV_ALLOW_SCAN_ANY_CON_ANY;
-			p_cmd->adv_param.prim_cfg.chnl_map = chnl_map;
+			p_cmd->adv_param.prim_cfg.chnl_map = adv->channel_map;
 			p_cmd->adv_param.prim_cfg.phy = GAP_PHY_LE_1MBPS;
 
 			p_cmd->adv_param.disc_mode = GAPM_ADV_MODE_GEN_DISC;
-			p_cmd->adv_param.prim_cfg.adv_intv_min = intv_min;
-			p_cmd->adv_param.prim_cfg.adv_intv_max = intv_max;
+			p_cmd->adv_param.prim_cfg.adv_intv_min = adv->interval_min;
+			p_cmd->adv_param.prim_cfg.adv_intv_max = adv->interval_max;
 
 			// Send the message
 			kernel_msg_send(p_cmd);
@@ -232,6 +229,51 @@ ble_err_t app_ble_create_advertising(uint8_t actv_idx,
 
 	return ret;
 }
+
+ble_err_t app_ble_create_extended_advertising(uint8_t actv_idx, ext_adv_param_cfg_t *param)
+{
+	ble_err_t ret = ERR_SUCCESS;
+
+	BLE_APP_CHECK_ACTVS_IDX(actv_idx);
+
+	if (app_ble_actv_state_get(actv_idx) == ACTV_IDLE) {
+		struct gapm_activity_create_adv_cmd *p_cmd = KERNEL_MSG_ALLOC(GAPM_ACTIVITY_CREATE_CMD,
+										TASK_BLE_GAPM, TASK_BLE_APP,
+										gapm_activity_create_adv_cmd);
+
+		if (p_cmd) {
+			/// Set operation code
+			p_cmd->operation = GAPM_CREATE_ADV_ACTIVITY;
+
+			// Fill the allocated kernel message
+			p_cmd->own_addr_type = GAPM_STATIC_ADDR;
+			p_cmd->adv_param.type = GAPM_ADV_TYPE_EXTENDED;
+			p_cmd->adv_param.prop = param->prop;
+			p_cmd->adv_param.filter_pol = ADV_ALLOW_SCAN_ANY_CON_ANY;
+			p_cmd->adv_param.prim_cfg.chnl_map = param->channel_map;
+			p_cmd->adv_param.prim_cfg.phy = GAP_PHY_LE_1MBPS;
+
+			p_cmd->adv_param.disc_mode = GAPM_ADV_MODE_GEN_DISC;
+			p_cmd->adv_param.prim_cfg.adv_intv_min = param->interval_min;
+			p_cmd->adv_param.prim_cfg.adv_intv_max = param->interval_max;
+			p_cmd->adv_param.second_cfg.phy = p_cmd->adv_param.prim_cfg.phy;
+			p_cmd->adv_param.second_cfg.adv_sid = param->sid;
+
+			// Send the message
+			kernel_msg_send(p_cmd);
+
+			ret = ERR_SUCCESS;
+		} else {
+			ret = ERR_NO_MEM;
+		}
+	} else {
+		bk_printf("actv[%d] is not idle\r\n", actv_idx);
+		ret = ERR_BLE_STATUS;
+	}
+
+	return ret;
+}
+
 
 ble_err_t app_ble_start_advertising(uint8_t actv_idx, uint16 duration)
 {
@@ -329,7 +371,7 @@ ble_err_t app_ble_delete_advertising(uint8_t actv_idx)
 	return ret;
 }
 
-ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsigned char adv_len)
+ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, uint16_t adv_len)
 {
 	ble_err_t ret = ERR_SUCCESS;
 
@@ -341,7 +383,7 @@ ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsign
 		struct gapm_set_adv_data_cmd *p_cmd = KERNEL_MSG_ALLOC_DYN(GAPM_SET_ADV_DATA_CMD,
 										TASK_BLE_GAPM, TASK_BLE_APP,
 										gapm_set_adv_data_cmd,
-										ADV_DATA_LEN);
+										adv_len);
 
 		if (p_cmd) {
 			// Fill the allocated kernel message
@@ -367,7 +409,7 @@ ble_err_t app_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsign
 	return ret;
 }
 
-ble_err_t app_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, unsigned char scan_len)
+ble_err_t app_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, uint16_t scan_len)
 {
 	ble_err_t ret = ERR_SUCCESS;
 
@@ -379,7 +421,7 @@ ble_err_t app_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, 
 		struct gapm_set_adv_data_cmd *p_cmd = KERNEL_MSG_ALLOC_DYN(GAPM_SET_ADV_DATA_CMD,
 										TASK_BLE_GAPM, TASK_BLE_APP,
 										gapm_set_adv_data_cmd,
-										ADV_DATA_LEN);
+										scan_len);
 
 		if (p_cmd) {
 			// Fill the allocated kernel message
@@ -702,6 +744,24 @@ ble_err_t app_ble_delete_scaning(uint8_t actv_idx)
 	}
 
 	return ret;
+}
+
+void app_ble_send_conn_param_update_cfm(uint8_t con_idx,bool accept)
+{
+	uint8_t conidx = app_ble_get_connhdl(con_idx);
+
+	// Send connection confirmation
+	struct gapc_param_update_cfm *cfm = KERNEL_MSG_ALLOC(GAPC_PARAM_UPDATE_CFM,
+								KERNEL_BUILD_ID(TASK_BLE_GAPC, conidx), TASK_BLE_APP,
+								gapc_param_update_cfm);
+
+	cfm->accept = accept;
+	cfm->ce_len_min = 10;
+	cfm->ce_len_max = 20;
+
+	// Send message
+	kernel_msg_send(cfm);
+
 }
 
 void app_ble_next_operation(uint8_t idx, uint8_t status)

@@ -490,7 +490,7 @@ int wc_ShaUpdate(wc_Sha* sha, const byte* data, word32 len)
         return BUFFER_E;
 
     while (len) {
-        word32 add = min(len, WC_SHA_BLOCK_SIZE - sha->buffLen);
+        word32 add = _min(len, WC_SHA_BLOCK_SIZE - sha->buffLen);
         XMEMCPY(&local[sha->buffLen], data, add);
 
         sha->buffLen += add;

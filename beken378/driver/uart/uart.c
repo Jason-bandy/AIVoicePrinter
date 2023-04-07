@@ -1064,11 +1064,6 @@ UINT32 uart_wait_tx_over()
     return uart_wait_us;
 }
 
-INT32 os_null_printf(const char *fmt, ...)
-{
-    return 0;
-}
-
 int uart_read_byte(int uport)
 {
     int val = -1;

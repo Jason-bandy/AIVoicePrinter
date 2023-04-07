@@ -13,6 +13,7 @@
 #ifndef RWBLE_CONFIG_H_
 #define RWBLE_CONFIG_H_
 
+#include "rwip_config.h"
 /**
  ****************************************************************************************
  * @addtogroup ROOT
@@ -26,22 +27,22 @@
 /******************************************************************************************/
 
 /// Features byte 0
-#define BLE_FEATURES_BYTE0  (  (1 << BLE_FEAT_ENC                   ) \
-                             | (1 << BLE_FEAT_CON_PARAM_REQ_PROC    ) \
-                             | (1 << BLE_FEAT_EXT_REJ_IND           ) \
-                             | (1 << BLE_FEAT_SLAVE_INIT_FEAT_EXCHG ) \
-                             | (1 << BLE_FEAT_PING                  ) \
-                             | (1 << BLE_FEAT_DATA_PKT_LEN_EXT      ) \
-                             | (1 << BLE_FEAT_LL_PRIVACY            ) \
-                             | (1 << BLE_FEAT_EXT_SCAN_FILT_POLICY  ) )
+#define BLE_FEATURES_BYTE0  (  (BLE_FEAT_SMP_SUPPORT     << BLE_FEAT_ENC                   ) \
+                             | (1                        << BLE_FEAT_CON_PARAM_REQ_PROC    ) \
+                             | (1                        << BLE_FEAT_EXT_REJ_IND           ) \
+                             | (1                        << BLE_FEAT_SLAVE_INIT_FEAT_EXCHG ) \
+                             | (BLE_FEAT_SMP_SUPPORT     << BLE_FEAT_PING                  ) \
+                             | (1                        << BLE_FEAT_DATA_PKT_LEN_EXT      ) \
+                             | (BLE_FEAT_SMP_SUPPORT     << BLE_FEAT_LL_PRIVACY            ) \
+                             | (1                        << BLE_FEAT_EXT_SCAN_FILT_POLICY  ) )
 
 /// Features byte 1
 #define BLE_FEATURES_BYTE1  (  (BLE_PHY_2MBPS_SUPPORT         << (BLE_FEAT_2M_PHY            - 8) ) \
                              | (BLE_STABLE_MOD_IDX_TX_SUPPORT << (BLE_FEAT_STABLE_MOD_IDX_TX - 8) ) \
                              | (BLE_STABLE_MOD_IDX_RX_SUPPORT << (BLE_FEAT_STABLE_MOD_IDX_RX - 8) ) \
                              | (BLE_PHY_CODED_SUPPORT         << (BLE_FEAT_CODED_PHY         - 8) ) \
-                             | (1                             << (BLE_FEAT_EXT_ADV           - 8) ) \
-                             | (1                             << (BLE_FEAT_PER_ADV           - 8) ) \
+                             | (BLE_FEAT_EXT_ADV_SUPPORT      << (BLE_FEAT_EXT_ADV           - 8) ) \
+                             | (BLE_FEAT_PER_ADV_SUPPORT      << (BLE_FEAT_PER_ADV           - 8) ) \
                              | (1                             << (BLE_FEAT_CHAN_SEL_ALGO_2   - 8) ) \
                              | (BLE_PWR_CLASS_1_SUPPORT       << (BLE_FEAT_PWR_CLASS_1       - 8) ) )
 
@@ -56,14 +57,14 @@
                              | ((BLE_CON_CTE_REQ | BLE_CONLESS_CTE_RX) << (BLE_FEAT_CTE_RX                 - 16) ) )
 
 /// Features byte 3
-#define BLE_FEATURES_BYTE3  (  (0 << (BLE_FEAT_PER_ADV_SYNC_TRANSF_TX - 24) ) \
-                             | (0 << (BLE_FEAT_PER_ADV_SYNC_TRANSF_RX - 24) ) \
-                             | (1 << (BLE_FEAT_SLEEP_CLK_ACC_UPD - 24) ) \
-                             | (0 << (BLE_FEAT_PUB_KEY_VALID - 24) ) \
-                             | (0 << (BLE_FEAT_CON_ISO_STREAM_MASTER - 24) ) \
-                             | (0 << (BLE_FEAT_CON_ISO_STREAM_SLAVE - 24) ) \
-                             | (0 << (BLE_FEAT_ISO_BROADCASTER - 24) ) \
-                             | (0 << (BLE_FEAT_SYNCED_RECEIVER - 24) ) )
+#define BLE_FEATURES_BYTE3  (  (BLE_FEAT_PER_ADV_SYNC_SUPPORT      << (BLE_FEAT_PER_ADV_SYNC_TRANSF_TX - 24) ) \
+                             | (BLE_FEAT_PER_ADV_SYNC_SUPPORT      << (BLE_FEAT_PER_ADV_SYNC_TRANSF_RX - 24) ) \
+                             | (BLE_FEAT_SLEEP_CLK_ACC_UPD_SUPPORT << (BLE_FEAT_SLEEP_CLK_ACC_UPD - 24) ) \
+                             | (0                                  << (BLE_FEAT_PUB_KEY_VALID - 24) ) \
+                             | (0                                  << (BLE_FEAT_CON_ISO_STREAM_MASTER - 24) ) \
+                             | (0                                  << (BLE_FEAT_CON_ISO_STREAM_SLAVE - 24) ) \
+                             | (0                                  << (BLE_FEAT_ISO_BROADCASTER - 24) ) \
+                             | (0                                  << (BLE_FEAT_SYNCED_RECEIVER - 24) ) )
 
 /// Features byte 4
 #define BLE_FEATURES_BYTE4  (  (BLE_PWR_CTRL << (BLE_FEAT_POWER_CONTROL_REQ - 32) ) ) \
@@ -199,9 +200,12 @@
 // In Long Range, the symbol for the Access Address is 8 times longer than the symbol for 1Mbps.
 #define BLE_PHY_CODED_NORMAL_WIN_SIZE   (BLE_NORMAL_WIN_SIZE * 8)
 
-
+#if (CFG_BLE_SMP)
 /// Number of devices in the white list
 #define BLE_WHITELIST_MAX           (BLE_ACTIVITY_MAX + 2)
+#else
+#define BLE_WHITELIST_MAX           (0)
+#endif
 
 /// Number of devices in the Resolution Address List
 /// This have to be tuned according to the core frequency. Worst case is having in scan mode
@@ -221,10 +225,17 @@
 
 /// Number of advertising data buffers
 #define BLE_ADV_BUF_NB_TX            (CFG_BLE_ADV_NUM*2 + 1)
+#if (CFG_BLE_AUX_CHAIN)
 /// Number of advertising or scan response data fragments in extended advertising PDU chain
 #define BLE_ADV_FRAG_NB_TX           (5)
 /// Size of advertising or scan response data fragments in extended advertising PDU chain
-#define BLE_ADV_FRAG_SIZE_TX         (254)
+#define BLE_ADV_FRAG_SIZE_TX         (191)	//max payload len(255) - (ext_header_len_bit&adv_mode)(1) - max extended header length(63)
+#else
+/// Number of advertising or scan response data fragments in extended advertising PDU chain
+#define BLE_ADV_FRAG_NB_TX           (1)
+/// Size of advertising or scan response data fragments in extended advertising PDU chain
+#define BLE_ADV_FRAG_SIZE_TX         (31)
+#endif
 /// Maximum advertising data length
 #define BLE_CFG_MAX_ADV_DATA_LEN         (BLE_ADV_FRAG_NB_TX * BLE_ADV_FRAG_SIZE_TX)
 

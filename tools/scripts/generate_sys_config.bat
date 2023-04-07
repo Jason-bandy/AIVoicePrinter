@@ -107,7 +107,8 @@ if !new_hash! neq !old_hash! (
 	copy %new_rt_config% %old_rtconfig% /Y
 )
 
-copy %new_linkscript% link.lds /Y
+%ARM_GCC_TOOLCHAIN%arm-none-eabi-gcc -E -x c -P %new_linkscript% -o link.lds
+::copy %new_linkscript% link.lds /Y
 
 echo "  %GREEN%GEN  .config%NC%"
 echo #include "config/sys_config.h" > config.c

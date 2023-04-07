@@ -22,7 +22,7 @@
  * INCLUDE FILES
  ****************************************************************************************
  */
-#include "rwip_config.h"
+#include "rwprf_config.h"
 
 #if (BLE_DIS_SERVER)
 #include "diss_msg.h"

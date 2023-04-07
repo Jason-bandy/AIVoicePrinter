@@ -15,5 +15,6 @@ void demo_wlan_app_init(VIF_ADDCFG_PTR cfg);
 void demo_state_app_init(void);
 void demo_ip_app_init(void);
 
+//static const char *crypto_str[];
 #endif
 

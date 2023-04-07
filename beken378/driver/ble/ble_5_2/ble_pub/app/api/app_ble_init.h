@@ -29,7 +29,7 @@
 
 #define APP_CONN_IND_DELT_TIME             (3)
 
-#define APP_INIT_REUSE_ACTV_IDX            1
+#define APP_INIT_REUSE_ACTV_IDX            0
 #define APP_INIT_SET_STOP_CONN_TIMER       1
 #define APP_INIT_STOP_CONN_TIMER_EVENT     1
 

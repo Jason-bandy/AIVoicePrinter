@@ -121,6 +121,15 @@ bool kernel_mem_is_empty(uint8_t type);
  */
 bool kernel_is_free(void* mem_ptr);
 
+/**
+ ****************************************************************************************
+ * @brief kernel all free mem
+ *
+ * @return free mem size
+ ****************************************************************************************
+ */
+uint32_t kernel_mem_get_free(void);
+
 #if (KERNEL_PROFILING)
 
 /**

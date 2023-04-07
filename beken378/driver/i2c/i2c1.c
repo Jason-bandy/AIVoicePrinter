@@ -1,4 +1,5 @@
 #include "include.h"
+#if CFG_USE_I2C1
 #include "arm_arch.h"
 
 #include "i2c1.h"
@@ -611,3 +612,4 @@ static UINT32 i2c1_ctrl(UINT32 cmd, void *param)
     return ret;
 }
 
+#endif

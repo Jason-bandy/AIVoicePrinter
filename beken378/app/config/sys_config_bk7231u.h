@@ -78,11 +78,33 @@
 #define CFG_WIFI_AP_VSIE                           0
 /* Custom softap basic rates, supported rates, ht mcs set */
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
+
+/*Use macro to shut down some unused functions*/
+#define CFG_WPA_MAYBE_UNUSED                       1
+#if CFG_WPA_MAYBE_UNUSED
+#define CONFIG_NOTIFICATION                        1
+#define CONFIG_EID_FLAG                            1
+#define CONFIG_PMKSA_EXISTS                        1
+#define CONFIG_GTK_REKEY                           1
+#endif
+
 /*
  * Support set softap modes: BGN, BG, B. Macro
  * CFG_AP_SUPPORT_HT_IE must be enabled to support N mode
  */
 #define CFG_WIFI_AP_HW_MODE                        0
+
+#define CfG_MACRO_MAYBE_UNUSED                     1
+#if CfG_MACRO_MAYBE_UNUSED
+#define CFG_WIFI_RSSI                              1
+#define CFG_WIFI_VERSION                           1
+#define CFG_WIFI_CHANNEL                           1
+#define CFG_WIFI_SLOTTIME                          1
+#define CFG_WIFI_DBG_TROGGER                       1
+#define CFG_MODE_SET                               1
+#define CFG_FILTER_SET                             1
+#define CFG_RC_STATS                               1
+#endif
 
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -91,13 +113,13 @@
 #define CFG_ROLE_LAUNCH                            0
 #endif
 
-#define CFG_WPA3                                   0
+#define CFG_WPA3                                   1
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_OWE                                    0
+#define CFG_OWE                                    1
 /* use wpa2 instead of wpa3-sae if in wpa3 transition mode */
 #define CFG_CFG_WPA2_PREFER_TO_SAE                 0
 #endif
@@ -124,6 +146,9 @@
 
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
+#define CFG_SUPPORT_SARADC                         1
+#define CFG_SARADC_INTFACE                         0
+#define CFG_SARADC_CALIBRATE                       0
 
 #define CFG_SDIO                                   0
 #define CFG_SDIO_TRANS                             0
@@ -160,8 +185,11 @@
 #define CFG_UART_DEBUG                             0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
-#define CFG_IPERF_TEST                             0
-#if CFG_IPERF_TEST
+#define IPERF_CLOSE                                0  /* close iperf */
+#define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
+#define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 #define CFG_IPERF_TEST_ACCEL                       1
 #define CFG_IPERF_DONT_MALLOC_BUFFER               1
 #endif
@@ -201,8 +229,8 @@
 
 /*section 9-----for DHCP servicers and client*/
 #define CFG_USE_DHCP                               1
+#define CFG_USE_DHCPD                              1 // for servicers in ap mode
 
-/*section 10-----patch*/
 
 /*section 11-----temperature detect*/
 #define CFG_USE_TEMPERATURE_DETECT                 0
@@ -274,14 +302,11 @@
 #endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
-/*section 22 ----- support adc calibrate*/
-#define CFG_SARADC_CALIBRATE                       0
-
 /*section 23 ----- support reduce nomal power*/
 #define CFG_SYS_REDUCE_NORMAL_POWER                0
 
 /*section 24 ----- less memery in rwnx*/
-#define CFG_LESS_MEMERY_IN_RWNX                    0
+#define CFG_LESS_MEMERY_IN_RWNX                    1
 
 /*section 25 ----- use audio*/
 #define CFG_USE_AUDIO                              0
@@ -296,6 +321,7 @@
 #else
 #define CFG_SUPPORT_BLE                            1
 #endif
+#define CFG_BLE_USE_CLI                            1
 #define CFG_SUPPORT_BLE_MESH                       0
 #define CFG_USE_PTA                                0
 
@@ -309,6 +335,13 @@
 #define BLE_DEFAULT_WIFI_REQUEST                   2
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
+
+/*section 26 ----- general spi master/slave */
+#define CFG_USE_SPI                                0
+#define CFG_USE_SPI_MASTER                         0
+#define CFG_USE_SPI_MST_FLASH                      0
+#define CFG_USE_SPI_MST_PSRAM                      0
+#define CFG_USE_SPI_SLAVE                          0
 
 #define CFG_XTAL_FREQUENCE_40M                     40000000 //40MHz
 #define CFG_XTAL_FREQUENCE_26M                     26000000 //26MHz

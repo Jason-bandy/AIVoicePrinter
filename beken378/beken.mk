@@ -166,6 +166,29 @@ $(NAME)_SOURCES +=  driver/spi/spi_bk7231n.c \
 					driver/spi/spi_slave_bk7231n.c
 endif
 
+ifeq ($(CFG_WRAP_LIBC), 1)
+$(NAME)_INCLUDES += func/libc
+$(NAME)_SOURCES +=  func/libc/errno/lib_errno.c \
+					func/libc/math/lib_exp.c \
+					func/libc/math/lib_libexpi.c \
+					func/libc/math/lib_log.c \
+					func/libc/math/lib_pow.c \
+					func/libc/stdio/lib_libvscanf.c \
+					func/libc/stdio/lib_memsistream.c \
+					func/libc/stdio/lib_meminstream.c \
+					func/libc/stdio/lib_sscanf.c \
+					func/libc/stdio/lib_vsscanf.c \
+					func/libc/stdlib/lib_checkbase.c \
+					func/libc/stdlib/lib_strtod.c \
+					func/libc/stdlib/lib_qsort.c \
+					func/libc/stdlib/lib_srand.c \
+					func/libc/stdlib/lib_strtol.c \
+					func/libc/stdlib/lib_strtoll.c \
+					func/libc/stdlib/lib_strtoul.c \
+					func/libc/stdlib/lib_strtoull.c \
+					func/libc/string/lib_isbasedigit.c
+endif
+
 
 $(NAME)_INCLUDES += func/$(WPA_VERSION)/src \
 					func/$(WPA_VERSION)/src/ap \

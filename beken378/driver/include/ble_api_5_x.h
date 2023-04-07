@@ -250,6 +250,7 @@ typedef enum  {
 	BLE_5_INIT_CONNECT_EVENT,
 	BLE_5_INIT_DISCONNECT_EVENT,
 	BLE_5_INIT_CONNECT_FAILED_EVENT,
+	BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT,
 
 	BLE_5_SDP_REGISTER_FAILED,
 } ble_notice_t;
@@ -270,6 +271,38 @@ typedef enum {
 	ERR_ATTC_WRITE,
 	ERR_ATTC_WRITE_UNREGISTER,
 } ble_err_t;
+
+typedef enum {
+    /// Indicate that advertising is connectable, reception of CONNECT_REQ or AUX_CONNECT_REQ
+    /// PDUs is accepted. Not applicable for periodic advertising.
+    ADV_PROP_CONNECTABLE_POS     = 0,
+    ADV_PROP_CONNECTABLE_BIT     = 0x01,
+
+    /// Indicate that advertising is scannable, reception of SCAN_REQ or AUX_SCAN_REQ PDUs is
+    /// accepted
+    ADV_PROP_SCANNABLE_POS       = 1,
+    ADV_PROP_SCANNABLE_BIT       = 0x02,
+
+    /// Indicate that advertising targets a specific device. Only apply in following cases:
+    ///   - Legacy advertising: if connectable
+    ///   - Extended advertising: connectable or (non connectable and non discoverable)
+    ADV_PROP_DIRECTED_POS        = 2,
+    ADV_PROP_DIRECTED_BIT        = 0x04,
+
+    /// Indicate that High Duty Cycle has to be used for advertising on primary channel
+    /// Apply only if created advertising is not an extended advertising
+    ADV_PROP_HDC_POS             = 3,
+    ADV_PROP_HDC_BIT             = 0x08,
+
+    /// Bit 4 is reserved
+    ADV_PROP_RESERVED_4_POS      = 4,
+    ADV_PROP_RESERVED_4_BIT      = 0x10,
+
+    /// Enable anonymous mode. Device address won't appear in send PDUs
+    /// Valid only if created advertising is an extended advertising
+    ADV_PROP_ANONYMOUS_POS       = 5,
+    ADV_PROP_ANONYMOUS_BIT       = 0x20,
+}adv_prop_bf_t;
 
 typedef struct{
 	uint8_t cmd_idx;
@@ -339,6 +372,19 @@ typedef struct
 
 typedef struct
 {
+	uint8_t conn_idx;
+	/// Connection interval minimum
+	uint16_t intv_min;
+	/// Connection interval maximum
+	uint16_t intv_max;
+	/// Latency
+	uint16_t latency;
+	/// Supervision timeout
+	uint16_t time_out;
+} conn_param_t;
+
+typedef struct
+{
 	uint8_t status;
 	uint8_t prf_id;
 } create_db_t;
@@ -405,7 +451,18 @@ struct adv_param {
 	uint16_t interval_min;
 	uint16_t interval_max;
 	uint16_t duration;
+	uint8_t prop;
 };
+
+typedef struct ext_adv_param_cfg {
+	uint8_t  channel_map;
+	uint16_t interval_min;
+	uint16_t interval_max;
+	uint16_t duration;
+	uint8_t sid;
+	uint8_t prop;
+}ext_adv_param_cfg_t;
+
 
 struct scan_param {
 	uint8_t  filter_en;
@@ -429,11 +486,14 @@ ble_err_t bk_ble_adv_stop(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_scan_start(uint8_t actv_idx, struct scan_param *scan, ble_cmd_cb_t callback);
 ble_err_t bk_ble_scan_stop(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_create_advertising(uint8_t actv_idx, unsigned char chnl_map, uint32_t intv_min, uint32_t intv_max, ble_cmd_cb_t callback);
+ble_err_t bk_ble_create_extended_advertising(uint8_t actv_idx, unsigned char chnl_map, uint32_t intv_min, uint32_t intv_max, uint8_t scannable, uint8_t connectable, ble_cmd_cb_t callback);
 ble_err_t bk_ble_start_advertising(uint8_t actv_idx, uint16 duration, ble_cmd_cb_t callback);
 ble_err_t bk_ble_stop_advertising(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_delete_advertising(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsigned char adv_len, ble_cmd_cb_t callback);
+ble_err_t bk_ble_set_ext_adv_data(uint8_t actv_idx, unsigned char * adv_buff, uint16_t adv_len, ble_cmd_cb_t callback);
 ble_err_t bk_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, unsigned char scan_len, ble_cmd_cb_t callback);
+ble_err_t bk_ble_set_ext_scan_rsp_data(uint8_t actv_idx, unsigned char * scan_buff, uint16_t scan_len, ble_cmd_cb_t callback);
 ble_err_t bk_ble_update_param(uint8_t conn_idx, uint16_t intv_min, uint16_t intv_max,
 					uint16_t latency, uint16_t sup_to, ble_cmd_cb_t callback);
 ble_err_t bk_ble_disconnect(uint8_t conn_idx, ble_cmd_cb_t callback);

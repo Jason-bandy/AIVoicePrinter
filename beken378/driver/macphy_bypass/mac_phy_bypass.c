@@ -17,6 +17,17 @@ UINT32 reg_132 = 0x80;
 UINT32 reg_133 = 0x00;
 UINT32 g_band = 0;
 
+void mpb_regs_reset(void)
+{
+	int index;
+	for (index = 0; index <= 0xB; index++) {
+		REG_WRITE(MPB_ADDR_BASE + index * 4, 0);
+	}
+	for (index = 0x80; index <= 0x92; index++) {
+		REG_WRITE(MPB_ADDR_BASE + index * 4, 0);
+	}
+}
+
 #if CFG_MAC_PHY_BAPASS
 struct MPB_TypeDef mpb_regs =
 {

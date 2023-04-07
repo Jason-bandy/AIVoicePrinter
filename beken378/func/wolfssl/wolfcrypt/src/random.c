@@ -664,7 +664,7 @@ int wc_RNG_TestSeed(const byte* seed, word32 seedSz)
 
     /* Check the seed for duplicate words. */
     word32 seedIdx = 0;
-    word32 scratchSz = min(SEED_BLOCK_SZ, seedSz - SEED_BLOCK_SZ);
+    word32 scratchSz = _min(SEED_BLOCK_SZ, seedSz - SEED_BLOCK_SZ);
 
     while (seedIdx < seedSz - SEED_BLOCK_SZ) {
         if (ConstantCompare(seed + seedIdx,
@@ -674,7 +674,7 @@ int wc_RNG_TestSeed(const byte* seed, word32 seedSz)
             ret = DRBG_CONT_FAILURE;
         }
         seedIdx += SEED_BLOCK_SZ;
-        scratchSz = min(SEED_BLOCK_SZ, (seedSz - seedIdx));
+        scratchSz = _min(SEED_BLOCK_SZ, (seedSz - seedIdx));
     }
 
     return ret;

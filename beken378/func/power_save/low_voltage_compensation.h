@@ -4,7 +4,7 @@
 #include "include.h"
 #include "uart_pub.h"
 
-#define LV_PSC_DEBUG                1
+#define LV_PSC_DEBUG                0
 #define LV_PS_BUNDLE_DEBUG          0
 
 #if LV_PSC_DEBUG
@@ -12,6 +12,7 @@
 #define LV_PSC_NULL_PRT            os_null_printf
 #else
 #define LV_PSC_PRT                 os_null_printf
+#define LV_PSC_NULL_PRT            os_null_printf
 #endif
 
 
@@ -60,9 +61,16 @@ typedef struct _lv_bundle_
 #endif
 }BCN_BUNDLE_T;
 
-uint32_t lvc_recv_bcn_handler(uint64_t tsf);
+uint32_t lvc_recv_bcn_handler(uint64_t tsf, uint32_t tsf_offset);
 int32_t lvc_get_lead_duration(void);
-
+#if(CFG_HW_PARSER_TIM_ELEMENT == 1)
+uint32_t lvc_calc_clock_drift_md(int32_t smoothed_clock_drift);
+void lvc_calc_g_bundle_reset(void);
+bool lvc_calc_g_bundle_ready(void);
+uint32_t lvc_recv_bcn_handler_tim(void);
+void lvc_apply_clock_drift_tim(void);
+void lvc_update_clock_drift_tim(uint64_t delta_wakeup, uint64_t wakeup_to_tbtt);
+#endif
 
 #endif // _LOW_VOLTAGE_COMPENSATION_H_
 // eof

@@ -282,6 +282,7 @@ UINT32 usb_open (UINT32 op_flag)
 
 UINT32 usb_close (void)
 {
+    UINT32 param;
     USB_PRT("usb_close\r\n");
 
     param = IRQ_USB_BIT;

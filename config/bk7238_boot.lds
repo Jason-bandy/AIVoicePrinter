@@ -25,12 +25,16 @@
  * |            |  1024k
  * +------------+
  */
-
+#include "../config/sys_config.h"
 
 /* Split memory into area for vectors and ram */
 MEMORY
 {
+#if(CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_1M)
 	flash  (rx) : ORIGIN = 0x00010000, LENGTH = 1M-68K
+#else
+	flash  (rx) : ORIGIN = 0x00010000, LENGTH = 2M-68K
+#endif
 	itcm   (rwx): ORIGIN = 0x003F0000, LENGTH = 16k
 	ram    (rw!x): ORIGIN = 0x00400100, LENGTH = 256k - 0x100
 }
@@ -78,6 +82,7 @@ SECTIONS
 		*(.text.flash_ctrl)
 		*(.text.power_save_dtim_wake)
 		*(.text.sctrl_fix_dpll_div)
+		*(.text.flash_get_id)
 		 *(.text.enter_sleep)
 		*(.text.rt_irq_dispatch)
 		*(.text.rt_fiq_dispatch)

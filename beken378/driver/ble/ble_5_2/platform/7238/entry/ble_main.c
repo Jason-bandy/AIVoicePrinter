@@ -37,6 +37,7 @@
 #include "common_utils.h"
 #include "ate_app.h"
 #include "power_save_pub.h"
+#include "rf.h"
 
 beken_queue_t ble_msg_que = NULL;
 beken_thread_t ble_thread_handle = NULL;
@@ -50,6 +51,7 @@ extern void xvr_reg_tx_pwr_set(uint32_t tx_pwr);
 extern uint32_t ble_cal_get_txpwr(uint8_t idx);
 extern void rwnx_cal_set_txif_2rd(uint8_t txif_2rd_b, uint8_t txif_2rd_g);
 extern void bk7011_set_rx_hpf_bypass(UINT8 bypass);
+extern UINT32 sctrl_ctrl(UINT32 cmd, void *param);
 
 enum {
 	DUT_IDLE,
@@ -89,7 +91,7 @@ void assert_warn(int param0, int param1, const char * file, int line)
 #endif
 
 void platform_reset(uint32_t error)
-{    
+{
 	bk_printf("reset error = %x\r\n", error);
 
 	//watch dog reset
@@ -202,6 +204,7 @@ extern void intc_service_change_handler(UINT8 int_num, FUNCPTR isr);
 
 void enter_dut_fcc_mode(void)
 {
+#if CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST
 	bk_printf("enter dut mode\r\n");
 	uint32_t tx_pwr;
 
@@ -240,11 +243,15 @@ void enter_dut_fcc_mode(void)
 					} else {
 						intc_service_change_handler(IRQ_UART1, uart1_isr);
 					}
+					sctrl_ctrl(CMD_BLE_RF_PTA_EN, NULL);
+					sctrl_ctrl(CMD_BLE_RF_BIT_CLR, NULL);
 					break;
 				case BLE_DUT_START:
 					bk_printf("enter ble dut\r\n");
 					ble_dut_status = DUT_RUNNING;
 
+					sctrl_ctrl(CMD_BLE_RF_PTA_DIS, NULL);
+					sctrl_ctrl(CMD_BLE_RF_BIT_SET, NULL);
 					tx_pwr = ble_cal_get_txpwr(tx_pwr_idx);
 					xvr_reg_tx_pwr_set(tx_pwr);
 					rwnx_cal_set_txif_2rd(0, 0);
@@ -260,12 +267,17 @@ void enter_dut_fcc_mode(void)
 			}
 		}
 	}
+#endif
 }
 
 void enter_normal_app_mode(void)
 {
 	bk_printf("enter normal mode\r\n");
-
+	#if (CFG_USE_PTA)
+	sctrl_ctrl(CMD_BLE_RF_PTA_EN,NULL);
+	#else
+	sctrl_ctrl(CMD_BLE_RF_PTA_DIS,NULL);
+	#endif
 	while (1) {
 		OSStatus err;
 		BLE_MSG_T msg;
@@ -281,18 +293,34 @@ void enter_normal_app_mode(void)
 					//schedule all pending events
 					rwip_schedule();
 					break;
-				default:
-					break;
+					case BLE_THREAD_EXIT:
+						bk_printf("ble thread exit\r\n");
+						goto exit_normal_loop;
+						break;
+					default:
+						break;
 			}
 		}
 
- 		if (ble_ps_enabled())
- 		{
+		if (ble_ps_enabled())
+		{
 			GLOBAL_INT_DIS();
 			rwip_sleep();
 			GLOBAL_INT_RES();
 		}
 	}
+exit_normal_loop:
+{
+	extern void ble_switch_rf_to_wifi(void);
+	GLOBAL_INT_DECLARATION();
+	GLOBAL_INT_DISABLE();
+
+	ble_set_power_up(0);
+	ble_clk_power_up(0);
+	GLOBAL_INT_RESTORE();
+	ble_switch_rf_to_wifi();
+}
+	return;
 }
 
 #if CFG_BLE_DIAGNOSTIC_PORT
@@ -383,6 +411,41 @@ void ble_thread_main(void *arg)
 	rtos_delete_thread(NULL);
 }
 
+void ble_thread_exit(void)
+{
+    if (ble_thread_handle || ble_msg_que) {
+        if(if_ble_sleep()) {
+            rwip_prevent_sleep_set(RW_BLE_ACTIVE_MODE);
+            ble_set_ext_wkup(1);
+            while(if_ble_sleep()) {
+                rtos_delay_milliseconds(4);
+            }
+        }
+        if(ble_thread_handle)
+        {
+            bk_printf("send msg to ble thread exit\r\n");
+            ble_send_msg(BLE_THREAD_EXIT);
+            while(ble_thread_handle)
+            {
+                rtos_delay_milliseconds(4);
+            }
+        }
+        if( rwip_active_check() ) {
+            rwip_prevent_sleep_clear(RW_BLE_ACTIVE_MODE);
+        }
+        if(ble_msg_que)
+        {
+            rtos_deinit_queue(&ble_msg_que);
+            ble_msg_que = NULL;
+        }
+    }
+}
+
+bool ble_thread_is_up(void)
+{
+	return (ble_thread_handle) ? true : false;
+}
+
 void ble_entry(void)
 {
     OSStatus ret;
@@ -467,6 +530,19 @@ UINT32 ble_ctrl( UINT32 cmd, void *param )
 		reg |= (BLE_XVR_PN9_HOLD_MASK << BLE_XVR_PN9_HOLD_POST);
 		REG_WRITE(BLE_XVR_REG25, reg);
 
+	case CMD_BLE_TRIG_RFPLL:
+		reg = REG_READ(BLE_XVR_REG24);
+		reg &= ~(1 << BLE_XVR_AUTO_CHAN_POST);
+		REG_WRITE(BLE_XVR_REG24, reg);
+		Delay_us(100);
+		reg &= ~(BLE_XVR_CHAN_MASK << BLE_XVR_CHAN_POST);
+		REG_WRITE(BLE_XVR_REG24, reg);
+		Delay_us(100);
+		reg |= (1 << BLE_XVR_AUTO_CHAN_POST);
+		REG_WRITE(BLE_XVR_REG24, reg);
+		Delay_us(100);
+		break;
+
 	default:
 		ret = ERR_CMD_NOT_SUPPORT;
 		break;
@@ -498,14 +574,18 @@ UINT32 ble_in_dut_mode(void)
 
 void bk_ble_request_rf(void)
 {
+	#if CFG_USE_PTA
 	power_save_rf_hold_bit_set(RF_HOLD_BY_BLE_BIT);
 	bk7011_set_rx_hpf_bypass(1);
+	#endif
 }
 
 void bk_ble_release_rf(void)
 {
+	#if CFG_USE_PTA
 	bk7011_set_rx_hpf_bypass(0);
 	power_save_rf_hold_bit_clear(RF_HOLD_BY_BLE_BIT);
+	#endif
 }
 
 const struct rwip_eif_api* rwip_eif_get(uint8_t idx)

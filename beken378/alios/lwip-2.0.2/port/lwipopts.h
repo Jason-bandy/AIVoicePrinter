@@ -49,7 +49,10 @@
 #define DEFAULT_THREAD_PRIO             1
 
 /* Disable lwIP asserts */
-#define LWIP_NOASSERT			1
+#define LWIP_NOASSERT
+
+/* Disable lwIP error log */
+#define LWIP_ERROR(message, expression, handler)
 
 #define LWIP_DEBUG                      0
 #define LWIP_DEBUG_TRACE                0

@@ -59,7 +59,7 @@ ble_err_t bk_ble_adv_start(uint8_t actv_idx, struct adv_param *adv, ble_cmd_cb_t
 				| (1 << BLE_OP_SET_RSP_DATA_POS) | (1 << BLE_OP_START_ADV_POS);
 			app_ble_run(actv_idx, BLE_INIT_ADV, op_mask, callback);
 			memcpy(&(app_ble_env.actvs[actv_idx].param.adv), adv, sizeof(struct adv_param));
-			ret = app_ble_create_advertising(actv_idx, adv->channel_map, adv->interval_min, adv->interval_max);
+			ret = app_ble_create_advertising(actv_idx, adv);
 			if (ret != ERR_SUCCESS) {
 				app_ble_reset();
 			}
@@ -158,12 +158,56 @@ ble_err_t bk_ble_create_advertising(uint8_t actv_idx,
 						ble_cmd_cb_t callback)
 {
 	uint32_t op_mask;
+	struct adv_param adv;
 	ble_err_t ret = ERR_SUCCESS;
 
 	if (app_ble_env_state_get() == APP_BLE_READY) {
 		op_mask = 1 << BLE_OP_CREATE_ADV_POS;
 		app_ble_run(actv_idx, BLE_CREATE_ADV, op_mask, callback);
-		ret = app_ble_create_advertising(actv_idx, chnl_map, intv_min, intv_max);
+		adv.channel_map = chnl_map;
+		adv.interval_min = intv_min;
+		adv.interval_max = intv_max;
+		adv.duration = 0;
+		adv.prop = (1 << ADV_PROP_SCANNABLE_POS) | (1 << ADV_PROP_CONNECTABLE_POS);
+		ret = app_ble_create_advertising(actv_idx, &adv);
+		if (ret != ERR_SUCCESS) {
+			app_ble_reset();
+		}
+	} else {
+		bk_printf("ble is not ready\r\n");
+		ret = ERR_BLE_STATUS;
+	}
+
+	return ret;
+}
+
+ble_err_t bk_ble_create_extended_advertising(uint8_t actv_idx,
+						unsigned char chnl_map,
+						uint32_t intv_min,
+						uint32_t intv_max,
+						uint8_t scannable,
+						uint8_t connectable,
+						ble_cmd_cb_t callback)
+{
+	uint32_t op_mask;
+	ext_adv_param_cfg_t ext_adv_param;
+	ble_err_t ret = ERR_SUCCESS;
+
+	if (scannable && connectable) {
+		bk_printf("extended adv cannot be both scannable and connectable!\r\n");
+		return ERR_CMD_NOT_SUPPORT;
+	}
+
+	if (app_ble_env_state_get() == APP_BLE_READY) {
+		op_mask = 1 << BLE_OP_CREATE_ADV_POS;
+		app_ble_run(actv_idx, BLE_CREATE_ADV, op_mask, callback);
+		ext_adv_param.channel_map = chnl_map;
+		ext_adv_param.interval_min = intv_min;
+		ext_adv_param.interval_max = intv_max;
+		ext_adv_param.duration = 0;
+		ext_adv_param.sid = actv_idx;
+		ext_adv_param.prop = (scannable << ADV_PROP_SCANNABLE_POS) | (connectable << ADV_PROP_CONNECTABLE_POS);
+		ret = app_ble_create_extended_advertising(actv_idx, &ext_adv_param);
 		if (ret != ERR_SUCCESS) {
 			app_ble_reset();
 		}
@@ -261,6 +305,32 @@ ble_err_t bk_ble_set_adv_data(uint8_t actv_idx, unsigned char* adv_buff, unsigne
 	return ret;
 }
 
+ble_err_t bk_ble_set_ext_adv_data(uint8_t actv_idx, unsigned char* adv_buff, uint16_t adv_len, ble_cmd_cb_t callback)
+{
+	uint32_t op_mask;
+	ble_err_t ret = ERR_SUCCESS;
+
+	if (adv_len > BLE_CFG_MAX_ADV_DATA_LEN)
+	{
+		bk_printf("ext_adv_data_len error:%d, max_len:%d\r\n", adv_len, BLE_CFG_MAX_ADV_DATA_LEN);
+		return ERR_ADV_DATA;
+	}
+
+	if (app_ble_env_state_get() == APP_BLE_READY) {
+		op_mask = 1 << BLE_OP_SET_ADV_DATA_POS;
+		app_ble_run(actv_idx, BLE_SET_ADV_DATA, op_mask, callback);
+		ret = app_ble_set_adv_data(actv_idx, adv_buff, adv_len);
+		if (ret != ERR_SUCCESS) {
+			app_ble_reset();
+		}
+	} else {
+		bk_printf("ble is not ready\r\n");
+		ret = ERR_BLE_STATUS;
+	}
+
+	return ret;
+}
+
 ble_err_t bk_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, unsigned char scan_len, ble_cmd_cb_t callback)
 {
 	uint32_t op_mask;
@@ -269,6 +339,32 @@ ble_err_t bk_ble_set_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, u
 	if (scan_len > ADV_DATA_LEN)
 	{
 		bk_printf("scan_rsp_len error:%d\r\n", scan_len);
+		return ERR_ADV_DATA;
+	}
+
+	if (app_ble_env_state_get() == APP_BLE_READY) {
+		op_mask = 1 << BLE_OP_SET_RSP_DATA_POS;
+		app_ble_run(actv_idx, BLE_SET_RSP_DATA, op_mask, callback);
+		ret = app_ble_set_scan_rsp_data(actv_idx, scan_buff, scan_len);
+		if (ret != ERR_SUCCESS) {
+			app_ble_reset();
+		}
+	} else {
+		bk_printf("ble is not ready\r\n");
+		ret = ERR_BLE_STATUS;
+	}
+
+	return ret;
+}
+
+ble_err_t bk_ble_set_ext_scan_rsp_data(uint8_t actv_idx, unsigned char* scan_buff, uint16_t scan_len, ble_cmd_cb_t callback)
+{
+	uint32_t op_mask;
+	ble_err_t ret = ERR_SUCCESS;
+
+	if (scan_len > BLE_CFG_MAX_ADV_DATA_LEN - 3) //- ADV_AD_TYPE_FLAGS_LENGTH
+	{
+		bk_printf("ext_scan_rsp_len error:%d, max_len:%d\r\n", scan_len, BLE_CFG_MAX_ADV_DATA_LEN - 3);
 		return ERR_ADV_DATA;
 	}
 

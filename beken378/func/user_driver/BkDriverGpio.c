@@ -62,6 +62,9 @@ OSStatus BkGpioInitialize( bk_gpio_t gpio, bk_gpio_config_t configuration )
     case GPIO_SECOND_FNNC:
         mode = GMODE_SECOND_FUNC;
         break;
+    case GPIO_HIGH_IMPENDANCE:
+        mode = GMODE_SET_HIGH_IMPENDANCE;
+        break;
     default:
         flag = 0;
         break;

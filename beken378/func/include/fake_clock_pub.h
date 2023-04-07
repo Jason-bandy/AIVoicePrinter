@@ -45,11 +45,20 @@ typedef enum
 #define         ONE_CAL_TIME        1000
 #endif
 
+#if (0 == CFG_LOW_VOLTAGE_PS)
 typedef struct
 {
     UINT32 fclk_tick;
     UINT32 tmp1;
 } CAL_TICK_T;
+#else
+typedef struct
+{
+    UINT64 fclk_tick;
+    UINT64 time_us;
+} CAL_TICK_T;
+void fclk_cal_tick(void);
+#endif
 
 extern UINT64 fclk_get_tick(void);
 extern UINT32 fclk_get_second(void);

@@ -136,7 +136,12 @@
 ./ble_pub/app/api/app_ble_task.h
 ./ble_pub/app/api/app_comm.h
 ./ble_pub/app/api/app_sdp.h
+./ble_pub/app/api/app_sec.h
+./ble_pub/app/api/app_bass.h
+./ble_pub/app/api/app_diss.h
 ./ble_pub/app/api/app_task.h
+./ble_pub/app/api/app_hogpd.h
+./ble_pub/app/api/app_findt.h
 ./ble_pub/prf/prf.h
 ./ble_pub/prf/prf_types.h
 ./ble_pub/prf/prf_utils.h

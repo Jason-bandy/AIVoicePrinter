@@ -158,6 +158,7 @@ extern int8_t rwnx_get_system_evm(void);
 extern uint8_t rwnx_get_system_snr(void);
 extern void rwnx_system_evm_init(void);
 
+extern int rwnx_intf_set_rx2tx_rssi_threslod(int8_t level, int8_t rssi_thold);
 /// @}
 #endif // _RWNXL_H_
 

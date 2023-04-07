@@ -847,19 +847,17 @@ static int gapc_param_update_req_ind_handler(kernel_msg_id_t const msgid,
                                            kernel_task_id_t const src_id)
 {
 	uint8_t conidx = KERNEL_IDX_GET(src_id);
+	uint8_t conn_idx = app_ble_find_conn_idx_handle(conidx);
 
-	bk_printf("%s\r\n",__func__);
-	// Send connection confirmation
-	struct gapc_param_update_cfm *cfm = KERNEL_MSG_ALLOC(GAPC_PARAM_UPDATE_CFM,
-								KERNEL_BUILD_ID(TASK_BLE_GAPC, conidx), TASK_BLE_APP,
-								gapc_param_update_cfm);
-
-	cfm->accept = 1;//true;
-	cfm->ce_len_min = 10;
-	cfm->ce_len_max = 20;
-
-	// Send message
-	kernel_msg_send(cfm);
+	conn_param_t conn_param;
+	conn_param.conn_idx = conn_idx;
+	conn_param.intv_min = param->intv_min;
+	conn_param.intv_max = param->intv_max;
+	conn_param.latency = param->latency;
+	conn_param.time_out = param->time_out;
+	if (ble_event_notice) {
+		ble_event_notice(BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT, &conn_param);
+	}
 
 	return (KERNEL_MSG_CONSUMED);
 }

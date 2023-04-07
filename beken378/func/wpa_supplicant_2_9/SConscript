@@ -10,6 +10,7 @@ src = []
 hostapd_path = ""
 src += [hostapd_path + "wpa_supplicant/op_classes.c"]
 src += [hostapd_path + "wpa_supplicant/sme.c"]
+src += [hostapd_path + "src/common/ocv.c"]
 
 if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     src += [hostapd_path + "src/common/sae.c"]
@@ -29,7 +30,7 @@ if (GetLocalDepend(options, 'CFG_WPA3') == 1):
     src += ["../wolfssl/wolfcrypt/src/ecc.c"]
     src += ["../wolfssl/wolfcrypt/src/random.c"]
     src += ["../wolfssl/wolfcrypt/src/sha256.c"]
-if (GetLocalDepend(options, 'CFG_OWE') == 1):
+#if (GetLocalDepend(options, 'CFG_OWE') == 1):
     src += [hostapd_path + "src/crypto/sha256-kdf.c"]
     src += [hostapd_path + "src/crypto/sha384-kdf.c"]
     src += [hostapd_path + "src/crypto/sha512-kdf.c"]

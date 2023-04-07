@@ -19,7 +19,8 @@ extern "C"{
 #define ICU_BASE                                     (0x00802000)
 #define ICU_INT_STATUS                               (ICU_BASE + 19 * 4)
 
-#define KEY_MAX_LEN 64
+#define STA_KEY_MAX_LEN 107
+#define AP_KEY_MAX_LEN 64
 
 enum {
     WLAN_ENC_OPEN,
@@ -158,7 +159,8 @@ typedef struct _network_InitTypeDef_st
 {
     char wifi_mode;               /**< DHCP mode: @ref wlanInterfaceTypedef.*/
     char wifi_ssid[33];           /**< SSID of the wlan needs to be connected.*/
-    char wifi_key[65];            /**< Security key of the wlan needs to be connected, ignored in an open system.*/
+    char wifi_key[108];            /**< Security key of the wlan needs to be connected, ignored in an open system.*/
+                                /**The maximum supported key length is 107 bits.If it exceeds 107 bits,the error "input buffer overflow" will return*/
     char local_ip_addr[16];       /**< Static IP configuration, Local IP address. */
     char net_mask[16];            /**< Static IP configuration, Netmask. */
     char gateway_ip_addr[16];     /**< Static IP configuration, Router IP address. */
@@ -169,6 +171,9 @@ typedef struct _network_InitTypeDef_st
     int  wifi_retry_interval;     /**< Retry interval if an error is occured when connecting an access point,
                                      time unit is millisecond. */
     bool hidden_ssid;             /**< hidden ssid, only for softap */
+#if CFG_WIFI_OCV
+    bool ocv;                     /**< operating channel validation */
+#endif
 #if CFG_WIFI_STA_VSIE || CFG_WIFI_AP_VSIE
     uint8_t vsie[255];			  /**< vendor specific IE for probe req/assoc req. */
     uint8_t vsie_len;			  /**< vendor specific IE len. */
@@ -277,9 +282,30 @@ struct wlan_fast_connect_info
 	uint8_t psk[65];
 	uint8_t pwd[65];
 
-	#if (FAST_CONNECT_INFO_ENC_METHOD == ENC_METHOD_AES)
-	uint8_t padding[5]; /* aes attention: sizeof(RL_BSSID_INFO_T) = 16 *n*/
-	#endif
+#if CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
+	uint16_t freq;
+	u16 beacon_int;
+	uint16_t caps;
+	int level;
+	// u64 tsf;
+	uint16_t ie_len;
+	uint8_t ies[1024];  /* FIXME: use dynamic len */
+#endif
+#if CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST
+	uint8_t pmf;
+	uint8_t tk[16];
+#endif
+#if CFG_WLAN_FAST_CONNECT_WPA3
+	uint8_t pmk_len;
+	uint8_t pmk[64]; // for WPA2 Personal, pmk = psk
+	uint8_t pmkid[16];
+	int akmp;
+#endif
+
+#if (FAST_CONNECT_INFO_ENC_METHOD == ENC_METHOD_AES)
+	/* aes attention: sizeof(RL_BSSID_INFO_T) = 16 * n */
+	uint8_t padding[0] __attribute__ ((aligned (16)));
+#endif
 };
 
 
@@ -564,6 +590,7 @@ extern void power_save_bcn_callback(uint8_t *data, int len, wifi_link_info_t *in
 extern void bk_wlan_register_bcn_cb(monitor_cb_t fn);
 extern void mcu_ps_bcn_callback(uint8_t *data, int len, wifi_link_info_t *info);
 extern void rwnx_cal_set_max_twper(FP32 max_tx_pwr);
+extern int wlan_sta_add_bss(wlan_sta_add_bss_t *bss);
 extern void bk_wlan_ap_csa_coexist_mode(void *arg, uint8_t dummy);
 
 #if CFG_WPA_CTRL_IFACE

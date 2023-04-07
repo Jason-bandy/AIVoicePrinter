@@ -77,11 +77,33 @@
 #define CFG_WIFI_AP_VSIE                           0
 /* Custom softap basic rates, supported rates, ht mcs set */
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
+
+/*Use macro to shut down some unused functions*/
+#define CFG_WPA_MAYBE_UNUSED                       1
+#if CFG_WPA_MAYBE_UNUSED
+#define CONFIG_NOTIFICATION                        1
+#define CONFIG_EID_FLAG                            1
+#define CONFIG_PMKSA_EXISTS                        1
+#define CONFIG_GTK_REKEY                           1
+#endif
+
 /*
  * Support set softap modes: BGN, BG, B. Macro
  * CFG_AP_SUPPORT_HT_IE must be enabled to support N mode
  */
 #define CFG_WIFI_AP_HW_MODE                        0
+
+#define CfG_MACRO_MAYBE_UNUSED                     1
+#if CfG_MACRO_MAYBE_UNUSED
+#define CFG_WIFI_RSSI                              1
+#define CFG_WIFI_VERSION                           1
+#define CFG_WIFI_CHANNEL                           1
+#define CFG_WIFI_SLOTTIME                          1
+#define CFG_WIFI_DBG_TROGGER                       1
+#define CFG_MODE_SET                               1
+#define CFG_FILTER_SET                             1
+#define CFG_RC_STATS                               1
+#endif
 
 /* PMF */
 #define CFG_IEEE80211W                             0
@@ -89,13 +111,13 @@
 #undef CFG_ROLE_LAUNCH
 #define CFG_ROLE_LAUNCH                            0
 #endif
-#define CFG_WPA3                                   0
+#define CFG_WPA3                                   1
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_OWE                                    0
+#define CFG_OWE                                    1
 /* use wpa2 instead of wpa3-sae if in wpa3 transition mode */
 #define CFG_CFG_WPA2_PREFER_TO_SAE                 0
 #endif
@@ -122,6 +144,8 @@
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
 #define CFG_SUPPORT_SARADC                         1
+#define CFG_SARADC_INTFACE                         1
+#define CFG_SARADC_CALIBRATE                       1
 
 #define CFG_SDIO                                   0
 #define CFG_SDIO_TRANS                             0
@@ -149,8 +173,11 @@
 #define CFG_UART_DEBUG                             0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
-#define CFG_IPERF_TEST                             0
-#if CFG_IPERF_TEST
+#define IPERF_CLOSE                                0  /* close iperf */
+#define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
+#define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 #define CFG_IPERF_TEST_ACCEL                       1
 #define CFG_IPERF_DONT_MALLOC_BUFFER               1
 #endif
@@ -198,6 +225,7 @@
 
 /*section 9-----for DHCP servicers and client*/
 #define CFG_USE_DHCP                               1
+#define CFG_USE_DHCPD                              1 // for servicers in ap mode
 
 /*section 11-----temperature detect*/
 #define CFG_USE_TEMPERATURE_DETECT                 1
@@ -233,6 +261,8 @@
 #define CFG_HW_PARSER_TIM_ELEMENT                  0
 #endif
 
+#define CFG_LV_PS_WITH_IDLE_TICK                   0
+
 /*section 17-----support sta power sleep*/
 #define CFG_USE_STA_PS                             1
 #define CFG_LOW_LATENCY_PS                         0
@@ -253,14 +283,11 @@
 #endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
-/*section 22 ----- support adc calibrate*/
-#define CFG_SARADC_CALIBRATE                       1
-
 /*section 23 ----- support reduce nomal power*/
 #define CFG_SYS_REDUCE_NORMAL_POWER                0
 
 /*section 24 ----- less memery in rwnx*/
-#define CFG_LESS_MEMERY_IN_RWNX                    0
+#define CFG_LESS_MEMERY_IN_RWNX                    1
 #if CFG_IPERF_TEST_ACCEL
 #undef CFG_LESS_MEMERY_IN_RWNX
 #define CFG_LESS_MEMERY_IN_RWNX                    0
@@ -275,8 +302,9 @@
 #define CFG_USE_TICK_CAL                           1
 
 #define CFG_SUPPORT_BLE                            1
+#define CFG_BLE_USE_CLI                            1
 #define CFG_SUPPORT_BLE_MESH                       0
-#define CFG_USE_PTA                                0
+#define CFG_USE_PTA                                1
 
 #if ((0 == CFG_SUPPORT_BLE) && (CFG_USE_BLE_PS))
 #error "check the ble macro, thx!"
@@ -337,7 +365,7 @@
 #define FLASH_SELECTION_TYPE_2M                    0x200000 //2MBytes
 #define FLASH_SELECTION_TYPE_4M                    0x400000 //4MBytes
 #define FLASH_SELECTION_TYPE_8M                    0x800000 //8MBytes
-#define CFG_FLASH_SELECTION_TYPE                   FLASH_SELECTION_TYPE_1M
+#define CFG_FLASH_SELECTION_TYPE                   FLASH_SELECTION_TYPE_2M
 
 /* watchdog, freertos only */
 #define CFG_INT_WDG_ENABLED                        1
@@ -347,11 +375,12 @@
 
 /*section 29 -----  peripheral interface open  */
 #define CFG_USE_I2C1                                0
-#define CFG_USE_I2C2                                1
+#define CFG_USE_I2C2                                0
 
-#define CFG_USE_SPI_MASTER                         1
-#define CFG_USE_SPI_SLAVE                          1
-#define CFG_USE_SPI_DMA                            1
+#define CFG_USE_SPI                                0
+#define CFG_USE_SPI_MASTER                         0
+#define CFG_USE_SPI_SLAVE                          0
+#define CFG_USE_SPI_DMA                            0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST							0
@@ -368,5 +397,9 @@
 #define CFG_BK7238_NON_SIGNALING_OPTIMIZE          1
 #define CFG_NX_MAC_DEEP_CLKGATE                    0
 #define CFG_BK7238_NX_POWTBL_ISSUE                 1
+#define CFG_NX_SOFTWARE_TX_RETRY                   1
+#define CFG_NX_OPTIMIZE_WEAKSIGNAL                 1
+
+#define CFG_WRAP_LIBC                    1
 
 #endif // _SYS_CONFIG_H_

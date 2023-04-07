@@ -12,6 +12,8 @@
 #include "uart_pub.h"
 #include "spi_bk7231n.h"
 
+#if CFG_USE_SPI
+
 #define SPI_PERI_CLK_26M		(26 * 1000 * 1000)
 #define SPI_PERI_CLK_DCO		(120 * 1000 * 1000)
 
@@ -693,6 +695,8 @@ void spi_isr(void)
 		}
 	}
 }
+
+#endif // CFG_USE_SPI
 // eof
 #endif
 

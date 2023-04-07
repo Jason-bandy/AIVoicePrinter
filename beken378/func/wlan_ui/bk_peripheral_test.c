@@ -450,6 +450,10 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 		}
 	}else if ((os_strcmp(argv[1], "master_dma_tx_loop") == 0))
 	{
+		// gspi_test master_dma_tx_loop buf_len  rate  repeat_cnt
+		// this command send buf_len with repeat_cnt continueously
+		// buf_len need align with 4 byte
+		// repeat_cnt  0 & 1, means send 1 time.
 		UINT8 *buf;
 		int tx_len;
 
@@ -458,9 +462,14 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 		else
 			tx_len = atoi(argv[2]);
 
-		max_hz = atoi(argv[3]); //SPI_BAUDRATE;
+		if(tx_len & 0x3)
+		{
+			// 4 byte alian
+			tx_len = (tx_len / 4 + 1) * 4;
+			bk_printf("spi master dma tx loop: need len with 4 byte align\r\n");
+		}
 
-		bk_printf("spi master  dma tx: tx_len:%d max_hz:%d\r\n", tx_len, max_hz);
+		max_hz = atoi(argv[3]); //SPI_BAUDRATE;
 
 		buf = os_malloc(tx_len * sizeof(UINT8));
 		if (!buf) {
@@ -478,6 +487,8 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 		msg.recv_buf = NULL;
 		msg.recv_len = 0;
 		msg.repeat_cnt = atoi(argv[4]);
+
+		bk_printf("spi master  dma tx: tx_len:%d max_hz:%d,repeat:%d\r\n", tx_len, max_hz, msg.repeat_cnt);
 
 		mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
 
@@ -487,49 +498,7 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 
 		bk_spi_master_dma_tx_loop_deinit();
 
-		bk_printf("spi master  dma tx loop test end \r\n");
-	}else if ((os_strcmp(argv[1], "master_dma_tx_loop_repeat") == 0))
-	{
-		UINT8 *buf;
-		int tx_len;
-
-		if (argc < 2)
-			tx_len = SPI_RX_BUF_LEN;
-		else
-			tx_len = atoi(argv[2]);
-
-		max_hz = atoi(argv[3]); //SPI_BAUDRATE;
-
-		bk_printf("spi master  dma tx: tx_len:%d max_hz:%d\r\n", tx_len, max_hz);
-
-		buf = os_malloc(tx_len * sizeof(UINT8));
-		if (!buf) {
-			bk_printf("buf malloc fail\r\n");
-			return;
-		}
-
-		os_memset(buf, 0, tx_len);
-
-		for (int i = 0; i < tx_len; i++)
-			buf[i] = i + 0x60;
-
-		msg.send_buf = buf;
-		msg.send_len = tx_len;
-		msg.recv_buf = NULL;
-		msg.recv_len = 0;
-		msg.repeat_cnt = atoi(argv[4]);
-
-		mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
-
-		bk_spi_master_dma_tx_loop_init(mode, max_hz, &msg);
-
-		UINT8 cnt = 5;
-		while (cnt--) {
-			bk_spi_master_dma_send_loop(&msg);
-			bk_printf("spi_dma_tx_loop_send cnt :%d\r\n",cnt);
-		}
-
-		bk_spi_master_dma_tx_loop_deinit();
+		bk_printf("spi master  dma tx loop test end\r\n");
 	}
 #endif
 	else

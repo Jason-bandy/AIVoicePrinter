@@ -172,6 +172,7 @@ enum
 #define MAC_ARM_WAKEUP_EN_BIT                       	 (1 << 26) 
 #define MAC_GENERAL_ARM_WAKEUP_EN_BIT                    (1 << 22) 
 #define GENERDMA_ARM_WAKEUP_EN_BIT                      (1 << 15)
+#define SARADC_ARM_WAKEUP_EN_BIT                        (1 << 11)
 #define AUDIO_ARM_WAKEUP_EN_BIT                         (1 << 10)
 #define GPIO_ARM_WAKEUP_EN_BIT                          (1 << 7)
 #define PWM_ARM_WAKEUP_EN_BIT                           (1 << 9)

@@ -16,7 +16,7 @@
 #include "general_dma.h"
 #include "spi_bk7271.h"
 
-#if CFG_USE_SPI_MASTER
+#if ((CFG_USE_SPI_MASTER) && (CFG_USE_SPI))
 struct bk_spi_dev {
 	UINT8 *tx_ptr;
 	UINT32 tx_len;

@@ -215,8 +215,14 @@
 #define BLE_ADV_BUF_NB_TX            (BLE_ACTIVITY_MAX * 2 + 1)
 /// Number of advertising or scan response data fragments in extended advertising PDU chain
 #define BLE_ADV_FRAG_NB_TX           (5)
+#if (CFG_BLE_AUX_CHAIN)
+/// Size of advertising or scan response data fragments in extended advertising PDU chain
+//max payload len(255) - (ext_header_len_bit&adv_mode)(1) - max extended header length(63)
+#define BLE_ADV_FRAG_SIZE_TX         (191)
+#else
 /// Size of advertising or scan response data fragments in extended advertising PDU chain
 #define BLE_ADV_FRAG_SIZE_TX         (31)
+#endif
 /// Maximum advertising data length
 #define BLE_CFG_MAX_ADV_DATA_LEN         (BLE_ADV_FRAG_NB_TX * BLE_ADV_FRAG_SIZE_TX)
 

@@ -61,6 +61,8 @@ extern UINT32 rwm_get_rx_valid(void);
 extern UINT8 rwm_get_tid();
 extern void rwm_set_tid(UINT8 tid);
 uint8_t classify8021d(UINT8 *buf);
+UINT32 rwn_check_sw_tx_retry(struct txdesc *txdesc);
+extern void rwn_set_tx_low_rate_once(void);
 
 #endif // _RW_MSDU_H_
 // eof

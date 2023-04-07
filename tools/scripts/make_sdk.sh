@@ -41,7 +41,7 @@ done
 #   2.1 build iper/airkiss with libs that generated in step1.1
 #
 # On step2.1 we need libip_7238_sta, build it here!
-./tools/scripts/generate_beken_libs.sh bk7238_no_ble
+#./tools/scripts/generate_beken_libs.sh bk7238_no_ble
 
 for PLATFORM in ${PLATFORMS}
 do

@@ -79,7 +79,9 @@ enum mm_msg_tag
     /// START Confirmation.
     MM_START_CFM,
     /// Read Version Request.
+#if CFG_WIFI_VERSION
     MM_VERSION_REQ,
+#endif
     /// Read Version Confirmation.
     MM_VERSION_CFM,
     /// ADD INTERFACE Request.
@@ -101,7 +103,9 @@ enum mm_msg_tag
     /// STA DEL Confirm.
     MM_STA_DEL_CFM,
     /// RX FILTER CONFIGURATION Request.
+#if CFG_FILTER_SET
     MM_SET_FILTER_REQ,
+#endif
     /// RX FILTER CONFIGURATION Confirmation.
     MM_SET_FILTER_CFM,
     /// CHANNEL CONFIGURATION Request.
@@ -131,7 +135,9 @@ enum mm_msg_tag
     /// EDCA PARAMETERS CONFIGURATION Confirmation.
     MM_SET_EDCA_CFM,
     /// ABGN MODE CONFIGURATION Request.
+#if CFG_MODE_SET
     MM_SET_MODE_REQ,
+#endif
     /// ABGN MODE CONFIGURATION Confirmation.
     MM_SET_MODE_CFM,
 	
@@ -141,7 +147,9 @@ enum mm_msg_tag
     /// Confirmation of the @ref MM_SET_VIF_STATE_REQ message.
     MM_SET_VIF_STATE_CFM,
     /// SLOT TIME PARAMETERS CONFIGURATION Request.
+#if CFG_WIFI_SLOTTIME
     MM_SET_SLOTTIME_REQ,
+#endif
     /// SLOT TIME PARAMETERS CONFIGURATION Confirmation.
     MM_SET_SLOTTIME_CFM,
     /// IDLE mode change Request.
@@ -178,7 +186,9 @@ enum mm_msg_tag
     MM_SET_POWER_CFM,
     /// Request to the LMAC to trigger the embedded logic analyzer and forward the debug
     /// dump.
+#if CFG_WIFI_DBG_TROGGER
     MM_DBG_TRIGGER_REQ,
+#endif
     /// Set Power Save mode
     MM_SET_PS_MODE_REQ,
 	
@@ -262,7 +272,9 @@ enum mm_msg_tag
     /// P2P NoA Update Indication - GO Only
     MM_P2P_NOA_UPD_IND,
     /// Request to set RSSI threshold and RSSI hysteresis
+#if CFG_WIFI_RSSI
     MM_CFG_RSSI_REQ,
+#endif
     /// Indication that RSSI is below or above the threshold
     MM_RSSI_STATUS_IND,
     /// Indication that CSA is done
@@ -287,7 +299,9 @@ enum mm_msg_tag
     MM_SCAN_CHANNEL_END_IND,
 
 	///Get the monitor channel
+#if CFG_WIFI_CHANNEL
 	MM_GET_CHANNEL_REQ,
+#endif
 	MM_GET_CHANNEL_CFM,
 
 	///Beacon tagged parameters change

@@ -261,10 +261,13 @@ struct sm_connect_req
     /// Buffer containing the additional information elements to be put in the
     /// association request
     uint32_t ie_buf[64];
-	/// bcn_ie_len
+    /// bcn_ie_len
     uint16_t bcn_len;
+    int8_t rssi;
+    uint16_t cap_info;
+    uint16_t beacon_period;
     /// beacon ie
-	uint32_t bcn_buf[0];
+    uint32_t bcn_buf[0];
 };
 
 /// Structure containing the parameters of @ref SM_CONNECT_REQ message.

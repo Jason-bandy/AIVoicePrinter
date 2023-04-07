@@ -41,7 +41,7 @@ void intc_hdl_entry(UINT32 int_status)
     status = int_status & isrs_mask;
     INTC_PRT("intc:%x:%x\r\n", int_status, status);
 
-    #if (CFG_USE_STA_PS && (0 == CFG_LOW_VOLTAGE_PS))
+    #if (CFG_USE_STA_PS)
     power_save_dtim_wake(status);
     #endif
 

@@ -140,19 +140,21 @@ struct vif_info_tag
             uint16_t listen_interval;
             /// Flag indicating if we are expecting BC/MC traffic or not
             bool dont_wait_bcmc;
+            /// Flag indicating if peer AP has tsf offset
+            bool tsf_has_offset;
             /// Number of error seen during transmission of last NULL frame indicating PS change
             uint8_t ps_retry;
             #endif
             /// Index of the station being the peer AP
             uint8_t ap_id;
-			
+
             #if NX_UAPSD
             /// Time of last UAPSD transmitted/received frame
             uint32_t uapsd_last_rxtx;
             /// Bitfield indicating which queues are U-APSD enabled
             uint8_t uapsd_queues;
             #endif
-			
+
             #if NX_CONNECTION_MONITOR
             /// Time of last keep-alive frame sent to AP
             uint32_t mon_last_tx;
@@ -188,12 +190,12 @@ struct vif_info_tag
             uint8_t rssi_hyst;
             // Current status of RSSI (0=RSSI is high, 1=RSSI is low)
             bool rssi_status;
-            
+
             /// Current CSA counter
             uint8_t csa_count;
             /// Indicate if channel switch (due to CSA) just happened
             bool csa_occured;
-            
+
             uint8_t mm_retry;
             #if (TDLS_ENABLE)
             /// TDLS station
@@ -205,7 +207,7 @@ struct vif_info_tag
         struct
         {
             uint32_t dummy;
-			
+
             #if NX_BCN_AUTONOMOUS_TX
             /// Frame descriptor that will be used for the beacon transmission
             struct txl_frame_desc_tag bcn_desc;
@@ -232,12 +234,12 @@ struct vif_info_tag
             /// Status bit of the BC/MC traffic bufferized (0: no traffic, 1: traffic)
             uint8_t bc_mc_status;
             /// Current CSA counter
-            uint8_t csa_count;            
+            uint8_t csa_count;
             uint8_t csa_action_count;
             /// Current CSA offset in beacon
             uint8_t csa_oft[BCN_MAX_CSA_CPT];
             #endif
-			
+
             /// Flag indicating how many connected stations are currently in PS
             uint8_t ps_sta_cnt;
             /// Control port ethertype
@@ -317,6 +319,14 @@ struct vif_mgmt_env_tag
     /// Index of VIF using the lowest Beacon Interval
     uint8_t low_bcn_int_idx;
 };
+
+
+/// Iterate for each used vif
+#define for_each_vif_entry(_vif) \
+    for (_vif = (struct vif_info_tag *)co_list_pick(&vif_mgmt_env.used_list); \
+         _vif != NULL; \
+         _vif = (struct vif_info_tag *)co_list_next(&_vif->list_hdr))
+
 
 /*
  * GLOBAL VARIABLES

@@ -10,8 +10,8 @@
 #include <stdlib.h>
 #include <finsh.h>
 #include <rtdef.h>
-#define SARADC_VBAT_DETECT
-#ifdef SARADC_VBAT_DETECT
+//#define SARADC_VBAT_DETECT		1
+#if ((SARADC_VBAT_DETECT == 1) && (CFG_SARADC_INTFACE == 1))
 #include "saradc_intf.h"
 #include "sys_ctrl_pub.h"
 

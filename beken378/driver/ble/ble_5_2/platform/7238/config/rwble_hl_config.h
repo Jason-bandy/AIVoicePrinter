@@ -188,7 +188,11 @@
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
 #define BLE_GAPC                    1
 // must be equals to sizeof(gapc_con_t)
+#if (BLE_GATT_CLI)
 #define BLE_GAPC_HEAP_ENV_SIZE      (120 + KERNEL_HEAP_MEM_RESERVED)
+#else
+#define BLE_GAPC_HEAP_ENV_SIZE      (116 + KERNEL_HEAP_MEM_RESERVED)
+#endif
 #else //(BLE_CENTRAL || BLE_PERIPHERAL)
 #define BLE_GAPC                    0
 #define BLE_GAPC_HEAP_ENV_SIZE      0
@@ -217,7 +221,11 @@
 #endif //(BLE_GAF)
 
 // Must be equals to (sizeof(gatt_con_env_t) and consider 4 * BLE_GATT_BEARER_PER_CON)
+#if (BLE_GATT_CLI)
 #define BLE_GATT_CON_ENV_SIZE       (84 + (4 * BLE_GATT_BEARER_PER_CON))
+#else
+#define BLE_GATT_CON_ENV_SIZE       (80 + (4 * BLE_GATT_BEARER_PER_CON))
+#endif
 #define BLE_GATT_BEARER_ENV_SIZE    (sizeof(common_list_t) + 8 + KERNEL_HEAP_MEM_RESERVED)
 #define BLE_GATT_HEAP_ENV_SIZE      (BLE_GATT_CON_ENV_SIZE + KERNEL_HEAP_MEM_RESERVED)
 // Must be equals to (sizeof(l2cap_con_env_t) and consider 4 * BLE_L2CAP_CHAN_PER_CON)
@@ -241,7 +249,9 @@
 /******************************************************************************************/
 
 #define CFG_HL_MSG_API
+#if (BLE_CENTRAL)
 #define CFG_GATT_CLI
+#endif
 
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
     /// Support HL Message API

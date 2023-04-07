@@ -6,7 +6,6 @@
 #include "drv_model_pub.h"
 #include "uart_pub.h"
 #include "flash_pub.h"
-#include "power_save_pub.h"
 #include "intc_pub.h"
 #include "icu_pub.h"
 #include "gpio_pub.h"
@@ -27,9 +26,13 @@
 #include "ble_pub.h"
 #endif
 #include "phy_trident.h"
+#include "ate_app.h"
 
-#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7238)
 #include "flash.h"
+#endif
+
+#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7231U)
 #include "icu.h"
 #endif
 
@@ -37,6 +40,7 @@
 #include "_reg_la.h"
 #include "reg_mdm_cfg.h"
 #include "reg_mac_pta.h"
+#include "mac_phy_bypass_pub.h"
 #define GPIO_WAKEUP_INT_BAK_ADDR REG_LA_BASE_ADDR
 #else
 #define GPIO_WAKEUP_INT_BAK_ADDR (0x0080a084)
@@ -97,6 +101,7 @@ static SDD_OPERATIONS sctrl_op =
 static UINT32 rf_hold_status = 0;
 UINT32 rf_sleeped = 0;
 UINT32 sta_rf_sleeped = 0;
+UINT32 div_backup;
 
 /*
  * records overclock count: > 0 if there's an API calls sctrl_overclk()
@@ -104,7 +109,6 @@ UINT32 sta_rf_sleeped = 0;
 static uint32_t sctrl_overclock_refcnt __maybe_unused = 0;
 
 static void sctrl_rf_init(void);
-extern void WFI( void );
 
 /**********************************************************************/
 void sctrl_dpll_delay10us(void)
@@ -220,8 +224,8 @@ void sctrl_cali_dpll(UINT8 flag)
     UINT32 trx_0xc = 0;
     UINT32 pwtbl_0x34 = 0;
     extern void bk7011_update_tx_power_when_cal_dpll(int start_or_stop, UINT32 *trx_0xc, UINT32 *pwtbl_0x34);
-
-    bk7011_update_tx_power_when_cal_dpll(1, &trx_0xc, &pwtbl_0x34);
+    if(!flag)
+        bk7011_update_tx_power_when_cal_dpll(1, &trx_0xc, &pwtbl_0x34);
 #endif
     param = sctrl_analog_get(SCTRL_ANALOG_CTRL0);
     param &= ~(SPI_TRIG_BIT);
@@ -249,7 +253,8 @@ void sctrl_cali_dpll(UINT8 flag)
     sctrl_analog_set(SCTRL_ANALOG_CTRL0, param);
 
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
-    bk7011_update_tx_power_when_cal_dpll(0, &trx_0xc, &pwtbl_0x34);
+    if(!flag)
+        bk7011_update_tx_power_when_cal_dpll(0, &trx_0xc, &pwtbl_0x34);
 #endif
 }
 
@@ -266,7 +271,16 @@ void sctrl_dpll_isr(void)
     bk7011_cal_bias();
 #endif
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);
-    sctrl_cali_dpll(0);
+    if (get_ate_mode_state())
+    {
+        // change tx power when cali dpll in ATE mode, RF already hold
+        sctrl_cali_dpll(0);
+    }
+    else
+    {
+        // keep tx power when cali dpll in APP mode, avoid access TRX
+        sctrl_cali_dpll(1);
+    }
 
     os_printf("DPLL Unlock\r\n");
 }
@@ -558,7 +572,7 @@ void sctrl_init(void)
     param = 0x7F00769A;
     sctrl_analog_set(SCTRL_ANALOG_CTRL2, param);
 
-    param = 0xC65003C0;
+    param = 0xE65013C0; //qunshan20221215: increase xtal ldo current to improve evm; qunshan20230106: <29:28>=2
     sctrl_analog_set(SCTRL_ANALOG_CTRL3, param);
 
     /*sys_ctrl <0x1a> */
@@ -568,11 +582,14 @@ void sctrl_init(void)
     param = 0x10088200;//wangjian20220923
     sctrl_analog_set(SCTRL_ANALOG_CTRL5, param);
 
-	/*sys ctrl clk gating, for rx dma dead*/
-	REG_WRITE(SCTRL_CLK_GATING, 0x1ff);
+    /*sys ctrl clk gating, for rx dma dead*/
+    REG_WRITE(SCTRL_CLK_GATING, 0x1ff);
 
-	/*set always on vdddig to 8*/
-	param = 0x8;
+    /*init VDD reg*/
+    REG_WRITE(SCTRL_DIGTAL_VDD, 0x8288);
+
+    /*set always on vdddig to 8*/
+    param = 0x8;
     sctrl_ctrl(CMD_SCTRL_SET_VDD_VALUE, &param);
 
     /*enable blk clk
@@ -959,21 +976,17 @@ void sctrl_ps_dump()
         os_printf(" %d 0x%x\r\n", i, *((UINT32 *)(&ps_saves) + i));
 }
 
-void sctrl_enable_lvps_rosc_timer(void)
+void sctrl_disable_rosc_timer(void)
 {
 	UINT32 reg;
-	UINT32 sleep_time;
-
-	sleep_time = lv_ps_get_sleep_duration();
-	if(0 == sleep_time)
-	{
-	return;
-	}
-
 	reg = REG_READ(SCTRL_ROSC_TIMER);
 	reg &= ~ (ROSC_TIMER_ENABLE_BIT);
 	REG_WRITE(SCTRL_ROSC_TIMER,reg);
+}
 
+void sctrl_enable_rosc_timer(UINT32 rosc_period)
+{
+	UINT32 reg;
 	reg = REG_READ(SCTRL_ROSC_TIMER);
 	reg |= ROSC_TIMER_INT_STATUS_BIT;
 	REG_WRITE(SCTRL_ROSC_TIMER,reg);
@@ -982,18 +995,19 @@ void sctrl_enable_lvps_rosc_timer(void)
 
 #if (CFG_SOC_NAME != SOC_BK7231)
 	/* set high 16bit sleep time*/
-	reg = (sleep_time >> 16) & 0xffff;
+	reg = (rosc_period >> 16) & 0xffff;
 	REG_WRITE(SCTRL_ROSC_TIMER_H,reg);
 #endif
 
 	/* set high 16bit sleep time*/
 	reg = REG_READ(SCTRL_ROSC_TIMER);
 	reg &= ~(ROSC_TIMER_PERIOD_MASK << ROSC_TIMER_PERIOD_POSI);
-	reg |= ((sleep_time & 0xffff) << ROSC_TIMER_PERIOD_POSI);
+	reg |= ((rosc_period & 0xffff) << ROSC_TIMER_PERIOD_POSI);
 	REG_WRITE(SCTRL_ROSC_TIMER,reg);
 	reg = REG_READ(SCTRL_ROSC_TIMER);
 	reg |= ROSC_TIMER_ENABLE_BIT;
 	REG_WRITE(SCTRL_ROSC_TIMER,reg);
+
 }
 
 #if (CFG_SOC_NAME == SOC_BK7238)
@@ -1075,11 +1089,13 @@ void sctrl_hw_sleep(UINT32 peri_clk)
 #endif
 #endif
     PS_DEBUG_DOWN_TRIGER;
+#if (CFG_SOC_NAME != SOC_BK7238)
     /* dpll division reset*/
     reg = REG_READ(SCTRL_CONTROL);
     reg |= DPLL_CLKDIV_RESET_BIT;
     REG_WRITE(SCTRL_CONTROL, reg);
     PS_DEBUG_DOWN_TRIGER;
+#endif
     /* dpll (480m) & xtal2rf  disable*/
     reg = REG_READ(SCTRL_BLOCK_EN_CFG);
     reg &= ~(BLOCK_EN_WORD_MASK << BLOCK_EN_WORD_POSI);
@@ -1102,10 +1118,13 @@ void sctrl_hw_sleep(UINT32 peri_clk)
 #endif
 #if (CFG_SOC_NAME != SOC_BK7221U)
     /* center bias power down*/
-    reg = sctrl_analog_get(SCTRL_ANALOG_CTRL2);
-    reg &= (~(CENTRAL_BAIS_ENABLE_BIT));
-    sctrl_analog_set(SCTRL_ANALOG_CTRL2, reg);
-    while(sctrl_analog_get(SCTRL_ANALOG_CTRL2) & (CENTRAL_BAIS_ENABLE_BIT));
+    if( 0 == mcu_ps_get_cb_hold() )
+    {
+        reg = sctrl_analog_get(SCTRL_ANALOG_CTRL2);
+        reg &= (~(CENTRAL_BAIS_ENABLE_BIT));
+        sctrl_analog_set(SCTRL_ANALOG_CTRL2, reg);
+        while(sctrl_analog_get(SCTRL_ANALOG_CTRL2) & (CENTRAL_BAIS_ENABLE_BIT));
+    }
 #endif
     sctrl_mcu_ps_info.hw_sleep = 1;
     PS_DEBUG_DOWN_TRIGER;
@@ -1114,14 +1133,9 @@ void sctrl_hw_sleep(UINT32 peri_clk)
     ps_saves[0].peri_clk_cfg= REG_READ(ICU_PERI_CLK_PWD);
     REG_WRITE(ICU_PERI_CLK_PWD, peri_clk);
 #endif
-#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
-    if(lv_ps_wakeup_mac_timepoint !=0)
-    {
-        ps_info.wakeup_time_in_total += (cal_get_time_us()-lv_ps_wakeup_mac_timepoint);
-        /*if received more than 1 beacon in current wakeup,there must have data to receive*/
-        if(lv_ps_beacon_cnt_after_wakeup <= 1)
-            ps_info.wakeup_time_in_total_without_receive_data += (cal_get_time_us()-lv_ps_wakeup_mac_timepoint);
-    }
+#if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
+    uint64_t current_time = cal_get_time_us();
+    lv_ps_info_mcu_sleep(current_time);
 #endif
 
     ps_delay(1);
@@ -1153,7 +1167,7 @@ void sctrl_hw_sleep(UINT32 peri_clk)
     REG_WRITE(SCTRL_SLEEP, reg);
 #endif
 
-#if (1 == CFG_LOW_VOLTAGE_PS)
+#if (1 == CFG_LOW_VOLTAGE_PS)&&(0==CFG_LV_PS_WITH_IDLE_TICK)
 
 //	REG_WRITE((0x00802800+(23*4)), 0x00);
     lv_ps_wakeup_set_timepoint();
@@ -1179,11 +1193,13 @@ void sctrl_hw_wakeup(void)
 	PS_DEBUG_BCN_TRIGER;
 #if (CFG_SOC_NAME != SOC_BK7221U)
     /* center bias power on*/
-    reg = sctrl_analog_get(SCTRL_ANALOG_CTRL2);
-    reg |= CENTRAL_BAIS_ENABLE_BIT;
-    sctrl_analog_set(SCTRL_ANALOG_CTRL2, reg);
-
-    while((sctrl_analog_get(SCTRL_ANALOG_CTRL2) & CENTRAL_BAIS_ENABLE_BIT)  == 0);
+    if( 0 == mcu_ps_get_cb_hold() )
+    {
+        reg = sctrl_analog_get(SCTRL_ANALOG_CTRL2);
+        reg |= CENTRAL_BAIS_ENABLE_BIT;
+        sctrl_analog_set(SCTRL_ANALOG_CTRL2, reg);
+        while((sctrl_analog_get(SCTRL_ANALOG_CTRL2) & CENTRAL_BAIS_ENABLE_BIT)  == 0);
+    }
 #endif
 #if (CFG_SOC_NAME == SOC_BK7238)
     reg = REG_READ(SCTRL_CONTROL);
@@ -1207,14 +1223,22 @@ void sctrl_hw_wakeup(void)
     ps_delay(10);
     PS_DEBUG_BCN_TRIGER;
 
+#if (CFG_SOC_NAME == SOC_BK7238)
+    sctrl_cali_dpll(1);
+    PS_DEBUG_BCN_TRIGER;
+    sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);
+
+    /* MCLK(main clock) select:dpll*//* MCLK division*/
+    sctrl_mclk_select(MCLK_MODE_DPLL, MCLK_DIV_7);
+    PS_DEBUG_BCN_TRIGER;
+#else
     if(sctrl_mcu_ps_info.mcu_use_dco == 0)
     {
         /* MCLK(main clock) select:26M*/
         sctrl_mclk_select(MCLK_MODE_26M_XTAL, MCLK_DIV_0);
-
-
         ps_delay(500);
 	    PS_DEBUG_BCN_TRIGER;
+
         /* dpll division reset release*/
         reg = REG_READ(SCTRL_CONTROL);
         reg &= ~(DPLL_CLKDIV_RESET_BIT);
@@ -1223,7 +1247,6 @@ void sctrl_hw_wakeup(void)
         /* MCLK(main clock) select:dpll*//* MCLK division*/
         sctrl_mclk_select(MCLK_MODE_DPLL, MCLK_DIV_7);
 	    PS_DEBUG_BCN_TRIGER;
-
     }
     else
     {
@@ -1234,13 +1257,14 @@ void sctrl_hw_wakeup(void)
         reg &= ~(DPLL_CLKDIV_RESET_BIT);
         REG_WRITE(SCTRL_CONTROL, reg);
 	    PS_DEBUG_BCN_TRIGER;
-
     }
 
-    sctrl_mcu_ps_info.hw_sleep = 0;
     sctrl_cali_dpll(1);
     PS_DEBUG_BCN_TRIGER;
     sddev_control(GPIO_DEV_NAME, CMD_GPIO_CLR_DPLL_UNLOOK_INT_BIT, NULL);
+#endif
+
+    sctrl_mcu_ps_info.hw_sleep = 0;
 
     #if ((CFG_SOC_NAME == SOC_BK7231) || (CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
     /*open 32K Rosc calib*/
@@ -1291,7 +1315,6 @@ static void sctrl_rf_sleep(void)
         /*Disable BK7011*/
         rc_cntl_stat_set(0x0);
         rf_sleeped = 1;
-    	PS_DEBUG_CK_TRIGER;
 
         /* Modem AHB clock disable*/
         reg = REG_READ(SCTRL_MODEM_CORE_RESET_PHY_HCLK);
@@ -1300,7 +1323,6 @@ static void sctrl_rf_sleep(void)
         /* Modem Subsystem clock 480m disable*/
         reg = REG_READ(SCTRL_CONTROL);
         REG_WRITE(SCTRL_CONTROL, reg | MODEM_CLK480M_PWD_BIT);
-        PS_DEBUG_CK_TRIGER;
     }
 
     GLOBAL_INT_RESTORE();
@@ -1330,7 +1352,6 @@ static void sctrl_rf_wakeup(void)
 
 		/*Enable BK7011:rc_en,ch0_en*/
 		rc_cntl_stat_set(0x09);
-		PS_DEBUG_UP_TRIGER;
 
 #if (CFG_SOC_NAME == SOC_BK7231N) && (0 == CFG_LOW_VOLTAGE_PS)
 		sctrl_fix_dpll_div();
@@ -1356,22 +1377,22 @@ void sctrl_sta_rf_sleep(void)
 
     if(((!bk_wlan_has_role(VIF_STA))
         || power_save_if_rf_sleep())
-	&& ap_if_ap_rf_sleep()
-	&& (sta_rf_sleeped == 0)
-		)
+    && ap_if_ap_rf_sleep()
+    && (sta_rf_sleeped == 0)
+        )
     {
-        PS_DEBUG_CK_TRIGER;
-
         reg = RF_HOLD_BY_STA_BIT;
         sctrl_ctrl(CMD_RF_HOLD_BIT_CLR, &reg);
 
-	sctrl_mac_ahb_slave_clock_disable();
+        sctrl_mac_ahb_slave_clock_disable();
 
         /* Mac Subsystem clock 480m disable*/
         reg = REG_READ(SCTRL_CONTROL);
         REG_WRITE(SCTRL_CONTROL, reg | MAC_CLK480M_PWD_BIT);
-        PS_DEBUG_CK_TRIGER;
 
+#if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
+        lv_ps_info_rf_sleep(0);
+#endif
         sta_rf_sleeped = 1;
     }
 
@@ -1384,19 +1405,17 @@ void sctrl_sta_rf_wakeup(void)
     GLOBAL_INT_DISABLE();
     if( sta_rf_sleeped == 1 )
     {
-        PS_DEBUG_UP_TRIGER;
         if(sctrl_mcu_ps_info.hw_sleep == 1)
         {
             //if rf add mcu up meanwhile
             os_printf("err, hw not up\r\n");
         }
 
-	sctrl_mac_ahb_slave_clock_enable();
+        sctrl_mac_ahb_slave_clock_enable();
         /* Mac Subsystem clock 480m enable*/
         reg = REG_READ(SCTRL_CONTROL);
         reg &= ~MAC_CLK480M_PWD_BIT;
         REG_WRITE(SCTRL_CONTROL, reg);
-    	PS_DEBUG_UP_TRIGER;
 
         reg = RF_HOLD_BY_STA_BIT;
         sctrl_ctrl(CMD_RF_HOLD_BIT_SET, &reg);
@@ -1405,6 +1424,9 @@ void sctrl_sta_rf_wakeup(void)
 //        phy_wakeup_wifi_reinit();
 //    #endif
 
+#if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
+        lv_ps_info_rf_wakeup(0);
+#endif
         sta_rf_sleeped = 0;
     }
     GLOBAL_INT_RESTORE();
@@ -1446,8 +1468,13 @@ void sctrl_mcu_sleep(UINT32 peri_clk)
             | UART1_ARM_WAKEUP_EN_BIT| GPIO_ARM_WAKEUP_EN_BIT
             );
 #endif
+        if(mcu_ps_get_cb_hold() == CB_HOLD_BY_TEMP_DETECT ||
+           mcu_ps_get_cb_hold() == CB_HOLD_BY_VOLTAGE_DETECT)
+        {
+            reg |= SARADC_ARM_WAKEUP_EN_BIT;
+        }
         REG_WRITE(ICU_ARM_WAKEUP_EN, reg);
-#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7231U)
         reg = REG_READ(ICU_PERI_CLK_PWD);
         reg |= (PWD_ARM_WATCHDOG_CLK);
         REG_WRITE(ICU_PERI_CLK_PWD, reg);
@@ -1481,13 +1508,12 @@ UINT32 sctrl_mcu_wakeup(void)
     if(sctrl_mcu_ps_info.hw_sleep == 1)
     {
         sctrl_hw_wakeup();
-#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7221U)
+#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7231U)
         UINT32 reg;
         reg = REG_READ(ICU_PERI_CLK_PWD);
         reg &= ~(PWD_ARM_WATCHDOG_CLK);
         REG_WRITE(ICU_PERI_CLK_PWD, reg);
 #endif
-
         #if PS_CLOSE_PERI_CLK
         REG_WRITE(ICU_PERI_CLK_PWD, ps_saves[0].peri_clk_cfg);
         #endif
@@ -1508,12 +1534,12 @@ UINT32 sctrl_mcu_wakeup(void)
     return wkup_type;
 }
 
-
 void sctrl_mcu_init(void)
 {
     UINT32 reg;
 
     reg = REG_READ(SCTRL_CONTROL);
+    div_backup = (reg >> MCLK_DIV_POSI) & MCLK_DIV_MASK;
     reg &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
 #if (CFG_SOC_NAME == SOC_BK7221U)
     reg &= ~HCLK_DIV2_EN_BIT;
@@ -1539,9 +1565,9 @@ void sctrl_mcu_exit(void)
 #if (CFG_SOC_NAME == SOC_BK7221U)
 	reg |= HCLK_DIV2_EN_BIT;
 #endif
-    reg |= ((MCLK_DIV_3 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+    reg |= ((div_backup & MCLK_DIV_MASK) << MCLK_DIV_POSI);
     REG_WRITE(SCTRL_CONTROL, reg);
-    basic_frequency_for_delay = BASIC_FREQUENCY_DPLL/INSTRUCTION_PER_CYCLE/(MCLK_DIV_7+1)+1;
+    basic_frequency_for_delay = BASIC_FREQUENCY_DPLL/INSTRUCTION_PER_CYCLE/(div_backup+1)+1;
     sctrl_mcu_ps_info.mcu_use_dco = 0;
 
 #endif
@@ -1761,6 +1787,10 @@ void sctrl_mdm_reset(void)
 
         for(i = 0; i < 100; i++);
     }
+
+#if (CFG_SOC_NAME == SOC_BK7238)
+    mpb_regs_reset();
+#endif
     phy_wakeup_rf_reinit();
     phy_wakeup_wifi_reinit();
 
@@ -3644,6 +3674,9 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
             delay(10);
             reg = REG_READ(SCTRL_RESET);
         }
+#if (CFG_SOC_NAME == SOC_BK7238)
+        mpb_regs_reset();
+#endif
         ret = SCTRL_SUCCESS;
         break;
 
@@ -4152,14 +4185,30 @@ out:
 }
 #elif (CFG_SOC_NAME == SOC_BK7238)
 extern void flash_set_clk(UINT8 clk_conf);
+/* save current MCLK before overclock */
+static UINT32 sctrl_overclock_div_backup = -1;
+
 void sctrl_overclock(int enable)
 {
+	UINT32 param;
+
 	GLOBAL_INT_DECLARATION();
 	if (enable) {
 		GLOBAL_INT_DISABLE();
 		 /* already enabled */
 		if (sctrl_overclock_refcnt++)
 			goto out;
+
+		/* read sys_ctrl register */
+		param = REG_READ(SCTRL_CONTROL);
+		/* backup previous mclk div */
+		sctrl_overclock_div_backup = (param >> MCLK_DIV_POSI) & MCLK_DIV_MASK;
+
+		/* set new mclk div: 480M/(2+1)=160M */
+		param &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
+		param |= ((MCLK_DIV_2 & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+		REG_WRITE(SCTRL_CONTROL, param);
+
 		flash_set_clk(8);
 		sctrl_ctrl(CMD_BLE_RF_PTA_DIS, NULL);
 	} else {
@@ -4171,6 +4220,14 @@ void sctrl_overclock(int enable)
 		/* other API still hold overclock */
 		if (sctrl_overclock_refcnt)
 			goto out;
+
+		/* restore previous mclk */
+		if (sctrl_overclock_div_backup != -1) {
+			param = REG_READ(SCTRL_CONTROL);
+			param &= ~(MCLK_DIV_MASK << MCLK_DIV_POSI);
+			param |= ((sctrl_overclock_div_backup & MCLK_DIV_MASK) << MCLK_DIV_POSI);
+			REG_WRITE(SCTRL_CONTROL, param);
+		}
 
 #if CFG_USE_STA_PS
 		flash_set_clk(9);

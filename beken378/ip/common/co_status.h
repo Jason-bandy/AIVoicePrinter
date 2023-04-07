@@ -58,6 +58,8 @@ enum
     CO_BUSY,
     /// Operation already in progress
     CO_OP_IN_PROGRESS,
+    /// No chan ctxt available
+    CO_CHAN_NOT_AVAILABLE,
 };
 
 /// @}

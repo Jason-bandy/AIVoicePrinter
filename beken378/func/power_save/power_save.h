@@ -9,8 +9,20 @@
 #define     PS_DTIM_PERI_WAKE_DELAY                 0
 #define     PS_WAKE_DATA_DELAY                      1
 
+/**
+ * If STA wakes up and misses beacon less than @PS_BCN_MAX_LOSS_LIMIT times,
+ * STA still can enter PS. When beacon loss counter is greater than
+ * @PS_BCN_MAX_LOSS_LIMIT, STA cannot enter PS mode.
+ */
 #define     PS_BCN_MAX_LOSS_LIMIT                      (5)
 
+/**
+ * Represents STA received Beacon Status after waked up from PS.
+ *
+ * @STA_GET_INIT:  initial state or exit ps
+ * @STA_GET_TRUE:  STA has received Beacon after wakeup.
+ * @STA_GET_FALSE: STA has not receive beacon after wakeup.
+ */
 typedef enum {
     STA_GET_INIT = 0,
     STA_GET_TRUE = 1,
@@ -28,6 +40,13 @@ typedef enum {
 } PS_BCN_STATUS;
 
 
+/**
+ * Represents wakeup method.
+ *
+ * @PS_ARM_WAKEUP_NONE  no wakeup method.
+ * @PS_ARM_WAKEUP_RW    wakeup by wifi mac hw
+ * @PS_ARM_WAKEUP_USER  wakeup by user
+ */
 typedef enum {
     PS_ARM_WAKEUP_NONE = 0,
     PS_ARM_WAKEUP_RW = 1,
@@ -54,14 +73,37 @@ typedef enum {
     PS_LISTEN_MODE_INTERVAL = 1,
 } PS_LISTEN_MODE;
 
+/**
+ * task that waits for mac wakeup.
+ *
+ * @wkup_sema semaphore
+ * @list      list entry that queued to bk_ps_info.wk_list.
+ */
 typedef struct ps_do_wkup_sem {
 	beken_semaphore_t wkup_sema;
 	struct co_list_hdr list;
 } PS_DO_WKUP_SEM;
 
-typedef struct  ps_sta {
+
+/**
+ * STA powersave structure
+ *
+ * @ps_arm_wakeup_way      wakeup method
+ * @ps_real_sleep          whether mac has slept
+ * @sleep_first            indicates this is the first sleep after wakeup
+ * @ps_can_sleep           indicates mac now can sleep
+ * @listen_int             beacon interval that set by beacon frame or user
+ * @ps_dtim_period         DTIM period
+ * @ps_dtim_count          DTIM count
+ * @waited_beacon          indicates beacon has received after wakeup
+ * @sleep_count            sleep counter in STA is put into PS. This counter will
+ *                         increases if STA doesn't exit PS mode. Remind that exit
+ *                         PS mode doesn't mean wakeup from interrupt or user.
+ * @wk_list                list of semaphores of tasks that wait for wakeup
+ */
+typedef struct ps_sta {
 	PS_ARM_WAKEUP_WAY ps_arm_wakeup_way ;
-	UINT8     ps_real_sleep ;
+	UINT8 ps_real_sleep ;
 	UINT8 sleep_first;
 	UINT8 ps_can_sleep;
 	UINT8 listen_int;
@@ -76,33 +118,37 @@ typedef struct  ps_sta {
 } STA_PS_INFO;
 
 
-__INLINE struct ps_do_wkup_sem *list2sem ( struct co_list_hdr const *l_list ) {
-	return ( struct ps_do_wkup_sem * ) ( ( ( uint8_t * ) l_list ) - offsetof ( struct ps_do_wkup_sem, list ) );
+__INLINE struct ps_do_wkup_sem *list2sem(struct co_list_hdr const *l_list)
+{
+	return (struct ps_do_wkup_sem *)(((uint8_t *)l_list) - offsetof(struct ps_do_wkup_sem, list));
 }
+
 
 void power_save_mac_idle_callback ( void );
 UINT32 power_save_wkup_event_get ( void );
 void power_save_dtim_ps_init();
-void power_save_ieee_dtim_wakeup ( void );
-UINT8 power_save_me_ps_set_all_state ( UINT8 state );
 PS_STA_BEACON_STATE power_save_beacon_state_get ( void );
 PS_ARM_WAKEUP_WAY power_save_wkup_way_get ( void );
 extern void bmsg_ps_sender ( uint8_t ioctl );
 extern void ps_fake_data_rx_check ( void );
 extern bool ps_sleep_check ( void );
 extern u8 rwn_mgmt_is_only_sta_role_add ( void );
+extern bool wpa_psk_cal_pending(void);
 extern void power_save_beacon_state_set ( PS_STA_BEACON_STATE state );
 extern void power_save_wait_timer_init ( void );
-extern void power_save_keep_timer_stop ( void );
 extern void power_save_wait_timer_stop ( void );
+extern void power_save_keep_timer_init ( void );
+extern void power_save_keep_timer_stop ( void );
 
 //#define  PS_NEXT_DATA_CK_TM    2500 //5s
 
+/// Determine STA is in DTIM PS mode
 #define PS_STA_DTIM_SWITCH (power_save_if_ps_rf_dtim_enabled() \
                             && net_if_is_up()                   \
                             &&g_wlan_general_param->role == CONFIG_ROLE_STA)
 
 
+/// Determine STA can enter power save mode
 #define PS_STA_DTIM_CAN_SLEEP (PS_STA_DTIM_SWITCH          \
                                && (power_save_beacon_state_get() == STA_GET_TRUE    \
                                    || power_save_wkup_way_get() == PS_ARM_WAKEUP_USER) \

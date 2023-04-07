@@ -583,7 +583,7 @@ static WC_INLINE int Sha512Update(wc_Sha512* sha512, const byte* data, word32 le
     AddLength(sha512, len);
 
     if (sha512->buffLen > 0) {
-        word32 add = min(len, WC_SHA512_BLOCK_SIZE - sha512->buffLen);
+        word32 add = _min(len, WC_SHA512_BLOCK_SIZE - sha512->buffLen);
         if (add > 0) {
             XMEMCPY(&local[sha512->buffLen], data, add);
 

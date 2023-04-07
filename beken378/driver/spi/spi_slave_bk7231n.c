@@ -17,7 +17,7 @@
 #include "general_dma_pub.h"
 #include "general_dma.h"
 
-#if CFG_USE_SPI_SLAVE
+#if ((CFG_USE_SPI_SLAVE) && (CFG_USE_SPI))
 #define SPI_SLAVE_RX_FIFO_LEN      (512)
 
 struct spi_rx_fifo {

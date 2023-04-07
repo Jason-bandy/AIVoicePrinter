@@ -62,6 +62,7 @@
 #include "rw_ieee80211.h"
 //#include "sys.h"
 #endif
+#include "low_voltage_ps.h"
 
 monitor_cb_t g_monitor_cb = 0;
 unsigned char g_monitor_is_not_filter = 0;
@@ -85,6 +86,8 @@ static uint8_t g_ap_channel = DEFAULT_CHANNEL_AP;
 
 extern void phy_enable_lsig_intr(void);
 extern void phy_disable_lsig_intr(void);
+extern void sta_ip_get_start_time(void);
+
 
 #if !CFG_IEEE80211AX
 static void rwnx_remove_added_interface(void)
@@ -810,6 +813,60 @@ wr_exit:
 }
 #endif
 
+#if CFG_WPA_CTRL_IFACE && CFG_WLAN_FAST_CONNECT && CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST
+extern int me_mgmt_tx_mlme_before_connect(uint8_t *mpdu, int payload_size, uint8_t vif_index, uint16_t freq,
+	bool encrypt, uint8_t *pn, uint16_t seq, struct mac_addr *ra, struct mac_sec_key *key);
+
+void wlan_send_disconnect_after_reboot(uint16_t freq, uint8_t *bssid, uint8_t *sta, uint16_t reason,
+		bool encrypt, uint8_t *tk)
+{
+	static bool disconnect_sent = false;
+	uint8_t data[26];
+	struct ieee80211_hdr *hdr;
+	uint8_t pn[8] = {0};
+	struct mac_sec_key key;
+	uint8_t vif_idx = INVALID_VIF_IDX;
+	struct vif_info_tag *vif;
+
+	if (disconnect_sent)
+		return;
+	disconnect_sent = true;
+
+	// Fill deauth frame
+	hdr = (struct ieee80211_hdr *)data;
+	hdr->frame_control = IEEE80211_FC(WLAN_FC_TYPE_MGMT, WLAN_FC_STYPE_DEAUTH);
+	os_memcpy(hdr->addr1, bssid, ETH_ALEN);
+	os_memcpy(hdr->addr2, sta, ETH_ALEN);
+	os_memcpy(hdr->addr3, bssid, ETH_ALEN);
+	*(uint16_t *)(hdr + 1) = host_to_le16(reason);  // reason code
+
+	// Find first vif index that frame is going to send to.
+	for_each_vif_entry(vif) {
+		if (vif->type == VIF_STA) {
+			vif_idx = vif->index;
+			break;
+		}
+	}
+
+	// NO invalid STA VIF
+	if (vif_idx == INVALID_VIF_IDX)
+		return;
+
+	if (encrypt) {
+		// Large enough PN
+		os_memset(pn, 0xFF, sizeof(pn));
+		pn[3] = 0x20;   // eiv, key idx = 0
+
+		// Set Pairwise key
+		os_memcpy(key.array, tk, 16);
+	}
+
+	me_mgmt_tx_mlme_before_connect(data, sizeof(data), vif_idx, freq, encrypt,
+		pn, 0, (struct mac_addr *)bssid, &key);
+}
+#endif
+
+
 OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 {
 	size_t psk_len = 0;
@@ -819,9 +876,13 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 #if CFG_WLAN_FAST_CONNECT
 	struct wlan_fast_connect_info fci;
 	int ssid_len, req_ssid_len;
+	bool fci_valid __maybe_unused = false;
+	bool fast_connect __maybe_unused = false;
 #endif
 	int chan = 0;
-
+#if CFG_WLAN_FAST_CONNECT || CFG_WLAN_FAST_CONNECT_WPA3
+	sta_ip_get_start_time();
+#endif
 	/* diconnect previous connection if may */
 	sta_ip_down();	// XXX: WLAN_DISCONNECT_EVENT may handle this
 	wlan_sta_disconnect();
@@ -873,8 +934,10 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 		chan = fci.channel;
 		psk = fci.psk;
 		psk_len = PMK_LEN * 2;
+		fci_valid = true;
 
 		bk_printf("fast_connect\n");
+		fast_connect = true;
 #if 0
 		bk_printf("  chan: %d\n", chan);
 		bk_printf("  PMK: %s\n", psk);
@@ -898,6 +961,14 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 	/* enable wpa_supplicant */
 	wlan_sta_enable();
 
+#if CFG_WPA_CTRL_IFACE && CFG_WLAN_FAST_CONNECT && CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST
+	/* send deauth frames to AP */
+	if (fast_connect && chan)
+		wlan_send_disconnect_after_reboot(phy_channel_to_freq(PHY_BAND_2G4, chan),
+			fci.bssid, (uint8_t *)&g_sta_param_ptr->own_mac, WLAN_REASON_DEAUTH_LEAVING,
+			!!(fci.pmf == 2), fci.tk);
+#endif
+
 	/* set network parameters: ssid, passphase */
 	wlan_sta_set(
 #if CFG_QUICK_TRACK
@@ -906,6 +977,18 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 			(uint8_t *)inNetworkInitPara->wifi_ssid,
 			os_strlen(inNetworkInitPara->wifi_ssid),
 			(uint8_t *)inNetworkInitPara->wifi_key);
+
+#if CFG_WIFI_OCV
+	if (inNetworkInitPara->ocv) {
+		wlan_sta_config_t config;
+
+		os_memset(&config, 0, sizeof(config));
+		config.field = WLAN_STA_FIELD_OCV;
+		config.u.ocv = true;
+		if (wpa_ctrl_request(WPA_CTRL_CMD_STA_SET, &config) != 0)
+			return -1;
+	}
+#endif
 
 #if CFG_SUPPORT_BSSID_CONNECT
 	/* set bssid */
@@ -935,6 +1018,39 @@ OSStatus bk_wlan_start_sta(network_InitTypeDef_st *inNetworkInitPara)
 		/* set assoc request vendor IE */
 		vsie.frame = VENDOR_ELEM_ASSOC_REQ;
 		wlan_sta_set_vendor_ie(&vsie);
+	}
+#endif
+
+#if CFG_WPA_CTRL_IFACE && CFG_WLAN_FAST_CONNECT && CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
+	if (fci_valid) {
+		wlan_sta_add_bss_t *bss = os_malloc(sizeof(*bss) + fci.ie_len);
+		if (bss) {
+			os_memcpy(bss->bssid, fci.bssid, ETH_ALEN);
+			bss->ssid_len = os_strlen((char *)fci.ssid);
+			os_memcpy(bss->ssid, fci.ssid, bss->ssid_len);
+			bss->caps = fci.caps;
+			bss->freq = fci.freq;
+			bss->ie_len = fci.ie_len;
+			bss->level = fci.level;
+			bss->beacon_int = fci.beacon_int;
+			os_memcpy(bss->ies, fci.ies, bss->ie_len);
+			wlan_sta_add_bss(bss);
+			os_free(bss);
+		}
+	}
+#endif
+
+#if CFG_WLAN_FAST_CONNECT_WPA3
+	// os_printf("XXX: fast connect %d, pmk_len %d\n", fast_connect, fci.pmk_len);
+	if (fast_connect && fci.pmk_len) {
+		wlan_sta_add_pmksa_cache_entry_t entry;
+		os_memset(&entry, 0, sizeof(entry));
+		os_memcpy(entry.bssid, fci.bssid, ETH_ALEN);
+		entry.akmp = fci.akmp;
+		entry.pmk_len = fci.pmk_len;
+		os_memcpy(entry.pmk, fci.pmk, entry.pmk_len);
+		os_memcpy(entry.pmkid, fci.pmkid, 16);
+		wpa_ctrl_request(WPA_CTRL_CMD_STA_ADD_PMKSA_CACHE_ENTRY, &entry);
 	}
 #endif
 
@@ -2112,8 +2228,18 @@ void wlan_ui_bcn_callback(uint8_t *data, int len, wifi_link_info_t *info)
         power_save_bcn_callback(data,len,info);
     }
 #endif
-#if CFG_USE_MCU_PS
+#if CFG_USE_MCU_PS && CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)
     mcu_ps_bcn_callback(data,len,info);
+#endif
+#if CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
+    // try to save latest bcn to fci (because schedule scan is disabled in supplicant by default)
+    wlan_sta_new_rx_beacon_t *bcn = os_malloc(sizeof(*bcn) + len);
+    if (bcn) {
+        bcn->rssi = info->rssi;
+        bcn->len = len;
+        os_memcpy(bcn->bcn, data, len);
+        wpa_ctrl_request_async(WPA_CTRL_CMD_STA_RX_BEACON, bcn);
+    }
 #endif
 }
 
@@ -2267,9 +2393,9 @@ static uint32_t rf_ps_enabled = 0;
  */
 int bk_wlan_dtim_rf_ps_mode_enable(void )
 {
-        rf_ps_enabled = 1;
-        bmsg_ps_sender(PS_BMSG_IOCTL_RF_ENABLE);
-        return 0;
+    rf_ps_enabled = 1;
+    bmsg_ps_sender(PS_BMSG_IOCTL_RF_ENABLE);
+    return 0;
 }
 
 int bk_wlan_dtim_rf_ps_disable_send_msg(void)
@@ -2335,13 +2461,16 @@ int bk_wlan_dtim_rf_ps_get_enable_flag(void)
 }
 #endif
 #if (1 == CFG_LOW_VOLTAGE_PS)
+
 int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 {
 #if CFG_USE_MCU_PS
 	#if (CFG_OS_FREERTOS)
 	GLOBAL_INT_DECLARATION();
 	GLOBAL_INT_DISABLE();
-//	TickType_t missed_ticks = 0;
+	UINT32 sleep_ms = BK_TICKS_TO_MS ( sleep_ticks );
+	if(sleep_ms > MCU_SLEEP_DURATION_MIN)
+		lv_ps_sleep_check( sleep_ticks );
 
 	GLOBAL_INT_RESTORE();
 	#endif
@@ -2388,8 +2517,8 @@ int bk_wlan_mcu_ps_mode_enable(void)
  */
 int bk_wlan_mcu_ps_mode_disable(void)
 {
-	mcu_ps_enabled = 0;
-    bmsg_ps_sender(PS_BMSG_IOCTL_MCU_DISANABLE);
+    mcu_ps_enabled = 0;
+    bmsg_ps_sender(PS_BMSG_IOCTL_MCU_DISABLE);
 
     return 0;
 }
@@ -2574,7 +2703,7 @@ int http_ota_download(const char *uri)
                             &httpclient_data);
 
     if (0 != ret) {
-        os_printf("request epoch time from remote server failed.");
+        os_printf("request epoch time from remote server failed. ret:%d", ret);
     } else {
         os_printf("sucess.\r\n");
         bk_reboot();

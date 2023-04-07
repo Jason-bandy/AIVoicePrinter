@@ -28,44 +28,111 @@
 #define WAIT_ONCE                  (1)
 #define NO_WAIT                    (2)
 #define WAIT_ONCE_ON_CONT_LOSS     (3)
+#if(CFG_HW_PARSER_TIM_ELEMENT == 1)
+#define AFTER_MISSING_STRATEGY    NO_WAIT
+#else
 #define AFTER_MISSING_STRATEGY    WAIT_UNTIL_RECVED
+#endif
 
 #define PS_KEEP_TIMER_VALID_DURATION_MS               (8)
 
-#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
-typedef struct
+#define MCU_SLEEP_DURATION_MIN     (4)  /* ms*/
+
+#if (CFG_SOC_NAME == SOC_BK7238)
+#define MCU_WAKEUP_OFFSET          (48)  /* VALUE/32 ms, related to flash_on_delay configuration*/
+#elif (CFG_SOC_NAME == SOC_BK7231N)
+#define MCU_WAKEUP_OFFSET          (0)  /* VALUE/32 ms, related to flash_on_delay configuration*/
+#else
+#define MCU_WAKEUP_OFFSET          (0)  /* VALUE/32 ms, related to flash_on_delay configuration*/
+#endif
+
+#if(CFG_LV_PS_WITH_IDLE_TICK == 1)
+#define KEEP_MORE_FOR_IDLE              (10)  /* ms , sometimes if wakeup by idle and want to sleep again ,next wakeup need to wakeup mac,but the duration is not enough, for example < 4ms, just do not sleep for this time and wakeup mac automatically*/
+#define MCU_TO_MAC_WAKEUP_DURATION      (1450)  /* us , if takes idle into consideration, it may no need to wakeup mcu before mac wakeup, so unable to get mcu wakeup timepoint, it can be calculate by mac_wakeup_point - mcu_to_mac_wakeup duration,bk7238 takes 1.4ms from mcu wakeup to mac wakeup*/
+#endif
+
+#if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
+/// management
+typedef struct lv_ps_info_mgmt
 {
-    uint32_t ps_print_enable;
-    uint32_t ps_print_period;
-    uint32_t ps_statistical_period;
-    uint32_t ps_print_flag;
-    uint64_t ps_start_time;
-    uint64_t running_time_in_total;//run time from first sleep
-    uint64_t wakeup_time_in_total;//in us
-    uint64_t wakeup_time_in_total_without_receive_data;//in us
-    uint64_t wakeup_to_beacon_time_in_total;//in us
-    uint32_t beacon_missing_count_in_current_statistical_period;//if the fisrt wakeup miss beacon can be count
-    uint32_t beacon_missing_count_in_statistical_period[10];//if the fisrt wakeup miss beacon can be count
-    uint32_t beacon_missing_count_in_total;//if the fisrt wakeup miss beacon can be count
-    uint32_t sleep_count_in_current_statistical_period;
-    uint32_t sleep_count_in_total;
-    uint32_t sleep_count_in_total_without_receive_data;
-    uint32_t connection_loss_flag;
-    uint32_t connection_loss_count;
-    uint64_t connection_loss_time_start;
-    uint64_t connection_loss_time_end;
-    uint64_t ps_print_begin_time;
-    uint64_t ps_last_print_time;
-    uint64_t ps_last_statistical_time;
-    uint32_t ps_arp_enable;
-    uint32_t ps_arp_period;
-}PS_INFO_T;
+    /// print management
+    bool print_enable;
+    uint32_t print_period;
+    uint64_t total_time;
+    uint32_t stat_index;
+    uint64_t stat_start_time;
+    uint64_t stat_end_time;
+} LV_PS_PRINT_MGMT;
+
+/// beacon statistic
+typedef struct lv_ps_beacon_stat
+{
+    /// basic record
+    uint32_t interval;
+    uint32_t length_m;
+    uint64_t frame_dura_m;
+
+    /// receive by software
+    uint32_t recv_count;
+    int32_t ap_bcn_delay_m;
+    uint64_t ap_bcn_delay_v;
+    uint32_t tbtt_to_rxd_m;
+    uint64_t tbtt_to_rxd_v;
+
+    /// receive by hardware
+    uint32_t tim_count;
+
+    /// beacon lost
+    uint32_t loss_count;
+    uint32_t loss_cnt_times;
+
+    /// disconnect
+    uint32_t disc_count;
+    uint64_t reconn_tcost;
+
+} LV_PS_BEACON_STAT;
+
+/// runtime statistic
+typedef struct lv_ps_runtime_stat
+{
+    /// mcu runtime
+    uint64_t mcu_running_time;
+    uint32_t mcu_sleep_count;
+
+    /// rf runtime
+    uint64_t rf_running_time;
+    uint32_t rf_sleep_count;
+    uint32_t rf_sleep_retry_count;
+    uint64_t rf_to_tim;
+    uint64_t rf_to_bcn;
+
+    /// execution runtime
+    uint64_t rf_init_tcost;
+    uint64_t rf_sleep_tcost;
+    uint64_t sleep_tcost_total;
+    uint64_t wakeup_tcost_total;
+} LV_PS_RUNTIME_STAT;
+
+typedef struct lv_ps_info_st
+{
+    /// for variance calculate
+    int32_t ap_bcn_delay_m_save;
+    uint32_t tbtt_to_rxd_m_save;
+
+    struct lv_ps_info_mgmt     mgmt;
+    struct lv_ps_beacon_stat    beacon;
+    struct lv_ps_runtime_stat   runtime;
+} LV_PS_INFO_ST;
+
+void lv_ps_info_print_switch(bool flag, uint32_t period);
 #endif
+
 extern uint64_t lv_ps_wakeup_mac_timepoint;
-#if ((1 == CFG_LOW_VOLTAGE_PS)&& ( 1 == CFG_LOW_VOLTAGE_PS_TEST ))
-extern PS_INFO_T ps_info;
-#endif
 extern uint32_t lv_ps_beacon_cnt_after_wakeup ;
+#if(CFG_HW_PARSER_TIM_ELEMENT == 1)
+extern uint64_t lv_ps_tbtt_local;
+extern int32_t lv_ps_tbtt_local_remainder;
+#endif
 
 extern void lv_ps_init(void);
 extern uint32_t lv_ps_get_keep_timer_duration(void);
@@ -76,7 +143,7 @@ uint32_t lv_ps_get_sleep_duration(void);
 void lv_ps_clear_anchor_point(void);
 uint64_t lv_ps_wakeup_set_timepoint(void);
 uint32_t lv_ps_calc_sleep_duration(void);
-void sctrl_enable_lvps_rosc_timer(void);
+bool lv_ps_rosc_timer_setting( UINT32 sleep_tick);
 uint32_t lv_ps_is_got_anchor_point(void);
 uint32_t lv_ps_is_super_anchor_point(void);
 uint32_t lv_ps_beacon_missing_handler(void);
@@ -85,11 +152,27 @@ void lv_ps_clear_start_flag(void);
 uint32_t lv_ps_set_start_flag(void);
 uint32_t lv_ps_recv_beacon(void);
 void lv_ps_set_anchor_point(void);
-void us_to_readable_value(uint64_t us,uint32_t * h,uint32_t *m,uint32_t *s);
 uint32_t lv_ps_set_bcn_int(uint32_t interval);
+bool lv_ps_sleep_check( UINT32 sleep_tick);
+void lv_ps_sleep(void);
 
+#if CFG_USE_TICK_CAL
+void lv_ps_cal_tick(void);
+#endif
+UINT32 lv_ps_check_tx_recovery(void);
+void lv_ps_set_tx_recovery(void);
+void lv_ps_check_11b(void);
+void lv_ps_send_null(uint8_t sta_idx);
+void lv_ps_sleep_trigger_timer_stop(void);
+void lv_ps_sleep_trigger_timer_init(void);
+void lv_ps_sleep_trigger_timer_start(void);
 
-
+#if(CFG_LV_PS_WITH_IDLE_TICK == 1)
+void lv_ps_set_mac_wakeup_flag(UINT32 flag);
+UINT32 lv_ps_get_mac_wakeup_flag(void);
+void lv_ps_set_keep_timer_more(UINT32 value);
+UINT32 lv_ps_get_keep_timer_more(void);
+#endif
 
 #endif
 // eof

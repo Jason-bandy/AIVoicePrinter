@@ -51,6 +51,8 @@
 #define THDD_KEY_SCAN_PRIORITY                     7
 
 /*section 2-----function macro config-----*/
+#define CFG_SUPPORT_MATTER                         0
+
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
@@ -59,11 +61,30 @@
 /*AP will switch to ori channel when tbtt arrive*/
 #define CFG_AP_MONITOR_COEXIST_TBTT                0
 #endif
+
+#define CfG_MACRO_MAYBE_UNUSED                     1
+#if CfG_MACRO_MAYBE_UNUSED
+#define CFG_WIFI_RSSI                              1
+#define CFG_WIFI_VERSION                           1
+#define CFG_WIFI_CHANNEL                           1
+#define CFG_WIFI_SLOTTIME                          1
+#define CFG_WIFI_DBG_TROGGER                       1
+#define CFG_MODE_SET                               1
+#define CFG_FILTER_SET                             1
+#define CFG_RC_STATS                               1
+#endif
+
 #define CFG_ROLE_LAUNCH                            0
 #define CFG_USE_WPA_29                             1
 #define CFG_WPA_CTRL_IFACE                         1
 #define CFG_RWNX_QOS_MSDU                          1
 #define CFG_WLAN_FAST_CONNECT                      0
+#if CFG_WLAN_FAST_CONNECT
+/* fast connect will connects to AP without any scan */
+#define CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN         0
+/* fast connect will disconnect with AP first before AUTH */
+#define CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST         0
+#endif
 #define CFG_WPA2_ENTERPRISE                        0
 #define CFG_WPA3_ENTERPRISE                        0
 /* WPS(WSC) Support */
@@ -77,6 +98,16 @@
 #define CFG_WIFI_AP_VSIE                           0
 /* Custom softap basic rates, supported rates, ht mcs set */
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
+
+/*Use macro to shut down some unused functions*/
+#define CFG_WPA_MAYBE_UNUSED                       1
+#if CFG_WPA_MAYBE_UNUSED
+#define CONFIG_NOTIFICATION                        1
+#define CONFIG_EID_FLAG                            1
+#define CONFIG_PMKSA_EXISTS                        1
+#define CONFIG_GTK_REKEY                           1
+#endif
+
 /*
  * Support set softap modes: BGN, BG, B. Macro
  * CFG_AP_SUPPORT_HT_IE must be enabled to support N mode
@@ -93,19 +124,34 @@
 
 /* PMF */
 #define CFG_IEEE80211W                             0
+
+#define CFG_WIFI_OCV                               0
+#if CFG_WIFI_OCV
+#undef CFG_IEEE80211W
+#define CFG_IEEE80211W                             1
+#endif
+
 #if CFG_WPA_CTRL_IFACE
 #undef CFG_ROLE_LAUNCH
 #define CFG_ROLE_LAUNCH                            0
 #endif
-#define CFG_WPA3                                   0
+#define CFG_WPA3                                   1
 #if CFG_WPA3
 #undef CFG_USE_WPA_29
 #define CFG_USE_WPA_29                             1
 #undef CFG_IEEE80211W
 #define CFG_IEEE80211W                             1
-#define CFG_OWE                                    0
+#define CFG_OWE                                    1
 /* use wpa2 instead of wpa3-sae if in wpa3 transition mode */
 #define CFG_CFG_WPA2_PREFER_TO_SAE                 0
+#if CFG_WLAN_FAST_CONNECT
+/*
+ * wpa3 fast connect support, use with caution. If system power off
+ * for a long time (24h for example), first connection will fail because
+ * pmksa is timedout.
+ */
+#define CFG_WLAN_FAST_CONNECT_WPA3                 0
+#endif
 #endif
 #define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
@@ -120,7 +166,11 @@
 #define CFG_QUICK_TRACK                            0
 
 /* use mbedtls as wpa crypto functions */
+#if(CFG_SUPPORT_MATTER == 1)
+#define CFG_USE_MBEDTLS                            1
+#else
 #define CFG_USE_MBEDTLS                            0
+#endif
 #if CFG_USE_MBEDTLS
 #define CFG_MBEDTLS                                1
 #endif
@@ -130,6 +180,8 @@
 /*section 3-----driver macro config-----*/
 #define CFG_MAC_PHY_BAPASS                         1
 #define CFG_SUPPORT_SARADC                         1
+#define CFG_SARADC_INTFACE                         1
+#define CFG_SARADC_CALIBRATE                       1
 
 #define CFG_SDIO                                   0
 #define CFG_SDIO_TRANS                             0
@@ -157,8 +209,11 @@
 #define CFG_UART_DEBUG                             0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
-#define CFG_IPERF_TEST                             0
-#if CFG_IPERF_TEST
+#define IPERF_CLOSE                                0  /* close iperf */
+#define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
+#define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 #define CFG_IPERF_TEST_ACCEL                       1
 #define CFG_IPERF_DONT_MALLOC_BUFFER               1
 #endif
@@ -208,6 +263,7 @@
 
 /*section 9-----for DHCP servicers and client*/
 #define CFG_USE_DHCP                               1
+#define CFG_USE_DHCPD                              1 // for servicers in ap mode
 
 /*section 11-----temperature detect*/
 #define CFG_USE_TEMPERATURE_DETECT                 1
@@ -250,21 +306,18 @@
 #define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
-#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) || (CFG_SUPPORT_MATTER == 1))
 #define CFG_SUPPORT_OTA_HTTP                       0
 #else
 #define CFG_SUPPORT_OTA_HTTP                       1
 #endif
 #define CFG_SUPPORT_OTA_TFTP                       0
 
-/*section 22 ----- support adc calibrate*/
-#define CFG_SARADC_CALIBRATE                       1
-
 /*section 23 ----- support reduce nomal power*/
 #define CFG_SYS_REDUCE_NORMAL_POWER                0
 
 /*section 24 ----- less memery in rwnx*/
-#define CFG_LESS_MEMERY_IN_RWNX                    0
+#define CFG_LESS_MEMERY_IN_RWNX                    1
 #if CFG_IPERF_TEST_ACCEL
 #undef CFG_LESS_MEMERY_IN_RWNX
 #define CFG_LESS_MEMERY_IN_RWNX                    0
@@ -279,9 +332,9 @@
 #define CFG_USE_TICK_CAL                           1
 
 #define CFG_SUPPORT_BLE                            1
+#define CFG_BLE_USE_CLI                            1
 #define CFG_SUPPORT_BLE_MESH                       0
 #define CFG_USE_PTA                                0
-#define CFG_SUPPORT_MATTER                         0
 
 #if ((0 == CFG_SUPPORT_BLE) && (CFG_USE_BLE_PS))
 #error "check the ble macro, thx!"
@@ -298,13 +351,17 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
-#define CFG_BLE_ADV_NUM				1
-#define CFG_BLE_SCAN_NUM			1
+#define CFG_BLE_ADV_NUM                            1
+#if (CFG_SUPPORT_MATTER == 1)
+#define CFG_BLE_SCAN_NUM                           0
+#else
+#define CFG_BLE_SCAN_NUM                           1
+#endif
 
 // 0 mean do not support ble master
-#define CFG_BLE_INIT_NUM			0
+#define CFG_BLE_INIT_NUM                           0
 
-#define CFG_BLE_CONN_NUM			1
+#define CFG_BLE_CONN_NUM                           1
 
 #if (CFG_BLE_ADV_NUM == 0)
 #error "ADV NUM should not be 0"
@@ -347,9 +404,6 @@
 #define FLASH_SELECTION_TYPE_8M                    0x800000 //8MBytes
 #define CFG_FLASH_SELECTION_TYPE                   FLASH_SELECTION_TYPE_2M
 
-#if ((1 == CFG_SUPPORT_MATTER) && (CFG_FLASH_SELECTION_TYPE < FLASH_SELECTION_TYPE_4M))
-#error "matter need at least 4MB flash!!!"
-#endif
 
 #if (1 == CFG_SUPPORT_MATTER)
 #undef CFG_MBEDTLS
@@ -366,11 +420,12 @@
 
 /*section 29 -----  peripheral interface open  */
 #define CFG_USE_I2C1                                0
-#define CFG_USE_I2C2                                1
+#define CFG_USE_I2C2                                0
 
-#define CFG_USE_SPI_MASTER                         1
-#define CFG_USE_SPI_SLAVE                          1
-#define CFG_USE_SPI_DMA                            1
+#define CFG_USE_SPI                                0
+#define CFG_USE_SPI_MASTER                         0
+#define CFG_USE_SPI_SLAVE                          0
+#define CFG_USE_SPI_DMA                            0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST							0

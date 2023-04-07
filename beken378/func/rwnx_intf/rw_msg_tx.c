@@ -745,6 +745,37 @@ int rw_msg_get_bss_info(u8 vif_idx, void *cfm)
     return rw_msg_send(req, SM_GET_BSS_INFO_CFM, cfm);
 }
 
+int rw_msg_get_channel_info(u8 vif_idx, PHY_CHAN_INFO_T *channel_info)
+{
+	struct phy_channel_info info;
+	int channel;
+	uint8_t band;
+
+	/* get phy channel */
+	phy_get_channel(&info, 0);
+
+	band = info.info1 & 0xff;
+	channel_info->frequency = (info.info1 >> 16) & 0xffff;
+	channel_info->chanwidth = (info.info1 >> 8) & 0xff;
+	channel_info->center_frq1 = info.info2 & 0xffff;
+	channel_info->center_frq2 = (info.info2 >> 16) & 0xffff;
+
+	/* frequency transfer into channel */
+	channel = phy_freq_to_channel(band, channel_info->frequency);
+
+	/* get seg1_idx */
+	if (channel_info->center_frq2)
+		channel_info->seg1_idx = 36 + (channel_info->center_frq2 - 5180) / 5;
+
+	/* get sec_channel */
+	if (channel_info->chanwidth == PHY_CHNL_BW_20)
+		channel_info->sec_channel = 0;
+	else if (channel_info->chanwidth == PHY_CHNL_BW_40) // FIXME ??
+		channel_info->sec_channel = (((channel - 1) / 4) % 2) ? -1 : 1;
+
+	return 0;
+}
+
 int rw_msg_get_channel(void *cfm)
 {
     struct phy_channel_info info;
@@ -754,6 +785,7 @@ int rw_msg_get_channel(void *cfm)
     return info.info2;
 }
 
+#if CFG_FILTER_SET
 int rw_msg_set_filter(uint32_t filter)
 {
     struct mm_set_filter_req *set_filter_req_param;
@@ -773,6 +805,7 @@ int rw_msg_set_filter(uint32_t filter)
     /* Send the MM_SET_FILTER_REQ message to LMAC FW */
     return rw_msg_send(set_filter_req_param, MM_SET_FILTER_CFM, NULL);
 }
+#endif
 
 int rw_msg_set_channel(uint32_t channel, uint32_t band_width, void *cfm)
 {
@@ -1008,9 +1041,15 @@ int rw_msg_send_sm_connect_req( CONNECT_PARAM_T *sme, void *cfm)
     listen_interval = power_save_get_listen_int();
 #endif
     req->listen_interval = listen_interval;
-	req->bcn_len = sme->bcn_len;
-	if (req->bcn_len)
-		os_memcpy((UINT8 *)req->bcn_buf, (UINT8 *)sme->bcn_buf, req->bcn_len);
+    req->bcn_len = sme->bcn_len;
+    if (req->bcn_len)
+        os_memcpy((UINT8 *)req->bcn_buf, (UINT8 *)sme->bcn_buf, req->bcn_len);
+
+#if CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN
+    req->rssi = sme->rssi;
+    req->cap_info = sme->cap_info;
+    req->beacon_period = sme->beacon_period;
+#endif
 
     /* Send the SM_CONNECT_REQ message to LMAC FW */
     return rw_msg_send(req, SM_CONNECT_CFM, cfm);

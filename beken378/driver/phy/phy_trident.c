@@ -62,9 +62,12 @@ struct phy_trd_cfg_tag
  */
 /// Global PHY driver environment.
 struct phy_env_tag phy_env[1];
+#if (CFG_SOC_NAME == SOC_BK7231N)
 static uint8_t large_singal_status;
 int large_signal_cnt;
 int small_signal_cnt;
+int no_action_signal_cnt;
+#endif
 
 #if (CFG_SOC_NAME == SOC_BK7231U)
 uint32_t g_pre_channel_freq = 0;
@@ -593,407 +596,412 @@ const uint32_t agc_ram_parameter[] =
 #elif (CFG_SOC_NAME == SOC_BK7238)
 	0x30000000,
 	0x01000000,
-	0xa8000012,
+	0xa8000013,
 	0x00000000,
 	0x30000000,
 	0x91000000,
-	0x04000034,
+	0x04000035,
 	0x00000000,
-	0x2000008f,
-	0x04000067,
+	0x3000008f,
+	0x10000001,
+	0x0400006c,
 	0x00000000,
 	0x34014000,
 	0x10000001,
-	0x08000016,
+	0x08000017,
 	0x00000000,
 	0x240c808f,
-	0x080001b5,
+	0x080001ba,
 	0x00000000,
 	0x30000000,
 	0x20fffe43,
-	0x0400000b,
+	0x0400000c,
 	0x00000000,
 	0x30000000,
 	0x41000000,
-	0x0400001a,
+	0x0400001b,
 	0x00000000,
 	0x30000000,
 	0x51000101,
-	0x0400001e,
+	0x0400001f,
 	0x00000000,
 	0x34028000,
 	0x12004483,
-	0x08704822,
+	0x08704823,
 	0x00000000,
 	0x30000000,
 	0x01000000,
-	0x04000026,
+	0x04000027,
 	0x00000000,
 	0x34008001,
 	0x64000001,
-	0x0800002a,
+	0x0800002b,
 	0x00000000,
 	0x3402800f,
 	0x68002101,
-	0x0800002e,
+	0x0800002f,
 	0x00000000,
-	0x0000139f,
+	0x0000339f,
 	0x00000000,
 	0x4400438f,
-	0xa4104980,
-	0x081049a9,
+	0xa4104985,
+	0x081049ae,
+	0x00000000,
+	0x30000000,
+	0x51000101,
+	0x04000039,
 	0x00000000,
 	0x70000000,
-	0x51000101,
-	0x18500046,
-	0x10000042,
-	0x0c00003a,
+	0x10000001,
+	0x1850004b,
+	0x10000047,
+	0x0c00003f,
 	0x00000000,
 	0x30000000,
 	0x13001b01,
-	0x1c00003e,
+	0x1c000043,
 	0x00000000,
 	0x30000000,
 	0x61020202,
-	0x0400004a,
+	0x0400004f,
 	0x00000000,
 	0x30000000,
 	0x13001b01,
-	0x1c00004a,
+	0x1c00004f,
 	0x00000000,
 	0x30000000,
 	0x13001b01,
-	0x1c00004a,
+	0x1c00004f,
 	0x00000000,
 	0x30000000,
 	0x52000000,
-	0x0400004e,
+	0x04000053,
 	0x00000000,
 	0x2400c000,
-	0x08000051,
+	0x08000056,
 	0x00000000,
 	0x30000000,
 	0x80000000,
-	0x04104855,
+	0x0410485a,
 	0x00000000,
 	0x3400400f,
 	0x52000000,
-	0x08000059,
+	0x0800005e,
 	0x00000000,
 	0x340204af,
 	0x31191910,
-	0x0800005d,
+	0x08000062,
 	0x00000000,
 	0x30000eaf,
 	0x51000101,
-	0x04000061,
+	0x04000066,
 	0x00000000,
 	0x80000eaf,
-	0x14600082,
-	0x10904882,
-	0x1090d87f,
-	0x0c000067,
+	0x14600087,
+	0x10904887,
+	0x1090d884,
+	0x0c00006c,
 	0x00000000,
 	0x3400ceaf,
 	0x13000021,
-	0x1c20486b,
+	0x1c204870,
 	0x00000000,
 	0x50000eaf,
 	0x96000000,
-	0x0c41407f,
-	0x04000070,
+	0x0c414084,
+	0x04000075,
 	0x00000000,
 	0x340204af,
 	0x31191910,
-	0x08000074,
+	0x08000079,
 	0x00000000,
 	0x30000eaf,
 	0x51000101,
-	0x04000078,
+	0x0400007d,
 	0x00000000,
 	0x20000eaf,
-	0x0400007b,
+	0x04000080,
 	0x00000000,
 	0x44028eaf,
-	0x61704885,
-	0x08000085,
+	0x6170488a,
+	0x0800008a,
 	0x00000000,
 	0x24050eaf,
-	0x09800085,
+	0x0980008a,
 	0x00000000,
 	0x24030eaf,
-	0x09800085,
+	0x0980008a,
 	0x00000000,
 	0x60000eaf,
-	0x6580488a,
-	0x6580008e,
-	0x04104892,
+	0x6580488f,
+	0x65800093,
+	0x04104897,
 	0x00000000,
 	0x30000eaf,
 	0x41000300,
-	0x04000096,
+	0x0400009b,
 	0x00000000,
 	0x30000eaf,
 	0x41000100,
-	0x04000096,
+	0x0400009b,
 	0x00000000,
 	0x30000eaf,
 	0x41000000,
-	0x04000096,
+	0x0400009b,
 	0x00000000,
 	0x40000eaf,
-	0xa400009e,
-	0x0400009a,
+	0xa40000a3,
+	0x0400009f,
 	0x00000000,
 	0x30000000,
 	0x14eaed03,
-	0x1c00009e,
+	0x1c0000a3,
 	0x00000000,
 	0x24008000,
-	0x080000a1,
+	0x080000a6,
 	0x00000000,
 	0x30000000,
 	0x80000000,
-	0x041048a5,
+	0x041048aa,
 	0x00000000,
 	0x30000000,
 	0x10000000,
-	0x040000a9,
+	0x040000ae,
 	0x00000000,
 	0x34014005,
 	0x63000102,
-	0x080000ad,
+	0x080000b2,
 	0x00000000,
 	0x30000007,
 	0x50000001,
-	0x040000b1,
+	0x040000b6,
 	0x00000000,
 	0x30000007,
 	0x32202071,
-	0x040000b5,
+	0x040000ba,
 	0x00000000,
 	0x30000007,
 	0x61030303,
-	0x040000b9,
+	0x040000be,
 	0x00000000,
 	0x340202ef,
 	0x31202021,
-	0x080000bd,
+	0x080000c2,
 	0x00000000,
 	0x34050aef,
 	0x90000000,
-	0x080000c1,
+	0x080000c6,
 	0x00000000,
 	0x30000aef,
 	0x12000004,
-	0x040000c5,
+	0x040000ca,
 	0x00000000,
 	0x30000aef,
 	0x33000001,
-	0x040000c9,
+	0x040000ce,
 	0x00000000,
 	0x60000eaf,
-	0x658048ce,
-	0x658000d2,
-	0x041048d6,
+	0x658048d3,
+	0x658000d7,
+	0x041048db,
 	0x00000000,
 	0x30000eaf,
 	0x41000301,
-	0x040000e2,
+	0x040000e7,
 	0x00000000,
 	0x30000eaf,
 	0x41000101,
-	0x040000e2,
+	0x040000e7,
 	0x00000000,
 	0x30000eaf,
 	0x41000001,
-	0x040000da,
+	0x040000df,
 	0x00000000,
 	0x30000eaf,
 	0x51000001,
-	0x040000de,
+	0x040000e3,
 	0x00000000,
 	0x30000eaf,
 	0x3400109c,
-	0x040000e2,
+	0x040000e7,
 	0x00000000,
 	0x34190bef,
 	0x52000000,
-	0x080000e6,
+	0x080000eb,
 	0x00000000,
 	0x30000aef,
 	0x33000101,
-	0x040000ea,
+	0x040000ef,
 	0x00000000,
 	0xa0000eaf,
-	0x6da048f1,
-	0x658048f5,
-	0x619000fd,
-	0x69b000f9,
-	0x04104901,
+	0x6da048f6,
+	0x658048fa,
+	0x61900102,
+	0x69b000fe,
+	0x04104906,
 	0x00000000,
 	0x30000eaf,
 	0x41030002,
-	0x04000109,
+	0x0400010e,
 	0x00000000,
 	0x30000eaf,
 	0x41000302,
-	0x04000129,
+	0x0400012e,
 	0x00000000,
 	0x30000eaf,
 	0x41010002,
-	0x04000109,
+	0x0400010e,
 	0x00000000,
 	0x30000eaf,
 	0x41000102,
-	0x04000129,
+	0x0400012e,
 	0x00000000,
 	0x30000eaf,
 	0x41000002,
-	0x04000105,
+	0x0400010a,
 	0x00000000,
 	0x3000028f,
 	0x51000001,
-	0x0400019c,
+	0x040001a1,
 	0x00000000,
 	0x5000028f,
 	0x51000001,
-	0xa000019c,
-	0x0400010e,
+	0xa00001a1,
+	0x04000113,
 	0x00000000,
 	0x3401428f,
 	0x10000001,
-	0x08000112,
+	0x08000117,
 	0x00000000,
 	0x34010000,
-	0x14eaed03,
-	0x08000116,
+	0x14eaed43,
+	0x0800011b,
 	0x00000000,
 	0x30000000,
 	0x10000000,
-	0x0400011a,
+	0x0400011f,
 	0x00000000,
 	0x24014005,
-	0x0800011d,
+	0x08000122,
 	0x00000000,
 	0x3000128f,
 	0x3400289c,
-	0x04000121,
+	0x04000126,
 	0x00000000,
 	0x3000128f,
 	0x35d4509c,
-	0x04000125,
+	0x0400012a,
 	0x00000000,
 	0x3000128f,
 	0x50000100,
-	0x0400016d,
+	0x04000172,
 	0x00000000,
 	0x7432028f,
 	0x65000003,
-	0x7c00012f,
-	0x80104965,
-	0x08000169,
+	0x7c000134,
+	0x8010496a,
+	0x0800016e,
 	0x00000000,
 	0x3000028f,
 	0x41000000,
-	0x04000133,
+	0x04000138,
 	0x00000000,
 	0x8432028f,
-	0x84000165,
-	0x80104965,
-	0x08104939,
-	0x8810493d,
+	0x8400016a,
+	0x8010496a,
+	0x0810493e,
+	0x88104942,
 	0x00000000,
 	0x3000008f,
 	0x41000000,
-	0x881049a9,
+	0x881049ae,
 	0x00000000,
 	0x3000008f,
 	0x41000000,
-	0x04104830,
+	0x04104831,
 	0x00000000,
 	0x34004005,
 	0x61020202,
-	0x08104945,
+	0x0810494a,
 	0x00000000,
 	0x6419000f,
-	0x8010494a,
-	0x08000139,
-	0x8810493d,
+	0x8010494f,
+	0x0800013e,
+	0x88104942,
 	0x00000000,
 	0x3000000f,
 	0x15eeea07,
-	0x1c000152,
+	0x1c000157,
 	0x00000000,
 	0x3000000f,
 	0x51000001,
-	0x04000156,
+	0x0400015b,
 	0x00000000,
 	0x3000000f,
 	0x10000001,
-	0x0400014e,
+	0x04000153,
 	0x00000000,
 	0x24008000,
-	0x08000159,
+	0x0800015e,
 	0x00000000,
 	0x30000000,
 	0x10000000,
-	0x0400015d,
+	0x04000162,
 	0x00000000,
 	0x34010005,
 	0x61030303,
-	0x08000161,
+	0x08000166,
 	0x00000000,
 	0x30000007,
 	0x50000001,
-	0x04000165,
+	0x0400016a,
 	0x00000000,
 	0x3000008f,
 	0x41000000,
-	0x88104830,
+	0x88104831,
 	0x00000000,
 	0x3000038f,
 	0x01000000,
-	0x0400019c,
+	0x040001a1,
 	0x00000000,
 	0x4577138f,
-	0x70000175,
-	0x08000171,
+	0x7000017a,
+	0x08000176,
 	0x00000000,
 	0x3000038f,
 	0x51000100,
-	0x0400019c,
+	0x040001a1,
 	0x00000000,
 	0x3000138f,
 	0x41000000,
-	0x04000179,
+	0x0400017e,
 	0x00000000,
 	0x3000138f,
 	0x65000003,
-	0x0400017d,
+	0x04000182,
 	0x00000000,
 	0x2000108f,
-	0x881049a9,
+	0x881049ae,
 	0x00000000,
 	0x3000018f,
 	0x66000001,
-	0x04000184,
+	0x04000189,
 	0x00000000,
 	0x34018000,
 	0x10000001,
-	0x08104988,
+	0x0810498d,
 	0x00000000,
 	0x30000000,
 	0x61010101,
-	0x0400018c,
+	0x04000191,
 	0x00000000,
 	0x2403c00f,
-	0x0800018f,
+	0x08000194,
 	0x00000000,
 	0x5405000f,
 	0x95000000,
-	0xb4000194,
-	0x08000198,
+	0xb4000199,
+	0x0800019d,
 	0x00000000,
 	0x3000000f,
 	0x52000001,
@@ -1001,74 +1009,74 @@ const uint32_t agc_ram_parameter[] =
 	0x00000000,
 	0x3000000f,
 	0x52000000,
-	0x0400000b,
+	0x0400000c,
 	0x00000000,
 	0x5401438f,
 	0x10000001,
-	0x201049a5,
-	0x081049a1,
+	0x201049aa,
+	0x081049a6,
 	0x00000000,
 	0x34028000,
 	0x12004403,
-	0x087049ad,
+	0x087049b2,
 	0x00000000,
 	0x34010000,
 	0x14ecec03,
-	0x087049ad,
+	0x087049b2,
 	0x00000000,
 	0x34004000,
 	0x95000000,
-	0x0810480b,
+	0x0810480c,
 	0x00000000,
 	0x30000000,
 	0x80000000,
-	0x041049b1,
+	0x041049b6,
 	0x00000000,
 	0x34028000,
 	0x95000000,
-	0x04104822,
+	0x04104823,
 	0x00000000,
 	0x3000008f,
-	0x14eaed03,
-	0x1c0001b9,
+	0x14eaed43,
+	0x1c0001be,
 	0x00000000,
 	0x34010000,
 	0x52000000,
-	0x080001bd,
+	0x080001c2,
 	0x00000000,
 	0x34008000,
 	0x10000000,
-	0x080001c1,
+	0x080001c6,
 	0x00000000,
 	0x24014005,
-	0x080001c4,
+	0x080001c9,
 	0x00000000,
 	0x3000128f,
 	0x3400209c,
-	0x040001c8,
+	0x040001cd,
 	0x00000000,
 	0x3000128f,
 	0x35d4509c,
-	0x040001cc,
+	0x040001d1,
 	0x00000000,
 	0x3000128f,
 	0x50000100,
-	0x040001d0,
+	0x040001d5,
 	0x00000000,
 	0x4577138f,
-	0x700001d4,
-	0x08000171,
+	0x700001d9,
+	0x08000176,
 	0x00000000,
 	0x3000138f,
 	0x41000000,
-	0x040001d8,
+	0x040001dd,
 	0x00000000,
 	0x3000138f,
 	0x65000003,
-	0x040001dc,
+	0x040001e1,
 	0x00000000,
 	0x2000138f,
-	0x881049a9,
+	0x881049ae,
 	0x00000000,
 	0x00000000,
 	0x00000000,
@@ -1097,12 +1105,7 @@ const uint32_t agc_ram_parameter[] =
 	0x00000000,
 	0x00000000,
 	0x00000000,
-	0x00000000,
-	0x00000000,
-	0x00000000,
-	0x00000000,
-	0x00000000,
-	0x150c0811,
+	0x160c0f0e
 #elif (SOC_BK7231 == CFG_SOC_NAME)
     0x30000000,
     0x01000000,
@@ -2378,11 +2381,6 @@ static void adjust_txdiggains(uint32_t dc_cmp)
     REG_WRITE((REG_MDM_CFG_BASE_ADDR + 0x226 * 4), REG_READ(REG_MDM_CFG_BASE_ADDR + 0x226 * 4) & 0xFFFE); //peak_cancel_bypass=0
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7238)
-	/* huaming20220722 fix access TRX/RCB bus issue */
-	mdm_fe1clkforce_setf(1);
-#endif
-
     PHY_WPRT("phy_mdm_init-->Static MDM settings done\r\n");
 }
 #else
@@ -2424,10 +2422,6 @@ static void phy_mdm_init(uint32_t tx_dc_off_comp)
     REG_WRITE((REG_MDM_CFG_BASE_ADDR + 0xC0C * 4), 1); //11B_TX_GAUSS_FILTER_ENABLE=1
 #endif
 
-#if (CFG_SOC_NAME == SOC_BK7238)
-	/* huaming20220722 fix access TRX/RCB bus issue */
-	mdm_fe1clkforce_setf(1);
-#endif
 
     PHY_WPRT("phy_mdm_init-->Static MDM settings done\r\n");
 }
@@ -2581,8 +2575,8 @@ static void phy_agc_init(void)
 #elif (CFG_SOC_NAME == SOC_BK7238)
 	agc_rwnxagcevtsat_set(0x05044804);
 	agc_rwnxagcevtdet_set(0x3D449008);
-	agc_rwnxagcevtdis_set(0x3955B00B);
-	agc_rwnxagcevtdsssdet_set(0x04F7480F);
+	agc_rwnxagcevtdis_set(0x3955B00C);     //huaming20221215: for large signal
+	agc_rwnxagcevtdsssdet_set(0x04F74810); //huaming20221215: for large signal
 
 	// ADC sat thd
 	agc_rwnxagcsat_set(0x8373335);
@@ -2598,6 +2592,8 @@ static void phy_agc_init(void)
 	agc_rampupndlindex_setf(0x4);
 	/* yiming20221020 0x5D->0x55: signal disappear threshold decrease 5dB */
 	agc_adcpowdisthrdbv_setf(0x55);
+	/* huaming20221115 0->1: force clock open for rx */
+	mdm_radartimclkforce_setf(1);
 #else
     REG_PL_WR(REG_AGC_BASE_ADDR + 0x890, (REG_PL_RD(REG_AGC_BASE_ADDR + 0x890) | 0x2));  // Enable AGC OPT
     agc_rwnxagcevtsat_set(0x05044804);
@@ -2974,6 +2970,10 @@ void phy_init(const struct phy_cfg_tag *config)
     //PHY blocks initialization-----------------------------------------------------------
     //TRIDENT components
     phy_trident_init();
+#if (CFG_SOC_NAME == SOC_BK7238)
+    /* huaming suggest to config it bedore rf setting */
+    mdm_fe1clkforce_setf(1);
+#endif
 
     //Radios alone through RC
     phy_rf_init();
@@ -3129,18 +3129,23 @@ void phy_unsupported_modulation_check(void)
     } while(0);
 }
 
+#if (CFG_SOC_NAME == SOC_BK7231N)
+extern void rwnx_cal_set_rxswitch(UINT32 enable);
+extern UINT32 rwnx_cal_get_rxswitch(void);
 void phy_enable_rx_switch(void)
 {
-    uint32_t rege_val = rc_trx_reg14_get();
-    rege_val |= BIT(25);
-    rc_trx_reg14_set(rege_val);
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    rwnx_cal_set_rxswitch(1);
+    GLOBAL_INT_RESTORE();
 }
 
 void phy_disable_rx_switch(void)
 {
-    uint32_t rege_val = rc_trx_reg14_get();
-    rege_val &= ~ BIT(25);
-    rc_trx_reg14_set(rege_val);
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    rwnx_cal_set_rxswitch(0);
+    GLOBAL_INT_RESTORE();
 }
 
 uint8_t check_large_singal_status(void)
@@ -3150,7 +3155,10 @@ uint8_t check_large_singal_status(void)
 
 void update_large_singal_status(uint8_t status)
 {
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
     large_singal_status = status;
+    GLOBAL_INT_RESTORE();
 }
 
 void phy_large_signal_support(int8_t rssi)
@@ -3158,13 +3166,16 @@ void phy_large_signal_support(int8_t rssi)
     extern int large_signal_cnt;
     extern int small_signal_cnt;
 
-    uint32_t rege_val = rc_trx_reg14_get();
-    uint32_t rxswitch_en = rege_val & BIT(25);
+    uint32_t rxswitch_en;
+
+    GLOBAL_INT_DECLARATION();
+    rxswitch_en = rwnx_cal_get_rxswitch();
 
     if (rssi >= 128)
     {
         rssi -= 256;
     }
+
     if (!rxswitch_en)
     {
         rssi += 15;
@@ -3174,29 +3185,40 @@ void phy_large_signal_support(int8_t rssi)
     {
         large_signal_cnt ++;
         small_signal_cnt = 0;
+        no_action_signal_cnt = 0;
     }
     else if (rssi <= -35)
     {
         large_signal_cnt = 0;
         small_signal_cnt ++;
+        no_action_signal_cnt = 0;
     }
+    else
+    {
+        no_action_signal_cnt++;
+        if(no_action_signal_cnt >= large_signal_cnt)
+            large_signal_cnt = 0;
+        if(no_action_signal_cnt >= small_signal_cnt)
+            small_signal_cnt = 0;
+     }
 
     if (rxswitch_en && (large_signal_cnt >= 10))
     {
+        GLOBAL_INT_DISABLE();
         large_singal_status = 1;
-        //close rx switch
-        rege_val &= ~ BIT(25);
-        rc_trx_reg14_set(rege_val);
+        phy_disable_rx_switch();
+        GLOBAL_INT_RESTORE();
     }
 
     if(!rxswitch_en && (small_signal_cnt >= 10))
     {
+        GLOBAL_INT_DISABLE();
         large_singal_status = 0;
-        //open rx switch
-        rege_val |= BIT(25);
-        rc_trx_reg14_set(rege_val);
+        phy_enable_rx_switch();
+        GLOBAL_INT_RESTORE();
     }
 }
+#endif
 
 void phy_mdm_isr(void)
 {
@@ -3210,7 +3232,11 @@ void phy_mdm_isr(void)
 #if CFG_RX_SENSITIVITY_TEST
         extern UINT32 g_rxsens_start;
         if (g_rxsens_start)
+        {
+            #if (CFG_SOC_NAME == SOC_BK7231N)
             phy_large_signal_support(mdm_rssi1_getf());
+            #endif
+        }
         else
 #endif
         phy_unsupported_modulation_check();
@@ -3630,6 +3656,11 @@ void phy_wakeup_rf_reinit(void)
     phy_env->chnl_center1_freq   =
     phy_env->chnl_center2_freq   = PHY_UNUSED;
     phy_env->chnl_type           = PHY_CHNL_BW_OTHER;
+
+#if (CFG_SOC_NAME == SOC_BK7238)
+    /* huaming suggest to config it bedore rf setting */
+    mdm_fe1clkforce_setf(1);
+#endif
 
     // recover trx setting
     rwnx_cal_recover_rf_setting();

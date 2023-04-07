@@ -62,6 +62,8 @@
 #define TXU_CNTRL_EOSP                 CO_BIT(9)
 #define TXU_CNTRL_MESH_FWD             CO_BIT(10)
 #define TXU_CNTRL_TDLS                 CO_BIT(11)
+#define TXU_CNTRL_EN_SW_RETRY_CHECK    CO_BIT(12)
+#define TXU_CNTRL_RETRY_IMMEDIATELY    CO_BIT(13)
 
 /*
  * ENUMERATION

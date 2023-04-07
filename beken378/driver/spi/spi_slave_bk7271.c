@@ -17,7 +17,7 @@
 #include "general_dma_pub.h"
 #include "general_dma.h"
 
-#if CFG_USE_SPI_SLAVE
+#if ((CFG_USE_SPI_SLAVE) && (CFG_USE_SPI))
 #define TRUE		1
 #define FALSE		0
 
