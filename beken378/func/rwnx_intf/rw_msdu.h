@@ -27,6 +27,7 @@ typedef struct _eth_hdr
 
 struct ieee80211_tx_cb {
 	beken_semaphore_t sema;
+	int l2_tag;
 	int result;
 };
 

@@ -50,6 +50,10 @@
 #endif
 #endif
 
+#if (BLE_APP_SEC)
+#include "app_sec.h"
+#endif
+
 #if (NVDS_SUPPORT)
 #include "nvds.h"                    // NVDS Definitions
 #endif //(NVDS_SUPPORT)
@@ -977,6 +981,10 @@ void appm_init( void )
 	#if APP_INIT_REUSE_ACTV_IDX
 	app_ble_initing_init();
 	#endif
+#endif
+
+#if (BLE_APP_SEC)
+	app_sec_init();
 #endif
 
 	// Reset the stack

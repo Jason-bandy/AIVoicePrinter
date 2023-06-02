@@ -197,6 +197,7 @@ OSStatus BkFlashDisableSecurity( bk_partition_t partition, uint32_t off_set, uin
 
 
 int hal_flash_init(void);
+uint32_t bk_flash_read_otp(uint32_t off_set, uint8_t *out_buf, uint32_t buf_len);
 
 
 /** @} */

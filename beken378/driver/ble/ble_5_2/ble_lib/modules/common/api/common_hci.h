@@ -5714,7 +5714,7 @@ struct hci_dbg_wlan_coex_cmd
     /// State
     uint8_t state;
 };
-#if (RW_WLAN_COEX_TEST)
+#ifdef RW_WLAN_COEX_TEST
 ///HCI Debug wlan coexistence test scenario command parameters - vendor specific
 /*@TRACE*/
 struct hci_dbg_wlan_coextst_scen_cmd

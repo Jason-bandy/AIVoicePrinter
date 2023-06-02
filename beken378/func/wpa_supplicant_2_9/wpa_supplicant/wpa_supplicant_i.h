@@ -1305,6 +1305,9 @@ struct wpa_supplicant {
 	unsigned int multi_bss_support:1;
 };
 
+extern int supplicant_started;
+extern int hostapd_started;
+extern int hostapd_scan_started;
 
 /* wpa_supplicant.c */
 void wpa_supplicant_apply_ht_overrides(

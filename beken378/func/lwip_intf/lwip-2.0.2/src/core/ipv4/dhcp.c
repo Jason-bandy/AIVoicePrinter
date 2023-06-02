@@ -404,7 +404,11 @@ dhcp_select(struct netif *netif)
   if (dhcp->tries < 255) {
     dhcp->tries++;
   }
+#if BK_DHCP
+  msecs = (dhcp->tries < 30 ? (DHCP_FINE_TIMER_MSECS*5) : 3*1000);
+#else
   msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * 1000;
+#endif
   dhcp->request_timeout = (msecs + DHCP_FINE_TIMER_MSECS - 1) / DHCP_FINE_TIMER_MSECS;
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_STATE, ("dhcp_select(): set request timeout %"U16_F" msecs\n", msecs));
   return result;
@@ -501,7 +505,7 @@ dhcp_timeout(struct netif *netif)
   /* receiving the requested lease timed out */
   } else if (dhcp->state == DHCP_STATE_REQUESTING) {
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_timeout(): REQUESTING, DHCP request timed out\n"));
-    if (dhcp->tries <= 5) {
+    if (dhcp->tries <= 30) {
       dhcp_select(netif);
     } else {
       LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE | LWIP_DBG_STATE, ("dhcp_timeout(): REQUESTING, releasing, restarting\n"));
@@ -1093,7 +1097,7 @@ dhcp_discover(struct netif *netif)
    * (0.5,1,2,4,8,15,15)s.
    **/
 #if BK_DHCP
-  msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * 250;
+  msecs = (dhcp->tries < 30 ? (DHCP_FINE_TIMER_MSECS*5) : 3*1000);
 #else
   msecs = (dhcp->tries < 6 ? 1 << dhcp->tries : 60) * 1000;
 #endif

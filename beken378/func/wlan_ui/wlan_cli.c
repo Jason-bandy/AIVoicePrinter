@@ -2333,6 +2333,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #include "app_ble.h"
 #include "app_sdp.h"
 #include "app_ble_init.h"
+#if (BLE_APP_SEC)
+#include "app_sec.h"
+#endif
+
 void ble_notice_cb(ble_notice_t notice, void *param)
 {
 	switch (notice) {
@@ -2555,6 +2559,27 @@ void profile_notice_cb(ble_notice_t notice, void *param)
 	}
 }
 #endif
+
+#if BLE_APP_SEC
+void security_notice_cb(sec_notice_t notice, void *param)
+{
+	switch (notice) {
+		case APP_SEC_PAIRING_SUCCEED:
+		{
+			bk_printf("BLE PAIRING SUCCEED\r\n");
+			break;
+		}
+		case APP_SEC_PAIRING_FAILED:
+		{
+			bk_printf("[WARNING]BLE PAIRING FAILED\r\n");
+			break;
+		}
+		default:
+			break;
+	}
+}
+#endif
+
 static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
 	uint8_t adv_data[31];
@@ -2952,6 +2977,31 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	if (os_strcmp(argv[1], "deinit_scan") == 0) {
 		bk_ble_scan_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
+	#if BLE_APP_SEC
+	if (os_strcmp(argv[1], "smp_init") == 0) {
+		struct app_pairing_cfg par;
+		par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
+		if (os_strtoul(argv[2], NULL, 10) == 0) {
+			//legacy pairing
+			par.sec_req = GAP_SEC1_AUTH_PAIR_ENC;
+			par.auth = GAP_AUTH_REQ_MITM_BOND;
+			par.ikey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_LINKKEY | GAP_KDIST_IDKEY;
+			par.rkey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_LINKKEY;
+		#if BLE_APP_SEC_CON
+		} else if (os_strtoul(argv[2], NULL, 10) == 1) {
+			// secure connection pairiing
+			par.sec_req = GAP_SEC1_SEC_CON_PAIR_ENC;
+			par.auth = GAP_AUTH_REQ_SEC_CON_BOND;
+			par.ikey_dist = GAP_KDIST_IDKEY;
+			par.rkey_dist = GAP_KDIST_NONE;
+		#endif
+		}
+		app_sec_config(&par, security_notice_cb);
+	}
+	if (os_strcmp(argv[1], "sec_req") == 0) {
+		app_sec_send_security_req(os_strtoul(argv[2], NULL, 10));
+	}
+	#endif
 #if CFG_BLE_INIT_NUM
 	if (os_strcmp(argv[1], "con_create") == 0)
 	{

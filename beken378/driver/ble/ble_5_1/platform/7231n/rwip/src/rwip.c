@@ -111,6 +111,9 @@
 
 #include "dbg.h"             // debug definition
 
+#if CFG_BLE_USE_DYN_RAM
+#include "mem_pub.h"
+#endif
 
 /*
  * DEFINES
@@ -250,6 +253,19 @@ struct rwip_param_api      rwip_param;
 uint8_t rwip_prog_delay;
 #endif //(BLE_EMB_PRESENT || BT_EMB_PRESENT)
 
+#if CFG_BLE_USE_DYN_RAM
+/// Heap definitions - use uint32 to ensure that memory blocks are 32bits aligned.
+/// Memory allocated for environment variables
+uint32_t *rwip_heap_env = NULL;
+#if (BLE_HOST_PRESENT)
+/// Memory allocated for Attribute database
+uint32_t *rwip_heap_db = NULL;
+#endif // (BLE_HOST_PRESENT)
+/// Memory allocated for kernel messages
+uint32_t *rwip_heap_msg = NULL;
+/// Non Retention memory block
+uint32_t *rwip_heap_non_ret = NULL;
+#else //CFG_BLE_USE_DYN_RAM
 /// Heap definitions - use uint32 to ensure that memory blocks are 32bits aligned.
 /// Memory allocated for environment variables
 uint32_t  rwip_heap_env[RWIP_CALC_HEAP_LEN(RWIP_HEAP_ENV_SIZE)];
@@ -261,6 +277,7 @@ uint32_t rwip_heap_db[RWIP_CALC_HEAP_LEN(RWIP_HEAP_DB_SIZE)];
 uint32_t  rwip_heap_msg[RWIP_CALC_HEAP_LEN(RWIP_HEAP_MSG_SIZE)];
 /// Non Retention memory block
 uint32_t rwip_heap_non_ret[RWIP_CALC_HEAP_LEN(RWIP_HEAP_NON_RET_SIZE)];
+#endif
 /// IP reset state variable (@see enum rwip_init_type)
 static uint8_t rwip_rst_state;
 
@@ -311,17 +328,32 @@ void rwip_init(uint32_t error)
     // Initialize kernel
     kernel_init();
 
+    #if (CFG_BLE_USE_DYN_RAM)
+    rwip_heap_env=(uint32_t*)os_zalloc(RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_ENV_SIZE));
+    #if (BLE_HOST_PRESENT)
+    /// Memory allocated for Attribute database
+    rwip_heap_db=(uint32_t*)os_zalloc(RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_DB_SIZE));
+    #endif // (BLE_HOST_PRESENT)
+    /// Memory allocated for kernel messages
+    rwip_heap_msg=(uint32_t*)os_zalloc(RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_MSG_SIZE));
+    /// Non Retention memory block
+    rwip_heap_non_ret=(uint32_t*)os_zalloc(RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_NON_RET_SIZE));
+    #endif
     // Initialize memory heap used by kernel.
     // Memory allocated for environment variables
     kernel_mem_init(KERNEL_MEM_ENV,           (uint8_t*)rwip_heap_env,     RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_ENV_SIZE));
+    bk_printf("rwip_heap_env addr:%p size:%d\r\n",rwip_heap_env,RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_ENV_SIZE));
     #if (BLE_HOST_PRESENT)
     // Memory allocated for Attribute database
     kernel_mem_init(KERNEL_MEM_ATT_DB,        (uint8_t*)rwip_heap_db,      RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_DB_SIZE));
+    bk_printf("rwip_heap_db addr:%p size:%d\r\n",rwip_heap_db,RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_DB_SIZE));
     #endif // (BLE_HOST_PRESENT)
     // Memory allocated for kernel messages
     kernel_mem_init(KERNEL_MEM_KERNEL_MSG,        (uint8_t*)rwip_heap_msg,     RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_MSG_SIZE));
+    bk_printf("rwip_heap_msg addr:%p size:%d\r\n",rwip_heap_msg,RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_MSG_SIZE));
     // Non Retention memory block
     kernel_mem_init(KERNEL_MEM_NON_RETENTION, (uint8_t*)rwip_heap_non_ret, RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_NON_RET_SIZE));
+    bk_printf("rwip_heap_non_ret addr:%p size:%d\r\n",rwip_heap_non_ret,RWIP_CALC_HEAP_LEN_IN_BYTES(RWIP_HEAP_NON_RET_SIZE));
 
     #if (BT_EMB_PRESENT || BLE_EMB_PRESENT)
     #if (RW_DEBUG)
@@ -440,6 +472,22 @@ void rwip_init(uint32_t error)
     rwip_reset();
     #endif // ((!BLE_HOST_PRESENT && BLE_EMB_PRESENT) || BT_EMB_PRESENT)
 }
+
+#if CFG_BLE_USE_DYN_RAM
+void rwip_dyn_heap_free(void)
+{
+    if(rwip_heap_env!=NULL)
+        os_free(rwip_heap_env);
+#if(BLE_HOST_PRESENT)
+    if(rwip_heap_db!=NULL)
+        os_free(rwip_heap_db);
+#endif
+    if(rwip_heap_msg!=NULL)
+        os_free(rwip_heap_msg);
+    if(rwip_heap_non_ret!=NULL)
+        os_free(rwip_heap_non_ret);
+}
+#endif
 
 void rwip_reset(void)
 {

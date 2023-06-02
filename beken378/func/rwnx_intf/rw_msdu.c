@@ -26,6 +26,16 @@
 #if CFG_TX_BUFING
 #include "rw_tx_buffering.h"
 #endif
+#include "includes.h"
+#include "common.h"
+#include "list.h"
+#include "l2_packet/l2_packet.h"
+
+#if CFG_WIFI_TX_KEYDATA_USE_LOWEST_RATE
+#ifndef ETH_TYPE_EAPOL
+#define ETH_TYPE_EAPOL	   0x888E
+#endif
+#endif
 
 void ethernetif_input(int iface, struct pbuf *p);
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u16 flag);
@@ -521,21 +531,33 @@ void ieee80211_data_tx_cb(void *param)
 	struct tx_hd *txhd = &txdesc_new->lmac.hw_desc->thd;
 	struct ieee80211_tx_cb *cb = (struct ieee80211_tx_cb *)node->args;
 	uint32_t status = txhd->statinfo;
+	struct l2_packet_node *item, *n;
+	struct l2_packet_head *l2_packet = get_l2_packet_entity();
+	bool set = false;
 
-	if(0 == node)
-	{
+	if (0 == node) {
 		os_printf("zero_node\r\n");
 		return;
 	}
 
-	if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/) {
-		cb->result = RW_SUCCESS;
-	} else {
-		cb->result = RW_FAILURE;
+	rtos_lock_mutex(&l2_packet->l2_mutex);
+	dl_list_for_each_safe(item, n, &l2_packet->head_list, struct l2_packet_node, list) {
+		if (item->cb.l2_tag == cb->l2_tag) {
+			if (status & FRAME_SUCCESSFUL_TX_BIT /*DESC_DONE_SW_TX_BIT*/)
+				cb->result = RW_SUCCESS;
+			else
+				cb->result = RW_FAILURE;
+			rtos_set_semaphore(&item->cb.sema);
+			set = true;
+			break;
+		}
 	}
+	rtos_unlock_mutex(&l2_packet->l2_mutex);
 
-	rtos_set_semaphore(&cb->sema);
+	if (!set)
+		os_printf("XXX: dobule callback for node %p\n", node);
 }
+
 
 #if CFG_RWNX_QOS_MSDU
 int sta_11n_nss(uint8_t *mcs_set)
@@ -670,6 +692,13 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u16 flag)
     txdesc_new->host.status_desc_addr = (UINT32)content_ptr + 14;
 #endif
     txdesc_new->host.ethertype        = eth_hdr_ptr->e_proto;
+
+#if CFG_WIFI_TX_KEYDATA_USE_LOWEST_RATE
+    if (ntohs(eth_hdr_ptr->e_proto) == ETH_TYPE_EAPOL) {
+        txdesc_new->host.flags |= TXU_CNTRL_LOWEST_RATE;
+    }
+#endif
+
     txdesc_new->host.tid              = tid;
 
     txdesc_new->host.vif_idx          = node->vif_idx;

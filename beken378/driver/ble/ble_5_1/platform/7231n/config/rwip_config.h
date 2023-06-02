@@ -252,15 +252,24 @@
 
 // </h>
 
-#define CFG_ECC_P256_ACC	0
+//#define CFG_BLE_SMP
+//#define CFG_SMP_SEC_CON
+
+#if defined(CFG_BLE_SMP)
+#define BLE_APP_SEC			1
+//bk patch
+#define SMP_MD_PDU_NO_ACK_PATCH 1
+#if defined(CFG_SMP_SEC_CON)
+#define BLE_APP_SEC_CON		1
+#define CFG_ECC_P256_ACC	1
+#endif
+#endif
+
 #define CFG_BLE_PER_SYNC	0
 #define CFG_BLE_PER_ADV		0
 #define CFG_BLE_EXT_ADV		1
 #define CFG_BLE_AUX_CHAIN	0
 #define CFG_BLE_EXT_SCAN	1
-
-//bk patch
-#define SMP_MD_PDU_NO_ACK_PATCH 0
 
 /////POKI Test
 // <h> Config User App/Test function

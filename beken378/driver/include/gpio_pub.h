@@ -14,7 +14,7 @@ enum {
 	GPIO_DIR_OTHER
 };
 
-#define GPIO_DEV_NAME                "gpio"
+#define GPIO_DEV_NAME                ((char*)"gpio")
 
 #define GPIO_CFG_PARAM(id, mode)           (id + ((mode & 0xff) << 8))
 #define GPIO_CFG_PARAM_DEMUX_ID(param)       (param & 0xff)

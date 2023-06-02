@@ -103,7 +103,7 @@ enum l2cap_cmd_code
     /// and reassembly mechanisms. To create a L2CAP Credit Based connection, @see L2CAP_COC_CREATE command should
     /// be used instead.
     L2CAP_DBG_CHAN_DYN_REGISTER         = 0x0A02,
-    /// Debug command used to unregister a dynamic or a fixed channel. After sending this command, it’s no more
+    /// Debug command used to unregister a dynamic or a fixed channel. After sending this command, it's no more
     /// possible to receive or send SDUs onto the channel
     L2CAP_DBG_CHAN_UNREGISTER           = 0x0A03,
     /// Debug command used to increment number of dynamic L2CAP channel transmission credits.
@@ -931,7 +931,7 @@ typedef struct l2cap_coc_connect_req_ind
 
 /// L2CAP_COC_CONNECT confirm structure
 /*@TRACE*/
-typedef struct l2cap_coc_connect_cfm
+typedef struct l2cap_coc_connect_cfm_st
 {
     /// Request Indication code (@see enum l2cap_req_ind_code)
     uint16_t req_ind_code;

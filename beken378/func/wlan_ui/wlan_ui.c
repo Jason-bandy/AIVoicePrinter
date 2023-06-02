@@ -610,7 +610,12 @@ OSStatus bk_wlan_start_ap(network_InitTypeDef_st *inNetworkInitParaAP)
 	wlan_ap_enable();
 
 	// reload bss configuration
-	wlan_ap_reload();
+	if (wlan_ap_reload() == -1)
+	{
+		os_printf("bk_wlan_start softap failed!!\r\n");
+		bk_wlan_stop(BK_SOFT_AP);
+		return -1;
+	}
 
 	/* now ap has started, set ip address to this interface */
     ip_address_set(BK_SOFT_AP,
@@ -1253,6 +1258,10 @@ void bk_wlan_start_scan(void)
         return;
     }
 
+	/* if AP is up, use AP's interface to scan */
+	if (bk_wlan_ap_is_up() > 0) {
+		wlan_ap_scan(NULL);
+	} else {
     bk_wlan_sta_init(0);
 
 #if CFG_WPA_CTRL_IFACE
@@ -1265,6 +1274,7 @@ void bk_wlan_start_scan(void)
 
     rw_msg_send_scanu_req(&scan_param);
 #endif
+	}
 }
 
 
@@ -1318,11 +1328,14 @@ void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num)
 #else /* CFG_WPA_CTRL_IFACE */
 	wlan_sta_scan_param_t scan_param = {0};
 
-	/* init hw */
-	bk_wlan_sta_init(0);
+	/* if AP is up, use AP's interface to scan */
+	if (bk_wlan_ap_is_up() <= 0) {
+		/* init hw */
+		bk_wlan_sta_init(0);
 
-	/* enable wpa_supplicant */
-	wlan_sta_enable();
+		/* enable wpa_supplicant */
+		wlan_sta_enable();
+	}
 
 	/* set scan ssid list */
 	scan_param.num_ssids = _MIN(ssid_num, WLAN_SCAN_SSID_MAX);
@@ -1331,8 +1344,12 @@ void bk_wlan_start_assign_scan(UINT8 **ssid_ary, UINT8 ssid_num)
 		os_memcpy(scan_param.ssids[i].ssid, ssid_ary[i], scan_param.ssids[i].ssid_len);
 	}
 
-	/* start scan */
-	wlan_sta_scan(&scan_param);
+	/* Start scan. if AP is up, use AP's interface to scan */
+	if (bk_wlan_ap_is_up() <= 0) {
+		wlan_sta_scan(&scan_param);
+	} else {
+		wlan_ap_scan(&scan_param);
+	}
 #endif /* CFG_WPA_CTRL_IFACE */
 }
 
@@ -2464,6 +2481,7 @@ int bk_wlan_dtim_rf_ps_get_enable_flag(void)
 
 int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 {
+#if (!CFG_JTAG_ENABLE)
 #if CFG_USE_MCU_PS
 	#if (CFG_OS_FREERTOS)
 	GLOBAL_INT_DECLARATION();
@@ -2475,11 +2493,13 @@ int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 	GLOBAL_INT_RESTORE();
 	#endif
 #endif
+#endif
 	return 0;
 }
 #else
 int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 {
+#if (!CFG_JTAG_ENABLE)
 #if CFG_USE_MCU_PS
 #if (CFG_OS_FREERTOS)
 	GLOBAL_INT_DECLARATION();
@@ -2494,6 +2514,7 @@ int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 		return -1;
 	}
 	GLOBAL_INT_RESTORE();
+#endif
 #endif
 #endif
 
@@ -2563,6 +2584,10 @@ OSStatus bk_wlan_ap_is_up(void)
         return -1;
     }
 
+    if (!uap_ip_is_start()) {
+        return -2;
+    }
+
     ip_addr_set_zero(&ip_addr);
     if (ip_addr_cmp(&(netif->ip_addr), &ip_addr))
     {
@@ -2596,6 +2621,10 @@ OSStatus bk_wlan_sta_is_connected(void)
     if (!netif)
     {
         return -1;
+    }
+
+    if (!sta_ip_is_start()) {
+        return -2;
     }
 
     ip_addr_set_zero(&ip_addr);

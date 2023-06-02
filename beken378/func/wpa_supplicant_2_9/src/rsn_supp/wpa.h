@@ -480,5 +480,9 @@ int owe_process_assoc_resp(struct wpa_sm *sm, const u8 *bssid,
 void wpa_sm_set_reset_fils_completed(struct wpa_sm *sm, int set);
 void wpa_sm_set_fils_cache_id(struct wpa_sm *sm, const u8 *fils_cache_id);
 void wpa_sm_set_dpp_z(struct wpa_sm *sm, const struct wpabuf *z);
+#if BK_SUPPLICANT && CFG_WPA_RESEND_EAPOL_KEY
+void wpa_sm_send_key_timeout(void *ctxt, void *timeout_ctx);
+void wpa_sm_cancel_timeout(struct wpa_sm *sm);
+#endif
 
 #endif /* WPA_H */

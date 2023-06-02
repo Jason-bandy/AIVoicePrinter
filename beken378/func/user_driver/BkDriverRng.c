@@ -33,6 +33,7 @@
 #include "uart_pub.h"
 #include "irda_pub.h"
 #include <stdlib.h>
+#include "mem_pub.h"
 
 #if (SOC_BK7231 == CFG_SOC_NAME)
 int bk_rand(void)
@@ -52,23 +53,17 @@ int bk_rand(void)
 
 OSStatus BkRandomNumberRead( void *inBuffer, int inByteCount )
 {
+	uint32_t i;
 	uint32_t param = 0;
-	uint32_t len, i;
-	char *src, *dest;
+
 
 	ASSERT(inBuffer);
-	sddev_control(IRDA_DEV_NAME, TRNG_CMD_GET, &param);
-
-	src = (char *)&param;	
-	dest = (char *)inBuffer;
-	
-	len = _MIN(inByteCount, sizeof(param));
-	for(i = 0; i < len; i ++)
-	{
-		dest[i] = src[i];
+	for (i = 0; i < inByteCount; i += sizeof(param)) {
+		sddev_control(IRDA_DEV_NAME, TRNG_CMD_GET, &param);
+		os_memcpy((uint8_t *)inBuffer+i, (uint8_t *)&param, sizeof(param) > (inByteCount - i) ? (inByteCount - i) : sizeof(param));
 	}
-	
-    return 0;
+
+	return 0;
 }
 #endif
 // eof

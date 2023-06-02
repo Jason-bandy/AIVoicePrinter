@@ -10,7 +10,7 @@ extern "C" {
 typedef void (*FUNCPTR)(void);
 typedef void (*FUNC_1PARAM_PTR)(void *ctxt);
 typedef void (*FUNC_2PARAM_PTR)(void *arg, unsigned char vif_idx);
-typedef void (*FUNC_2PARAM_CB)(uint32_t larg, uint32_t rarg);
+typedef int (*FUNC_2PARAM_CB)(uint32_t larg, uint32_t rarg);
 
 #ifndef _MAX
 #define _MAX(x, y)                  (((x) > (y)) ? (x) : (y))

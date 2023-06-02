@@ -204,6 +204,9 @@ struct sm_env_tag
     struct best_cand_info   orig_ap_info;
 
 #endif  // NX_ROAMING
+    struct mac_addr deleted_bssid;
+    struct mac_addr deleted_ap_addr;
+    struct mac_addr unknown_sta_addr;
 };
 
 /**

@@ -38,6 +38,7 @@
 #include "error.h"
 #include "mcu_ps_pub.h"
 #include "power_save_pub.h"
+#include "wpa_supplicant_i.h"
 
 extern int bmsg_ioctl_sender(void *arg);
 extern void wpa_handler_signal(void *arg, u8 vif_idx);
@@ -690,7 +691,11 @@ int rw_msg_send_scanu_req(SCAN_PARAM_T *scan_param)
 	req->add_ies = (uint32_t)extra_ies;
 
 #if CFG_WPA_CTRL_IFACE
-	wpa_handler_signal((void *)SIGSCAN_START, scan_param->vif_idx);
+	if (hostapd_scan_started) {
+		wpa_handler_signal((void *)SIGSCAN_START_AP, scan_param->vif_idx);
+	} else {
+		wpa_handler_signal((void *)SIGSCAN_START, scan_param->vif_idx);
+	}
 #endif
 
 	/* Send the SCANU_START_REQ message to LMAC FW */

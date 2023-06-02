@@ -122,7 +122,10 @@ char *ipv6_addr_type_to_desc(struct ipv6_config *ipv6_conf)
 
 int net_dhcp_hostname_set(char *hostname)
 {
-	netif_set_hostname(&g_mlan.netif, hostname);
+	static char net_hostname[32] = {0};
+	os_memset(net_hostname, 0, sizeof(net_hostname));
+	os_strcpy(net_hostname, hostname);
+	netif_set_hostname(&g_mlan.netif, net_hostname);
 	return 0;
 }
 
@@ -162,6 +165,24 @@ static void wm_netif_ipv6_status_callback(struct netif *n)
 			}
 		}
 	}
+
+	FUNC_1PARAM_PTR fn;
+	u32 val;
+
+	fn = (FUNC_1PARAM_PTR)bk_wlan_get_status_cb();
+	if(fn)
+	{
+		val = RW_EVT_STA_GOT_IP;
+		(*fn)(&val);
+	}
+	mhdr_set_station_status(RW_EVT_STA_GOT_IP);
+	/* dhcp success*/
+	if(sta_ipup_cb != NULL)
+		sta_ipup_cb(NULL);
+
+	if(sta_connected_func != NULL)
+		(*sta_connected_func)();
+
 }
 #endif /* LWIP_IPV6 */
 
@@ -394,6 +415,17 @@ void sta_ip_down(void)
 		netifapi_netif_set_down(&g_mlan.netif);
 		netif_set_status_callback(&g_mlan.netif, NULL);
 		netifapi_dhcp_stop(&g_mlan.netif);
+#if defined(LWIP_IPV6) && LWIP_IPV6
+		struct netif *n=net_get_sta_handle();
+		if(n->flags & NETIF_FLAG_MLD6) {
+			n->flags &= (~NETIF_FLAG_MLD6);
+			ip6_addr_t addr = {0};
+			for (int i = 0; i < MAX_IPV6_ADDRESSES; i++) {
+				netif_ip6_addr_set_state(n, i, 0);
+				netif_ip6_addr_set(n, i, &addr);
+			}
+		}
+#endif
 	}
 }
 
@@ -421,6 +453,14 @@ void sta_ip_start(void)
 #endif
 		sta_ip_start_flag = 1;
 		net_configure_address(&sta_ip_settings, net_get_sta_handle());
+#if defined(LWIP_IPV6) && LWIP_IPV6
+		struct netif *n=net_get_sta_handle();
+		if(!(n->flags & NETIF_FLAG_MLD6)) {
+			netif_create_ip6_linklocal_address(n, 1);
+			netif_set_ip6_autoconfig_enabled(n, 1);
+			n->flags |= NETIF_FLAG_MLD6;
+		}
+#endif
 
 		return;
 	}

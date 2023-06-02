@@ -24,6 +24,8 @@ enum
     CMD_FLASH_READ_QE,
     CMD_FLASH_SET_QE,
 
+    CMD_FLASH_READ_OTP,
+
     CMD_FLASH_SET_QWFR,
     CMD_FLASH_CLR_QWFR,
 
@@ -56,6 +58,12 @@ typedef struct
     UINT8 byte;
     UINT16 value;
 } flash_sr_t;
+
+typedef struct {
+    UINT8 *buf;
+    UINT32 addr;
+    UINT32 len;
+} flash_otp_t;
 
 /*******************************************************************************
 * Function Declarations

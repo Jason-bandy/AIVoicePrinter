@@ -1035,6 +1035,41 @@ uint32_t bk_erase_ota_data_in_flash( )
     return dw_rtn;
 }
 
+/*********************************************************************
+ * Funtion Name:bk_erase_ota_data_in_flash_per_sector
+ *
+ * Funtion Discription:erase ota data in flash
+ *
+ *
+ *
+ *
+ * Date:2022-02-10
+ *******************************************************************/
+uint32_t bk_erase_ota_data_in_flash_per_sector( uint32_t dw_offaddr)
+{
+    DD_HANDLE flash_hdl = 0;
+    uint32_t status = 0,protect_param = 0,protect_flag = 0;
+    uint32_t operation_addr = 0;
+    bk_logic_partition_t *partition_info = NULL;
+
+    partition_info = bk_flash_get_info(BK_PARTITION_OTA);
+    BK_CHECK_POINTER_NULL(partition_info);
+
+    operation_addr = partition_info->partition_start_addr;
+
+    flash_hdl = ddev_open((char *)FLASH_DEV_NAME, (UINT32 *)&status, 0);
+    ddev_control(flash_hdl, CMD_FLASH_GET_PROTECT, &protect_flag);
+    protect_param = FLASH_PROTECT_NONE;
+    ddev_control(flash_hdl, CMD_FLASH_SET_PROTECT, &protect_param);
+    operation_addr += dw_offaddr;
+
+    ddev_control(flash_hdl, CMD_FLASH_ERASE_SECTOR, &operation_addr);
+
+    ddev_control(flash_hdl, CMD_FLASH_SET_PROTECT, &protect_flag);
+
+    return kNoErr;
+}
+
 #if 1
 /*********************************************************************
  * Funtion Name:test bk_flash write 

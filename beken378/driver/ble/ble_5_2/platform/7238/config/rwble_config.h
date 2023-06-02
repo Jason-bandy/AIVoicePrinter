@@ -214,7 +214,7 @@
 #define BLE_RESOL_ADDR_LIST_MAX     (BLE_RAL_MAX)
 
 /// Number of RX data buffers (common for all activities)
-#define BLE_DATA_BUF_NB_RX           (BLE_RX_DESC_NB + 2)
+#define BLE_DATA_BUF_NB_RX           (BLE_RX_DESC_NB + 3)
 /// Size of RX data buffers (common for all activities) (the first 5 bytes are reserved for HCI header)
 #define BLE_DATA_BUF_SIZE_RX         (260)
 /// Guard space reserved for HCI ACL header in BLE RX buffers

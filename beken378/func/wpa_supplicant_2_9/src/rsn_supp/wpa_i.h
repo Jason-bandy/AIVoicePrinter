@@ -176,6 +176,11 @@ struct wpa_sm {
 #ifdef CONFIG_DPP2
 	struct wpabuf *dpp_z;
 #endif /* CONFIG_DPP2 */
+
+#if BK_SUPPLICANT && CFG_WPA_RESEND_EAPOL_KEY
+	u8 *last_key_data;
+	int last_key_data_len;
+#endif
 };
 
 

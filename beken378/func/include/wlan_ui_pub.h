@@ -669,6 +669,9 @@ int wlan_ap_sta_deauth(wlan_ap_sta_deauth_t *req);
 int wlan_ap_add_blacklist(wlan_ap_blacklist_t *req);
 int wlan_ap_del_blacklist(wlan_ap_blacklist_t *req);
 int wlan_ap_clear_blacklist();
+int wlan_ap_scan(wlan_sta_scan_param_t *param);
+int wlan_ap_scan_result(ScanResult_adv *results);
+int wlan_ap_scan_result_flush(int age);
 #endif
 
 int wlan_sta_disable(void);
@@ -683,6 +686,9 @@ void bk_wlan_status_register_cb(FUNC_1PARAM_PTR cb);
 FUNC_1PARAM_PTR bk_wlan_get_status_cb(void);
 int auto_check_dtim_rf_ps_mode(void );
 int bk_wlan_set_channel_with_band_width(int channel, int band_width);
+
+OSStatus bk_wlan_ap_is_up(void);
+OSStatus bk_wlan_sta_is_connected(void);
 
 #if (CFG_SUPPORT_ALIOS)
 /**********************for alios*******************************/

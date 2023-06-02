@@ -261,6 +261,9 @@ extern const uint32_t txl_prep_evt_bit[NX_TXQ_CNT];
 /// Tx Control context variable
 extern struct txl_cntrl_env_tag txl_cntrl_env;
 
+/// Abs timer timeout counter
+extern uint32_t tx_acx_count[NX_TXQ_CNT];
+
 /*
  * FUNCTION PROTOTYPES
  ****************************************************************************************

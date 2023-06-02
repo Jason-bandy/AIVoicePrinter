@@ -1157,14 +1157,14 @@ enum ble_feature
 
 /// PageScanRepetitionMode HCI:4.5.5
 #define R0                      0x00
-#define R1                      0x01
-#define R2                      0x02
-#define PAGESCAN_REP_DEF        R1          // Default
+#define R1_1                    0x01
+#define R2_2                    0x02
+#define PAGESCAN_REP_DEF        R1_1          // Default
 
 /// PageScanPeriodMode HCI:4.7.49
-#define P0                      0x00        // Default
-#define P1                      0x01
-#define P2                      0x02
+#define P0                        0x00        // Default
+#define P1_1                      0x01
+#define P2_2                      0x02
 
 /// PageScanMode HCI:4.7.51
 #define MANDATORY_PAGE_SCAN_MODE 0x00       // Default

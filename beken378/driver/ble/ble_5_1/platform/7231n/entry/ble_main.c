@@ -35,6 +35,9 @@
 #include "param_config.h"
 #include "common_utils.h"
 #include "ate_app.h"
+#if CFG_BLE_USE_DYN_RAM
+#include "mem_pub.h"
+#endif
 
 beken_queue_t ble_msg_que = NULL;
 beken_thread_t ble_thread_handle = NULL;
@@ -433,6 +436,9 @@ void ble_thread_main(void *arg)
 	rtos_deinit_queue(&ble_msg_que);
 	ble_msg_que = NULL;
 	ble_thread_handle = NULL;
+	#if CFG_BLE_USE_DYN_RAM
+	rwip_dyn_heap_free();
+	#endif
 	rtos_delete_thread(NULL);
 }
 

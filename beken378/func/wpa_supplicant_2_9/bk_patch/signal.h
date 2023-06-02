@@ -42,12 +42,14 @@ typedef void (*SIG_FUNC)(int);
 #define SIGDEAUTH    	36
 #define SIGCSA       	37
 #define SIGAUTH			38
+#define SIGSCAN_AP      39
+#define SIGSCAN_START_AP  40
 
 #define SIGPOLL	    SIGIO
 #define SIGPWR	    SIGINFO
 #define SIGIOT	    SIGABRT
 
-#define SIGABOART   39
+#define SIGABOART   41
 
 extern void bk_signal(int sig_num, SIG_FUNC func);
 unsigned int bk_alarm(unsigned int seconds);

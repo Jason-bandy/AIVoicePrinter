@@ -375,7 +375,15 @@ void rwip_init(uint32_t error);
  */
 void rwip_reset(void);
 
-
+#if CFG_BLE_USE_DYN_RAM
+/**
+ ****************************************************************************************
+ * @brief RWIP Dynamic Heap Free
+ *
+ ****************************************************************************************
+ */
+void rwip_dyn_heap_free(void);
+#endif
 
 #if (BT_EMB_PRESENT)
 

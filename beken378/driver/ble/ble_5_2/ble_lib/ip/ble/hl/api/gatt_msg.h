@@ -1691,7 +1691,7 @@ typedef struct gatt_srv_att_read_get_req_ind
 
 /// GATT_SRV_ATT_READ_GET confirm structure
 /*@TRACE*/
-typedef struct gatt_srv_att_read_get_cfm
+typedef struct gatt_srv_att_read_get_cfm_st
 {
     /// Request Indication code (@see enum gatt_req_ind_code)
     /// - GATT_SRV_ATT_READ_GET
@@ -1735,7 +1735,7 @@ typedef struct gatt_srv_att_event_get_req_ind
 
 /// GATT_SRV_ATT_EVENT_GET confirm structure
 /*@TRACE*/
-typedef struct gatt_srv_att_event_get_cfm
+typedef struct gatt_srv_att_event_get_cfm_st
 {
     /// Request Indication code (@see enum gatt_req_ind_code)
     /// - GATT_SRV_ATT_EVENT_GET
@@ -1776,7 +1776,7 @@ typedef struct gatt_srv_att_info_get_req_ind
 
 /// GATT_SRV_ATT_INFO_GET confirm structure
 /*@TRACE*/
-typedef struct gatt_srv_att_info_get_cfm
+typedef struct gatt_srv_att_info_get_cfm_st
 {
     /// Request Indication code (@see enum gatt_req_ind_code)
     /// - GATT_SRV_ATT_INFO_GET
@@ -1818,7 +1818,7 @@ typedef struct gatt_srv_att_val_set_req_ind
 
 /// GATT_SRV_ATT_VAL_SET confirm structure
 /*@TRACE*/
-typedef struct gatt_srv_att_val_set_cfm
+typedef struct gatt_srv_att_val_set_cfm_st
 {
     /// Request Indication code (@see enum gatt_req_ind_code)
     /// - GATT_SRV_ATT_VAL_SET
@@ -1859,7 +1859,7 @@ typedef struct gatt_cli_att_val_get_req_ind
 
 /// GATT_CLI_ATT_VAL_GET confirm structure
 /*@TRACE*/
-typedef struct gatt_cli_att_val_get_cfm
+typedef struct gatt_cli_att_val_get_cfm_st
 {
     /// Request Indication code (@see enum gatt_req_ind_code)
     /// - GATT_CLI_ATT_VAL_GET
@@ -1907,7 +1907,7 @@ typedef struct gatt_cli_att_event_req_ind
 
 /// GATT_CLI_ATT_EVENT confirm structure
 /*@TRACE*/
-typedef struct gatt_cli_att_event_cfm
+typedef struct gatt_cli_att_event_cfm_st
 {
     /// Request Indication code (@see enum gatt_req_ind_code)
     /// - GATT_CLI_ATT_EVENT

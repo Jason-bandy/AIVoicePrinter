@@ -354,7 +354,12 @@ ble_err_t app_ble_stop_scaning(uint8_t actv_idx);
 ble_err_t app_ble_delete_scaning(uint8_t actv_idx);
 ble_err_t app_ble_set_le_pkt_size(uint8_t conn_idx);
 ble_err_t app_ble_get_peer_feature(uint8_t conn_idx);
+#ifdef __cplusplus
+extern "C"   ble_err_t app_ble_mtu_get(uint8_t conn_idx, uint16_t *p_mtu);
+#else
 ble_err_t app_ble_mtu_get(uint8_t conn_idx, uint16_t *p_mtu);
+#endif
+
 ble_err_t app_ble_mtu_exchange(uint8_t conn_idx);
 void app_ble_send_conn_param_update_cfm(uint8_t con_idx,bool accept);
 uint8_t app_ble_get_connect_status(uint8_t con_idx);

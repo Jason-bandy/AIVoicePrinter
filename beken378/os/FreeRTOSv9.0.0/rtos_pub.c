@@ -590,6 +590,11 @@ static void timer_callback1(xTimerHandle handle)
 {
 	beken_timer_t *timer = (beken_timer_t *) pvTimerGetTimerID(handle);
 
+	if (timer->state == BEKEN_TIMER_DELETED) {
+		bk_printf("timer %s has deleted\r\n", pcTimerGetName(handle));
+		return;
+	}
+
 	if (timer->state == BEKEN_TIMER_DELETING) {
 		timer->state = BEKEN_TIMER_DELETED;
 		return;
@@ -599,6 +604,10 @@ static void timer_callback1(xTimerHandle handle)
 		return;
 	}
 
+	if (pcTimerGetState(handle) == TIMER_STATE_STOPPED) {
+		bk_printf("timer %s has stopped\r\n", pcTimerGetName(handle));
+		return;
+	}
 	if (timer->function) {
 		timer->function(timer->arg);
 	}

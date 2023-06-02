@@ -146,6 +146,7 @@ if ((GetLocalDepend(options, 'CFG_SUPPORT_BLE') == 1)
     src_pub += ["ble_pub/profiles/sdp/src/sdp_common.c"]
     src_pub += ["ble_pub/app/src/app_comm.c"]
     src_pub += ["ble_pub/app/src/app_ble.c"]
+    src_pub += ["ble_pub/app/src/app_sec.c"]
     src_pub += ["ble_pub/app/src/app_task.c"]
     src_pub += ["ble_pub/app/src/app_ble_init.c"]
     src_pub += ["ble_pub/app/src/app_sdp.c"]

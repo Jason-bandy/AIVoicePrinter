@@ -45,6 +45,7 @@
 #define DATA_FLASH_SW_SEL_MASK               (0x07)
 #define DATA_SW_FLASH_SEL_POSI               (19)
 #define DATA_SW_FLASH_SEL_MASK               (0x07)
+#define PAGE_WRITE_EN                        (0x01UL << 30)
 
 #define REG_FLASH_CONF                       (FLASH_BASE + 7 * 4)
 #define FLASH_CLK_CONF_POSI                  (0)
@@ -55,6 +56,11 @@
 #define WRSR_DATA_POSI                       (10)
 #define WRSR_DATA_MASK                       (0x00FFFF)
 #define CRC_EN                               (0x01UL << 26)
+
+#define REG_FLASH_PW_CONF                    (FLASH_BASE + 9 * 4)
+#define FLASH_PW_MEM_CLR                     (0x01UL << 31)
+#define FLASH_PW_MEM_DATA_POSI               (0)
+#define FLASH_PW_MEM_DATA_MASK               (0xFF)
 
 #define CPU_DATA_WR_POSI                     (9)
 #define CPU_DATA_WR_MASK                     (0x01)
@@ -85,6 +91,7 @@ typedef enum
     FLASH_OPCODE_HPM     = 21,
     FLASH_OPCODE_CRMR    = 22,
     FLASH_OPCODE_CRMR2   = 23,
+    FLASH_OPCODE_RDSCR   = 28,
 } FLASH_OPCODE;
 
 typedef struct

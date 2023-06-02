@@ -98,6 +98,7 @@
 	#define CFG_BLE_RPA			1
 	#endif
 	#if defined(CFG_SMP_SEC_CON)
+	#define BLE_APP_SEC_CON 	1
 	#define CFG_ECC_P256_ACC	1
 	#endif
 #else //CFG_SMP

@@ -64,6 +64,7 @@
 #define TXU_CNTRL_TDLS                 CO_BIT(11)
 #define TXU_CNTRL_EN_SW_RETRY_CHECK    CO_BIT(12)
 #define TXU_CNTRL_RETRY_IMMEDIATELY    CO_BIT(13)
+#define TXU_CNTRL_LOWEST_RATE          CO_BIT(14)
 
 /*
  * ENUMERATION

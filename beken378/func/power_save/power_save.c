@@ -905,11 +905,6 @@ void power_save_rf_dtim_manual_do_wakeup(void)
 	}
 #endif
 
-#if (1 == CFG_LOW_VOLTAGE_PS)
-	GLOBAL_INT_RESTORE();
-	return;
-#endif
-
 	rtos_lock_scheduling();
 	PS_DEBUG_UP_TRIGER;
 

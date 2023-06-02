@@ -166,7 +166,7 @@
 #define CFG_QUICK_TRACK                            0
 
 /* use mbedtls as wpa crypto functions */
-#if(CFG_SUPPORT_MATTER == 1)
+#if(CFG_SUPPORT_RTOS == CFG_OS_FREERTOS)
 #define CFG_USE_MBEDTLS                            1
 #else
 #define CFG_USE_MBEDTLS                            0
@@ -212,7 +212,11 @@
 #define IPERF_CLOSE                                0  /* close iperf */
 #define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
 #define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#if(CFG_SUPPORT_MATTER == 1)
+#define CFG_IPERF_TEST                             IPERF_CLOSE
+#else
 #define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+#endif
 #if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 #define CFG_IPERF_TEST_ACCEL                       1
 #define CFG_IPERF_DONT_MALLOC_BUFFER               1
@@ -357,6 +361,7 @@
 #else
 #define CFG_BLE_SCAN_NUM                           1
 #endif
+#define CFG_BLE_USE_DYN_RAM                        1
 
 // 0 mean do not support ble master
 #define CFG_BLE_INIT_NUM                           0

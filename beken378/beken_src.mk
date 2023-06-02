@@ -857,6 +857,7 @@ SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/platform/7231n/driver/rf/ble_rf_p
 SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/platform/7231n/driver/uart/uart_ble.c
 SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_ble_init.c
 SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_sdp.c
+SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/ble_pub/app/src/app_sec.c
 SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/ble_pub/profiles/sdp/src/sdp_common.c
 SRC_BLE_PUB_C += ./beken378/driver/ble/ble_5_1/ble_pub/profiles/sdp/src/sdp_comm_task.c
 endif #BLE_VERSION_5_1

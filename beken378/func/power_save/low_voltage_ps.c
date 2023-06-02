@@ -38,6 +38,7 @@ uint32_t lv_ps_bcn_has_been_waiting = 0;
 #endif
 uint32_t lv_ps_bcn_cont_miss_bcn_count = 0;
 uint64_t lv_ps_last_beacon_rev_timepoint = 0;
+uint64_t lv_ps_first_beacon_change_rev_timepoint = 0;
 #if CFG_USE_TICK_CAL
 uint32_t lv_ps_sleep_cnt = 0;
 #endif
@@ -632,6 +633,11 @@ uint32_t lv_ps_recv_beacon(void)
 	return lv_ps_beacon_cnt_after_wakeup;
 }
 
+void lv_ps_recv_beacon_change(void)
+{
+	lv_ps_first_beacon_change_rev_timepoint = cal_get_time_us();
+}
+
 uint32_t lv_ps_set_start_flag(void)
 {
 	if(ps_may_sleep())
@@ -1048,6 +1054,27 @@ static uint32_t lv_ps_check_beacon_loss(void)
         ps_send_connection_loss();
         os_printf("low voltage detect beacon loss\r\n");
 
+        return 1;
+    }
+
+    return 0;
+}
+
+uint32_t lv_ps_check_beacon_changed(void)
+{
+    uint64_t current_timepoint = 0, loss_during;
+    current_timepoint = cal_get_time_us();
+
+    if(current_timepoint > lv_ps_first_beacon_change_rev_timepoint) {
+        loss_during = current_timepoint - lv_ps_first_beacon_change_rev_timepoint;
+    } else {
+//        loss_during = (0xffffffffffffffffu - lv_ps_last_beacon_rev_timepoint) + current_timepoint;
+        ASSERT(0);
+    }
+    loss_during = loss_during / 1000000;
+
+    //os_printf("loss: %u, %u\r\n", loss_during, LV_PS_BEACON_LOSS_TIME_S);
+    if (loss_during >= LV_PS_BEACON_LOSS_TIME_S) {
         return 1;
     }
 

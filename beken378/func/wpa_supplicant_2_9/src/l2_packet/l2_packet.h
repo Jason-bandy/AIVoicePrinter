@@ -15,6 +15,8 @@
 #ifndef L2_PACKET_H
 #define L2_PACKET_H
 
+#include "rw_msdu.h"
+
 /**
  * struct l2_packet_data - Internal l2_packet data structure
  *
@@ -43,6 +45,21 @@ enum l2_packet_filter_type {
 	L2_PACKET_FILTER_DHCP,
 	L2_PACKET_FILTER_NDISC,
 	L2_PACKET_FILTER_PKTTYPE,
+};
+
+/* l2 packet node */
+struct l2_packet_node
+{
+	struct dl_list list;
+	struct ieee80211_tx_cb cb;
+};
+
+/* l2 packet head */
+struct l2_packet_head
+{
+	struct dl_list head_list;
+	int num;
+	beken_mutex_t l2_mutex;
 };
 
 /**
@@ -153,5 +170,7 @@ void l2_packet_notify_auth_start(struct l2_packet_data *l2);
  */
 int l2_packet_set_packet_filter(struct l2_packet_data *l2,
 				enum l2_packet_filter_type type);
+
+struct l2_packet_head *get_l2_packet_entity(void);
 
 #endif /* L2_PACKET_H */

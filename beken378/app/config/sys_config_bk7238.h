@@ -51,6 +51,8 @@
 #define THDD_KEY_SCAN_PRIORITY                     7
 
 /*section 2-----function macro config-----*/
+#define CFG_SUPPORT_MATTER                         0
+
 #define CFG_TX_EVM_TEST                            1
 #define CFG_RX_SENSITIVITY_TEST                    1
 #define CFG_AP_MONITOR_COEXIST                     0
@@ -134,7 +136,11 @@
 #define CFG_QUICK_TRACK                            0
 
 /* use mbedtls as wpa crypto functions */
+#if(CFG_SUPPORT_RTOS == CFG_OS_FREERTOS)
+#define CFG_USE_MBEDTLS                            1
+#else
 #define CFG_USE_MBEDTLS                            0
+#endif
 #if CFG_USE_MBEDTLS
 #define CFG_MBEDTLS                                1
 #endif
@@ -176,7 +182,11 @@
 #define IPERF_CLOSE                                0  /* close iperf */
 #define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
 #define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#if(CFG_SUPPORT_MATTER == 1)
+#define CFG_IPERF_TEST                             IPERF_CLOSE
+#else
 #define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+#endif
 #if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 #define CFG_IPERF_TEST_ACCEL                       1
 #define CFG_IPERF_DONT_MALLOC_BUFFER               1
@@ -251,9 +261,14 @@
 #define CFG_USE_BLE_PS                             1
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
-#define CFG_LOW_VOLTAGE_PS                         0
+#define CFG_LOW_VOLTAGE_PS                         1
 #define CFG_LOW_VOLTAGE_PS_32K_DIV                 0
 #define CFG_LOW_VOLTAGE_PS_TEST                    0
+
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
+#undef CFG_LOW_VOLTAGE_PS
+#define CFG_LOW_VOLTAGE_PS                         0
+#endif
 
 #if(CFG_LOW_VOLTAGE_PS == 1)
 #define CFG_HW_PARSER_TIM_ELEMENT                  1
@@ -276,7 +291,7 @@
 #define CONFIG_APP_MP3PLAYER                       0
 
 /*section 21 ----- support ota*/
-#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) || (CFG_SUPPORT_MATTER == 1))
 #define CFG_SUPPORT_OTA_HTTP                       0
 #else
 #define CFG_SUPPORT_OTA_HTTP                       1
@@ -321,13 +336,15 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
-#define CFG_BLE_ADV_NUM				1
-#define CFG_BLE_SCAN_NUM			1
-#define CFG_BLE_DIAGNOSTIC_PORT		0
-// 0 mean do not support ble master
-#define CFG_BLE_INIT_NUM			0
+#define CFG_BLE_ADV_NUM                            1
+#define CFG_BLE_SCAN_NUM                           1
+#define CFG_BLE_USE_DYN_RAM                        1
+#define CFG_BLE_DIAGNOSTIC_PORT                    0
 
-#define CFG_BLE_CONN_NUM			1
+// 0 mean do not support ble master
+#define CFG_BLE_INIT_NUM                           0
+
+#define CFG_BLE_CONN_NUM                           1
 
 #if (CFG_BLE_ADV_NUM == 0)
 #error "ADV NUM should not be 0"
@@ -367,6 +384,11 @@
 #define FLASH_SELECTION_TYPE_8M                    0x800000 //8MBytes
 #define CFG_FLASH_SELECTION_TYPE                   FLASH_SELECTION_TYPE_2M
 
+#if (1 == CFG_SUPPORT_MATTER)
+#undef CFG_MBEDTLS
+#define CFG_MBEDTLS                                1
+#endif
+
 /* watchdog, freertos only */
 #define CFG_INT_WDG_ENABLED                        1
 #define CFG_INT_WDG_PERIOD_MS                      10000
@@ -400,6 +422,6 @@
 #define CFG_NX_SOFTWARE_TX_RETRY                   1
 #define CFG_NX_OPTIMIZE_WEAKSIGNAL                 1
 
-#define CFG_WRAP_LIBC                    1
+#define CFG_WRAP_LIBC                              1
 
 #endif // _SYS_CONFIG_H_

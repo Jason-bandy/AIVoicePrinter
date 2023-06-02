@@ -317,6 +317,8 @@ struct hostapd_sta_info {
 	int ssi_signal;
 };
 
+#define HAPD_MAX_SCAN_RESULT 32
+
 /**
  * struct hostapd_iface - hostapd per-interface data structure
  */
@@ -469,6 +471,13 @@ struct hostapd_iface {
 
 	/* Previous WMM element information */
 	struct hostapd_wmm_ac_params prev_wmm[WMM_AC_NUM];
+
+	struct dl_list bss_id; /* struct wpa_bss::list_id */
+	int num_scan_bss;
+
+	struct wpa_ssid_value *ssids_from_scan_req;
+	int num_ssids_from_scan_req;
+	int *manual_scan_freqs;
 };
 
 /* hostapd.c */
@@ -552,6 +561,7 @@ struct hostapd_data * hostapd_get_iface(struct hapd_interfaces *interfaces,
 void hostapd_event_sta_opmode_changed(struct hostapd_data *hapd, const u8 *addr,
 				      enum smps_mode smps_mode,
 				      enum chan_width chan_width, u8 rx_nss);
+void hostapd_scan_result_deinit(struct hostapd_iface *iface);
 
 #ifdef CONFIG_FST
 void fst_hostapd_fill_iface_obj(struct hostapd_data *hapd,

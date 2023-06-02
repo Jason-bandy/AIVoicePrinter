@@ -225,6 +225,7 @@ uint8_t me_add_chan_ctx(uint8_t *p_chan_idx, struct scan_chan_tag *p_chan,
                         uint32_t center_freq1, uint32_t center_freq2, uint8_t ch_width);
 
 uint8_t me_get_rate(uint32_t rate_info);
+uint8_t me_get_rate_for_protect_frame(uint32_t rate_info);
 
 #if CFG_RF_OTA_TEST
 uint8_t me_set_ht_mcs0(void);

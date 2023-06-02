@@ -10,6 +10,7 @@
 #define BSS_H
 
 struct wpa_scan_res;
+struct wpa_supplicant;
 
 #define WPA_BSS_QUAL_INVALID		BIT(0)
 #define WPA_BSS_NOISE_INVALID		BIT(1)
@@ -151,6 +152,8 @@ struct wpa_bss_anqp * wpa_bss_anqp_alloc(void);
 int wpa_bss_anqp_unshare_alloc(struct wpa_bss *bss);
 const u8 * wpa_bss_get_fils_cache_id(struct wpa_bss *bss);
 int wpa_bss_ext_capab(const struct wpa_bss *bss, unsigned int capab);
+void wpa_bss_copy_res(struct wpa_bss *dst, struct wpa_scan_res *src,
+			     struct os_reltime *fetch_time);
 
 static inline int bss_is_dmg(const struct wpa_bss *bss)
 {

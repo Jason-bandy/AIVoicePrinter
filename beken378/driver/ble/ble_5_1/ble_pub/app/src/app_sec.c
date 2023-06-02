@@ -76,7 +76,6 @@ void app_sec_init(void)
 	app_sec_env.peer_encrypt_recv = false;
 	app_sec_env.passkey = SEC_TK_PASSKEY;
 	#endif
-
 	app_sec_env.sec_notice_cb = NULL;
 	app_sec_env.pairing_param.sec_req = GAP_NO_SEC;
 
@@ -123,6 +122,7 @@ uint8_t app_sec_config(struct app_pairing_cfg *param, sec_notice_cb_t func)
 	app_sec_env.pairing_param.auth = param->auth;
 	app_sec_env.pairing_param.ikey_dist = param->ikey_dist;
 	app_sec_env.pairing_param.rkey_dist = param->rkey_dist;
+
 	return status;
 }
 
@@ -216,9 +216,9 @@ void app_sec_send_bond_cmd(uint8_t conidx)
 
     cmd->operation = GAPC_BOND;
 
-    cmd->pairing.auth      = app_sec_env.pairing_param.auth;
     cmd->pairing.iocap     = app_sec_env.pairing_param.iocap;
     cmd->pairing.oob       = GAP_OOB_AUTH_DATA_NOT_PRESENT;
+    cmd->pairing.auth      = app_sec_env.pairing_param.auth;
     cmd->pairing.key_size  = 16;
     cmd->pairing.ikey_dist = app_sec_env.pairing_param.ikey_dist;
     cmd->pairing.rkey_dist = app_sec_env.pairing_param.rkey_dist;
@@ -280,6 +280,8 @@ static int gapc_bond_req_ind_handler(kernel_msg_id_t const msgid,
                 cfm->accept  = true;
                 app_sec_env.peer_pairing_recv = true;
 
+
+
                 cfm->data.pairing_feat.iocap     = app_sec_env.pairing_param.iocap;
                 cfm->data.pairing_feat.oob       = GAP_OOB_AUTH_DATA_NOT_PRESENT;
                 cfm->data.pairing_feat.auth      = app_sec_env.pairing_param.auth;
@@ -287,7 +289,7 @@ static int gapc_bond_req_ind_handler(kernel_msg_id_t const msgid,
                 cfm->data.pairing_feat.ikey_dist = app_sec_env.pairing_param.ikey_dist;
                 cfm->data.pairing_feat.rkey_dist = app_sec_env.pairing_param.rkey_dist;
 
-                cfm->data.pairing_feat.sec_req   = app_sec_env.pairing_param.sec_req;
+                cfm->data.pairing_feat.sec_req = app_sec_env.pairing_param.sec_req;
             }
         } break;
 
@@ -332,7 +334,7 @@ static int gapc_bond_req_ind_handler(kernel_msg_id_t const msgid,
             memcpy(cfm->data.irk.irk.key,app_ble_env.loc_irk, KEY_LEN);
             // load device address
             cfm->data.irk.addr.addr_type = ADDR_PUBLIC;
-            memcpy(cfm->data.irk.addr.addr,(uint8_t *)&common_default_bdaddr,BD_ADDR_LEN);
+            memcpy(cfm->data.irk.addr.addr.addr,(uint8_t *)&common_default_bdaddr,BD_ADDR_LEN);
         } break;
 
         case (GAPC_TK_EXCH):
@@ -371,10 +373,10 @@ static int gapc_bond_ind_handler(kernel_msg_id_t const msgid,
         case (GAPC_PAIRING_SUCCEED):
         {
             // Update the bonding status in the environment
-            if (param->data.pairing.level & GAP_PAIRING_BOND_PRESENT_BIT) {
+            if (param->data.auth.info & GAP_AUTH_BOND) {
                 app_sec_env.bonded = true;
             }
-            if (param->data.pairing.level == GAP_PAIRING_BOND_SECURE_CON) {
+            if (param->data.auth.info == GAP_AUTH_REQ_SEC_CON_BOND) {
                 memcpy(&app_sec_env.ltk, &app_sec_env.peer_ltk, sizeof(struct gapc_ltk));
             }
             if (app_sec_env.sec_notice_cb) {
@@ -397,7 +399,7 @@ static int gapc_bond_ind_handler(kernel_msg_id_t const msgid,
 
             for(int i = 0;i<sizeof(struct bd_addr);i++)
             {
-                bk_printf("addr.addr[%d]  = %x\r\n",i,param->data.irk.addr.addr[i]);
+                bk_printf("addr.addr[%d]  = %x\r\n",i,param->data.irk.addr.addr.addr[i]);
             }
 
         } break;

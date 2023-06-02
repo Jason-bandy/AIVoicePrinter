@@ -349,6 +349,24 @@ OSStatus bk_flash_read( bk_partition_t inPartition, volatile uint32_t off_set, u
 	return bk_flash_abs_addr_read(start_addr, outBuffer, inBufferLength);
 }
 
+uint32_t bk_flash_read_otp(uint32_t off_set, uint8_t *out_buf, uint32_t buf_len)
+{
+	UINT32 status;
+	DD_HANDLE flash_hdl;
+	flash_otp_t otp_cfg;
+
+	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
+	if (DD_HANDLE_UNVALID == flash_hdl) {
+		os_printf("%s open failed\r\n", __FUNCTION__);
+		return kOpenErr;
+	}
+
+	otp_cfg.buf = out_buf;
+	otp_cfg.addr = off_set;
+	otp_cfg.len = buf_len;
+	return ddev_control(flash_hdl, CMD_FLASH_READ_OTP, (void *)&otp_cfg);
+}
+
 OSStatus bk_flash_enable_security(PROTECT_TYPE type )
 {
     UINT32 status;

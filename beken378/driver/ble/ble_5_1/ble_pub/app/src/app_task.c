@@ -59,6 +59,10 @@
 extern int app_init_con_dev_timerout_clear(unsigned char conidx);
 #endif
 
+#if BLE_APP_SEC
+#include "app_sec.h"
+#endif
+
 /*
  * LOCAL FUNCTION DEFINITIONS
  ****************************************************************************************

@@ -408,6 +408,9 @@ void ble_thread_main(void *arg)
 	rtos_deinit_queue(&ble_msg_que);
 	ble_msg_que = NULL;
 	ble_thread_handle = NULL;
+	#if CFG_BLE_USE_DYN_RAM
+	rwip_dyn_heap_free();
+	#endif
 	rtos_delete_thread(NULL);
 }
 

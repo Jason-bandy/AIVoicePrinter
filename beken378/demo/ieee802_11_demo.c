@@ -110,9 +110,15 @@ static void scan_cb(void *ctxt, uint8_t param)
 	sr_release_scan_results(scan_rst);
 
 #else	/* CFG_WPA_CTRL_IFACE */
+	int ret;
 
 	ScanResult_adv apList;
-	if (wlan_sta_scan_result(&apList) == 0) {
+	if (bk_wlan_ap_is_up() > 0)
+		ret = wlan_ap_scan_result(&apList);
+	else
+		ret = wlan_sta_scan_result(&apList);
+
+	if (!ret) {
 		int ap_num = apList.ApNum;
 		int i;
 
@@ -151,10 +157,10 @@ void demo_softap_app_init(char *ap_ssid, char *ap_key)
     int ssid_len, key_len;
 
     os_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
-	
+
     ssid_len = os_strlen(ap_ssid);
     key_len = os_strlen(ap_key);
-	
+
     if (SSID_MAX_LEN < ssid_len)
     {
         bk_printf("ssid name more than 32 Bytes\r\n");

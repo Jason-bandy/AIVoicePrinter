@@ -155,6 +155,8 @@ void lv_ps_set_anchor_point(void);
 uint32_t lv_ps_set_bcn_int(uint32_t interval);
 bool lv_ps_sleep_check( UINT32 sleep_tick);
 void lv_ps_sleep(void);
+void lv_ps_recv_beacon_change(void);
+uint32_t lv_ps_check_beacon_changed(void);
 
 #if CFG_USE_TICK_CAL
 void lv_ps_cal_tick(void);

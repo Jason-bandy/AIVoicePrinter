@@ -32,7 +32,7 @@
 
 #include <stdint.h>          // Standard Integer Definition
 #include "gap.h"
-#include "gapc_msg.h"
+#include "gapc_task.h"
 /*
  * DEFINES
  ****************************************************************************************
