@@ -9,6 +9,7 @@
 #endif
 
 typedef enum {
+    PS_DEEP_WAKEUP_NULL = 0,
     PS_DEEP_WAKEUP_GPIO = 1,
     PS_DEEP_WAKEUP_RTC = 2,
     PS_DEEP_WAKEUP_USB = 4,

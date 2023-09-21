@@ -581,7 +581,15 @@ void lowvol_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, ch
 
 		bk_wlan_instant_lowvol_sleep(&deep_sleep_param);
 
-		os_printf("wake by %d\r\n",bk_misc_wakeup_get_gpio_num());
+		if(PS_DEEP_WAKEUP_RTC == deep_sleep_param.wake_up_way)
+		{
+			os_printf("wakeup by RTC %ds\r\n",deep_sleep_param.sleep_time);
+		}
+		else if(PS_DEEP_WAKEUP_GPIO == deep_sleep_param.wake_up_way)
+		{
+			bk_get_lv_sleep_wakeup_gpio_status();
+			os_printf("wakeup by GPIO%d\r\n",bk_misc_wakeup_get_gpio_num());
+		}
 	}
 	else
 	{

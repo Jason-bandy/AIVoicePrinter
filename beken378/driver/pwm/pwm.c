@@ -180,7 +180,7 @@ static void init_pwm_param(pwm_param_t *pwm_param, UINT8 enable)
     pwm_icu_configuration(pwm_param, enable);
 }
 
-static UINT16 pwm_capture_value_get(UINT8 ucChannel)
+UINT32 pwm_capture_value_get(UINT8 ucChannel)
 {
     return REG_READ(REG_APB_BK_PWMn_CAP_ADDR(ucChannel));
 }

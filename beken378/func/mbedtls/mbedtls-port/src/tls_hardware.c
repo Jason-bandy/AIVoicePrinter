@@ -29,13 +29,14 @@
 
 #if defined(MBEDTLS_ENTROPY_HARDWARE_ALT)
 
+extern int bk_rand();
 static int os_get_random(unsigned char *buf, size_t len)
 {
     int i, j;
     unsigned long tmp;
 
     for (i = 0; i < ((len + 3) & ~3) / 4; i++) {
-        tmp = rand();
+        tmp = bk_rand();
 
         for (j = 0; j < 4; j++) {
             if ((i * 4 + j) < len) {

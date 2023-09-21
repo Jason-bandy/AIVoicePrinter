@@ -186,6 +186,11 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
     return err;
 }
 
+static inline int is_broadcast_mac_addr(const u8 *a)
+{
+	return (a[0] & a[1] & a[2] & a[3] & a[4] & a[5]) == 0xff;
+}
+
 /**
  * This function should be called when a packet is ready to be read
  * from the interface. It uses the function low_level_input() that
@@ -200,12 +205,14 @@ ethernetif_input(int iface, struct pbuf *p)
 {
     struct eth_hdr *ethhdr;
 	struct netif *netif;
+	VIF_INF_PTR vif = NULL;
 
 	if (p->len <= SIZEOF_ETH_HDR) {
 		pbuf_free(p);
 		return; 
 	}   
 
+	vif = rwm_mgmt_vif_idx2ptr(iface);
 	netif = rwm_mgmt_get_vif2netif((uint8_t)iface);
     if(!netif) {
         //ETH_INTF_PRT("ethernetif_input no netif found %d\r\n", iface);
@@ -216,6 +223,20 @@ ethernetif_input(int iface, struct pbuf *p)
         
     /* points to packet payload, which starts with an Ethernet header */
     ethhdr = p->payload;
+
+    /* need to forward*/
+    if (vif->type == VIF_AP) {
+        if (is_broadcast_mac_addr(ethhdr->dest.addr) ||
+            (os_memcmp(netif->hwaddr,ethhdr->dest.addr,NETIF_MAX_HWADDR_LEN) != 0)) {
+            struct pbuf *q = pbuf_alloc(PBUF_RAW_TX, p->tot_len, PBUF_RAM);
+            if (q != NULL) {
+                if (pbuf_copy(q, p) == ERR_OK) {
+                    low_level_output(netif, q);
+                    pbuf_free(q);
+                }
+            }
+       }
+    }
 
     switch (htons(ethhdr->type))
     {

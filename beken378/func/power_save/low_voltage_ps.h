@@ -3,6 +3,8 @@
 
 #include "include.h"
 #include "uart_pub.h"
+#include "doubly_list.h"
+#include "manual_ps_pub.h"
 
 #define LV_PS_DEBUG                1
 
@@ -14,7 +16,7 @@
 
 #define DURATION_AHEAD_OF_TBTT_US         (5 * 1000)  /*uS*/ /*obsoleting macro*/
 #define DURATION_BEACON_INTERVAL_US       (100 * 1024)
-#define DURATION_WAKEUP_STABILIZATION_US  (1 * 1000)
+#define DURATION_WAKEUP_STABILIZATION_US  (0 * 1000)
 
 #define CELL_DURATION                     (1000)  /* US*/
 #define DTIM_COUNT_WHEN_MISSING_BEACON    (1)
@@ -31,7 +33,7 @@
 #if(CFG_HW_PARSER_TIM_ELEMENT == 1)
 #define AFTER_MISSING_STRATEGY    NO_WAIT
 #else
-#define AFTER_MISSING_STRATEGY    WAIT_UNTIL_RECVED
+#define AFTER_MISSING_STRATEGY    NO_WAIT
 #endif
 
 #define PS_KEEP_TIMER_VALID_DURATION_MS               (8)
@@ -41,7 +43,7 @@
 #if (CFG_SOC_NAME == SOC_BK7238)
 #define MCU_WAKEUP_OFFSET          (48)  /* VALUE/32 ms, related to flash_on_delay configuration*/
 #elif (CFG_SOC_NAME == SOC_BK7231N)
-#define MCU_WAKEUP_OFFSET          (0)  /* VALUE/32 ms, related to flash_on_delay configuration*/
+#define MCU_WAKEUP_OFFSET          (16)  /* VALUE/32 ms, related to flash_on_delay configuration*/
 #else
 #define MCU_WAKEUP_OFFSET          (0)  /* VALUE/32 ms, related to flash_on_delay configuration*/
 #endif
@@ -127,12 +129,45 @@ typedef struct lv_ps_info_st
 void lv_ps_info_print_switch(bool flag, uint32_t period);
 #endif
 
+enum lv_type_t
+{
+    LV_TYPE_NONE    = 0,
+    LV_TYPE_BT      = 1,
+    LV_TYPE_WIFI    = 2,
+
+    LV_TYPE_MAX,
+};
+
+typedef void (*lv_ps_object_cb)(uint64_t target_time, bool check_pass);
+
+typedef struct lv_ps_element_env
+{
+    LIST_HEADER_T       node;
+    uint8_t             lv_type;
+    uint64_t            lv_target_time;
+    //need todo after wakeup
+    lv_ps_object_cb     object_cb;
+
+}LV_PS_ELEMENT_ENV;
+
+extern bool lv_ps_push_element(LV_PS_ELEMENT_ENV *elem);
+extern LV_PS_ELEMENT_ENV *lv_ps_pop_element(void);
+extern void lv_ps_element_check_pass(void);
+extern uint8_t lv_ps_element_next(void);
+extern void lv_ps_element_bt_del(void);
+extern void lv_ps_bt_wakeup(void);
+
 extern uint64_t lv_ps_wakeup_mac_timepoint;
 extern uint32_t lv_ps_beacon_cnt_after_wakeup ;
 #if(CFG_HW_PARSER_TIM_ELEMENT == 1)
 extern uint64_t lv_ps_tbtt_local;
 extern int32_t lv_ps_tbtt_local_remainder;
 #endif
+extern uint8_t lv_ps_rf_pre_pwr_down;
+extern uint8_t lv_ps_rf_reinit;
+extern uint8_t lv_ps_wakeup_wifi;
+extern uint16_t lv_ps_dtim_period;
+extern PS_DEEP_WAKEUP_WAY lv_ps_wake_up_way;
 
 extern void lv_ps_init(void);
 extern uint32_t lv_ps_get_keep_timer_duration(void);
@@ -144,6 +179,7 @@ void lv_ps_clear_anchor_point(void);
 uint64_t lv_ps_wakeup_set_timepoint(void);
 uint32_t lv_ps_calc_sleep_duration(void);
 bool lv_ps_rosc_timer_setting( UINT32 sleep_tick);
+void lv_ps_force_software_beacon(void);
 uint32_t lv_ps_is_got_anchor_point(void);
 uint32_t lv_ps_is_super_anchor_point(void);
 uint32_t lv_ps_beacon_missing_handler(void);
@@ -164,7 +200,9 @@ void lv_ps_cal_tick(void);
 UINT32 lv_ps_check_tx_recovery(void);
 void lv_ps_set_tx_recovery(void);
 void lv_ps_check_11b(void);
-void lv_ps_send_null(uint8_t sta_idx);
+void lv_ps_send_arp(void);
+void lv_ps_update_arp_send_time(void);
+void lv_ps_keepalive_arp_tx(void);
 void lv_ps_sleep_trigger_timer_stop(void);
 void lv_ps_sleep_trigger_timer_init(void);
 void lv_ps_sleep_trigger_timer_start(void);

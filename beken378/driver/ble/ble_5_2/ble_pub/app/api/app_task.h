@@ -41,7 +41,9 @@
 #include "rwip_task.h"      // Task definitions
 #include "kernel_task.h"        // Kernel Task
 #include "ble_ui.h"
-
+#if (BLE_CENTRAL)
+#include "app_ble_init.h"
+#endif
 /*
  * DEFINES
  ****************************************************************************************
@@ -95,13 +97,17 @@ enum app_msg_id
     APP_HID_MOUSE_TIMEOUT_TIMER,
     #endif //(BLE_APP_HID)
     APP_DEVIATION_CLAC_TIMER,
-#if (BLE_CENTRAL)
+#if (BLE_CENTRAL && APP_INIT_SET_STOP_CONN_TIMER)
     APP_INIT_CON_DEV_TIMEROUT_TIMER,
+    #if (APP_INIT_STOP_CONN_TIMER_EVENT)
+    APP_INIT_START_TIMEOUT_EVENT,
+    #endif
+#endif
+#if (BLE_GATT_CLI)
     APP_INIT_START_SDP,
     APP_INIT_END_SDP,
     APP_INIT_GET_SDP_INFO,
     APP_INIT_INIT_EVENT,
-    APP_INIT_START_TIMEOUT_EVENT,
 #endif
     APP_CON_UPDATE_TO_TIMER,
 };

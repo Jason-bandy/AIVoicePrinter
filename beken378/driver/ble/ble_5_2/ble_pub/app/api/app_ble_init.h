@@ -3,12 +3,11 @@
 
 #include "rwip_config.h"             // SW configuration
 
-#if (BLE_APP_PRESENT && (BLE_CENTRAL) && CFG_INIT_ENABLE)
+#if (BLE_APP_PRESENT && BLE_CENTRAL)
 
 ///#include "ble_api.h"
 #include "gap.h"
 #include "ble_api_5_x.h"
-#include "app_task.h"
 #include "common_bt_defines.h"
 
 /// Scan interval

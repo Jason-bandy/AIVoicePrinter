@@ -36,7 +36,6 @@
 uint8_t ble_switch_mac_sleeped;
 uint32_t rf_wifi_used = 0;
 extern void bk7011_set_rx_hpf_bypass(UINT8 bypass);
-extern void ble_gpio_output(uint8_t i,uint8_t levle);
 
 uint8 is_rf_switch_to_ble(void)
 {
@@ -94,7 +93,6 @@ uint8_t if_ble_sleep(void)
 
 void ble_switch_rf_to_wifi(void)
 {
-	#if (!CFG_USE_PTA)
 	// if in ble dut mode, no need change back to wifi any more.
 	// ble dut mode can not exit until power off
 	// if (!is_rf_switch_to_ble() || power_save_if_rf_sleep())
@@ -106,7 +104,6 @@ void ble_switch_rf_to_wifi(void)
 
 	sddev_control(SCTRL_DEV_NAME, CMD_BLE_RF_BIT_CLR, NULL);
 	ble_switch_mac_sleeped = 0;
-
 	//ble_cal_recover_txpwr();
 	bk7011_set_rx_hpf_bypass(0);
 	power_save_rf_hold_bit_clear(RF_HOLD_BY_BLE_BIT);
@@ -137,7 +134,6 @@ void ble_switch_rf_to_wifi(void)
 	}
 
 	GLOBAL_INT_RESTORE();
-	#endif
 }
 
 extern UINT32 txl_cntrl_pck_get(void);
@@ -148,7 +144,6 @@ uint32_t ble_switch_skip_cnt = 0;
 
 static void ble_switch_rf_to_ble(void)
 {
-	#if (!CFG_USE_PTA)
 	uint32_t ble_infor = sch_arb_prog_check_role_and_index();
 	uint8_t ble_skip = MAX_SKIP_CNT;
 
@@ -197,6 +192,10 @@ static void ble_switch_rf_to_ble(void)
 
 	power_save_rf_hold_bit_set(RF_HOLD_BY_BLE_BIT);
 	bk7011_set_rx_hpf_bypass(1);
+	#if (CFG_LOW_VOLTAGE_PS)
+	extern void power_save_ble_lv_cb(void);
+	power_save_ble_lv_cb();
+	#endif
 	//after swtich ble check if need start rf
 
 #ifdef BLE_CHOOSE_WIFI_IDLE
@@ -257,20 +256,19 @@ static void ble_switch_rf_to_ble(void)
 
 	GLOBAL_INT_RESTORE();
 	//PS_DEBUG_RF_UP_TRIGER;
-	#endif
 }
 
 
 void ble_request_rf_by_isr(void)
 {
-	if (ble_get_sys_mode() == NORMAL_MODE) {
+	if (ble_get_sys_mode() == NORMAL_MODE && !ble_coex_pta_is_on()) {
 		ble_switch_rf_to_ble();
 	}
 }
 
 void ble_release_rf_by_isr(void)
 {
-	if (ble_get_sys_mode() == NORMAL_MODE) {
+	if (ble_get_sys_mode() == NORMAL_MODE && !ble_coex_pta_is_on()) {
 		ble_switch_rf_to_wifi();
 	}
 }

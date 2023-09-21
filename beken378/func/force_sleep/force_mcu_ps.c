@@ -567,7 +567,7 @@ UINT32 force_mcu_ps(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us, UINT32 sleep
 		force_mcu_ps_start_tick_timer();
 		sleep_ms = (UINT32)(sleep_us / 1000);
 	} else if (g_mcu_sleep.cfg.sleep_mode == MCU_LOW_VOLTAGE_SLEEP) {
-        #if (CFG_BLE_VERSION == BLE_VERSION_5_1)
+        #if (CFG_SUPPORT_BLE == 1)
         UINT32 ble_up = ble_thread_is_up();
         if((g_mcu_sleep.cfg.off_ble == 1) && (ble_up == 1))
             ble_thread_exit();
@@ -575,7 +575,7 @@ UINT32 force_mcu_ps(PS_DEEP_WAKEUP_WAY wake_up_way,UINT64 sleep_us, UINT32 sleep
 		force_mcu_ps_entry(wake_up_way,sleep_us);
 		force_mcu_ps_exit();
 
-#if (CFG_BLE_VERSION == BLE_VERSION_5_1)
+#if (CFG_SUPPORT_BLE == 1)
         if((g_mcu_sleep.cfg.off_ble == 1) && (ble_up == 1))
             ble_entry();
 #endif

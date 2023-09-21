@@ -121,26 +121,65 @@ extern beken_worker_thread_t beken_hardware_io_worker_thread;
 extern beken_worker_thread_t beken_worker_thread;
 
 /** @brief Enter a critical session, all interrupts are disabled
-  *
-  * @return    none
-  */
+*
+ *  @param
+ *      - void
+ *
+ *  @return
+ *      - void
+ */
 void rtos_enter_critical( void);
 
 /** @brief Exit a critical session, all interrupts are enabled
-  *
-  * @return    none
+ *
+ *  @param
+ *      - void
+ *
+ *  @return
+ *      - void
   */
 void rtos_exit_critical( void);
 
-extern void rtos_lock_scheduling( void );
-extern void rtos_unlock_scheduling( void );
+
+/** @brief disable os scheduling
+*
+ *  @param
+ *      - void
+ *
+ *  @return
+ *      - void
+ */
+void rtos_lock_scheduling( void );
+
+
+/** @brief disable os scheduling
+ *
+ *  @param
+ *      - void
+ *
+ *  @return
+ *      - void
+ */
+void rtos_unlock_scheduling( void );
 
 /**
   * @}
   */
 uint32_t beken_tick_ms(void);
+
+
+
+/** @brief   Get system time value in milliseconds
+  *
+  * @param   time_ptr     : the pointer of time value in milliseconds
+  *
+  * @return  kNoErr        : on success.
+  * @return  kGeneralErr   : if an error occurred
+  */
 OSStatus beken_time_get_time(beken_time_t* time_ptr);
 OSStatus beken_time_set_time(beken_time_t* time_ptr);
+OSStatus beken_time_get_time_s(beken_time_t* time_ptr);
+OSStatus beken_time_set_time_s(beken_time_t* time_ptr);
 
 
 /** @defgroup BEKEN_RTOS_Thread _BK_ RTOS Thread Management Functions
@@ -171,11 +210,11 @@ OSStatus beken_time_set_time(beken_time_t* time_ptr);
 /** @brief Creates and starts a new thread
   *
   * @param thread     : Pointer to variable that will receive the thread handle (can be null)
-  * @param priority   : A priority number.
+  * @param priority   : A priority number. (0:Highest priority, 9:Lowest priority)
   * @param name       : a text name for the thread (can be null)
   * @param function   : the main thread function
   * @param stack_size : stack size for this thread
-  * @param arg        : argument which will be passed to thread function
+  * @param arg        : argument which will be passed to thread function (can be null)
   *
   * @return    kNoErr          : on success.
   * @return    kGeneralErr     : if an error occurred
@@ -200,33 +239,6 @@ OSStatus rtos_delete_thread( beken_thread_t* thread);
   */
 OSStatus rtos_thread_set_priority(beken_thread_t *thread, int priority);
 
-/** @brief   Creates a worker thread
- *
- * Creates a worker thread
- * A worker thread is a thread in whose context timed and asynchronous events
- * execute.
- *
- * @param worker_thread    : a pointer to the worker thread to be created
- * @param priority         : thread priority
- * @param stack_size       : thread's stack size in number of bytes
- * @param event_queue_size : number of events can be pushed into the queue
- *
- * @return    kNoErr        : on success.
- * @return    kGeneralErr   : if an error occurred
- */
-OSStatus rtos_create_worker_thread( beken_worker_thread_t* worker_thread, uint8_t priority, uint32_t stack_size, uint32_t event_queue_size);
-
-
-/** @brief   Deletes a worker thread
- *
- * @param worker_thread : a pointer to the worker thread to be created
- *
- * @return    kNoErr : on success.
- * @return    kGeneralErr   : if an error occurred
- */
-OSStatus rtos_delete_worker_thread( beken_worker_thread_t* worker_thread);
-
-
 /** @brief    Suspend a thread
   *
   * @param    thread     : the handle of the thread to suspend, NULL is the current thread
@@ -237,23 +249,14 @@ OSStatus rtos_delete_worker_thread( beken_worker_thread_t* worker_thread);
 void rtos_suspend_thread(beken_thread_t* thread);
 
 
-
-/** @brief    Suspend all other thread
+/** @brief    Resume a thread
   *
-  * @param    none
+  * @param    thread     : the handle of the thread to resume, NULL is the current thread
   *
-  * @return   none
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error occurred
   */
-void rtos_suspend_all_thread(void);
-
-
-/** @brief    Rresume all other thread
-  *
-  * @param    none
-  *
-  * @return   none
-  */
-long rtos_resume_all_thread(void);
+void rtos_resume_thread(beken_thread_t *thread);
 
 
 /** @brief    Sleeps until another thread has terminated
@@ -309,7 +312,7 @@ beken_thread_t* rtos_get_current_thread( void);
   * @return   None.
   */
 void rtos_thread_sleep(uint32_t seconds);
-void rtos_thread_msleep(uint32_t ms);
+
 
 /** @brief    Suspend current thread for a specific time
  *
@@ -355,6 +358,17 @@ OSStatus rtos_print_thread_status( char* buffer, int length);
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_init_semaphore( beken_semaphore_t* semaphore, int maxCount);
+
+
+/** @brief    Initialises a counting semaphore and set count to init count
+  *
+  * @param    semaphore : a pointer to the semaphore handle to be initialised
+  * @param    maxCount  : the max count number of this semaphore
+  * @param    init_count  : the init count number of this semaphore
+  *
+  * @return   kNoErr        : on success.
+  *           kGeneralErr   : if an error occurred
+  */
 OSStatus rtos_init_semaphore_adv( beken_semaphore_t* semaphore, int maxCount, int init_count);
 
 
@@ -381,6 +395,15 @@ OSStatus rtos_set_semaphore( beken_semaphore_t* semaphore);
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_get_semaphore( beken_semaphore_t* semaphore, uint32_t timeout_ms);
+
+
+/** @brief    Get (wait/decrement)  semaphore number
+  *
+  *
+  * @param    semaphore : a pointer to the semaphore handle
+  *
+  * @return   the number of semaphore
+  */
 int rtos_get_sema_count( beken_semaphore_t* semaphore);
 
 
@@ -428,7 +451,20 @@ OSStatus rtos_init_mutex( beken_mutex_t* mutex);
   * @return   kNoErr        : on success.
   * @return   kGeneralErr   : if an error occurred
   */
-OSStatus rtos_lock_mutex( beken_mutex_t* mutex);
+OSStatus rtos_lock_mutex( beken_mutex_t* mutex );
+
+
+/** @brief    Obtains the lock on a mutex
+  *
+  * @Details  Attempts to obtain the lock on a mutex. If the lock is already held
+  *           by another thead, the calling thread will not be suspended until the mutex
+  *           lock is released by the other thread.
+  *
+  * @param    mutex : a pointer to the mutex handle to be locked
+  *
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error occurred
+  */
 OSStatus rtos_trylock_mutex( beken_mutex_t* mutex);
 
 
@@ -455,12 +491,53 @@ OSStatus rtos_unlock_mutex( beken_mutex_t* mutex);
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_deinit_mutex( beken_mutex_t* mutex);
+
+
+/** @brief    Initialises a recursive mutex
+  *
+  * @Details  A mutex is different to a semaphore in that a thread that already holds
+  *           the lock on the mutex can request the lock again (nested) without causing
+  *           it to be suspended.
+  *
+  * @param    mutex : a pointer to the mutex handle to be initialised
+  *
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_init_recursive_mutex(beken_mutex_t *mutex);
+
+
+/** @brief    Obtains the lock on a recursive mutex
+  *
+  * @Details  Attempts to obtain the lock on a mutex. If the lock is already held
+  *           by another thead, the calling thread will be suspended until the mutex
+  *           lock is released by the other thread.
+  *
+  * @param    mutex : a pointer to the mutex handle to be locked
+  *         - timeout: timeout for wait mutex
+  *
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_lock_recursive_mutex(beken_mutex_t *mutex, uint32_t timeout);
+
+
+/** @brief    Releases the lock on a recursive mutex
+  *
+  * @Details  Releases a currently held lock on a mutex. If another thread
+  *           is waiting on the mutex lock, then it will be resumed.
+  *
+  * @param    mutex : a pointer to the mutex handle to be unlocked
+  *
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_unlock_recursive_mutex(beken_mutex_t *mutex);
+
+
 /**
   * @}
   */
-OSStatus rtos_init_recursive_mutex(beken_mutex_t *mutex);
-OSStatus rtos_lock_recursive_mutex(beken_mutex_t *mutex, uint32_t timeout);
-OSStatus rtos_unlock_recursive_mutex(beken_mutex_t *mutex);
 
 /** @defgroup BEKEN_RTOS_QUEUE _BK_ RTOS FIFO Queue Functions
   * @brief Provide management APIs for FIFO such as init,push,pop and dinit.
@@ -477,10 +554,10 @@ OSStatus rtos_unlock_recursive_mutex(beken_mutex_t *mutex);
   * @return   kNoErr        : on success.
   * @return   kGeneralErr   : if an error occurred
   */
-OSStatus rtos_init_queue( beken_queue_t* queue, const char* name, uint32_t message_size, uint32_t number_of_messages);
+OSStatus rtos_init_queue( beken_queue_t* queue, const char* name, uint32_t message_size, uint32_t number_of_messages );
 
 
-/** @brief    Pushes an object onto a queue
+/** @brief    Pushes an object onto a queue (to back of queue)
   *
   * @param    queue : a pointer to the queue handle
   * @param    message : the object to be added to the queue. Size is assumed to be
@@ -490,7 +567,20 @@ OSStatus rtos_init_queue( beken_queue_t* queue, const char* name, uint32_t messa
   * @return   kNoErr        : on success.
   * @return   kGeneralErr   : if an error or timeout occurred
   */
-OSStatus rtos_push_to_queue( beken_queue_t* queue, void* message, uint32_t timeout_ms);
+OSStatus rtos_push_to_queue( beken_queue_t* queue, void* message, uint32_t timeout_ms );
+
+
+/** @brief    Pushes an object to front of the queue
+  *
+  * @param    queue : a pointer to the queue handle
+  * @param    message : the object to be added to the queue. Size is assumed to be
+  *                  the size specified in @ref rtos_init_queue
+  * @param    timeout_ms: the number of milliseconds to wait before returning
+  *
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error or timeout occurred
+  */
+OSStatus rtos_push_to_queue_front(beken_queue_t* queue, void* message, uint32_t timeout_ms);
 
 
 /** @brief    Pops an object off a queue
@@ -543,59 +633,6 @@ BOOL rtos_is_queue_full( beken_queue_t* queue);
   */
 
 
-/** @defgroup BEKEN_RTOS_EVENT _BK_ RTOS Event Functions
-  * @{
-  */
-
-/**
-  * @brief    Sends an asynchronous event to the associated worker thread
-  *
-  * @param worker_thread :the worker thread in which context the callback should execute from
-  * @param function      : the callback function to be called from the worker thread
-  * @param arg           : the argument to be passed to the callback function
-  *
-  * @return    kNoErr        : on success.
-  * @return    kGeneralErr   : if an error occurred
-  */
-OSStatus rtos_send_asynchronous_event( beken_worker_thread_t* worker_thread, event_handler_t function, void* arg);
-
-/** Requests a function be called at a regular interval
- *
- * This function registers a function that will be called at a regular
- * interval. Since this is based on the RTOS time-slice scheduling, the
- * accuracy is not high, and is affected by processor load.
- *
- * @param event_object  : pointer to a event handle which will be initialised
- * @param worker_thread : pointer to the worker thread in whose context the
- *                        callback function runs on
- * @param function      : the callback function that is to be called regularly
- * @param time_ms       : the time period between function calls in milliseconds
- * @param arg           : an argument that will be supplied to the function when
- *                        it is called
- *
- * @return    kNoErr        : on success.
- * @return    kGeneralErr   : if an error occurred
- */
-OSStatus rtos_register_timed_event( beken_timed_event_t* event_object, beken_worker_thread_t* worker_thread, event_handler_t function, uint32_t time_ms, void* arg);
-
-
-/** Removes a request for a regular function execution
- *
- * This function de-registers a function that has previously been set-up
- * with @ref rtos_register_timed_event.
- *
- * @param event_object : the event handle used with @ref rtos_register_timed_event
- *
- * @return    kNoErr        : on success.
- * @return    kGeneralErr   : if an error occurred
- */
-OSStatus rtos_deregister_timed_event( beken_timed_event_t* event_object);
-
-
-/**
-  * @}
-  */
-
 /** @defgroup BEKEN_RTOS_TIMER _BK_ RTOS Timer Functions
   * @brief Provide management APIs for timer such as init,start,stop,reload and dinit.
   * @{
@@ -610,7 +647,124 @@ OSStatus rtos_deregister_timed_event( beken_timed_event_t* event_object);
   */
 uint32_t rtos_get_time(void);
 
+
+/**
+  * @brief    Gets time in microsecond since RTOS start
+  *
+  * @attention:    Since this is only 32 bits, it will roll over every 49 days, 17 hours.
+  *
+  * @returns  Time in milliseconds since RTOS started.
+  */
 uint64_t rtos_get_time_us( void );
+
+
+/**
+  * @brief     Deinitialization a RTOS oneshot timer
+  *
+  * @attention      Timer does not start running until @ref beken_start_timer is called
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @param     time_ms  : Timer period in milliseconds
+  * @param     function : the callback handler function that is called each time the
+  *                       timer expires
+  * @param     larg      : an argument that will be passed to the callback function
+  * @param     rarg      : an argument that will be passed to the callback function
+  *
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_init_oneshot_timer( beken2_timer_t *timer,
+									uint32_t time_ms,
+									timer_2handler_t function,
+									void* larg,
+									void* rarg);
+
+
+/**
+  * @brief      De-initialise a RTOS oneshot timer
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer);
+
+
+/**
+  * @brief      De-initialise a RTOS timer with block way
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_deinit_oneshot_timer_block( beken2_timer_t* timer);
+
+/**
+  * @brief     stop a RTOS oneshot timer
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_stop_oneshot_timer( beken2_timer_t* timer);
+
+
+/**
+  * @brief     whether oneshot_timer is running
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+BOOL rtos_is_oneshot_timer_running( beken2_timer_t* timer);
+
+
+/**
+  * @brief     start a RTOS oneshot timer
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer);
+
+
+/**
+  * @brief     whether oneshot_timer is inited
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+BOOL rtos_is_oneshot_timer_init( beken2_timer_t* timer);
+
+
+/**
+  * @brief     Reloads oneshot_timer is inited that has expired
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer);
+
+/**
+  * @brief     change timeout for a RTOS oneshot timer  that has expired
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_change_period_1( beken2_timer_t* timer, uint32_t time_ms);
+
 
 /**
   * @brief     Initialize a RTOS timer
@@ -627,20 +781,6 @@ uint64_t rtos_get_time_us( void );
   * @return    kGeneralErr   : if an error occurred
   */
 OSStatus rtos_init_timer( beken_timer_t* timer, uint32_t time_ms, timer_handler_t function, void* arg);
-OSStatus rtos_init_oneshot_timer( beken2_timer_t *timer,
-									uint32_t time_ms,
-									timer_2handler_t function,
-									void* larg,
-									void* rarg);
-OSStatus rtos_deinit_oneshot_timer( beken2_timer_t* timer);
-OSStatus rtos_deinit_oneshot_timer_block( beken2_timer_t* timer);
-OSStatus rtos_stop_oneshot_timer( beken2_timer_t* timer);
-BOOL rtos_is_oneshot_timer_running( beken2_timer_t* timer);
-OSStatus rtos_start_oneshot_timer( beken2_timer_t* timer);
-BOOL rtos_is_oneshot_timer_init( beken2_timer_t* timer);
-OSStatus rtos_oneshot_reload_timer( beken2_timer_t* timer);
-OSStatus rtos_change_period( beken_timer_t* timer, uint32_t time_ms);
-OSStatus rtos_change_period_1( beken2_timer_t* timer, uint32_t time_ms);
 
 
 /** @brief    Starts a RTOS timer running
@@ -653,6 +793,17 @@ OSStatus rtos_change_period_1( beken2_timer_t* timer, uint32_t time_ms);
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_start_timer( beken_timer_t* timer);
+
+
+/**
+  * @brief     change timeout for a RTOS oneshot timer that has expired
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
+OSStatus rtos_change_period( beken_timer_t* timer, uint32_t time_ms);
 
 
 /** @brief    Stops a running RTOS timer
@@ -690,6 +841,17 @@ OSStatus rtos_reload_timer( beken_timer_t* timer);
   * @return   kGeneralErr   : if an error occurred
   */
 OSStatus rtos_deinit_timer( beken_timer_t* timer);
+
+
+/** @brief    De-initialise a RTOS timer with black way
+  *
+  * @attention     Deletes a RTOS timer created with @ref rtos_init_timer
+  *
+  * @param    timer : a pointer to the RTOS timer handle
+  *
+  * @return   kNoErr        : on success.
+  * @return   kGeneralErr   : if an error occurred
+  */
 OSStatus rtos_deinit_timer_block(beken_timer_t *timer);
 
 
@@ -701,10 +863,19 @@ OSStatus rtos_deinit_timer_block(beken_timer_t *timer);
   * @return   false       : if not running
   */
 BOOL rtos_is_timer_init( beken_timer_t* timer);
+
+
+/**
+  * @brief     whether oneshot_timer is running
+  *
+  *
+  * @param     timer    : a pointer to the timer handle to be initialised
+  * @return    kNoErr        : on success.
+  * @return    kGeneralErr   : if an error occurred
+  */
 BOOL rtos_is_timer_running( beken_timer_t* timer);
-int SetTimer(unsigned long ms, void (*psysTimerHandler)(void));
-int SetTimer_uniq(unsigned long ms, void (*psysTimerHandler)(void));
-int UnSetTimer(void (*psysTimerHandler)(void));
+
+
 uint32_t rtos_get_timer_expiry_time( beken_timer_t* timer);
 uint32_t rtos_get_next_expire_time();
 uint32_t rtos_get_current_timer_count(void);
@@ -730,7 +901,6 @@ int rtos_init_event_fd(beken_event_t event_handle);
   */
 int rtos_deinit_event_fd(int fd);
 uint32_t rtos_get_tick_count(void);
-OSStatus rtos_push_to_queue_front(beken_queue_t* queue, void* message, uint32_t timeout_ms);
 
 #ifdef __cplusplus
 }

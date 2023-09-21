@@ -10,6 +10,7 @@
 #include "cmd_evm.h"
 #include "ble_pub.h"
 #include "BK3633_RegList.h"
+#include "bk7011_cal_pub.h"
 
 volatile static struct uart_env_tag uart_env;
 volatile static uint8_t  uart_rx_done = 0;
@@ -270,6 +271,11 @@ uint8_t uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 				bk_printf("unknow dut cmd");
 			}
 		break;
+		case XTAL_SET_CMD:
+		{
+			uint8_t xtalh = buff[1];
+			manual_cal_set_xtal(xtalh);
+		}break;
 		default:
 		break;
 	}
@@ -316,7 +322,7 @@ void  ble_uart_isr(void)
 
 		if ((uart_rx_buf[0] == 0x01) && (uart_rx_buf[1] == 0xe0) && (uart_rx_buf[2] == 0xfc)) {
 			if (uart_rx_buf[3] == (uart_rx_index - 4)) {
-				if (uart_rx_cmd_handler((uint8_t *)&uart_rx_buf[4], uart_rx_buf[3]))
+					uart_rx_cmd_handler((uint8_t *)&uart_rx_buf[4], uart_rx_buf[3]);
 					bkreg_run_command((char*)&uart_rx_buf[0], uart_rx_index);
 			}
 		}
@@ -331,7 +337,7 @@ void  ble_uart_isr(void)
 		}
 
 		// work around:ble dut have own print show command success, wo should not add print
-		if ((uart_rx_buf[0] == 0x01) && (uart_rx_buf[1] == 0x1e) && (uart_rx_buf[2] == 0x20)) {
+		if ((uart_rx_buf[0] == 0x01) && ((uart_rx_buf[1] == 0x1e) || (uart_rx_buf[1] == 0x34)) && (uart_rx_buf[2] == 0x20)) {
 			// TODO TX
 #if (CFG_SUPPORT_MANUAL_CALI)
 			extern uint8_t manual_cal_get_ble_pwr_idx(uint8_t channel);

@@ -103,7 +103,9 @@ struct hostapd_ssid {
 #if CFG_WIFI_P2P_GO
 	char *wpa_psk_file;
 #endif
-
+#ifdef CONFIG_SAE_AP
+	struct sae_pt *pt;
+#endif
 	struct hostapd_wep_keys wep;
 
 #define DYNAMIC_VLAN_DISABLED 0
@@ -249,6 +251,10 @@ struct sae_password_entry {
 	char *identifier;
 	u8 peer_addr[ETH_ALEN];
 	int vlan_id;
+#ifdef CONFIG_SAE_AP
+	struct sae_pt *pt;
+	struct sae_pk *pk;
+#endif
 };
 
 struct dpp_controller_conf {
@@ -277,6 +283,7 @@ struct hostapd_bss_config {
 	unsigned int chan_util_avg_period;
 #endif
 
+	int sae_pwe;
 	int ieee802_1x; /* use IEEE 802.1X */
 	int eapol_version;
 	int eap_server; /* Use internal EAP server instead of external
@@ -532,13 +539,11 @@ struct hostapd_bss_config {
 	struct wpabuf *vendor_elements;
 	struct wpabuf *assocresp_elements;
 
-#ifdef CONFIG_SAE_AP
 	unsigned int sae_anti_clogging_threshold;
 	unsigned int sae_sync;
 	int sae_require_mfp;
 	int *sae_groups;
 	struct sae_password_entry *sae_passwords;
-#endif
 
 #ifdef CONFIG_FULL_HOSTAPD
 	char *wowlan_triggers; /* Wake-on-WLAN triggers */
@@ -843,7 +848,7 @@ hostapd_set_oper_centr_freq_seg1_idx(struct hostapd_config *conf,
 	conf->vht_oper_centr_freq_seg1_idx = oper_centr_freq_seg1_idx;
 }
 
-
+int hostapd_sae_pw_id_in_use(struct hostapd_bss_config *conf);
 int hostapd_mac_comp(const void *a, const void *b);
 struct hostapd_config * hostapd_config_defaults(void);
 void hostapd_config_defaults_bss(struct hostapd_bss_config *bss);

@@ -172,12 +172,16 @@ void trng_read_delay(UINT32 time)
 static UINT32 trng_get_random(void)
 {
 	UINT32 reg, value;
+    static bool random_delay_flag = false;
 
 	reg = REG_READ(TRNG_CTRL);
 	reg |= TRNG_EN;
 	REG_WRITE(TRNG_CTRL, reg);
 
-	trng_read_delay(170000);
+    if(random_delay_flag == false){
+        rtos_delay_milliseconds(1);
+        random_delay_flag = true;
+    }
 	value = REG_READ(TRNG_DATA);
 
 	reg = REG_READ(TRNG_CTRL);

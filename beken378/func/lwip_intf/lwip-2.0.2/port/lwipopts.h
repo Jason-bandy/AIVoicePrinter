@@ -247,11 +247,7 @@
  * designed to accomodate single full size TCP frame in one pbuf, including
  * TCP_MSS, IP header, and link header.
  */
-#if (CFG_SUPPORT_MATTER)
-#define PBUF_POOL_BUFSIZE               1280
-#else
 #define PBUF_POOL_BUFSIZE               1580
-#endif
 
 /*
    ---------------------------------

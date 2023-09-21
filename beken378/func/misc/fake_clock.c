@@ -436,7 +436,7 @@ void fclk_cal_tick(void)
     }
     else if( lost < 0 )
     {
-        os_printf("tick go fast:%d\r\n", lost);
+        os_null_printf("tick go fast:%d\r\n", lost);
     }
 
     GLOBAL_INT_RESTORE();

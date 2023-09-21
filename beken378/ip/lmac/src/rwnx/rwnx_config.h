@@ -482,7 +482,7 @@
 
 /// Number of RX payload descriptors - defined to be twice the maximum A-MSDU size
 /// plus one extra one used for HW flow control
-#define NX_RX_PAYLOAD_DESC_CNT ((RWNX_MAX_AMSDU_RX / NX_RX_PAYLOAD_LEN) * 2 + 1)
+#define NX_RX_PAYLOAD_DESC_CNT ((RWNX_MAX_AMSDU_RX / NX_RX_PAYLOAD_LEN) * 2 + 2)
 
 /// Number of RX descriptors (SW and Header descriptors)
 #if !CFG_LESS_MEMERY_IN_RWNX

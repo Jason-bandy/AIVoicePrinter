@@ -26,8 +26,7 @@
 #define PS_DTIM_COUNT                       (1)
 #endif
 
-#define LOW_VOL_NULL_SEND_INTERVAL         10//s
-#define LOW_VOL_ARP_SEND_INTERVAL         10//s
+#define LOW_VOL_ARP_SEND_INTERVAL         30//s
 
 #define PS_USE_KEEP_TIMER       1
 #define PS_USE_WAIT_TIMER       1
@@ -72,6 +71,7 @@ typedef enum {
     PS_BMSG_IOCTL_AP_PS_STOP = 14,
     PS_BMSG_IOCTL_AP_PS_START = 15,
     PS_BMSG_IOCTL_AP_PS_RUN = 16,
+    PS_BMSG_IOCTL_ARP_TX = 17,
 } PS_BMSG_IOCTL_CMD;
 
 #define ICU_BASE                                     (0x00802000)

@@ -3,7 +3,7 @@
 
 #include "rwip_config.h"             // SW configuration
 
-#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
+#if (BLE_APP_PRESENT && BLE_GATT_CLI)
 #include "sdp_comm.h"
 
 typedef enum{
@@ -35,6 +35,7 @@ typedef struct{
 	app_sdp_callback sdp_cb;
 	////Attribute data callback
 	app_sdp_charac_callback charac_cb;
+	app_sdp_comm_callback comm_cb;
 }app_sdp_env_tag;
 
 typedef enum{
@@ -64,6 +65,7 @@ struct sdp_att_event_t
 {
 	/// Event Type
 	enum sdp_att_type type;
+	uint8_t svr_id;
 	uint8_t uuid_len;
 	uint8_t uuid[16];
 	///if start_hdl = end_hdl = 0,it is invaild
@@ -104,6 +106,9 @@ extern uint8_t sdp_get_all_service(uint8_t con_idx);
 extern uint8_t sdp_get_all_char(uint8_t con_idx, uint16_t start_hdl, uint16_t end_hdl);
 extern uint8_t sdp_get_all_desc(uint8_t con_idx, uint16_t start_hdl, uint16_t end_hdl);
 extern uint8_t sdp_get_att_table(uint8_t con_idx,struct sdp_att_event_t const *param);
+extern uint16_t sdp_get_att_hdl(uint8_t con_idx,uint8_t srv_index,uint8_t char_index,uint8_t desc_index);
+extern ble_err_t sdp_get_att_infor(uint8_t con_idx,struct sdp_att_event_t *param);
+
 #endif  ////BLE_CENTRAL
 #endif  ///_APP_SDP_H_
 

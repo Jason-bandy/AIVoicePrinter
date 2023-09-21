@@ -1,5 +1,6 @@
 #include "include.h"
 #include "arm_arch.h"
+#include <stdlib.h>
 
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238)
 #include "pwm_pub.h"
@@ -9,24 +10,67 @@
 #include "gpio_pub.h"
 #include "uart_pub.h"
 #include "pwm_bk7231n.h"
+#include "mem_pub.h"
 
-#define abs(a)					((a) < 0 ?(-1*(a)):(a))
+#define DRV_USED_PWM_CW_GROUP           1
+#define DRV_USED_PWM_CW                 1
+#define DRV_USED_PWM                    1
+#define DRV_USED_PWM_CAP                1
 
-UINT8 current_channel;
-UINT8 current_group;
+typedef struct
+{
+	UINT32 is_active;
+	UINT8 init_level;
+	UINT8 another_pwm_idx;   //
+	UINT8 status;
+	UINT8 is_p0;   // p0 is the pwm chan that high first
+	UINT32 t1;
+	UINT32 t2;
+	UINT32 t3;
+	UINT32 t4;
+} drv_pwm_cw_param_t;
 
-static const SDD_OPERATIONS pwm_op = {
-	pwm_ctrl
-};
+static SDD_OPERATIONS pwm_op = { pwm_ctrl };
+const UINT8 pwm_ch_to_group[PWM_GROUP_NUM * PWM_CHAN_IN_GROUP] = {0, 0, 1, 1, 2, 2};
 
-void (*p_PWM_Int_Handler[CHANNEL_NO])(UINT8);
+// 0-->1-->2<-->3
+#define PWM_STATUS_UNINIT               0
+#define PWM_STATUS_INITED               1
+#define PWM_STATUS_RUNNING              2
+#define PWM_STATUS_LOADING              3
 
-static void pwm_gpio_configuration(UINT8 chan, UINT8 enable)
+#define PWM_CHAN_TO_GROUP_NUM(ch)       (pwm_ch_to_group[(ch)])
+#define PWM_CHAN_TO_CHAN_IN_GROUP(ch)   ((ch) % 2)
+#define GET_P0_IDX_FROM_IDXS(idxs)      ((idxs) & 0xf)
+#define GET_P1_IDX_FROM_IDXS(idxs)      (((idxs) >> 4) & 0xf)
+
+// PWM MODE
+#define PWM_NOT_USED                    0
+#define PWM_USED_CW_GROUP               1
+#define PWM_USED_CW                     2
+#define PWM_USED_PWM                    3
+#define PWM_USED_PWM_CAP                4
+
+#if DRV_USED_PWM_CW_GROUP
+pwm_cw_group_param_t g_cw_group_pwm_param[PWM_GROUP_NUM];
+#endif
+#if DRV_USED_PWM_CW
+drv_pwm_cw_param_t g_cw_pwm_param[PWM_GROUP_NUM * PWM_CHAN_IN_GROUP];
+#endif
+#if DRV_USED_PWM
+pwm_param_st g_pwm_param[PWM_GROUP_NUM * PWM_CHAN_IN_GROUP];
+#endif
+#if DRV_USED_PWM_CAP
+pwm_cap_param_st g_pwm_cap_param[PWM_GROUP_NUM * PWM_CHAN_IN_GROUP];
+#endif
+
+void pwm_gpio_configuration(UINT8 chan, UINT8 enable)
 {
 	UINT32 ret;
 	UINT32 param;
 
-	switch (chan) {
+	switch (chan)
+	{
 	case PWM0:
 		param = GFUNC_MODE_PWM0;
 		break;
@@ -56,43 +100,47 @@ static void pwm_gpio_configuration(UINT8 chan, UINT8 enable)
 	}
 
 	if (enable)
+	{
 		ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &param);
-	else {
+	}
+	else
+	{
 		param = GPIO_CFG_PARAM(param, GMODE_INPUT);
 		ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
 	}
 	ASSERT(GPIO_SUCCESS == ret);
 }
 
-static bk_err_t pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
+void pwm_icu_configuration(UINT8 channel, UINT8 clk_mode, UINT8 enable, UINT8 isr_enable)
 {
 	UINT32 ret;
-	UINT32 param;
+	UINT32 prm;
 
 	/* set clock power down of icu module*/
-	switch (pwm_param->channel) {
+	switch (channel)
+	{
 	case PWM0:
-		param = PWD_PWM0_CLK_BIT;
+		prm = PWD_PWM0_CLK_BIT;
 		break;
 
 	case PWM1:
-		param = PWD_PWM0_CLK_BIT;
+		prm = PWD_PWM0_CLK_BIT;
 		break;
 
 	case PWM2:
-		param = PWD_PWM2_CLK_BIT;
+		prm = PWD_PWM2_CLK_BIT;
 		break;
 
 	case PWM3:
-		param = PWD_PWM2_CLK_BIT;
+		prm = PWD_PWM2_CLK_BIT;
 		break;
 
 	case PWM4:
-		param = PWD_PWM4_CLK_BIT;
+		prm = PWD_PWM4_CLK_BIT;
 		break;
 
 	case PWM5:
-		param= PWD_PWM4_CLK_BIT;
+		prm = PWD_PWM4_CLK_BIT;
 		break;
 
 	default:
@@ -100,652 +148,49 @@ static bk_err_t pwm_icu_configuration(pwm_param_t *pwm_param, UINT8 enable)
 		goto exit_icu;
 	}
 
-	if (enable) {
-		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&param);
+	if (enable)
+	{
+		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, (void *)&prm);
 		ASSERT(ICU_SUCCESS == ret);
 
-		if (PWM_CLK_32K == pwm_param->cfg.bits.clk) {
-			param = pwm_param->channel;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_LPOCLK, (void *)&param);
-		} else if (PWM_CLK_26M == pwm_param->cfg.bits.clk) {
-			param = PCLK_POSI_PWMS;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, (void *)&param);
+		if (PWM_CLK_32K == clk_mode)
+		{
+			prm = channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_LPOCLK, (void *)&prm);
+		}
+		else if (PWM_CLK_26M == clk_mode)
+		{
+			prm = PCLK_POSI_PWMS;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_26M, (void *)&prm);
 
-			param = pwm_param->channel;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&param);
-		} else {
-			param = PCLK_POSI_PWMS;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, (void *)&param);
+			prm = channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&prm);
+		}
+		else
+		{
+			prm = PCLK_POSI_PWMS;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PCLK_DCO, (void *)&prm);
 
-			param = pwm_param->channel;
-			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&param);
-
+			prm = channel;
+			ret = sddev_control(ICU_DEV_NAME, CMD_CONF_PWM_PCLK, (void *)&prm);
 		}
 		ASSERT(ICU_SUCCESS == ret);
-	} else {
-		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&param);
+	}
+	else
+	{
+		ret = sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, (void *)&prm);
 		ASSERT(ICU_SUCCESS == ret);
 	}
 
-	if (PWM_INT_EN == pwm_param->cfg.bits.int_en) {
-		param = IRQ_PWM_BIT;
-		ret = sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, (void *)&param);
+	if (PWM_INT_EN == isr_enable)
+	{
+		prm = IRQ_PWM_BIT;
+		ret = sddev_control(ICU_DEV_NAME, CMD_ICU_INT_ENABLE, (void *)&prm);
 	}
-
-	return BK_OK;
 
 exit_icu:
 
-	return BK_ERR_PARAM;
-}
-
-bk_err_t init_pwm_param(pwm_param_t *pwm_param, UINT8 enable)
-{
-	UINT32 value;
-
-	if ((pwm_param == NULL)
-		|| (pwm_param->channel >= PWM_COUNT)
-		|| (pwm_param->duty_cycle1 > pwm_param->end_value))
-		return BK_ERR_PARAM;
-
-	if (pwm_param->channel < 2) {
-		current_group = 0;
-		current_channel = pwm_param->channel;
-	} else  if (pwm_param->channel < 4) {
-		current_group = 1;
-		current_channel = pwm_param->channel - 2;
-	} else {
-		current_group = 2;
-		current_channel = pwm_param->channel - 4;
-	}
-
-	if (pwm_param->cfg.bits.mode != PWM_TIMER_MODE) {
-#if (CFG_SOC_NAME == SOC_BK7231)
-		pwm_gpio_configuration(pwm_param->channel, enable);
-#else
-		pwm_gpio_configuration(pwm_param->channel, enable);
-#endif
-	}
-
-	//pwm mode set
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-
-	value = (value & (~(0x07 << PWM_GROUP_MODE_SET_BIT(current_channel))))
-			| (pwm_param->cfg.bits.mode  <<  PWM_GROUP_MODE_SET_BIT(current_channel));
-
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	PWM_LOGD(TAG,"value:0x%x, group:%x, channel:%x\r\n", value, current_group,  current_channel);
-	PWM_LOGD(TAG,"ctrl:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)));
-
-	//pwm freq set
-#if (CFG_SOC_NAME == SOC_BK7231)
-	value = (((UINT32)pwm_param->duty_cycle & 0x0000FFFF) << 16)
-			+ ((UINT32)pwm_param->end_value & 0x0000FFFF);
-	REG_WRITE(REG_APB_BK_PWMn_CNT_ADDR(pwm_param->channel), value);
-#else
-	if (current_channel == 0) {
-		value = (UINT32) pwm_param->duty_cycle1;
-		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle2;
-		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle3;
-		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->end_value;
-		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(current_group), value);
-	} else {
-		value = (UINT32) pwm_param->duty_cycle1;
-		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle2;
-		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle3;
-		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->end_value;
-		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(current_group), value);
-
-	}
-#endif
-
-	//clear int status
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value = value | PWM_GROUP_PWM_INT_STAT_CLEAR(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	p_PWM_Int_Handler[pwm_param->channel] = pwm_param->p_Int_Handler;
-
-	//pwm int set
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value = (value & (~(0x01 << PWM_GROUP_PWM_INT_ENABLE_BIT(current_channel))))
-			| (pwm_param->cfg.bits.int_en << PWM_GROUP_PWM_INT_ENABLE_BIT(current_channel));
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	PWM_LOGD(TAG,"mode: %x, REG_PWM_GROUP_CTRL= 0x%lx\r\n", pwm_param->cfg.val, REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)));
-
-	UINT32 ret = pwm_icu_configuration(pwm_param, enable);
-	return ret;
-}
-
-bk_err_t pwm_unit_enable(UINT8 ucChannel)
-{
-	UINT32 value;
-
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else  if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= PWM_GROUP_PWM_ENABLE_MASK(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_unit_disable(UINT8 ucChannel)
-{
-	UINT32 value;
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else  if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value &= ~(PWM_GROUP_PWM_ENABLE_MASK(current_channel));
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-UINT32 pwm_capture_value_get(UINT8 ucChannel)
-{
-	UINT32 value, state;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else  if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	value = REG_READ(REG_GROUP_PWM_CPU_ADDR(current_group));
-	value |=  1 << current_channel;
-	REG_WRITE(REG_GROUP_PWM_CPU_ADDR(current_group), value);
-
-	state = REG_READ(REG_GROUP_PWM_CPU_ADDR(current_group));
-	while ((state & (1 << current_channel)) != 0)
-	{
-		PWM_PRT("current channel:%x", current_channel);
-		state = REG_READ(REG_GROUP_PWM_CPU_ADDR(current_group));
-	}
-
-	PWM_LOGD(TAG, "channel: %x, REG_PWM_GROUP_CTRL= 0x%lx\r\n", current_channel, REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)));
-
-	if (current_channel == 1) {
-		value = REG_READ(REG_GROUP_PWM1_RD_DATA_ADDR(current_group));
-		return value;
-	} else {
-		value = REG_READ(REG_GROUP_PWM0_RD_DATA_ADDR(current_group));
-		return value;
-	}
-
-}
-
-static void pwm_set_duty_cycle(UINT8 ucChannel, UINT32 u32DutyCycle)
-{
-	UINT32 value;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else  if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	//check last opreation work
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	if (value & (PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel)))
-		PWM_LOGE(TAG,"[bk_error]:wait updata pwm param");
-
-	if (current_channel == 0)
-		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(current_group), u32DutyCycle);
-	else
-		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(current_group), u32DutyCycle);
-
-	// bit 7/15 :cfg_updata enable
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-}
-
-static void pwm_set_end_value(UINT8 ucChannel, UINT32 u32EndValue)
-{
-	UINT32 value;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else  if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	//check last opreation work
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	if (value & (PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel)))
-		PWM_LOGE(TAG,"[bk_error]:wait updata pwm param");
-
-	if (current_channel == 0)
-		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(current_group), u32EndValue);
-	else
-		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(current_group), u32EndValue);
-
-	// bit 7/15 :cfg_updata enable
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-}
-
-bk_err_t pwm_group_enable(UINT8 ucChannel)
-{
-	UINT32 value;
-
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2)
-		current_group = 0;
-	else  if (ucChannel < 4)
-		current_group = 1;
-	else
-		current_group = 2;
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= PWM_GROUP_PWM_ENABLE_MASK(0) | PWM_GROUP_PWM_ENABLE_MASK(1) ;
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_group_mode_disable(UINT8 ucChannel)
-{
-	UINT32 value;
-
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2)
-		current_group = 0;
-	else  if (ucChannel < 4)
-		current_group = 1;
-	else
-		current_group = 2;
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value &= (~(PWM_GROUP_PWM_ENABLE_MASK(0) | PWM_GROUP_PWM_ENABLE_MASK(1)
-				| PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK));
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_group_mode_enable(UINT8 ucChannel)
-{
-	UINT32 value;
-	UINT32 ret;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else  if (ucChannel < 4)
-		current_group = 1;
-	else
-		current_group = 2;
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-
-	//enable grounp pwm mode
-	value |= PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK;
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	ret = pwm_group_enable(ucChannel);
-
-	PWM_LOGD(TAG,"ctrl:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group)));
-
-	return ret;
-}
-
-bk_err_t pwm_init_levl_set_low(UINT8 ucChannel)
-{
-	UINT32 value;
-
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(current_channel));
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_init_levl_set_high(UINT8 ucChannel)
-{
-	UINT32 value;
-
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2)
-	{
-		current_group = 0;
-		current_channel = ucChannel;
-	} else if (ucChannel < 4)
-	{
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else
-	{
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= PWM_GROUP_PWM_INT_LEVL_MASK(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_init_levl_get(UINT8 ucChannel)
-{
-	UINT32 value, ret;
-	if (ucChannel > PWM_CHANNEL_NUMBER_MAX)
-		return BK_ERR_PARAM;
-
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-
-	ret = value & PWM_GROUP_PWM_INT_LEVL_MASK(current_channel);
-	if (ret != PWM_LOW_LEVEL)
-		return PWM_HIGH_LEVEL;
-	else
-		return PWM_LOW_LEVEL;
-
-}
-
-bk_err_t pwm_update_param(pwm_param_t *pwm_param)
-{
-	UINT32 value;
-
-	if ((pwm_param == NULL)
-		|| (pwm_param->channel >= PWM_COUNT)
-		|| (pwm_param->duty_cycle1 > pwm_param->end_value))
-		return BK_ERR_PARAM;
-
-	if (pwm_param->channel < 2) {
-		current_group = 0;
-		current_channel = pwm_param->channel;
-	} else  if (pwm_param->channel < 4) {
-		current_group = 1;
-		current_channel = pwm_param->channel - 2;
-	} else {
-		current_group = 2;
-		current_channel = pwm_param->channel - 4;
-	}
-
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	if (value & (PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel))) {
-		PWM_LOGE(TAG,"[bk_error]:wait updata pwm param");
-		return BK_ERR_IN_PROGRESS;
-	}
-
-	if (current_channel == 0) {
-		value = (UINT32) pwm_param->duty_cycle1;
-		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle2;
-		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle3;
-		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->end_value;
-		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(current_group), value);
-	} else {
-		value = (UINT32) pwm_param->duty_cycle1;
-		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle2;
-		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->duty_cycle3;
-		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(current_group), value);
-
-		value = (UINT32) pwm_param->end_value;
-		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(current_group), value);
-	}
-
-	return BK_OK;
-}
-
-bk_err_t pwm_update_param_enable(UINT8 channel)
-{
-	UINT32 value;
-
-	if (channel >= PWM_COUNT)
-		return BK_ERR_PARAM;
-
-	if (channel < 2)
-	{
-		current_group = 0;
-		current_channel = channel;
-	} else  if (channel < 4)
-	{
-		current_group = 1;
-		current_channel = channel - 2;
-	} else
-	{
-		current_group = 2;
-		current_channel = channel - 4;
-	}
-
-	// bit 7/15 :cfg_updata enable
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_single_update_param_enable(UINT8 channel,UINT32 level)
-{
-	UINT32 value;
-
-	if (channel >= PWM_COUNT)
-		return BK_ERR_PARAM;
-
-	if (channel < 2) {
-		current_group = 0;
-		current_channel = channel;
-	} else  if (channel < 4) {
-		current_group = 1;
-		current_channel = channel - 2;
-	} else {
-		current_group = 2;
-		current_channel = channel - 4;
-	}
-
-	// cfg_updata and initial level update enable
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(current_channel));
-	value |= PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel)
-		  | (level << PWM_GROUP_PWM_INT_LEVL_BIT(current_channel));
-	os_printf("value:%x\r\n", value);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_group_update_param_enable(UINT8 channel1, UINT8 channel2)
-{
-	UINT32 value;
-
-	if (channel1 >= PWM_COUNT)
-		return BK_ERR_PARAM;
-
-	if (channel1 < 2)
-	{
-		current_group = 0;
-		current_channel = channel1;
-	} else if (channel1 < 4)
-	{
-		current_group = 1;
-		current_channel = channel1 - 2;
-	} else
-	{
-		current_group = 2;
-		current_channel = channel1 - 4;
-	}
-
-	// bit 7/15 :cfg_updata enable
-	value = REG_READ(REG_PWM_GROUP_CTRL_ADDR(current_group));
-	value |= (1 << 7) | (1 << 15);
-	value |= PWM_GROUP_PWM_CFG_UPDATA_MASK(current_channel);
-	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(current_group), value);
-
-	return BK_OK;
-}
-
-bk_err_t pwm_check_group(UINT32 channel1, UINT32 channel2)
-{
-	UINT32 group;
-	if (abs(channel2 - channel1) == 1)
-	{
-		if (channel1 == 0) {
-			if (channel2 == 1)
-				group = 1;
-			else
-				group = 0;
-		} else if (channel1 == 1) {
-			if (channel2 == 0)
-				group = 1;
-			else
-				group = 0;
-		} else if (channel1 == 2) {
-			if (channel2 == 3)
-				group = 1;
-			else
-				group = 0;
-		} else if (channel1 == 3) {
-			if (channel2 == 2)
-				group = 1;
-			else
-				group = 0;
-		} else if (channel1 == 4) {
-			if (channel2 == 5)
-				group = 1;
-			else
-				group = 0;
-		} else {
-			if (channel2 == 4)
-				group = 1;
-			else
-				group = 0;
-		}
-	} else
-		group = 0;
-
-	return group;
-}
-
-
-void pwm_param_clear(UINT8 ucChannel)
-{
-	if (ucChannel < 2) {
-		current_group = 0;
-		current_channel = ucChannel;
-	} else if (ucChannel < 4) {
-		current_group = 1;
-		current_channel = ucChannel - 2;
-	} else {
-		current_group = 2;
-		current_channel = ucChannel - 4;
-	}
-
-	if (current_channel == 0) {
-		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(current_group), 0);
-		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(current_group), 0);
-		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(current_group), 0);
-		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(current_group), 0);
-	} else {
-		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(current_group), 0);
-		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(current_group), 0);
-		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(current_group), 0);
-		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(current_group), 0);
-	}
-}
-
-static void pwm_int_handler_clear(UINT8 ucChannel)
-{
-	p_PWM_Int_Handler[ucChannel] = NULL;
+	return;
 }
 
 void pwm_init(void)
@@ -754,9 +199,22 @@ void pwm_init(void)
 	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(1), 0x0);
 	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(2), 0x0);
 
+#if DRV_USED_PWM_CW_GROUP
+	os_memset(g_cw_group_pwm_param, 0, PWM_GROUP_NUM * sizeof(pwm_cw_group_param_t));
+#endif
+#if DRV_USED_PWM_CW
+	os_memset(g_cw_pwm_param, 0, PWM_GROUP_NUM * PWM_CHAN_IN_GROUP * sizeof(drv_pwm_cw_param_t));
+#endif
+#if DRV_USED_PWM
+	os_memset(g_pwm_param, 0, PWM_GROUP_NUM * PWM_CHAN_IN_GROUP * sizeof(pwm_param_st));
+#endif
+#if DRV_USED_PWM_CAP
+	os_memset(g_pwm_cap_param, 0, PWM_GROUP_NUM * PWM_CHAN_IN_GROUP * sizeof(pwm_cap_param_st));
+#endif
+
 	intc_service_register(IRQ_PWM, PRI_IRQ_PWM, pwm_isr);
 
-	sddev_register_dev(PWM_DEV_NAME, (SDD_OPERATIONS*)&pwm_op);
+	sddev_register_dev(PWM_DEV_NAME, &pwm_op);
 }
 
 void pwm_exit(void)
@@ -767,86 +225,9 @@ void pwm_exit(void)
 UINT32 pwm_ctrl(UINT32 cmd, void *param)
 {
 	UINT32 ret = PWM_SUCCESS;
-	UINT32 ucChannel;
-	pwm_param_t *p_param;
-	pwm_capture_t *p_capture;
 
-	switch (cmd) {
-	case CMD_PWM_UNIT_ENABLE:
-		ucChannel = (*(UINT32 *)param);
-		ret = pwm_unit_enable(ucChannel);
-		break;
-	case CMD_PWM_UNIT_DISABLE:
-		ucChannel = (*(UINT32 *)param);
-		ret = pwm_unit_disable(ucChannel);
-		pwm_param_clear(ucChannel);
-		break;
-	case CMD_PWM_IR_CLEAR:
-		ucChannel = (*(UINT32 *)param);
-		if (ucChannel > 5) {
-			ret = PWM_FAILURE;
-			break;
-		}
-		pwm_int_handler_clear(ucChannel);
-		break;
-	case CMD_PWM_INIT_PARAM:
-		p_param = (pwm_param_t *)param;
-		ret = init_pwm_param(p_param, 1);
-		break;
-	case CMD_PWM_SET_DUTY_CYCLE:
-		p_param = (pwm_param_t *)param;
-		if (p_param->channel >= PWM_COUNT) {
-			ret = PWM_FAILURE;
-			break;
-		}
-		pwm_set_duty_cycle(p_param->channel, p_param->duty_cycle1);
-		break;
-	case CMD_PWM_SET_END_VALUE:
-		p_param = (pwm_param_t *)param;
-		if (p_param->channel >= PWM_COUNT) {
-			ret = PWM_FAILURE;
-			break;
-		}
-		pwm_set_end_value(p_param->channel, p_param->end_value);
-		break;
-	case CMD_PWM_CAP_GET:
-		p_capture = (pwm_capture_t *)param;
-		if (p_capture->ucChannel >= PWM_COUNT) {
-			ret = PWM_FAILURE;
-			break;
-		}
-		p_capture->value = pwm_capture_value_get(p_capture->ucChannel);
-		break;
-	case CMD_PWM_DEINIT_PARAM:
-		p_param = (pwm_param_t *)param;
-		init_pwm_param(p_param, 0);
-		break;
-	case CMD_PWM_GROUP_ENABLE:
-		ucChannel = (*(UINT32 *)param);
-		ret = pwm_group_mode_enable(ucChannel);
-		break;
-	case CMD_PWM_GROUP_DISABLE:
-		ucChannel = (*(UINT32 *)param);
-		ret = pwm_group_mode_disable(ucChannel);
-		break;
-	case CMD_PWM_UPDATE_PARAM:
-		p_param = (pwm_param_t *)param;
-		pwm_update_param(p_param);
-		break;
-	case CMD_PWM_UPDATE_PARAM_ENABLE:
-		ucChannel = (*(UINT32 *)param);
-
-		ret = pwm_update_param_enable(ucChannel);
-		break;
-	case CMD_PWM_INIT_LEVL_SET_LOW:
-		ucChannel = (*(UINT32 *)param);
-		ret = pwm_init_levl_set_low(ucChannel);
-		break;
-	case CMD_PWM_INIT_LEVL_SET_HIGH:
-		ucChannel = (*(UINT32 *)param);
-
-		ret = pwm_init_levl_set_high(ucChannel);
-		break;
+	switch (cmd)
+	{
 	default:
 		ret = PWM_FAILURE;
 		break;
@@ -855,27 +236,1540 @@ UINT32 pwm_ctrl(UINT32 cmd, void *param)
 	return ret;
 }
 
-//note:pwm mode no isr
-void pwm_isr(void)
+UINT8 pwm_cw_group_check(UINT8 pwm1, UINT8 pwm2)
 {
-	int i;
-	UINT32 status, group;
-	for (group = 0; group < 3; group++)
+	UINT8 pwm1_group = PWM_CHAN_TO_GROUP_NUM(pwm1);
+	UINT8 pwm2_group = PWM_CHAN_TO_GROUP_NUM(pwm2);
+
+	if (pwm1_group == pwm2_group)
 	{
-		status = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
-		for (i = 0; i < 2; i++) {
-			if (status & PWM_GROUP_PWM_INT_STAT_MASK(i)) {
-				if (p_PWM_Int_Handler[i + 2 * group]) {
-					p_PWM_Int_Handler[i + 2 * group]((UINT8)(i + 2 * group));
-					do {
-						REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), PWM_GROUP_PWM_INT_STAT_CLEAR(i));
-					} while (REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)) & PWM_GROUP_PWM_INT_STAT_MASK(i));
-				}
-			}
-		}
-		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), status);
+		return pwm1_group;
+	}
+	else
+	{
+		return PWM_GROUP_NUM;
 	}
 }
 
+// return   0: pwm not used.
+// return > 0: pwm is used
 
+//            2: used for cw group mode
+//            3: used for cw mode
+//            4: used for pwm mode
+UINT8 pwm_check_is_used(UINT8 chan)
+{
+	UINT8 group = PWM_CHAN_TO_GROUP_NUM(chan);
+
+	#if DRV_USED_PWM_CW_GROUP
+	pwm_cw_group_param_t *group_param_ptr = &g_cw_group_pwm_param[group];
+	#endif
+	#if DRV_USED_PWM_CW
+	drv_pwm_cw_param_t *cw_param_ptr = &g_cw_pwm_param[chan];
+	#endif
+	#if DRV_USED_PWM
+	pwm_param_st *pwm_param_ptr = &g_pwm_param[chan];
+	#endif
+	#if DRV_USED_PWM_CAP
+	pwm_cap_param_st *pwm_cap_param_ptr = &g_pwm_cap_param[chan];
+	#endif
+
+	#if DRV_USED_PWM_CW_GROUP
+	if(group_param_ptr->is_active)
+	{
+		return PWM_USED_CW_GROUP;
+	} else
+	#endif // DRV_USED_PWM_CW_GROUP
+
+	#if DRV_USED_PWM_CW
+	if(cw_param_ptr->is_active)
+	{
+		return PWM_USED_CW;
+	} else
+	#endif // DRV_USED_PWM_CW
+
+	#if DRV_USED_PWM
+	if(pwm_param_ptr->is_active)
+	{
+		return PWM_USED_PWM;
+	} else
+	#endif // DRV_USED_PWM
+
+	#if DRV_USED_PWM_CAP
+	if(pwm_cap_param_ptr->is_active)
+	{
+		return PWM_USED_PWM_CAP;
+	}
+	#endif // DRV_USED_PWM_CAP
+
+	group = group; // fix warning
+
+	return PWM_NOT_USED;
+}
+
+#if DRV_USED_PWM_CW_GROUP
+static UINT32 pwm_cw_group_updata_regs(pwm_cw_group_param_t *pwm_param, UINT32 pwm_cfg_reg)
+{
+	UINT8 group;
+
+	group = pwm_param->group;
+
+	REG_WRITE(REG_GROUP_PWM0_T1_ADDR(group), pwm_param->p0_t1);
+	REG_WRITE(REG_GROUP_PWM0_T2_ADDR(group), 0);
+	REG_WRITE(REG_GROUP_PWM0_T3_ADDR(group), 0);
+	REG_WRITE(REG_GROUP_PWM0_T4_ADDR(group), pwm_param->p_t4);
+
+	REG_WRITE(REG_GROUP_PWM1_T1_ADDR(group), pwm_param->p1_t1);
+	REG_WRITE(REG_GROUP_PWM1_T2_ADDR(group), pwm_param->p1_t2);
+	REG_WRITE(REG_GROUP_PWM1_T3_ADDR(group), 0);
+	REG_WRITE(REG_GROUP_PWM1_T4_ADDR(group), pwm_param->p_t4);
+
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(1) | PWM_GROUP_PWM_INT_LEVL_MASK(0));
+	pwm_cfg_reg |= PWM_GROUP_PWM_CFG_UPDATA_MASK(1) | PWM_GROUP_PWM_CFG_UPDATA_MASK(0);
+	pwm_cfg_reg |= (pwm_param->p1_init_level << PWM_GROUP_PWM_INT_LEVL_BIT(1)) | (pwm_param->p0_init_level << PWM_GROUP_PWM_INT_LEVL_BIT(0));
+
+	return pwm_cfg_reg;
+}
+
+UINT8 pwm_cw_group_init_param(pwm_cw_group_param_t *pwm_param)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_cw_group_param_t *local_param_ptr;
+	UINT8 p0_chan, p1_chan, group;
+	GLOBAL_INT_DECLARATION();
+
+	if ((pwm_param == NULL)
+		|| (pwm_param->group >= PWM_GROUP_NUM))
+	{
+		return 1;
+	}
+
+	group = pwm_param->group;
+	p0_chan = group * PWM_CHAN_IN_GROUP;
+	p1_chan = group * PWM_CHAN_IN_GROUP + 1;
+	if((pwm_check_is_used(p0_chan) != PWM_NOT_USED)
+		|| (pwm_check_is_used(p1_chan) != PWM_NOT_USED))
+	{
+		return 3;
+	}
+	local_param_ptr = &g_cw_group_pwm_param[pwm_param->group];
+	os_memset(local_param_ptr, 0, sizeof(pwm_cw_group_param_t));
+
+	GLOBAL_INT_DISABLE();
+	os_memcpy(local_param_ptr, pwm_param, sizeof(pwm_cw_group_param_t));
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(1) | PWM_GROUP_PWM_INT_LEVL_MASK(0));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(1) | PWM_GROUP_PWM_CFG_UPDATA_MASK(0));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(1) | PWM_GROUP_PWM_STOP_MASK(0));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(1) | PWM_GROUP_PWM_INT_ENABLE_MASK(0));
+	pwm_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(1) | PWM_GROUP_MODE_SET_MASK(0));
+
+	// setting reg
+	pwm_cfg_reg |= (PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(1)) | (PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(0));
+	// pwm_cfg_reg |= PWM_GROUP_PWM_INT_ENABLE_MASK(0); // only enable p0 interrupt
+	pwm_cfg_reg = pwm_cw_group_updata_regs(local_param_ptr, pwm_cfg_reg);
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	pwm_gpio_configuration(p0_chan, 1);
+	pwm_gpio_configuration(p1_chan, 1);
+	pwm_icu_configuration(p0_chan, PWM_CLK_26M, 1, 1);
+	pwm_icu_configuration(p1_chan, PWM_CLK_26M, 1, 0);
+
+	// clear int status
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg |= (PWM_GROUP_PWM_INT_STAT_CLEAR(1) | PWM_GROUP_PWM_INT_STAT_CLEAR(0));
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	local_param_ptr->status = PWM_STATUS_INITED;
+	local_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm cw group inited:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_cw_group_start(UINT8 group)
+{
+	pwm_cw_group_param_t *local_param_ptr = NULL;
+	UINT32 pwm_cfg_reg;
+	UINT8 p0_chan, p1_chan, ret;
+	GLOBAL_INT_DECLARATION();
+
+	if (group >= PWM_GROUP_NUM)
+	{
+		return 1;
+	}
+
+	p0_chan = group * PWM_CHAN_IN_GROUP;
+	p1_chan = group * PWM_CHAN_IN_GROUP + 1;
+	ret = pwm_check_is_used(p0_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW_GROUP))
+	{
+		return 3;
+	}
+	ret = pwm_check_is_used(p1_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW_GROUP))
+	{
+		return 3;
+	}
+
+	// enable
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if ((pwm_cfg_reg & (PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_ENABLE_MASK(1) | PWM_GROUP_PWM_ENABLE_MASK(0)))
+		== (PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_ENABLE_MASK(1) | PWM_GROUP_PWM_ENABLE_MASK(0)))
+	{
+		return 0;
+	}
+
+	GLOBAL_INT_DISABLE();
+
+	local_param_ptr = &g_cw_group_pwm_param[group];
+	//local_param_ptr->status = PWM_STATUS_RUNNING; // not set beacause it may called after update_param
+
+	// init
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	// setting reg
+	pwm_cfg_reg |= (PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(1)) | (PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(0));
+	// pwm_cfg_reg |= PWM_GROUP_PWM_INT_ENABLE_MASK(0); // only enable p0 interrupt
+	pwm_cfg_reg = pwm_cw_group_updata_regs(local_param_ptr, pwm_cfg_reg);
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	// start
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+	pwm_cfg_reg |= (PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	pwm_cfg_reg |= (PWM_GROUP_PWM_ENABLE_MASK(1) | PWM_GROUP_PWM_ENABLE_MASK(0));
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	local_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm cw group started:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_cw_group_update_param(pwm_cw_group_param_t *pwm_param)
+{
+	pwm_cw_group_param_t *local_param_ptr = NULL;
+	UINT32 pwm_cfg_reg;
+	UINT8 group;
+	UINT8 p0_chan, p1_chan, ret;
+	GLOBAL_INT_DECLARATION();
+
+	if ((pwm_param == NULL)
+		|| (pwm_param->group >= PWM_GROUP_NUM))
+	{
+		return 1;
+	}
+
+	group = pwm_param->group;
+	p0_chan = group * PWM_CHAN_IN_GROUP;
+	p1_chan = group * PWM_CHAN_IN_GROUP + 1;
+	ret = pwm_check_is_used(p0_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW_GROUP))
+	{
+		return 3;
+	}
+	ret = pwm_check_is_used(p1_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW_GROUP))
+	{
+		return 3;
+	}
+
+	local_param_ptr = &g_cw_group_pwm_param[group];
+	// don't care about status an active
+	// if(local_param_ptr->status == PWM_STATUS_LOADING)
+	{
+		// return 2;
+	}
+	GLOBAL_INT_DISABLE();
+
+	// only copy them, and enable p0 isr, updata to registers in isr
+	os_memcpy(local_param_ptr, pwm_param, sizeof(pwm_cw_group_param_t));
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+
+	if ((pwm_cfg_reg & PWM_GROUP_PWM_INT_ENABLE_MASK(0)) == 0)
+	{
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+		pwm_cfg_reg |= PWM_GROUP_PWM_INT_ENABLE_MASK(0);								   // only enable p0 interrupt
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+	}
+
+	local_param_ptr->status = PWM_STATUS_LOADING;
+	local_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm cw group started:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_cw_group_stop(UINT8 group)
+{
+	pwm_cw_group_param_t *local_param_ptr = NULL;
+	UINT32 pwm_cfg_reg;
+	UINT8 p0_chan, p1_chan, ret;
+	GLOBAL_INT_DECLARATION();
+
+	if (group >= PWM_GROUP_NUM)
+	{
+		return 1;
+	}
+
+	p0_chan = group * PWM_CHAN_IN_GROUP;
+	p1_chan = group * PWM_CHAN_IN_GROUP + 1;
+	ret = pwm_check_is_used(p0_chan);
+	if(ret != PWM_USED_CW_GROUP)
+	{
+		return 3;
+	}
+	ret = pwm_check_is_used(p1_chan);
+	if(ret != PWM_USED_CW_GROUP)
+	{
+		return 3;
+	}
+
+	// enable
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if ((pwm_cfg_reg & (PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_ENABLE_MASK(1) | PWM_GROUP_PWM_ENABLE_MASK(0)))
+		== (PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_ENABLE_MASK(1) | PWM_GROUP_PWM_ENABLE_MASK(0)))
+	{
+		GLOBAL_INT_DISABLE();
+		pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK | PWM_GROUP_PWM_ENABLE_MASK(1) | PWM_GROUP_PWM_ENABLE_MASK(0)); // not clear int status
+		pwm_cfg_reg |= (PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0));																	  // clear int status
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+		// close ?
+		pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(1) | PWM_GROUP_PWM_INT_LEVL_MASK(0));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(1) | PWM_GROUP_PWM_CFG_UPDATA_MASK(0));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(1) | PWM_GROUP_PWM_STOP_MASK(0));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(1) | PWM_GROUP_PWM_INT_ENABLE_MASK(0));
+		pwm_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(1) | PWM_GROUP_MODE_SET_MASK(0));
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+		local_param_ptr = &g_cw_group_pwm_param[group];
+		local_param_ptr->status = PWM_STATUS_INITED;
+		local_param_ptr->is_active = 0;
+
+		PWM_PRT("pwm cw group stop:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+		GLOBAL_INT_RESTORE();
+	}
+
+	return 0;
+}
+#else
+UINT8 pwm_cw_group_init_param(pwm_cw_group_param_t *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_cw_group_update_param(pwm_cw_group_param_t *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_cw_group_start(UINT8 group)
+{
+	return 1;
+}
+
+UINT8 pwm_cw_group_stop(UINT8 group)
+{
+	return 1;
+}
+#endif  // DRV_USED_PWM_CW_GROUP
+
+#if DRV_USED_PWM_CW
+static inline void pwm_cw_updata_regs(drv_pwm_cw_param_t *p1_param_ptr, drv_pwm_cw_param_t *p0_param_ptr, UINT32 *p1_cfg_reg_ptr, UINT32 *p0_cfg_reg_ptr)
+{
+	UINT32 p0_cfg_reg, p1_cfg_reg;
+	UINT8 p0_chan, p1_chan;
+	UINT8 p0_group, p1_group;
+	UINT8 p0_post, p1_post;   // 0: in low bits, 1: in high bits
+
+	p1_chan = p0_param_ptr->another_pwm_idx;
+	p0_chan = p1_param_ptr->another_pwm_idx;
+	p0_cfg_reg = *p0_cfg_reg_ptr;
+	p1_cfg_reg = *p1_cfg_reg_ptr;
+	p0_group = PWM_CHAN_TO_GROUP_NUM(p0_chan);
+	p1_group = PWM_CHAN_TO_GROUP_NUM(p1_chan);
+	p0_post = PWM_CHAN_TO_CHAN_IN_GROUP(p0_chan);
+	p1_post = PWM_CHAN_TO_CHAN_IN_GROUP(p1_chan);
+
+	// setting reg
+	if(p0_post == 0)
+	{
+		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(p0_group), p0_param_ptr->t1);
+		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(p0_group), p0_param_ptr->t2);
+		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(p0_group), p0_param_ptr->t3);
+		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(p0_group), p0_param_ptr->t4);
+	}
+	else
+	{
+		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(p0_group), p0_param_ptr->t1);
+		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(p0_group), p0_param_ptr->t2);
+		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(p0_group), p0_param_ptr->t3);
+		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(p0_group), p0_param_ptr->t4);
+	}
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(p0_post));
+	p0_cfg_reg |= PWM_GROUP_PWM_CFG_UPDATA_MASK(p0_post);
+	p0_cfg_reg |= (p0_param_ptr->init_level << PWM_GROUP_PWM_INT_LEVL_BIT(p0_post));
+	p0_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p0_post);  // clear init status
+
+	// p1
+	if(p1_post == 0)
+	{
+		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(p1_group), p1_param_ptr->t1);
+		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(p1_group), p1_param_ptr->t2);
+		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(p1_group), p1_param_ptr->t3);
+		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(p1_group), p1_param_ptr->t4);
+	}
+	else
+	{
+		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(p1_group), p1_param_ptr->t1);
+		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(p1_group), p1_param_ptr->t2);
+		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(p1_group), p1_param_ptr->t3);
+		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(p1_group), p1_param_ptr->t4);
+	}
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(p1_post));
+	p1_cfg_reg |= PWM_GROUP_PWM_CFG_UPDATA_MASK(p1_post);
+	p1_cfg_reg |= (p1_param_ptr->init_level << PWM_GROUP_PWM_INT_LEVL_BIT(p1_post));
+	p1_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p1_post);  // clear init status
+
+	*p0_cfg_reg_ptr = p0_cfg_reg;
+	*p1_cfg_reg_ptr = p1_cfg_reg;
+}
+
+UINT8 pwm_cw_init_param(pwm_cw_group_param_t *pwm_param)
+{
+	UINT32 p0_cfg_reg, p1_cfg_reg;
+	drv_pwm_cw_param_t *p0_param_ptr, *p1_param_ptr;
+	UINT8 p0_chan, p1_chan;
+	UINT8 p0_group, p1_group;
+	UINT8 p0_post, p1_post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if (pwm_param == NULL)
+	{
+		return 1;
+	}
+
+	p0_chan = GET_P0_IDX_FROM_IDXS(pwm_param->group);
+	p1_chan = GET_P1_IDX_FROM_IDXS(pwm_param->group);
+	if((p0_chan >= PWM_COUNT)
+		|| (p1_chan >= PWM_COUNT))
+	{
+		return 1;
+	}
+
+	p0_group = PWM_CHAN_TO_GROUP_NUM(p0_chan);
+	p1_group = PWM_CHAN_TO_GROUP_NUM(p1_chan);
+	p0_post = PWM_CHAN_TO_CHAN_IN_GROUP(p0_chan);
+	p1_post = PWM_CHAN_TO_CHAN_IN_GROUP(p1_chan);
+
+	if(p0_group == p1_group)
+	{
+		return 1;
+	}
+
+	// check p0 p1 used,  in cw-group-pwm and only-pwm
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+	if ((p0_param_ptr->is_active != 0)
+		||(p1_param_ptr->is_active != 0))
+	{
+		return 2;
+	}
+
+	if((pwm_check_is_used(p0_chan) != PWM_NOT_USED)
+		|| (pwm_check_is_used(p1_chan) != PWM_NOT_USED))
+	{
+		return 3;
+	}
+
+	GLOBAL_INT_DISABLE();
+	os_memset(p0_param_ptr, 0, sizeof(drv_pwm_cw_param_t));
+	p0_param_ptr->init_level = pwm_param->p0_init_level;
+	p0_param_ptr->is_p0 = 1;   // set this px to p0, p0 will open pwm isr, p1 not
+	p0_param_ptr->another_pwm_idx = p1_chan;   // record another chan id
+	p0_param_ptr->status = PWM_STATUS_UNINIT;
+	p0_param_ptr->t1 = pwm_param->p0_t1;
+	p0_param_ptr->t2 = 0;
+	p0_param_ptr->t3 = 0;
+	p0_param_ptr->t4 = pwm_param->p_t4;
+	p0_param_ptr->is_active = 1;
+
+	os_memset(p1_param_ptr, 0, sizeof(drv_pwm_cw_param_t));
+	p1_param_ptr->init_level = pwm_param->p1_init_level;
+	p1_param_ptr->is_p0 = 0;
+	p1_param_ptr->another_pwm_idx = p0_chan;  // record another chan id
+	p1_param_ptr->status = PWM_STATUS_UNINIT;
+	p1_param_ptr->t1 = pwm_param->p1_t1;
+	p1_param_ptr->t2 = pwm_param->p1_t2;
+	p1_param_ptr->t3 = 0;
+	p1_param_ptr->t4 = pwm_param->p_t4;
+	p1_param_ptr->is_active = 1;
+
+	// p0
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(p0_post));
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(p0_post));
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(p0_post));
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(p0_post));
+	p0_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(p0_post));
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!p0_post))); // not clear other chan int status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+
+	// p1
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(p1_post));
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(p1_post));
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(p1_post));
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(p1_post));
+	p1_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(p1_post));
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!p1_post))); // not clear other chan int status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	pwm_cw_updata_regs(p1_param_ptr, p0_param_ptr, &p1_cfg_reg, &p0_cfg_reg);
+
+	p0_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p0_post);
+	p0_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p0_post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+
+	p1_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p1_post);
+	p1_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p1_post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+
+	pwm_gpio_configuration(p0_chan, 1);
+	pwm_gpio_configuration(p1_chan, 1);
+	pwm_icu_configuration(p0_chan, PWM_CLK_26M, 1, 1);
+	pwm_icu_configuration(p1_chan, PWM_CLK_26M, 1, 0);
+
+	// clear int status, but no enable here, but enable in start or updata
+	PWM_PRT("pwm cw inited:0x%lx,0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group)),  REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_cw_start(UINT8 pwm1, UINT8 pwm2)
+{
+	UINT32 p0_cfg_reg, p1_cfg_reg;
+	drv_pwm_cw_param_t *p0_param_ptr, *p1_param_ptr;
+	UINT8 p0_chan, p1_chan, ret;
+	UINT8 p0_group, p1_group;
+	UINT8 p0_post, p1_post;   // 0: in low bits, 1: in high bits
+
+	GLOBAL_INT_DECLARATION();
+
+	if((pwm1 >= PWM_COUNT)
+		|| (pwm2 >= PWM_COUNT))
+	{
+		return 1;
+	}
+
+	p0_chan = pwm2;
+	p1_chan = pwm1;
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+	if(p0_param_ptr->is_p0 == p1_param_ptr->is_p0)
+	{
+		// only one chann is p0
+		return 1;
+	}
+
+	// if this px is not ture p0, another px must be p0
+	if(p0_param_ptr->is_p0 == 0)
+	{
+		p0_chan = pwm1;
+		p1_chan = pwm2;
+	}
+
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+	p0_group = PWM_CHAN_TO_GROUP_NUM(p0_chan);
+	p1_group = PWM_CHAN_TO_GROUP_NUM(p1_chan);
+	p0_post = PWM_CHAN_TO_CHAN_IN_GROUP(p0_chan);
+	p1_post = PWM_CHAN_TO_CHAN_IN_GROUP(p1_chan);
+
+	if(p0_group == p1_group)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(p0_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW))
+	{
+		return 3;
+	}
+	ret = pwm_check_is_used(p1_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW))
+	{
+		return 3;
+	}
+
+	// enable
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	if (((p0_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(p0_post)) == PWM_GROUP_PWM_ENABLE_MASK(p0_post))
+		&& ((p1_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(p1_post)) == PWM_GROUP_PWM_ENABLE_MASK(p1_post)))
+	{
+		if (((p0_cfg_reg & PWM_GROUP_MODE_SET_MASK(p0_post)) == PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p0_post))
+			&& ((p1_cfg_reg & PWM_GROUP_MODE_SET_MASK(p1_post)) == PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p1_post)))
+		{
+			return 0;
+		}
+	}
+
+	GLOBAL_INT_DISABLE();
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	pwm_cw_updata_regs(p1_param_ptr, p0_param_ptr, &p1_cfg_reg, &p0_cfg_reg);
+
+	p0_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p0_post);
+	p0_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p0_post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+
+	p1_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p1_post);
+	p1_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p1_post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+
+	// start
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+	p0_cfg_reg |= PWM_GROUP_PWM_ENABLE_MASK(p0_post);
+	p0_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p0_post);
+
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+	p1_cfg_reg |= PWM_GROUP_PWM_ENABLE_MASK(p1_post);
+	p1_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(p1_post);
+
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+	p0_param_ptr->is_active = 1;
+	p1_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm cw started:0x%lx,0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group)),  REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_cw_update_param(pwm_cw_group_param_t *pwm_param)
+{
+	UINT32 p0_cfg_reg, p1_cfg_reg;
+	drv_pwm_cw_param_t *p0_param_ptr, *p1_param_ptr;
+	UINT8 p0_chan, p1_chan, ret;
+	UINT8 p0_group, p1_group;
+	UINT8 p0_post, p1_post;   // 0: in low bits, 1: in high bits
+
+	GLOBAL_INT_DECLARATION();
+
+	if (pwm_param == NULL)
+	{
+		return 1;
+	}
+
+	p0_chan = GET_P0_IDX_FROM_IDXS(pwm_param->group);
+	p1_chan = GET_P1_IDX_FROM_IDXS(pwm_param->group);
+	if((p0_chan >= PWM_COUNT)
+		|| (p1_chan >= PWM_COUNT))
+	{
+		return 1;
+	}
+
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+
+	if(p0_param_ptr->is_p0 == p1_param_ptr->is_p0)
+	{
+		// only one chann is p0
+		return 1;
+	}
+
+	// if this px is not ture p0, another px must be p0
+	if(p0_param_ptr->is_p0 == 0)
+	{
+		p0_chan = GET_P1_IDX_FROM_IDXS(pwm_param->group);
+		p1_chan = GET_P0_IDX_FROM_IDXS(pwm_param->group);;
+	}
+
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+	p0_group = PWM_CHAN_TO_GROUP_NUM(p0_chan);
+	p1_group = PWM_CHAN_TO_GROUP_NUM(p1_chan);
+	p0_post = PWM_CHAN_TO_CHAN_IN_GROUP(p0_chan);
+	p1_post = PWM_CHAN_TO_CHAN_IN_GROUP(p1_chan);
+	p1_post = p1_post;
+
+	if(p0_group == p1_group)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(p0_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW))
+	{
+		return 3;
+	}
+	ret = pwm_check_is_used(p1_chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_CW))
+	{
+		return 3;
+	}
+
+
+	GLOBAL_INT_DISABLE();
+	// only copy them, and enable p0 isr, updata to registers in isr
+	p0_param_ptr->init_level = pwm_param->p0_init_level;
+	p0_param_ptr->is_p0 = 1;
+	p0_param_ptr->another_pwm_idx = p1_chan;   // record another chan id
+	p0_param_ptr->status = PWM_STATUS_LOADING;
+	p0_param_ptr->t1 = pwm_param->p0_t1;
+	p0_param_ptr->t2 = 0;
+	p0_param_ptr->t3 = 0;
+	p0_param_ptr->t4 = pwm_param->p_t4;
+
+	p1_param_ptr->init_level = pwm_param->p1_init_level;
+	p1_param_ptr->is_p0 = 0;
+	p1_param_ptr->another_pwm_idx = p0_chan;  // record another chan id
+	p1_param_ptr->status = PWM_STATUS_LOADING;
+	p1_param_ptr->t1 = pwm_param->p1_t1;
+	p1_param_ptr->t2 = pwm_param->p1_t2;
+	p1_param_ptr->t3 = 0;
+	p1_param_ptr->t4 = pwm_param->p_t4;
+
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	p1_cfg_reg = p1_cfg_reg;
+	if ((p0_cfg_reg & PWM_GROUP_PWM_INT_ENABLE_MASK(p0_post)) == 0)
+	{
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+		p0_cfg_reg |= PWM_GROUP_PWM_INT_ENABLE_MASK(p0_post);							  // only enable p0 interrupt
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+	}
+
+	p0_param_ptr->status = PWM_STATUS_LOADING;
+	p1_param_ptr->status = PWM_STATUS_LOADING;
+	p0_param_ptr->is_active = 1;
+	p1_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm cw updataed:0x%08x,0x%08x\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group)),  REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group)));
+
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_cw_stop(UINT8 pwm1, UINT8 pwm2)
+{
+	UINT32 p0_cfg_reg, p1_cfg_reg;
+	drv_pwm_cw_param_t *p0_param_ptr, *p1_param_ptr;
+	UINT8 p0_chan, p1_chan, ret;
+	UINT8 p0_group, p1_group;
+	UINT8 p0_post, p1_post;   // 0: in low bits, 1: in high bits
+
+	GLOBAL_INT_DECLARATION();
+
+	if((pwm1 >= PWM_COUNT)
+		|| (pwm2 >= PWM_COUNT))
+	{
+		return 1;
+	}
+
+	p0_chan = pwm2;
+	p1_chan = pwm1;
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+	if((p0_param_ptr->is_active == 0)
+		|| (p0_param_ptr->is_active == 0))
+	{
+		return 1;
+	}
+
+	if(p0_param_ptr->is_p0 == p1_param_ptr->is_p0)
+	{
+		// only one chann is p0
+		return 1;
+	}
+
+	// if this px is not ture p0, another px must be p0
+	if(p0_param_ptr->is_p0 == 0)
+	{
+		p0_chan = pwm1;
+		p1_chan = pwm2;
+	}
+
+	p0_param_ptr = &g_cw_pwm_param[p0_chan];
+	p1_param_ptr = &g_cw_pwm_param[p1_chan];
+	p0_group = PWM_CHAN_TO_GROUP_NUM(p0_chan);
+	p1_group = PWM_CHAN_TO_GROUP_NUM(p1_chan);
+	p0_post = PWM_CHAN_TO_CHAN_IN_GROUP(p0_chan);
+	p1_post = PWM_CHAN_TO_CHAN_IN_GROUP(p1_chan);
+
+	if(p0_group == p1_group)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(p0_chan);
+	if(ret != PWM_USED_CW)
+	{
+		return 3;
+	}
+	ret = pwm_check_is_used(p1_chan);
+	if(ret != PWM_USED_CW)
+	{
+		return 3;
+	}
+
+	// enable
+	p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+	p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+	if ((p0_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(p0_post)) == PWM_GROUP_PWM_ENABLE_MASK(p0_post)
+		&& (p1_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(p1_post)) == PWM_GROUP_PWM_ENABLE_MASK(p1_post))
+	{
+		GLOBAL_INT_DISABLE();
+		p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(!p0_post)); // not clear another int status
+		p0_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(p0_post); 	// clear int status
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_ENABLE_MASK(p0_post));
+
+		p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_ENABLE_MASK(p1_post));
+
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+
+		// init
+		// p0
+		p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(p0_post));
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(p0_post));
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(p0_post));
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(p0_post));
+		p0_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(p0_post));
+		p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!p0_post))); // not clear other chan int status
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+
+		// p1
+		p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(p1_post));
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(p1_post));
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(p1_post));
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(p1_post));
+		p1_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(p1_post));
+		p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!p1_post))); // not clear other chan int status
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+
+		p0_param_ptr->status = PWM_STATUS_INITED;
+		p1_param_ptr->status = PWM_STATUS_INITED;
+		p0_param_ptr->is_active = 0;
+		p1_param_ptr->is_active = 0;
+
+		PWM_PRT("pwm cw stop:0x%08x,0x%08x\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group)),  REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group)));
+		GLOBAL_INT_RESTORE();
+	}
+
+	return 0;
+}
+#else
+UINT8 pwm_cw_init_param(pwm_cw_group_param_t *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_cw_update_param(pwm_cw_group_param_t *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_cw_stop(UINT8 pwm1, UINT8 pwm2)
+{
+	return 1;
+}
+
+UINT8 pwm_cw_start(UINT8 pwm1, UINT8 pwm2)
+{
+	return 1;
+}
+#endif // DRV_USED_PWM_CW
+
+#if DRV_USED_PWM
+static inline void pwm_updata_regs(pwm_param_st *pwm_param_ptr, UINT32 *pwm_cfg_reg_ptr)
+{
+	UINT32 pwm_cfg_reg;
+	UINT8 chan;
+	UINT8 group;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+
+	chan = pwm_param_ptr->chan;
+	pwm_cfg_reg = *pwm_cfg_reg_ptr;
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	// setting reg
+	if(post == 0)
+	{
+		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(group), pwm_param_ptr->t1);
+		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(group), pwm_param_ptr->t4);
+	}
+	else
+	{
+		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(group), pwm_param_ptr->t1);
+		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(group), pwm_param_ptr->t4);
+	}
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(post));
+	pwm_cfg_reg |= PWM_GROUP_PWM_CFG_UPDATA_MASK(post);
+	pwm_cfg_reg |= (pwm_param_ptr->init_level << PWM_GROUP_PWM_INT_LEVL_BIT(post));
+	pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post);  // clear init status
+
+	*pwm_cfg_reg_ptr = pwm_cfg_reg;
+}
+
+UINT8 pwm_init_param(pwm_param_st *pwm_param)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_param_st *pwm_param_ptr;
+	UINT8 chan;
+	UINT8 group;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if (pwm_param == NULL)
+	{
+		return 1;
+	}
+
+	chan = pwm_param->chan;
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	if(pwm_check_is_used(chan) != PWM_NOT_USED)
+	{
+		return 3;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+
+	// check p0 p1 used,  in cw-group-pwm and only-pwm
+	// check this chan no used in cw-pwm
+
+	pwm_param_ptr = &g_pwm_param[chan];
+
+	GLOBAL_INT_DISABLE();
+	os_memset(pwm_param_ptr, 0, sizeof(pwm_param_st));
+	pwm_param_ptr->init_level = pwm_param->init_level;
+	pwm_param_ptr->chan = chan;   // record another chan id
+	pwm_param_ptr->status = PWM_STATUS_UNINIT;
+	pwm_param_ptr->t1 = pwm_param->t1;
+	pwm_param_ptr->t4 = pwm_param->t4;
+
+	// p0
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!post))); // not clear other chan int status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_updata_regs(pwm_param_ptr, &pwm_cfg_reg);
+	pwm_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(post);
+	pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	pwm_gpio_configuration(chan, 1);
+	pwm_icu_configuration(chan, PWM_CLK_26M, 1, 1);
+
+	pwm_param_ptr->is_active = 1;
+
+	// clear int status, but no enable here, but enable in start or updata
+	PWM_PRT("pwm inited:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_start(UINT8 chan)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_param_st *pwm_param_ptr;
+	UINT8 group, ret;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_PWM))
+	{
+		return 3;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	pwm_param_ptr = &g_pwm_param[chan];
+
+	// enable
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if ((pwm_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(post)) == PWM_GROUP_PWM_ENABLE_MASK(post))
+	{
+		if ((pwm_cfg_reg & PWM_GROUP_MODE_SET_MASK(post)) == PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(post))
+		{
+			return 0;
+		}
+	}
+
+	GLOBAL_INT_DISABLE();
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_updata_regs(pwm_param_ptr, &pwm_cfg_reg);
+	pwm_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(post);
+	pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	// start
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+	pwm_cfg_reg |= PWM_GROUP_PWM_ENABLE_MASK(post);
+	pwm_cfg_reg |= PWM_PWM_MODE << PWM_GROUP_MODE_SET_BIT(post);
+
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+	//local_param_ptr->status = PWM_STATUS_RUNNING;
+	pwm_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm started:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_update_param(pwm_param_st *pwm_param)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_param_st *pwm_param_ptr;
+	UINT8 chan;
+	UINT8 group, ret;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if (pwm_param == NULL)
+	{
+		return 1;
+	}
+
+	chan = pwm_param->chan;
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_PWM))
+	{
+		return 3;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	pwm_param_ptr = &g_pwm_param[chan];
+
+	GLOBAL_INT_DISABLE();
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if ((pwm_cfg_reg & PWM_GROUP_PWM_INT_ENABLE_MASK(post)) == 0)
+	{
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+		pwm_cfg_reg |= PWM_GROUP_PWM_INT_ENABLE_MASK(post);							  // only enable p0 interrupt
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+	}
+	// only copy them, and enable p0 isr, updata to registers in isr
+	pwm_param_ptr->init_level = pwm_param->init_level;
+	pwm_param_ptr->chan = chan;   // record another chan id
+	pwm_param_ptr->t1 = pwm_param->t1;
+	pwm_param_ptr->t4 = pwm_param->t4;
+	pwm_param_ptr->status = PWM_STATUS_LOADING;
+	pwm_param_ptr->is_active = 1;
+	PWM_PRT("pwm updataed:0x%08x\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_stop(UINT8 chan)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_param_st *pwm_param_ptr;
+	UINT8 group, ret;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(chan);
+	if(ret != PWM_USED_PWM)
+	{
+		return 3;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	pwm_param_ptr = &g_pwm_param[chan];
+	// enable
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if ((pwm_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(post)) == PWM_GROUP_PWM_ENABLE_MASK(post))
+	{
+		GLOBAL_INT_DISABLE();
+		pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(!post)); // not clear another int status
+		pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post); 	// clear int status
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_ENABLE_MASK(post));
+
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+		// init
+		// p0
+		pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(post));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(post));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(post));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(post));
+		pwm_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(post));
+		pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!post))); // not clear other chan int status
+		REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+		pwm_param_ptr->status = PWM_STATUS_INITED;
+		pwm_param_ptr->is_active = 0;
+
+		PWM_PRT("pwm stop:0x%08x\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+		GLOBAL_INT_RESTORE();
+	}
+
+	return 0;
+}
+#else
+UINT8 pwm_init_param(pwm_param_st *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_update_param(pwm_param_st *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_start(UINT8 chan)
+{
+	return 1;
+}
+
+UINT8 pwm_stop(UINT8 chan)
+{
+	return 1;
+}
+#endif // DRV_USED_PWM
+
+#if DRV_USED_PWM_CAP
+UINT32 pwm_capture_value_get(UINT8 chan)
+{
+	UINT32 value;
+	UINT8 group, post;   // 0: in low bits, 1: in high bits
+
+	if(chan >= PWM_COUNT)
+	{
+		return 0;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+
+	value = REG_READ(REG_GROUP_PWM_CPU_ADDR(group));
+	value |=  1 << post;
+	REG_WRITE(REG_GROUP_PWM_CPU_ADDR(group), value);
+
+	value = REG_READ(REG_GROUP_PWM_CPU_ADDR(group));
+	while ((value & (1 << post)) != 0)
+	{
+		value = REG_READ(REG_GROUP_PWM_CPU_ADDR(group));
+	}
+
+	if (post == 1)
+	{
+		value = REG_READ(REG_GROUP_PWM1_RD_DATA_ADDR(group));
+	}
+	else
+	{
+		value = REG_READ(REG_GROUP_PWM0_RD_DATA_ADDR(group));
+	}
+
+	return value;
+}
+
+UINT8 pwm_capture_init_param(pwm_cap_param_st *pwm_param)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_cap_param_st *pwm_cap_param_ptr = NULL;
+	UINT8 chan;
+	UINT8 group;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if (pwm_param == NULL)
+	{
+		return 1;
+	}
+
+	chan = pwm_param->chan;
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	if(pwm_check_is_used(chan) != PWM_NOT_USED)
+	{
+		return 3;
+	}
+
+	if(pwm_param->mode < PWM_CAP_POS_MODE)
+	{
+		return 2;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	pwm_cap_param_ptr = &g_pwm_cap_param[chan];
+
+	GLOBAL_INT_DISABLE();
+	os_memset(pwm_cap_param_ptr, 0, sizeof(pwm_param_st));
+	pwm_cap_param_ptr->mode = pwm_param->mode;
+	pwm_cap_param_ptr->chan = chan;   // record another chan id
+	pwm_cap_param_ptr->status = PWM_STATUS_INITED;
+	pwm_cap_param_ptr->p_Int_Handler = pwm_param->p_Int_Handler;
+
+	// p0
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!post))); // not clear other chan int status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if(post == 0)
+	{
+		REG_WRITE(REG_GROUP_PWM0_T1_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM0_T2_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM0_T3_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM0_T4_ADDR(group), 0);
+	}
+	else
+	{
+		REG_WRITE(REG_GROUP_PWM1_T1_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM1_T2_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM1_T3_ADDR(group), 0);
+		REG_WRITE(REG_GROUP_PWM1_T4_ADDR(group), 0);
+	}
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(post));
+	pwm_cfg_reg |= PWM_GROUP_PWM_CFG_UPDATA_MASK(post);
+	pwm_cfg_reg |= (0 << PWM_GROUP_PWM_INT_LEVL_BIT(post));
+	pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post);  // clear init status
+	pwm_cfg_reg |= pwm_cap_param_ptr->mode << PWM_GROUP_MODE_SET_BIT(post);
+	pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	pwm_gpio_configuration(chan, 1);
+	pwm_icu_configuration(chan, PWM_CLK_26M, 1, 1);
+
+	pwm_cap_param_ptr->is_active = 1;
+
+	// clear int status, but no enable here, but enable in start or updata
+	PWM_PRT("pwm cap inited:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_capture_start(UINT8 chan)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_cap_param_st *pwm_cap_param_ptr = NULL;
+	UINT8 group, ret;
+	UINT8 post;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(chan);
+	if((ret != PWM_NOT_USED) && (ret != PWM_USED_PWM_CAP))
+	{
+		return 3;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	pwm_cap_param_ptr = &g_pwm_cap_param[chan];
+
+	// enable
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	if ((pwm_cfg_reg & PWM_GROUP_PWM_ENABLE_MASK(post)) == PWM_GROUP_PWM_ENABLE_MASK(post))
+	{
+		if ((pwm_cfg_reg & PWM_GROUP_MODE_SET_MASK(post)) == (pwm_cap_param_ptr->mode << PWM_GROUP_MODE_SET_BIT(post)))
+		{
+			return 0;
+		}
+	}
+
+	GLOBAL_INT_DISABLE();
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg |= pwm_cap_param_ptr->mode << PWM_GROUP_MODE_SET_BIT(post);
+	pwm_cfg_reg |= PWM_GROUP_PWM_INT_STAT_MASK(post);  // clear init status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	// start
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0)); // not clear int status
+	pwm_cfg_reg |= PWM_GROUP_PWM_ENABLE_MASK(post);
+
+	if(pwm_cap_param_ptr->p_Int_Handler)
+		pwm_cfg_reg |= PWM_GROUP_PWM_INT_ENABLE_MASK(post);
+
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+	pwm_cap_param_ptr->status = PWM_STATUS_RUNNING;
+	pwm_cap_param_ptr->is_active = 1;
+
+	PWM_PRT("pwm cap started:0x%lx\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+
+UINT8 pwm_capture_stop(UINT8 chan)
+{
+	UINT32 pwm_cfg_reg;
+	pwm_cap_param_st *pwm_cap_param_ptr = NULL;
+	UINT8 group, post;
+	UINT8 ret;   // 0: in low bits, 1: in high bits
+	GLOBAL_INT_DECLARATION();
+
+	if(chan >= PWM_COUNT)
+	{
+		return 1;
+	}
+
+	ret = pwm_check_is_used(chan);
+	if(ret != PWM_USED_PWM)
+	{
+		return 3;
+	}
+
+	group = PWM_CHAN_TO_GROUP_NUM(chan);
+	post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+	pwm_cap_param_ptr = &g_pwm_cap_param[chan];
+
+	GLOBAL_INT_DISABLE();
+	// init
+	// p0
+	pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_GROUP_MODE_ENABLE_MASK | PWM_GROUP_PWM_GROUP_MODE_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_PRE_DIV_MASK);
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_LEVL_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_CFG_UPDATA_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_STOP_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_MODE_SET_MASK(post));
+	pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK((!post))); // not clear other chan int status
+	REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+
+	pwm_cap_param_ptr->status = PWM_STATUS_INITED;
+	pwm_cap_param_ptr->is_active = 0;
+
+	PWM_PRT("pwm cap deinit:0x%08x\r\n", REG_READ(REG_PWM_GROUP_CTRL_ADDR(group)));
+	GLOBAL_INT_RESTORE();
+
+	return 0;
+}
+#else
+UINT8 pwm_capture_init_param(pwm_cap_param_st *pwm_param)
+{
+	return 1;
+}
+
+UINT8 pwm_capture_start(UINT8 chan)
+{
+	return 1;
+}
+
+UINT8 pwm_capture_stop(UINT8 chan)
+{
+	return 1;
+}
+
+UINT32 pwm_capture_value_get(UINT8 chan)
+{
+	return 0;
+}
+#endif // DRV_USED_PWM_CAP
+
+void pwm_isr(void)
+{
+	int group, idx;
+	UINT32 status = 0;
+
+	for (group = 0; group < PWM_GROUP_NUM; group++)
+	{
+		for (idx = 0; idx < PWM_CHAN_IN_GROUP; idx++)
+		{
+			status = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+			if (status & PWM_GROUP_PWM_INT_STAT_MASK(idx))
+			{
+				UINT8 chan = group * PWM_CHAN_IN_GROUP + idx;
+
+				#if DRV_USED_PWM_CW_GROUP
+				pwm_cw_group_param_t *group_param_ptr = &g_cw_group_pwm_param[group];
+				#endif
+
+				#if DRV_USED_PWM_CW
+				drv_pwm_cw_param_t *cw_param_ptr = &g_cw_pwm_param[chan];
+				#endif
+
+				#if DRV_USED_PWM
+				pwm_param_st *pwm_param_ptr = &g_pwm_param[chan];
+				#endif
+
+				#if DRV_USED_PWM_CAP
+				pwm_cap_param_st *pwm_cap_param_ptr = &g_pwm_cap_param[chan];
+				#endif
+
+				// clear isr status first
+				status &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0));
+				status |= PWM_GROUP_PWM_INT_STAT_MASK(idx);
+				REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), status);
+
+				#if DRV_USED_PWM_CW_GROUP
+				if (group_param_ptr->is_active)
+				{
+					if (group_param_ptr->status == PWM_STATUS_LOADING) // idx need to only 0
+					{
+						status = pwm_cw_group_updata_regs(group_param_ptr, status);
+
+						status &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0));
+						status &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(0));	 // disable p0 interrupt after updata
+						REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), status);
+						group_param_ptr->status = PWM_STATUS_RUNNING;
+					}
+				} else
+				#endif // DRV_USED_PWM_CW_GROUP
+				#if DRV_USED_PWM_CW
+				if(cw_param_ptr->is_active)
+				{
+					drv_pwm_cw_param_t *p0_param_ptr, *p1_param_ptr;
+					UINT8 p0_chan, p1_chan;
+					p0_chan = chan;
+					p0_param_ptr = &g_cw_pwm_param[p0_chan];
+					p1_chan = p0_param_ptr->another_pwm_idx;
+					p1_param_ptr = &g_cw_pwm_param[p1_chan];
+					if((p0_param_ptr->is_active) && (p0_param_ptr->is_p0)
+						&& (p1_param_ptr->is_active) && (p0_param_ptr->status == PWM_STATUS_LOADING))
+					{
+						UINT8 p0_group, p1_group;
+						UINT32 p0_cfg_reg, p1_cfg_reg;
+						UINT8 p0_post;
+
+						p0_group = PWM_CHAN_TO_GROUP_NUM(p0_chan);
+						p1_group = PWM_CHAN_TO_GROUP_NUM(p1_chan);
+						p0_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p0_group));
+						p1_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(p1_group));
+						p0_post = PWM_CHAN_TO_CHAN_IN_GROUP(p0_chan);
+
+						pwm_cw_updata_regs(p1_param_ptr, p0_param_ptr, &p1_cfg_reg, &p0_cfg_reg);
+
+						p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0));
+						p0_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(p0_post));	 // disable p0 interrupt after updata
+						p1_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0));
+						REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p0_group), p0_cfg_reg);
+						REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(p1_group), p1_cfg_reg);
+						status = p0_cfg_reg;
+						p0_param_ptr->status = PWM_STATUS_RUNNING;
+						p1_param_ptr->status = PWM_STATUS_RUNNING;
+					}
+				} else
+				#endif // DRV_USED_PWM_CW
+				#if DRV_USED_PWM
+				if(pwm_param_ptr->is_active)
+				{
+					if(pwm_param_ptr->status == PWM_STATUS_LOADING)
+					{
+						UINT32 pwm_cfg_reg = REG_READ(REG_PWM_GROUP_CTRL_ADDR(group));
+						UINT8 post = PWM_CHAN_TO_CHAN_IN_GROUP(chan);
+
+						pwm_updata_regs(pwm_param_ptr, &pwm_cfg_reg);
+						pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_STAT_MASK(1) | PWM_GROUP_PWM_INT_STAT_MASK(0));
+						pwm_cfg_reg &= ~(PWM_GROUP_PWM_INT_ENABLE_MASK(post));	 // disable p0 interrupt after updata
+						REG_WRITE(REG_PWM_GROUP_CTRL_ADDR(group), pwm_cfg_reg);
+						status = pwm_cfg_reg;
+						pwm_param_ptr->status = PWM_STATUS_RUNNING;
+					}
+				} else
+				#endif // DRV_USED_PWM
+				#if DRV_USED_PWM_CAP
+				if(pwm_cap_param_ptr->is_active)
+				{
+					UINT32 cap_value = pwm_capture_value_get(chan);
+					if(pwm_cap_param_ptr->p_Int_Handler)
+						pwm_cap_param_ptr->p_Int_Handler(chan, cap_value);
+				}
+				#endif //DRV_USED_PWM
+				{
+					chan = chan; // fix warning
+				}
+			}
+		}
+	}
+}
 #endif

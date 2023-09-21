@@ -1,6 +1,27 @@
 #ifndef _ATSVR_WLAN_H_
 #define _ATSVR_WLAN_H_
 
+
+#define STATION_UP     1
+#define STATION_DOWN   0
+
+#define SOFTAP_UP     1
+#define SOFTAP_DOWN   0
+
+
+#define ATSVR_DEVINFO_PRODUCTID         "1V2OAXDZ65"
+#define ATSVR_DEVINFO_DEVNAME         	"AT&BK7238"
+#define ATSVR_PSKINFO_PSK         		"2fe2b750a610dab52fa24374c0cb90a2e52b4c02f947107f83f4c11d81f74681"
+#define ATSVR_PSKINFO_HINT         		"1V2OAXDZ65AT&BK7238"
+
+
+#define ATSVR_WLAN_AP_SSID          "bk7238"
+#define ATSVR_WLAN_AP_KEY           "12345678"
+
+#define ATSVR_WLAN_STA_SSID          "bk7238test"
+#define ATSVR_WLAN_STA_SSID_ERROR          "k7238test"
+#define ATSVR_WLAN_STA_KEY            "12345678"
+
 #define ATSVR_MAX_SSID_LEN             32
 
 #define ATSVR_WLAN_DEFAULT_IP          "192.168.19.1"
@@ -12,6 +33,10 @@
 #define ATSVR_WLAN_STA_DEFAULT_GW          "192.168.0.19"
 #define ATSVR_WLAN_STA_DEFAULT_MASK        "255.255.255.0"
 #define ATSVR_WLAN_STA_DEFAULT_DNS         "192.168.0.1"
+#define ATSVR_WLAN_DEFAULT_DNS1         "208.67.222.222"
+#define ATSVR_WLAN_DEFAULT_DNS2         "192.168.0.11"
+#define ATSVR_WLAN_DEFAULT_DNS3         "192.168.0.1"
+
 
 #define ATSVR_SCAN_TIMEOUT_MS              (4000)
 
@@ -55,7 +80,7 @@ extern void wlan_get_softap_mac_address(char *mac);
 extern void wlan_set_station_dhcp(int en);
 extern int wlan_get_station_dhcp(void);
 
-extern int wlan_set_station_static_ip(char *ip,char *mask,char *gate,char *dns,char *dns2);
+extern int wlan_set_station_static_ip(char *ip,char *mask,char *gate);
 extern int wlan_set_station_dns(char *dns_ip,char *dns2_ip);
 
 extern int wlan_get_station_cur_status(void);
@@ -64,10 +89,10 @@ extern int wlan_start_station_connect(char *my_ssid,char* connect_key);
 extern int wlan_stop_station(void);
 
 
-extern int wlan_softap_start(char *ap_ssid, char *ap_key);
+extern int wlan_softap_start(char *ap_ssid, char *ap_key,int channel,int proto,int ssidhidden);
 extern int wlan_stop_softap(void);
 
-extern int wlan_set_softap_static_ip(char *ip,char *mask,char *gate,char *dns_ip);
+extern int wlan_set_softap_static_ip(char *ip,char *mask,char *gate);
 extern int wlan_set_softap_dns(char *dns_ip);
 extern int wlan_get_softap_cur_status(void);
 extern int wlan_scan_start(char *ssid);
@@ -79,5 +104,8 @@ extern int atsvr2wlan_sec_type(atsvr_wlan_sec_type sec_type);
 extern int judge_the_string_is_ipv4_string(char *is_ip_string);
 
 extern void atsvr_wlan_init(void);
+
+extern int update_wifi_action(int lastmode, int curmode);
+
 
 #endif

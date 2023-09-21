@@ -50,16 +50,9 @@ HTTP_DATA_ST bk_http = {
 HTTP_DATA_ST *bk_http_ptr = &bk_http;
 static UINT32 ota_wr_block = 0;
 
-static int httpclient_parse_host(const char *url, char *host, uint32_t maxhost_len);
-static int httpclient_parse_url(const char *url, char *scheme, uint32_t max_scheme_len, char *host,
-                                uint32_t maxhost_len, int *port, char *path, uint32_t max_path_len);
-static int httpclient_conn(httpclient_t *client);
-static int httpclient_recv(httpclient_t *client, char *buf, int min_len, int max_len, int *p_read_len,
-                           uint32_t timeout);
-static int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint32_t timeout,
-                                       httpclient_data_t *client_data);
-static int httpclient_response_parse(httpclient_t *client, char *data, int len, uint32_t timeout,
-                                     httpclient_data_t *client_data);
+#if AT_SERVICE_CFG
+volatile char http_is_ota = 0;
+#endif
 
 static void httpclient_base64enc(char *out, const char *in)
 {
@@ -534,11 +527,16 @@ void http_wr_to_flash(char *page, UINT32 len)
 
 void http_data_process(char *buf, UINT32 len)
 {
-    #if HTTP_WR_TO_FLASH
-    http_wr_to_flash(buf,len);
-    #else
-    os_printf("d");
+    #if AT_SERVICE_CFG
+    if(http_is_ota == 1)
     #endif
+    {
+        #if HTTP_WR_TO_FLASH
+        http_wr_to_flash(buf,len);
+        #else
+        os_printf("d");
+        #endif
+    }
 }
 
 int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint32_t timeout_ms,
@@ -654,11 +652,16 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
         }
 
         log_debug("Total-Payload: %d Bytes; Read: %d Bytes", readLen, len);
-        #if HTTP_WR_TO_FLASH
-        http_flash_init();
-        http_wr_to_flash(data,len);
+        #if AT_SERVICE_CFG
+        if(http_is_ota == 1)
         #endif
-        
+        {
+            #if HTTP_WR_TO_FLASH
+            http_flash_init();
+            http_wr_to_flash(data,len);
+            #endif
+        }
+
         b_data =  os_malloc((TCP_LEN_MAX+1) * sizeof(char));
         bk_http_ptr->do_data = 1;
         bk_http_ptr->http_total = readLen - len;
@@ -723,14 +726,19 @@ int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint3
             len -= 2;
         } else {
             log_debug("no more (content-length)");
-#if HTTP_WR_TO_FLASH
-            #if CFG_SUPPORT_OTA_TFTP//support bk ota format
-            store_block(ota_wr_block, bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
-            #else                    //direct wrtie to flash
-            http_flash_wr(bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
+            #if AT_SERVICE_CFG
+            if(http_is_ota == 1)
             #endif
-            http_flash_deinit();
-#endif            
+            {
+#if HTTP_WR_TO_FLASH
+                #if CFG_SUPPORT_OTA_TFTP//support bk ota format
+                store_block(ota_wr_block, bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
+                #else                    //direct wrtie to flash
+                http_flash_wr(bk_http_ptr->wr_buf, bk_http_ptr->wr_last_len);
+                #endif
+                http_flash_deinit();
+#endif
+            }
             client_data->is_more = false;
             break;
         }
@@ -912,6 +920,115 @@ iotx_err_t httpclient_recv_response(httpclient_t *client, uint32_t timeout_ms, h
     return ret;
 }
 
+#if AT_SERVICE_CFG
+#include "stdlib.h"
+static int bk_http_get_response(char *buffer)
+{
+    if(buffer)
+    {
+        int http_response_code = 0;
+
+        /* Parse HTTP response */
+        if (sscanf(buffer, "HTTP/%*d.%*d %d %*[^\r\n]", &(http_response_code)) != 1) {
+            /* Cannot match string, error */
+            log_err("Not a correct HTTP answer : %s\n", buffer);
+            return ERROR_HTTP_UNRESOLVED_DNS;
+        }
+
+
+        if ((http_response_code < 200) || (http_response_code >= 400)) {
+        /* Did not return a 2xx code; TODO fetch headers/(&data?) anyway and implement a mean of writing/reading headers */
+            log_warning("Response code %d", http_response_code);
+            return FAIL_RETURN;
+        }
+        return SUCCESS_RETURN;
+    }
+
+    return FAIL_RETURN;
+}
+extern void http_output_size(int datalen,int type);
+extern void http_output_data(int start_len,char *data,int type);
+
+iotx_err_t user_httpclient_recv_response(httpclient_t *client, uint32_t timeout_ms, httpclient_data_t *client_data,int type)
+{
+    int reclen = 0, ret = ERROR_HTTP_CONN;
+    int total_len = 0;
+    char *buf = (char *)malloc(HTTP_SIZE);
+    if(buf == NULL)
+    {
+        log_debug("buf malloc error");
+        return FAIL_RETURN;
+    }
+    iotx_time_t timer;
+
+    iotx_time_init(&timer);
+    utils_time_countdown_ms(&timer, timeout_ms);
+
+    if (0 == client->net.handle) {
+        log_debug("not connection have been established");
+        return FAIL_RETURN;
+    }
+
+    client_data->is_more = 1;
+    /*recv header + data*/
+    while(1)
+    {
+        ret = httpclient_recv(client, buf, 1, HTTP_SIZE - 1, &reclen, iotx_time_left(&timer));
+        if(ret == 0)
+        {
+            if(total_len == 0)
+            {
+                int response_ret = bk_http_get_response(buf);
+                if(response_ret == SUCCESS_RETURN)
+                {
+                    char *content = os_strstr(buf, "Content-Length");
+                    if(content)
+                    {
+                        if(sscanf(content, "Content-Length: %d%*[^\r\n]", &(client_data->response_content_len)) == 1)
+                        {
+                            client_data->retrieve_len = client_data->response_content_len;
+                        }
+                    }
+
+                    char *header_end = strstr(buf,"\r\n\r\n");
+                    int header_len=0;
+                    if(header_end)
+                    {
+                        header_len = header_end-buf+2;
+                    }
+
+                    if(reclen == (header_len + client_data->response_content_len+2))
+                    {
+                        strncpy(client_data->response_buf,buf,reclen);
+                        http_output_size(client_data->response_content_len,type);
+                        http_output_data(header_len+2,buf,type);
+                        break;
+                    }
+                    total_len  += reclen;
+                }
+            }
+            else
+            {
+                strncpy(client_data->response_buf,buf,reclen);
+                http_output_size(client_data->response_content_len,type);
+                http_output_data(0,buf,type);
+            }
+        }
+        else
+        {
+            if(total_len > 0)
+            {
+                ret = SUCCESS_RETURN;
+            }
+            break;
+        }
+    }
+
+    free(buf);
+    return ret;
+}
+#endif // AT_SERVICE_CFG
+
 void httpclient_close(httpclient_t *client)
 {
     if (client->net.handle > 0) {
@@ -930,17 +1047,17 @@ int httpclient_common(httpclient_t *client, const char *url, int port, const cha
 
     if (0 == client->net.handle) {
         //Establish connection if no.
-    	httpclient_parse_host(url, host, sizeof(host));
-    	log_debug("host: '%s', port: %d", host, port);
+        httpclient_parse_host(url, host, sizeof(host));
+        log_debug("host: '%s', port: %d", host, port);
 
-    	iotx_net_init(&client->net, host, port, ca_crt);
+        iotx_net_init(&client->net, host, port, ca_crt);
 
-    	ret = httpclient_connect(client);
-    	if (0 != ret) {
+        ret = httpclient_connect(client);
+        if (0 != ret) {
             log_err("httpclient_connect is error,ret = %d", ret);
             httpclient_close(client);
             return ret;
-    	}
+        }
 
         ret = httpclient_send_request(client, url, method, client_data);
         if (0 != ret) {
@@ -958,7 +1075,12 @@ int httpclient_common(httpclient_t *client, const char *url, int port, const cha
         ret = httpclient_recv_response(client, iotx_time_left(&timer), client_data);
         if (ret < 0) {
             log_err("httpclient_recv_response is error,ret = %d", ret);
-            http_flash_deinit();
+            #if AT_SERVICE_CFG
+            if(http_is_ota == 1)
+            #endif
+            {
+                http_flash_deinit();
+            }
             httpclient_close(client);
             return ret;
         }

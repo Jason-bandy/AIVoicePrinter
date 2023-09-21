@@ -1,7 +1,7 @@
 #include <string.h>
 #include "rwip_config.h"             // SW configuration
 
-#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
+#if (BLE_APP_PRESENT && BLE_GATT_CLI)
 #include "sdp_comm.h"
 #include "app_sdp.h"
 #include "kernel_mem.h"
@@ -9,19 +9,19 @@
 #include "gatt_msg.h"
 #include "app_task.h"
 
-struct sdp_env_tag sdp_env[CFG_BLE_INIT_NUM];
+struct sdp_env_tag sdp_env[BLE_CONNECTION_MAX];
 extern sdp_notice_cb_t sdp_event_notice;
 
 struct sdp_env_tag * sdp_get_free_env(void)
 {
 	uint8_t con_idx;
 
-	for (con_idx = 0;con_idx < CFG_BLE_INIT_NUM;con_idx++) {
+	for (con_idx = 0;con_idx < BLE_CONNECTION_MAX;con_idx++) {
 		if( sdp_env[con_idx].con_idx == SDP_INVALID_CONIDX) {
 			break;
 		}
 	}
-	if( con_idx == CFG_BLE_INIT_NUM) {
+	if( con_idx == BLE_CONNECTION_MAX) {
 		return NULL;
 	}
 	return &sdp_env[con_idx];
@@ -31,7 +31,7 @@ struct sdp_env_tag * sdp_get_env_use_conidx(uint8_t con_idx)
 {
 	struct sdp_env_tag * p_sdp = NULL;
 
-	for (uint8_t idx = 0;idx < CFG_BLE_INIT_NUM;idx++) {
+	for (uint8_t idx = 0;idx < BLE_CONNECTION_MAX;idx++) {
 		if(sdp_env[idx].con_idx == con_idx) {
 			p_sdp = &sdp_env[idx];
 			break;
@@ -491,7 +491,7 @@ void sdp_common_init(void)
 {
 	uint8_t con_idx;
 
-	for (con_idx = 0;con_idx < CFG_BLE_INIT_NUM;con_idx++) {
+	for (con_idx = 0;con_idx < BLE_CONNECTION_MAX;con_idx++) {
 		memset(&sdp_env[con_idx],0,sizeof(struct sdp_env_tag));
 		sdp_env[con_idx].con_idx = SDP_INVALID_CONIDX;
 		sdp_env[con_idx].user_lib = SDP_INVALID_USER_LID;

@@ -18,6 +18,10 @@
 #include "bk7011_cal_pub.h"
 #include "calendar_pub.h"
 #include "sys_ctrl.h"
+#include "ps.h"
+#if CFG_SUPPORT_BLE
+#include "ble.h"
+#endif
 
 static MCU_PS_INFO mcu_ps_info = {
 	.mcu_ps_on = 0,
@@ -446,7 +450,14 @@ void mcu_ps_init ( void )
 		lvc_init();
 		lv_ps_init();
 #endif
-
+#if (CFG_SUPPORT_BLE && CFG_USE_BLE_PS && CFG_LOW_VOLTAGE_PS)
+#if (CFG_SOC_NAME == SOC_BK7238)
+		if (ble_thread_is_up()) {
+			lv_ps_element_bt_del();
+			lv_ps_bt_wakeup();
+		}
+#endif
+#endif
 	}
 
 #if CFG_USE_TICK_CAL && (0 == CFG_LOW_VOLTAGE_PS)

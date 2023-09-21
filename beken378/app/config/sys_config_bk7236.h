@@ -27,9 +27,9 @@
 #define FREERTOS_V10                               2
 #define CFG_FREERTOS_VER                           FREERTOS_V9
 
-#define ENC_METHOD_NULL                        1
-#define ENC_METHOD_XOR                         2
-#define ENC_METHOD_AES                         3
+#define ENC_METHOD_NULL                            1
+#define ENC_METHOD_XOR                             2
+#define ENC_METHOD_AES                             3
 
 #define FAST_CONNECT_INFO_ENC_METHOD               ENC_METHOD_NULL
 
@@ -77,6 +77,8 @@
 #define CFG_WIFI_AP_VSIE                           0
 /* Custom softap basic rates, supported rates, ht mcs set */
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
+/* repush txdesc when txl_reset happens */
+#define CFG_WIFI_REPUSH_WHEN_RESET                 0
 
 #define CfG_MACRO_MAYBE_UNUSED                     1
 #if CfG_MACRO_MAYBE_UNUSED
@@ -147,8 +149,8 @@
 #define FOR_SDIO_BLK_512                           0
 #endif
 
-#define CFG_MSDU_RESV_HEAD_LEN                    96
-#define CFG_MSDU_RESV_TAIL_LEN                    16
+#define CFG_MSDU_RESV_HEAD_LEN                     96
+#define CFG_MSDU_RESV_TAIL_LEN                     16
 
 #define CFG_USE_USB_HOST                           0
 

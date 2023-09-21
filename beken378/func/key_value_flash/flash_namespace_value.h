@@ -124,7 +124,17 @@ do{ \
         }\
     }while(0)
 
-#define FLASH_NAME_SPACE_MAX_ARRAY        10
+#define BK_RETURN_NS_IS_FACTORY(ucnamespace)   \
+    do{ \
+        if(0 == strcmp(ucnamespace, "chip-factory")) \
+        {\
+            bk_printf("[%s] [%d] chip-factory namespace is read-only \r\n", __FUNCTION__,__LINE__);\
+            return kGeneralErr;\
+        }\
+    }while(0)
+
+
+#define FLASH_NAME_SPACE_MAX_ARRAY        get_falsh_name_space_max_array(ucnamespace)
 #define FLASH_NAME_MAX_ARRAY              64
 #define PER_NAME_SPACE_FLASH_SIZE         sizeof(namespace_flash_t)
 #define PER_NAME_FLASH_SIZE               sizeof(name_flash_t)

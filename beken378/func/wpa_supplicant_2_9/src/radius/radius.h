@@ -299,7 +299,7 @@ char * radius_msg_get_tunnel_password(struct radius_msg *msg, int *keylen,
 static inline int radius_msg_add_attr_int32(struct radius_msg *msg, u8 type,
 					    u32 value)
 {
-	u32 val = __bswap32(value);
+	u32 val = __bswap32_bk(value);
 	return radius_msg_add_attr(msg, type, (u8 *) &val, 4) != NULL;
 }
 
@@ -312,7 +312,7 @@ static inline int radius_msg_get_attr_int32(struct radius_msg *msg, u8 type,
 	if (res != 4)
 		return -1;
 
-	*value = __bswap32(val);
+	*value = __bswap32_bk(val);
 	return 0;
 }
 int radius_msg_get_attr_ptr(struct radius_msg *msg, u8 type, u8 **buf,

@@ -4,13 +4,13 @@
 #if (CFG_SOC_NAME == SOC_BK7231)
 #include "bk7231_cal.h"
 #elif (CFG_SOC_NAME == SOC_BK7231U)
-#include "bk7231U_cal.h"
+#include "bk7231u_cal.h"
 #elif (CFG_SOC_NAME == SOC_BK7231N)
-#include "bk7231N_cal.h"
+#include "bk7231n_cal.h"
 #elif (CFG_SOC_NAME == SOC_BK7238)
 #include "bk7238_cal.h"
 #elif (CFG_SOC_NAME == SOC_BK7221U)
-#include "bk7221U_cal.h"
+#include "bk7221u_cal.h"
 #endif
 #endif // _BK7011_CAL_H_
 

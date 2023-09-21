@@ -174,7 +174,7 @@ void txl_cfm_flush_desc(uint8_t access_category, struct txdesc *txdesc, uint32_t
  *
  ****************************************************************************************
  */
-void txl_cfm_flush(uint8_t access_category, struct co_list *list, uint32_t status);
+void txl_cfm_flush(uint8_t access_category, struct co_list *list, uint32_t status, struct co_list *repush_list);
 
 /**
  ****************************************************************************************

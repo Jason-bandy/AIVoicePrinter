@@ -189,6 +189,7 @@ int wifi_set_mac_address(char *mac)
 #elif (WIFI_MAC_POS == MAC_ITEM)
         save_info_item(WIFI_MAC_ITEM, (UINT8 *)system_mac, NULL, NULL);
 #endif
+        bk_wlan_stop_scan();
         bk_wlan_stop(BK_SOFT_AP);
 #if CFG_ROLE_LAUNCH
         param.req_type = LAUNCH_REQ_DELIF_STA;

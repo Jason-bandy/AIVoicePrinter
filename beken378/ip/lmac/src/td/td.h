@@ -33,7 +33,7 @@
  */
 
 /// Traffic Detection Interval default value (in microseconds)
-#define TD_DEFAULT_INTV_US          (100000)
+#define TD_DEFAULT_INTV_US          (30000)
 /**
  * Traffic Detection default threshold (number of RX or TX packets needed to consider that
  * traffi is occurring)

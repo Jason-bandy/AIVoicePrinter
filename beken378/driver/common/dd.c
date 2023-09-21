@@ -65,6 +65,10 @@
 #include "calendar_pub.h"
 #endif
 
+#if (CFG_USE_SOFT_RTC)
+#include "rtc.h"
+#endif
+
 static DD_INIT_S dd_init_tbl[] =
 {
     /* name*/              /* init function*/          /* exit function*/
@@ -165,11 +169,15 @@ static DD_INIT_S dd_init_tbl[] =
 #endif
 
 #if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1))
-	{BLE_DEV_NAME,			ble_init,					ble_exit}, //sean
+    {BLE_DEV_NAME,       ble_init,                      ble_exit}, //sean
 #endif
 
 #if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_USE_SECURITY == 1))
-	{SEC_DEV_NAME,			bk_secrity_init,			bk_secrity_exit},
+    {SEC_DEV_NAME,       bk_secrity_init,               bk_secrity_exit},
+#endif
+
+#if (CFG_USE_SOFT_RTC)
+    {SOFT_RTC_DEVICE_NAME,  rt_soft_rtc_init,           NULLPTR},
 #endif
     {NULL,                  NULLPTR,                    NULLPTR}
 };

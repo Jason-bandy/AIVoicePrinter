@@ -138,5 +138,7 @@ void ble_set_write_cb(bk_ble_write_cb_t func);
 void ble_set_read_cb(bk_ble_read_cb_t func);
 void ble_set_event_cb(ble_event_cb_t func);
 void ble_activate(char *ble_name);
-
+bool ble_thread_is_up(void);
+void ble_coex_set_pta(bool enable);
+bool ble_coex_pta_is_on(void);
 #endif /* _BLE_H_ */

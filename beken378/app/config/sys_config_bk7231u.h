@@ -29,9 +29,9 @@
 #define FREERTOS_V10                               2
 #define CFG_FREERTOS_VER                           FREERTOS_V9
 
-#define ENC_METHOD_NULL                        1
-#define ENC_METHOD_XOR                         2
-#define ENC_METHOD_AES                         3
+#define ENC_METHOD_NULL                            1
+#define ENC_METHOD_XOR                             2
+#define ENC_METHOD_AES                             3
 
 #define FAST_CONNECT_INFO_ENC_METHOD               ENC_METHOD_NULL
 
@@ -78,6 +78,8 @@
 #define CFG_WIFI_AP_VSIE                           0
 /* Custom softap basic rates, supported rates, ht mcs set */
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
+/* repush txdesc when txl_reset happens */
+#define CFG_WIFI_REPUSH_WHEN_RESET                 0
 
 /*Use macro to shut down some unused functions*/
 #define CFG_WPA_MAYBE_UNUSED                       1
@@ -157,8 +159,8 @@
 #define FOR_SDIO_BLK_512                           0
 #endif
 
-#define CFG_MSDU_RESV_HEAD_LEN                    96
-#define CFG_MSDU_RESV_TAIL_LEN                    16
+#define CFG_MSDU_RESV_HEAD_LEN                     96
+#define CFG_MSDU_RESV_TAIL_LEN                     16
 
 #define CFG_USB                                    0
 #define CFG_USE_USB_HOST                           0
@@ -169,7 +171,7 @@
 #endif
 #endif
 #if CFG_USE_USB_DEVICE
-#define CFG_USE_USB_DEVICE_CARD_READER              1
+#define CFG_USE_USB_DEVICE_CARD_READER             1
 #endif
 
 #if CFG_USB
@@ -238,13 +240,17 @@
 /*section 12-----for video transfer*/
 #if CFG_WIFI_P2P
 #define CFG_USE_APP_DEMO_VIDEO_TRANSFER            1
-#define CFG_USE_CAMERA_INTF          		       1
+#define CFG_USE_CAMERA_INTF                        1
 #else
 #define CFG_USE_APP_DEMO_VIDEO_TRANSFER            0
-#define CFG_USE_CAMERA_INTF          		       0
+#define CFG_USE_CAMERA_INTF                        0
 #endif
 #define CFG_USE_HSLAVE_SPI                         0
 #define CFG_USE_SPIDMA                             0
+#if CFG_USE_CAMERA_INTF
+#define CFG_USE_I2C1                               1
+#define CFG_USE_I2C2                               0
+#endif
 
 /*section 13-----for GENERRAL DMA */
 #define CFG_GENERAL_DMA                            1

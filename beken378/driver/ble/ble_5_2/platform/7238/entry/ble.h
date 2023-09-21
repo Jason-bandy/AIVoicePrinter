@@ -41,5 +41,7 @@ void ble_entry(void);
 void ble_thread_exit(void);
 bool ble_thread_is_up(void);
 void ble_set_ext_wkup(uint8_t enable);
+void ble_coex_set_pta(bool enable);
+bool ble_coex_pta_is_on(void);
 #endif
 

@@ -137,7 +137,6 @@ static const struct prf_task_cbs * prf_itf_get(uint16_t task_id)
 void prf_init(uint8_t init_type)
 {
     uint8_t i;
-    uart_printf("!!!!!!init_type=%x\n",init_type);
     for(i = 0; i < BLE_NB_PROFILES ; i++)
     {
         switch (init_type)

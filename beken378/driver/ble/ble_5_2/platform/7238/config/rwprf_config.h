@@ -30,10 +30,6 @@
 //#define CFG_PRF_FMPT
 //#define CFG_PRF_DISS
 
-#if CFG_INIT_ENABLE
-#define CFG_PRF_SDP
-#endif
-
 #if BLE_PERIPHERAL
 #define CFG_PRF_COMM
 #endif
@@ -43,13 +39,6 @@
 #else
 #define BLE_COMM_SERVER        0
 #endif
-
-///SDP Profile
-#if defined(CFG_PRF_SDP)
-#define BLE_SDP_CLIENT        1
-#else
-#define BLE_SDP_CLIENT        0
-#endif // defined(CFG_PRF_SDP))
 
 //ATT DB,Testing and Qualification related flags
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
@@ -473,7 +462,7 @@
         || BLE_RSC_COLLECTOR || BLE_CSC_COLLECTOR || BLE_CP_COLLECTOR || BLE_LN_COLLECTOR || BLE_AN_CLIENT \
         || BLE_PAS_CLIENT || BLE_IPS_CLIENT || BLE_ENV_CLIENT || BLE_WSC_CLIENT \
         || BLE_UDS_CLIENT || BLE_BCS_CLIENT || BLE_WPT_CLIENT || BLE_PLX_CLIENT \
-        || BLE_CGM_CLIENT || BLE_CSIS_COORD || BLE_OT_CLIENT || BLE_DBG_THPP || BLE_MESH || CFG_INIT_ENABLE)
+        || BLE_CGM_CLIENT || BLE_CSIS_COORD || BLE_OT_CLIENT || BLE_DBG_THPP || BLE_MESH || BLE_CENTRAL)
 #define BLE_CLIENT_PRF          1
 #else
 #define BLE_CLIENT_PRF          0

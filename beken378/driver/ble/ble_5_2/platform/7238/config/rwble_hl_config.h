@@ -173,6 +173,17 @@
 /******************************************************************************************/
 /* --------------------------   HOST MODULES      ----------------------------------------*/
 /******************************************************************************************/
+#define CFG_GATT_CLI
+
+#if (BLE_CENTRAL || BLE_PERIPHERAL)
+    /// Support GATT Client
+    #if defined(CFG_GATT_CLI)
+        #define BLE_GATT_CLI         1
+    #else
+        #define BLE_GATT_CLI         0
+    #endif // defined(CFG_GATT_CLI)
+#else
+#endif // (BLE_CENTRAL || BLE_PERIPHERAL)
 
 #define BLE_GAPM                    1
 #if (BLE_OBSERVER)
@@ -187,7 +198,7 @@
 
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
 #define BLE_GAPC                    1
-// must be equals to sizeof(gapc_con_t)
+// must be equals to sizeof(gapc_con_t) + KERNEL_HEAP_MEM_RESERVED
 #if (BLE_GATT_CLI)
 #define BLE_GAPC_HEAP_ENV_SIZE      (120 + KERNEL_HEAP_MEM_RESERVED)
 #else
@@ -249,9 +260,6 @@
 /******************************************************************************************/
 
 #define CFG_HL_MSG_API
-#if (BLE_CENTRAL)
-#define CFG_GATT_CLI
-#endif
 
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
     /// Support HL Message API
@@ -266,17 +274,6 @@
 /******************************************************************************************/
 /* --------------------------   GATT              ----------------------------------------*/
 /******************************************************************************************/
-
-#if (BLE_CENTRAL || BLE_PERIPHERAL)
-    /// Support GATT Client
-    #if defined(CFG_GATT_CLI)
-        #define BLE_GATT_CLI         1
-    #else
-        #define BLE_GATT_CLI         0
-    #endif // defined(CFG_GATT_CLI)
-#else
-#endif // (BLE_CENTRAL || BLE_PERIPHERAL)
-
 /// Size of the heap
 #if (BLE_CENTRAL || BLE_PERIPHERAL)
     /// Can be tuned based on supported profiles

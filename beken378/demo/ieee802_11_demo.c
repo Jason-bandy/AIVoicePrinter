@@ -32,6 +32,8 @@
 #include "role_launch.h"
 #endif
 
+extern int hostapd_scan_started;
+
 static const char *crypto_str[] = {
 	"None",
 	"WEP",
@@ -113,7 +115,7 @@ static void scan_cb(void *ctxt, uint8_t param)
 	int ret;
 
 	ScanResult_adv apList;
-	if (bk_wlan_ap_is_up() > 0)
+	if (bk_wlan_ap_is_up() > 0 || hostapd_scan_started)
 		ret = wlan_ap_scan_result(&apList);
 	else
 		ret = wlan_sta_scan_result(&apList);

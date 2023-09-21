@@ -402,6 +402,7 @@
 #define SCTRL_ANALOG_STATE                    (SCTRL_BASE + 0x21*4)
 #define ANALOG_STATE_MASK                        (0xFF)
 #define ANALOG_STATE_POS                         (0)
+#define DPLL_UNLOCK_STATE_BIT                    (1 << 15)
 #endif // (CFG_SOC_NAME == SOC_BK7221U)
 #endif // (CFG_SOC_NAME != SOC_BK7221U)
 

@@ -61,6 +61,8 @@ typedef struct _lv_bundle_
 #endif
 }BCN_BUNDLE_T;
 
+extern uint64_t g_dpll_lock_delay;
+
 uint32_t lvc_recv_bcn_handler(uint64_t tsf, uint32_t tsf_offset);
 int32_t lvc_get_lead_duration(void);
 #if(CFG_HW_PARSER_TIM_ELEMENT == 1)

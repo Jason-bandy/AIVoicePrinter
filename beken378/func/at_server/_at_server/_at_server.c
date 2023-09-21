@@ -3,6 +3,7 @@
 #include "string.h"
 #include "stdio.h"
 #include "stdlib.h"
+#include "atsvr_comm.h"
 
 
 static const char *_atsvr_version_num = ATSVR_VERSION_NUM;
@@ -125,6 +126,27 @@ void _atsvr_cmd_rsp_ok(_atsvr_env_t *env)
 	}
 }
 
+
+
+
+void _atsvr_cmd_rsp_passthrough(_atsvr_env_t *env)
+{
+	if (env && env->output_func)
+	{
+		env->output_func(ATSVR_CMD_RSP_ENTER_PASSTHROUGH, sizeof(ATSVR_CMD_RSP_ENTER_PASSTHROUGH) - 1);
+	}
+}
+
+
+void _atsvr_cmd_rsp_busy(_atsvr_env_t *env)
+{
+	if (env && env->output_func)
+	{
+		env->output_func(ATSVR_CMD_RSP_BUSY, sizeof(ATSVR_CMD_RSP_BUSY) - 1);
+	}
+}
+
+
 void _atsvr_cmd_rsp_error(_atsvr_env_t *env)
 {
 	if(env && env->output_func){
@@ -180,143 +202,242 @@ static const struct _atsvr_command *_atsvr_lookup_at_command(_atsvr_env_t *env,c
 
 int _atsvc_command_handle(_atsvr_env_t *env,unsigned char argc,char **argv)
 {
-    const struct _atsvr_command *command = NULL;
-    int i;
-    char *p;
+	const struct _atsvr_command *command = NULL;
+	int i;
+	char *p;
 
-    i = ((p = strchr(argv[0], '.')) == NULL) ? 0 : (p - argv[0]);
+	i = ((p = strchr(argv[0], '.')) == NULL) ? 0 : (p - argv[0]);
 
-    command = _atsvr_lookup_at_command(env,argv[0], i);
-    if ((command == NULL) || (NULL == command->function)) {
+	command = _atsvr_lookup_at_command(env,argv[0], i);
+	if ((command == NULL) || (NULL == command->function)) {
 		ATSVRLOG("[ATSVR]no find \"%s\" command\r\n",argv[0]);
-        return ATSVR_GENERAL;
-    }
+		return ATSVR_GENERAL;
+	}
+
+	for (i = 0; i < argc; i++)
+	{
+		sscanf(argv[i], "\"%[^\"]\"", argv[i]);
+	}
+
+
+
+//	log_output_state(FALSE);
+
 
 #if ATSVR_HANDLER_ENV
-    command->function(env, argc, argv);
+	command->function(env, argc, argv);
 #else
 	if(argc < ATSVR_MAX_ARG) {
 		argv[argc] = (char *)env;
 	}
 	command->function(argc, argv);
 #endif
-    return ATSVR_OK;
+	return ATSVR_OK;
 }
 
-typedef struct{
-	unsigned inArg : 1;
-	unsigned done : 1;
-	unsigned isD : 2;
-	unsigned limQ : 1;
-}_atsvr_handle_input_stat;
 
-static int _atsvr_handle_input(_atsvr_env_t *env,unsigned char *inbuf,int len)
+static int _atsvr_handle_input(_atsvr_env_t *env, unsigned char * inbuf, int len)
 {
-	_atsvr_handle_input_stat stat;
-#if ATSVR_HANDLER_ENV
-    char *argv[ATSVR_MAX_ARG];
-#else
-	char *argv[ATSVR_MAX_ARG + 1];
-#endif
-    int argc = 0;
-    int i = 0;
-	int offset = 0;
+	struct 
+	{
+		unsigned		inArg			: 1;
+		unsigned		inQuote 		: 1;
+		unsigned		done			: 1;
+		unsigned		isD 			: 2;
+		unsigned		limQ			: 1;
+	} stat;
 
-    memset((void *)&argv, 0, sizeof(argv));
-    memset(&stat, 0, sizeof(stat));
 
-    do
-    {
-		offset++;
-		if(offset > len){
-			ATSVRLOG("The data is incomplete\r\n");
-			return 7;  ////error
+	static char *	argv[16];
+	int 			argc = 0;
+	int 			i	= 0;
+
+	memset((void *) &argv, 0, sizeof(argv));
+	memset(&stat, 0, sizeof(stat));
+
+	do
+	{
+		switch (inbuf[i])
+		{
+			case '\0':
+				if (stat.inQuote || stat.limQ || (stat.isD == 1))
+				{
+					ATSVRLOG("The data does not conform to the regulations %d\r\n", __LINE__);
+					return 2;
+				}
+
+				stat.done = 1;
+				break;
+
+			case '=':
+				if (argc == 1)
+				{
+					inbuf[i]			= '\0';
+					stat.inArg			= 0;
+					stat.isD			= 1;
+				}
+				else if (argc == 0)
+				{
+					ATSVRLOG("The data does not conform to the regulations %d\r\n", __LINE__);
+					return 4;
+				}
+
+				break;
+
+			case '"':
+				if (i > 0 && inbuf[i - 1] == '\\' && stat.inArg)
+				{
+					memmove(&inbuf[i - 1], &inbuf[i], 
+						strlen((char *) &inbuf[i]) + 1);
+					--i;
+					break;
+				}
+
+				if (!stat.inQuote && stat.inArg)
+					break;
+
+				if (stat.inQuote && !stat.inArg)
+				{
+					ATSVRLOG("The data does not conform to the regulations %d\r\n", __LINE__);
+					return 2;
+				}
+
+				if (!stat.inQuote && !stat.inArg)
+				{
+					stat.inArg			= 1;
+					stat.inQuote		= 1;
+					stat.limQ			= 0;
+					argc++;
+					argv[argc - 1]		= (char *) &inbuf[i + 1];
+
+					if (stat.isD == 1)
+					{
+						stat.isD			= 2;
+					}
+				}
+				else if (stat.inQuote && stat.inArg)
+				{
+					stat.inArg			= 0;
+					stat.inQuote		= 0;
+					inbuf[i]			= '\0';
+				}
+
+				break;
+
+			case ' ':
+				if (i > 0 && inbuf[i - 1] == '\\' && stat.inArg)
+				{
+					memmove(&inbuf[i - 1], &inbuf[i], 
+						strlen((char *) &inbuf[i]) + 1);
+					--i;
+					break;
+				}
+
+				if (!stat.inQuote && stat.inArg)
+				{
+					stat.inArg			= 0;
+					inbuf[i]			= '\0';
+				}
+
+				break;
+
+			case ',':
+				if ((stat.isD == 1) && (argc == 1)) ///=,
+				{
+					ATSVRLOG("The data does not conform to the regulations %d\r\n", __LINE__);
+					return 5;
+				}
+
+				if (stat.inArg && !stat.inQuote)
+				{
+					stat.inArg			= 0;
+					inbuf[i]			= '\0';
+					stat.limQ			= 1;
+				}
+
+				break;
+
+			default:
+				if (!stat.inArg)
+				{
+					stat.inArg			= 1;
+					argc++;
+					argv[argc - 1]		= (char *) &inbuf[i];
+					stat.limQ			= 0;
+
+					if (stat.isD == 1)
+					{
+						stat.isD			= 2;
+					}
+				}
+
+				break;
 		}
-        switch (inbuf[i])
-        {
-        case '\0':
-			if(((argc == 0)||(stat.isD == 1))||(stat.limQ)){
-				ATSVRLOG("The data does not conform to the regulations %d\r\n",__LINE__);
-				return 2;
-			}
+	}
+	while(!stat.done && ++i < ATSVR_INPUT_BUFF_MAX_SIZE);
 
-			stat.done = 1;
-            break;
-        case '=':
-            if(argc == 1) {
-				inbuf[i] = '\0';
-				stat.inArg = 0;
-				stat.isD = 1;
-			}
-            else if(argc == 0){
-				ATSVRLOG("The data does not conform to the regulations %d\r\n",__LINE__);
-				return 4;
-            }
-            break;
-#if ATSVR_ADD_ESCAPE_CFG
-		case '\\':  ////"\"
-			offset += 1;
-			if((offset + 1) > len){
-				ATSVRLOG("The data does not conform to the regulations %d\r\n",__LINE__);
-				return 6;  ////error
-			}
-			memmove(&inbuf[i],&inbuf[i+1],(len-offset) + 1);
-            break;
-#endif
-        case ',':
-            if((stat.isD == 1)&&(argc == 1))  ///=,
-            {
-				ATSVRLOG("The data does not conform to the regulations %d\r\n",__LINE__);
-                return 5;
-            }
-            if(stat.inArg) {
-                stat.inArg = 0;
-                inbuf[i] = '\0';
-                stat.limQ = 1;
-            }
-            break;
-        default:
-            if(!stat.inArg) {
-                stat.inArg = 1;
-                argc++;
-                argv[argc - 1] = (char*)&inbuf[i];
-                stat.limQ = 0;
-                if(stat.isD == 1) {
-                    stat.isD = 2;
-                }
-            }
-            break;
-        }
-    }
-    while (!stat.done && (++i < ATSVR_INPUT_BUFF_MAX_SIZE));
+	if (stat.inQuote)
+		return 2;
 
-    if (argc < 1) {
-		ATSVRLOG("Data parsing exception\r\n");
-        return 3;
-    }
+	if (argc < 1)
+		return 0;
 
-    return _atsvc_command_handle(env,argc,argv);
+	return _atsvc_command_handle(env,argc,argv);
 }
 
 
 int _atsvr_input_msg_analysis_handler(_atsvr_env_t *env,char *msg,unsigned int msg_len)
 {
-	int ret;
 
-	if(env == NULL){
+	extern int handle_input(char * inbuf);
+
+
+	int 			ret;
+
+	if (env == NULL)
+	{
 		return ATSVR_SEVERE_ERR;
 	}
 
-	if( env->echo != _ATSVR_ECHO_NONE ) {
-		if(env->output_func){
+	if (env->echo != _ATSVR_ECHO_NONE)
+	{
+
+		if (env->output_func)
+		{
+
 			env->output_func(msg, msg_len - 1);
-			env->output_func("\r\n\r\n",4);
+			env->output_func("\r\n\r\n", 4);
 		}
 	}
 
-	ret = _atsvr_handle_input(env,(unsigned char*)msg,msg_len);
-	if(ret != ATSVR_OK) {
-		goto error;
+	if (g_env_param.workmode == 0)
+	{
+		ATSVRLOG("msg:%s", msg);
+
+		if (strncmp(msg, "AT", 2) == 0)
+		{
+			ret 				= _atsvr_handle_input(env, (unsigned char *) msg, msg_len);
+
+			if (ret != ATSVR_OK)
+			{
+				goto error;
+			}
+		}
+		else
+		{
+
+			handle_input(msg);
+		}
+	}
+	else
+	{
+
+		ret 				= _atsvr_handle_input(env, (unsigned char *) msg, msg_len);
+
+		if (ret != ATSVR_OK)
+		{
+			goto error;
+		}
 	}
 
 	return ATSVR_OK;
@@ -325,9 +446,10 @@ error:
 	return ATSVR_ERROR;
 }
 
-
+#if CFG_USE_DEFUALT_CMD
 int _atsvr_def_config(_atsvr_env_t *env)
-{
+{
+
 	int i;
 
 	if(env == NULL){
@@ -345,6 +467,7 @@ int _atsvr_def_config(_atsvr_env_t *env)
 #endif
 	return ATSVR_OK;
 }
+#endif
 
 void _atsvr_register_output_func(_atsvr_env_t *env,output_func_t output_func)
 {
@@ -399,8 +522,9 @@ unsigned int _atsvr_input_msg_get(_atsvr_env_t *env,char *data,unsigned int data
 {
 	int length = 0;
 
-	if(env && env->input_msg_func) {
-		env->input_msg_func(data,data_len);
+	if (env && env->input_msg_func)
+	{
+		length = env->input_msg_func(data, data_len);
 	}
 	return length;
 }

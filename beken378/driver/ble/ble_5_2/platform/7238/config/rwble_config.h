@@ -221,7 +221,7 @@
 #define BLE_ACL_RX_BUF_HEADER_SPACE  (HCI_ACL_HDR_LEN + 1)
 
 /// Number of TX ACL data buffers
-#define BLE_ACL_BUF_NB_TX            (BLE_ACTIVITY_MAX + 2)
+#define BLE_ACL_BUF_NB_TX            (BLE_ACTIVITY_MAX + 4)
 
 /// Number of advertising data buffers
 #define BLE_ADV_BUF_NB_TX            (CFG_BLE_ADV_NUM*2 + 1)

@@ -106,6 +106,20 @@ bool txu_cntrl_push(struct txdesc *txdesc, uint8_t access_category);
 
 /**
  ****************************************************************************************
+ * @brief Repush a txdesc on the UMAC TX path
+ *
+ * This function is used to re-send a MPDU that has been sent as part of an A-MPDU and
+ * that needs to be retried (as MACHW doesn't manage retries for A-MPDU).
+ *
+ * @param[in]  txdesc           Pointer to the structure that has the info of the data
+ *                              packet to be transmitted.
+ * @param[in]  access_category  Index of the queue in which the packet is passed
+ ****************************************************************************************
+ */
+void txu_cntrl_repush(struct txdesc *txdesc, uint8_t access_category);
+
+/**
+ ****************************************************************************************
  * @brief Function called by the LMAC once the data buffer has been allocated. It is
  * responsible for the different header formatting (MAC Header, IV/EIV, LLC/SNAP).
  *
@@ -135,9 +149,10 @@ void txu_cntrl_tkip_mic_append(struct txdesc *txdesc, uint8_t ac);
 *
 * @param[in] txdesc  Pointer to the packet descriptor
 *
+* @return True if frame must be resent by the firmware and false otherwise.
 ****************************************************************************************
 */
-void txu_cntrl_cfm(struct txdesc *txdesc);
+bool txu_cntrl_cfm(struct txdesc *txdesc);
 
 /**
 *******************************************************************************

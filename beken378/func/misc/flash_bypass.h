@@ -16,6 +16,8 @@ extern "C" {
 #define SPI_VAL_RELEASE_CS                  (0x03)
 
 extern uint32_t flash_bypass_operate_sr_init(void);
+extern int flash_bypass_op_read(uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint32_t rx_len);
+extern int flash_bypass_op_write(uint8_t *op_code, uint8_t *tx_buf, uint32_t tx_len);
 
 #ifdef __cplusplus
 }

@@ -630,6 +630,7 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	UINT32 duty_cycle2;
 	UINT32 dead_band;
 #endif
+	OSStatus ret;
 
 	/*get the parameters from command line*/
 	channel1	= atoi(argv[2]);
@@ -654,11 +655,26 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 			return;
 		}
 		PERI_LOGI(TAG, "pwm channel %d: duty_cycle: %d  freq:%d \r\n", channel1, duty_cycle1, cycle);
-
-		bk_pwm_initialize(channel1, cycle, duty_cycle1,0,0);
-		bk_pwm_start(channel1);				/*start single pwm channel once */
-	} else if (os_strcmp(argv[1], "stop") == 0)
-		bk_pwm_stop(channel1);
+		ret = bk_pwm_initialize(channel1, cycle, duty_cycle1);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "init err\r\n");
+			return;
+		}
+		ret = bk_pwm_start(channel1);				/*start single pwm channel once */
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "start err\r\n");
+			return;
+		}
+	} else if (os_strcmp(argv[1], "stop") == 0){
+		ret = bk_pwm_stop(channel1);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "stop err\r\n");
+			return;
+		}
+	}
 #if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) ||(CFG_SOC_NAME == SOC_BK7271) || (CFG_SOC_NAME == SOC_BK7238))
 	else if (os_strcmp(argv[1], "update") == 0)
 	{
@@ -668,7 +684,12 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		}
 
 		PERI_LOGI(TAG, "pwm %d update: %d\r\n", duty_cycle1);
-		bk_pwm_update_param(channel1, cycle, duty_cycle1);		/*updata pwm freq and duty_cycle */
+		ret = bk_pwm_update_param(channel1, cycle, duty_cycle1);		/*updata pwm freq and duty_cycle */
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "updata err\r\n");
+			return;
+		}
 	} else if (os_strcmp(argv[1], "cap") == 0)
 	{
 		uint8_t cap_mode = duty_cycle1;
@@ -677,14 +698,38 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 			PERI_LOGW(TAG, "pwm cap usage: pwm [cap][channel1][mode][freq]\r\n");
 			return;
 		}
-
-		bk_pwm_capture_initialize(channel1, cap_mode);			/*capture pwm value */
+		PERI_LOGI(TAG, "pwm %d capture\r\n", channel1);
+		ret = bk_pwm_capture_initialize(channel1, cap_mode);			/*capture pwm value */
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "init err\r\n");
+			return;
+		}
+		#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236) && (CFG_SOC_NAME != SOC_BK7238)
 		bk_pwm_start(channel1);
+		#else
+		ret = bk_pwm_capture_start(channel1);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "start err\r\n");
+			return;
+		}
+		#endif
 	} else if (os_strcmp(argv[1], "capvalue") == 0)
 	{
 		cap_value = bk_pwm_get_capvalue(channel1);
 		PERI_LOGI(TAG, "pwm : %d cap_value=%x \r\n", channel1, cap_value);
+	} else if (os_strcmp(argv[1], "cap_stop") == 0)
+	{
+		ret = bk_pwm_capture_stop(channel1);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "stop err\r\n");
+			return;
+		}
+		PERI_LOGI(TAG, "pwm : %d cap_stop\r\n", channel1);
 	}
+
 	#if ((CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238))
 	else if (os_strcmp(argv[1], "cw") == 0)
 	{
@@ -696,8 +741,18 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 
 		PERI_LOGI(TAG, "pwm : %d / %d cw pwm test \r\n", channel1, channel2);
 
-		bk_pwm_cw_initialize(channel1, channel2, cycle, duty_cycle1, duty_cycle2, dead_band);
-		bk_pwm_cw_start(channel1, channel2);
+		ret = bk_pwm_cw_initialize(channel1, channel2, cycle, duty_cycle1, duty_cycle2, dead_band);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "init err\r\n");
+			return;
+		}
+		ret = bk_pwm_cw_start(channel1, channel2);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "start err\r\n");
+			return;
+		}
 	} else if (os_strcmp(argv[1], "updatecw") == 0)
 	{
 		if (8 != argc) {
@@ -707,7 +762,12 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 
 		PERI_LOGI(TAG, "pwm : %d / %d cw updatw pwm test \r\n", channel1, channel2);
 
-		bk_pwm_cw_update_param(channel1, channel2, cycle, duty_cycle1, duty_cycle2, dead_band);
+		ret = bk_pwm_cw_update_param(channel1, channel2, cycle, duty_cycle1, duty_cycle2, dead_band);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "updata err\r\n");
+			return;
+		}
 	} else if (os_strcmp(argv[1],  "loop") == 0)
 	{
 		uint16_t cnt = 1000;
@@ -722,6 +782,15 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 
 			if (duty_cycle1 == 0)
 				duty_cycle1 = cycle;
+		}
+	}else if (os_strcmp(argv[1], "cw_stop") == 0)
+	{
+		PERI_LOGI(TAG, "pwm stop : %d / %d cw pwm test \r\n", channel1, channel2);
+		ret = bk_pwm_cw_stop(channel1, channel2);
+		if(ret != kNoErr)
+		{
+			PERI_LOGW(TAG, "stop err\r\n");
+			return;
 		}
 	}
 	#endif

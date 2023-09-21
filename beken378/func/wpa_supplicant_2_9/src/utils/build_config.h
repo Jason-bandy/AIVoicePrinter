@@ -246,6 +246,7 @@
 #endif
 
 #if CFG_WPA3
+//#define CFG_SOFTAP_WPA3 1
 #define CONFIG_SAE
 #define CONFIG_ECC
 #define CONFIG_SAE_SMALL_STACK

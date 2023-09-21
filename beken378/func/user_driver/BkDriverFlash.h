@@ -71,7 +71,9 @@ typedef enum
     BK_PARTITION_USR_CONFIG,
 #if (CFG_SUPPORT_MATTER)
     BK_PARTITION_MATTER_FLASH,
+    BK_PARTITION_MATTER_FACTORY_FLASH,
 #endif
+    BK_PARTITION_BLE_SVR_CONFIG,
     BK_PARTITION_MAX,
 } bk_partition_t;
 
@@ -178,6 +180,17 @@ OSStatus bk_flash_get_security(PROTECT_TYPE *protect_flag);
 int bk_flash_abs_addr_write(unsigned int  off_set, const unsigned char *inBuffer , unsigned int  size,unsigned char eraseflag);
 int bk_flash_abs_addr_erase(unsigned int flashOffset, unsigned int size);
 int bk_flash_abs_addr_read(unsigned int off_set, unsigned char *outBuffer, unsigned int size);
+
+/**@brief    Get flash unique ID
+ *
+ * @param    uid_buf       : The read buf to save uid
+ * @param    uid_buf_len   : Size of buf to read
+ *
+ * @return    > 0          : how many bytes is valid in uid_buf
+ * @return    = 0          : para is error, or read nothing
+ * @return    < 0          : some err happened
+ */
+uint32_t bk_flash_get_uid(uint8_t *uid_buf, uint32_t uid_buf_len);
 
 #ifdef BOOTLOADER
 /**@brief    Disable security options on a logical partition

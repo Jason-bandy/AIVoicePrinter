@@ -13,15 +13,27 @@ typedef struct  mcu_ps {
 	UINT32 mcu_prevent;
 } MCU_PS_INFO;
 
+typedef enum
+{
+    LOW_LEVEL         = 0,
+    HIGH_LEVEL        = 1,
+    POSEDGE           = 2,
+    NEGEDGE           = 3,
+} WAKEUP_GPIO_TYPE;
+
+
 typedef struct  sctrl_mcu_ps {
 	UINT8 hw_sleep ;
 	UINT8 first_sleep ;
 	UINT8 mcu_use_dco;
+	UINT8 wakeup_gpio_index;
+	WAKEUP_GPIO_TYPE wakeup_gpio_type;
+	UINT32 gpio_config_backup;
 } SCTRL_MCU_PS_INFO;
 
 #define     MCU_PS_CONNECT      CO_BIT(0)
 #define     MCU_PS_ADD_KEY      CO_BIT(1)
-#define     MCU_PS_BLE_FROBID      (1UL<<(2))
+#define     MCU_PS_GPIO_PREVENT      CO_BIT(2)
 
 #define CHIP_U_MCU_WKUP_USE_TIMER  1
 

@@ -11,6 +11,10 @@
 #include "phy_trident.h"
 #include "bk7011_cal_pub.h"
 #include "target_util_pub.h"
+#if CFG_SUPPORT_BLE
+#include "ble.h"
+#endif
+#include "mem_pub.h"
 
 #define LV_PS_BEACON_LOSS_TIME_S            (30)
 
@@ -19,9 +23,11 @@ uint32_t lv_ps_start_flag = 0;
 uint32_t lv_ps_enable_print = 0;
 uint32_t lv_anchor_flag = 0;
 uint32_t lv_ps_current_sleep_duration = 0;
+uint64_t lv_ps_target_time = 0;
 uint64_t lv_ps_bcn_tsf_field = 0;
 uint32_t lv_ps_beacon_cnt_after_wakeup = 0;
 uint32_t lv_ps_bcn_loss_flag_after_wakeup = 0;
+uint64_t lv_ps_wakeup_mcu_timepoint = 0;
 uint64_t lv_ps_wakeup_mac_timepoint = 0;
 int32_t lv_ps_bcn_delay_duration = 0;
 uint32_t lv_ps_bcn_frame_duration = 0;
@@ -59,6 +65,15 @@ static UINT32 lv_ps_trigger_timer_status = 0;
 UINT32 lv_ps_mac_wakeup_flag = 1;
 UINT32 lv_ps_keep_timer_more =0;
 #endif
+uint64_t lv_ps_arp_send_time = 0;
+uint16_t lv_ps_dtim_period = 0;
+
+uint8_t lv_ps_rf_pre_pwr_down = 0;
+uint8_t lv_ps_rf_reinit = 0;
+uint8_t lv_ps_wakeup_wifi = 1;
+PS_DEEP_WAKEUP_WAY lv_ps_wake_up_way = PS_DEEP_WAKEUP_NULL;
+
+static LIST_HEAD_DEFINE(lv_element);
 
 /*******************************************************************************
 * LV_PS_INFO DUMP
@@ -344,6 +359,7 @@ void lv_ps_init(void)
     lv_ps_bcn_tsf_field = 0;
     lv_ps_beacon_cnt_after_wakeup = 0;
     lv_ps_bcn_loss_flag_after_wakeup = 0;
+    lv_ps_wakeup_mcu_timepoint = 0;
     lv_ps_wakeup_mac_timepoint = 0;
     lv_ps_bcn_delay_duration = 0;
     lv_ps_bcn_frame_duration = 0;
@@ -360,10 +376,13 @@ void lv_ps_init(void)
 #endif
     lv_ps_bcn_cont_miss_bcn_count = 0;
     lv_ps_last_beacon_rev_timepoint = 0;
+    lv_ps_wakeup_wifi = 1;
+    lv_ps_wake_up_way = PS_DEEP_WAKEUP_NULL;
 #if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
     lv_ps_info_init();
 #endif
     lv_ps_sleep_trigger_timer_init();
+    lvc_calc_g_bundle_reset();
     GLOBAL_INT_RESTORE();
 }
 
@@ -401,30 +420,25 @@ void lv_ps_check_11b(void)
     }
 }
 
-void lv_ps_check_tx(void)
-{
-    ps_run_td_timer(0);
-}
-
 extern void net_send_gratuitous_arp(void);
 extern void rwn_set_tx_low_rate_once(void);
-void lv_ps_send_null(uint8_t sta_idx)
+void lv_ps_send_arp(void)
 {
-    static uint64_t null_send_time = 0;
-    static uint32_t null_send_count = 0;
-
-    if(cal_get_time_us() - null_send_time > LOW_VOL_NULL_SEND_INTERVAL * 1000000 /*10s*/)
+    if(cal_get_time_us() - lv_ps_arp_send_time > LOW_VOL_ARP_SEND_INTERVAL * 1000000)
     {
-        if(null_send_count < LOW_VOL_ARP_SEND_INTERVAL / LOW_VOL_NULL_SEND_INTERVAL){
-            txl_frame_send_null_frame(sta_idx, NULL, NULL, 0);
-            null_send_count ++;
-        } else {
-            rwn_set_tx_low_rate_once();
-            net_send_gratuitous_arp();
-            null_send_count = 0;
-        }
-        null_send_time = cal_get_time_us();
+        bmsg_ps_sender(PS_BMSG_IOCTL_ARP_TX);
     }
+}
+
+void lv_ps_update_arp_send_time(void)
+{
+    lv_ps_arp_send_time = cal_get_time_us();
+}
+
+void lv_ps_keepalive_arp_tx(void)
+{
+    rwn_set_tx_low_rate_once();
+    net_send_gratuitous_arp();
 }
 
 /*******************************************************************************
@@ -440,12 +454,15 @@ bool lv_ps_sleep_check( UINT32 sleep_tick)
 	uint32_t ret = 0;
 	uint32_t debug_print_flag = 0;
 	uint64_t time_saved, delta_ms;
+	LV_PS_ELEMENT_ENV * lv_elem = NULL;
+	uint8_t lv_ele_role = LV_TYPE_NONE;
+
 
 #if (NX_POWERSAVE && CFG_USE_STA_PS && PS_WAKEUP_MOTHOD_RW)
 
 	GLOBAL_INT_DECLARATION();
 
-	if( !lv_ps_is_got_anchor_point() ) {
+	if( ( bk_wlan_has_role(VIF_STA) ) && ( !lv_ps_is_got_anchor_point() ) ) {
 		debug_print_flag = 1;
 		goto check_exit;
 	}
@@ -460,9 +477,34 @@ bool lv_ps_sleep_check( UINT32 sleep_tick)
 		debug_print_flag = 3;
 		goto check_exit;
 	}
-	
+
+	if ((bk_wlan_has_role(VIF_STA)) && ( lv_ps_wakeup_wifi ))
+	{
+		lv_ps_calc_sleep_duration();
+		lv_ps_wakeup_wifi = 0;
+	}
+
+	lv_elem = lv_ps_pop_element();
+
+	if (lv_elem) {
+		lv_ps_target_time = lv_elem->lv_target_time;
+		lv_ele_role = lv_elem->lv_type;
+	}
+	#if CFG_SUPPORT_BLE
+	else if (!ble_thread_is_up() && (!bk_wlan_has_role(VIF_STA))) {
+	#else
+	else if (!bk_wlan_has_role(VIF_STA))
+	#endif
+		/*keep lv sleep mode util wakeup by gpio*/
+		lv_ps_target_time = -1;
+	}
+	else {
+		debug_print_flag = 4;
+		goto check_exit;
+	}
+
 	/*calculate sleep duration,if too short ,do not enter into low voltage ps*/
-	if(false == lv_ps_rosc_timer_setting( sleep_tick))
+	if(false == lv_ps_rosc_timer_setting( sleep_tick)) //set rtc time
 	{
 		debug_print_flag = 4;
 		goto check_exit;
@@ -473,12 +515,12 @@ bool lv_ps_sleep_check( UINT32 sleep_tick)
 	time_saved = cal_get_time_us();
 
 	/*enter lv ps*/
-	lv_ps_sleep();
+	lv_ps_sleep(); ////enter lv ps
 
 	/*tick compensation*/
-	delta_ms = ( cal_get_time_us() - time_saved ) / 1000;
+	delta_ms = (cal_get_time_us() - time_saved) / 1000;
 	fclk_update_tick( (uint32_t) BK_MS_TO_TICKS(delta_ms) - 1 );
-	
+
 #if CFG_USE_TICK_CAL
 	/*tick calibrationt*/
 	lv_ps_sleep_cnt++;
@@ -490,10 +532,30 @@ bool lv_ps_sleep_check( UINT32 sleep_tick)
 #endif //(NX_POWERSAVE)
 
 check_exit:
+
+	if (lv_elem) {
+		if (lv_elem->object_cb) {
+			if (((lv_ele_role == LV_TYPE_WIFI) && (lv_ps_wake_up_way == PS_DEEP_WAKEUP_GPIO))) {
+				lv_ps_push_element(lv_elem);
+			}
+			else
+				lv_elem->object_cb(lv_elem->lv_target_time,false);
+	}
+
+		if (lv_ele_role == LV_TYPE_WIFI) {
+			if (lv_ps_element_next() == LV_TYPE_BT) {
+				LV_PS_ELEMENT_ENV * next_elem = lv_ps_pop_element();
+				next_elem->object_cb(next_elem->lv_target_time,false);
+				os_free(next_elem);
+			}
+		}
+		os_free(lv_elem);
+	}
+	lv_ps_element_check_pass();
 	if(debug_print_flag)
 	{
 		WFI();
-		 //os_printf(":%d ", debug_print_flag);
+		//os_printf(":%d \r\n", debug_print_flag);
 /*		os_printf("debug_print_flag:%d\r\n", debug_print_flag);
 		os_printf("debug_print0:%d\r\n", power_save_if_ps_rf_dtim_enabled());
 		os_printf("debug_print1:%d\r\n", (ke_evt_get() != 0));
@@ -534,13 +596,14 @@ void lv_ps_sleep(void)
 
 	/*sctrl_mcu_wakeup */
 	sctrl_mcu_wakeup();
+
+    #if 0
 #if(CFG_LV_PS_WITH_IDLE_TICK == 1)
 
 	if(lv_ps_get_mac_wakeup_flag() == 1)
 	{
 		lv_ps_clear_tx_recovery();
 		power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
-		lv_ps_check_tx();
 	}
 	else
 	{
@@ -549,23 +612,23 @@ void lv_ps_sleep(void)
 #else
 	lv_ps_clear_tx_recovery();
 	power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
-	lv_ps_check_tx();
 
 #endif
+    #endif
 }
 
 uint64_t lv_ps_wakeup_set_timepoint(void)
 {
+
+#if(CFG_LV_PS_WITH_IDLE_TICK == 1)
+    lv_ps_wakeup_mcu_timepoint = cal_get_time_us()-MCU_TO_MAC_WAKEUP_DURATION;
+#else
+    lv_ps_wakeup_mcu_timepoint = cal_get_time_us();
+#endif
 #if ((1 == CFG_LOW_VOLTAGE_PS) && (1 == CFG_LOW_VOLTAGE_PS_TEST))
     lv_ps_info_mcu_wakeup();
 #endif
-
-#if(CFG_LV_PS_WITH_IDLE_TICK == 1)
-    lv_ps_wakeup_mac_timepoint = cal_get_time_us()-MCU_TO_MAC_WAKEUP_DURATION;
-#else
-    lv_ps_wakeup_mac_timepoint = cal_get_time_us();
-#endif
-    return lv_ps_wakeup_mac_timepoint;
+    return lv_ps_wakeup_mcu_timepoint;
 }
 
 #if CFG_USE_TICK_CAL
@@ -647,6 +710,8 @@ uint32_t lv_ps_set_start_flag(void)
 
 		lv_ps_start_flag += 1;
 	}
+	else
+		lv_ps_start_flag = 0;
 
 	return 0;
 }
@@ -673,7 +738,6 @@ void lv_ps_set_anchor_point(void)
 
 void lv_ps_clear_anchor_point(void)
 {
-	lv_anchor_flag = 0;
 	lv_ps_beacon_cnt_after_wakeup = 0;
 	lv_ps_bcn_loss_flag_after_wakeup = 0;
 }
@@ -711,10 +775,13 @@ uint32_t lv_ps_beacon_missing_handler(void)
 #if(CFG_HW_PARSER_TIM_ELEMENT == 1)
 	power_save_increase_hw_tim_cnt();
 #endif
-	lv_ps_set_anchor_point();
 
 	lv_ps_check_beacon_loss();
 
+	if(power_save_get_listen_int() > lv_ps_dtim_period)
+	{
+		lv_ps_send_arp();
+	}
 	return 0;
 }
 
@@ -819,6 +886,29 @@ void dump_lvps_dura_data(void)
 extern int32_t g_duration_target_lead;
 #endif
 
+static void ps_lv_wifi_cb(uint64_t target_time, bool check_pass)
+{
+#if(CFG_LV_PS_WITH_IDLE_TICK == 1)
+    if(lv_ps_get_mac_wakeup_flag() == 1)
+    {
+        lv_ps_clear_tx_recovery();
+        power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
+    }
+    else
+    {
+        delay_us(500);//if there is no delay, watch dog reset will happen, reason is not clear
+    }
+#else
+    lv_ps_clear_tx_recovery();
+    power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
+    lv_ps_wakeup_wifi = 1;
+    if(check_pass)
+        lv_ps_wakeup_mac_timepoint = target_time;
+    else
+        lv_ps_wakeup_mac_timepoint = lv_ps_wakeup_mcu_timepoint;
+#endif
+}
+
 uint32_t lv_ps_calc_sleep_duration(void)
 {
 	uint32_t distance_2_prv_tbtt = 0;
@@ -916,7 +1006,6 @@ uint32_t lv_ps_calc_sleep_duration(void)
 			p_dura_calc_data->flags |= LVPS_F_TSF_OVER_BCN_INT;
 		}
 #endif
-
 		distance_2_prv_tbtt = distance_2_prv_tbtt % lv_ps_beacon_interval;
 
 		lead_value = lvc_get_lead_duration();
@@ -979,18 +1068,12 @@ uint32_t lv_ps_calc_sleep_duration(void)
 			lv_ps_bcn_has_been_waiting = 0;
 		}
 #elif (AFTER_MISSING_STRATEGY == NO_WAIT)
-		if (lv_ps_bcn_cont_miss_bcn_count < 3) {
-			lv_ps_win_pri_compensation_factor = lv_ps_bcn_cont_miss_bcn_count + 1;
-		} else {
-			lv_ps_win_pri_compensation_factor = 10;
-			bk_printf("bcn loss cnt = %d, line = %d\r\n", lv_ps_bcn_cont_miss_bcn_count + 1, __LINE__);
-		}
-		lv_ps_win_post_compensation_factor = lv_ps_bcn_cont_miss_bcn_count + 1;
+		lv_ps_win_pri_compensation_factor = lv_ps_bcn_cont_miss_bcn_count + 1;
+		lv_ps_win_post_compensation_factor = lv_ps_bcn_cont_miss_bcn_count * 2;
 		lv_ps_pre_lead_wakeup_duration = lead_value + LEAD_FORCE_TIME + lv_ps_win_pri_compensation_factor * CELL_DURATION;
 		duration = (32 * (int32_t)(listen_interval * lv_ps_beacon_interval - distance_2_prv_tbtt
 							- lv_ps_pre_lead_wakeup_duration) / 1000);
 #endif
-
 		lvc_general_sleep_flag = 0;
 		lv_ps_bcn_cont_miss_bcn_count++;
 
@@ -1009,8 +1092,15 @@ uint32_t lv_ps_calc_sleep_duration(void)
 		p_dura_calc_data->flags |= LVPS_F_DURATION_ZERO;
 #endif
 	}
-	lv_ps_current_sleep_duration = duration;
 
+	if (mcu_ps_is_on()) {
+		LV_PS_ELEMENT_ENV *elem = os_malloc(sizeof(LV_PS_ELEMENT_ENV));
+		memset(elem,0,sizeof(LV_PS_ELEMENT_ENV));
+		elem->lv_target_time = curr_local_time + ((62*duration + (duration>>1))>>1);
+		elem->lv_type = LV_TYPE_WIFI;
+		elem->object_cb = ps_lv_wifi_cb;
+		lv_ps_push_element(elem);
+	}
 #if LVPS_DURA_CALC_DEBUG
 	g_prev_duration_target_lead = g_duration_target_lead;
 	p_dura_calc_data->next_lead = lv_ps_pre_lead_wakeup_duration;
@@ -1201,7 +1291,6 @@ UINT32 lv_ps_calc_rosc_period( UINT32 sleep_tick)
 		lv_ps_set_keep_timer_more(KEEP_MORE_FOR_IDLE);
 		lv_ps_clear_tx_recovery();
 		power_save_dtim_wake ( MAC_ARM_WAKEUP_EN_BIT );
-		lv_ps_check_tx();
 		return 0;
 	}
 	else if((sleep_count < MCU_SLEEP_DURATION_MIN * 32))
@@ -1216,17 +1305,21 @@ UINT32 lv_ps_calc_rosc_period( UINT32 sleep_tick)
 #else
 UINT32 lv_ps_calc_rosc_period( UINT32 sleep_tick)
 {
-	UINT32 sleep_time;
+    UINT32 sleep_time;
 
-	lv_ps_calc_sleep_duration();
-	sleep_time = lv_ps_get_sleep_duration();
-	if(sleep_time < MCU_SLEEP_DURATION_MIN * 32)
-	{
-		os_printf("rosc: %d %d\r\n", sleep_time,MCU_SLEEP_DURATION_MIN * 32);
-		return 0;
-	}
-	return sleep_time;
+    if (cal_get_time_us() > (lv_ps_target_time - MCU_SLEEP_DURATION_MIN*1000)) {
+        return 0;
+    }
 
+    lv_ps_current_sleep_duration = 32 * (lv_ps_target_time -cal_get_time_us())/1000;
+    sleep_time = lv_ps_get_sleep_duration();
+
+    if(sleep_time < MCU_SLEEP_DURATION_MIN * 32)
+    {
+        os_printf("rosc: %d %d\r\n", sleep_time,MCU_SLEEP_DURATION_MIN * 32);
+        return 0;
+    }
+    return sleep_time;
 }
 #endif
 
@@ -1241,8 +1334,136 @@ bool lv_ps_rosc_timer_setting( UINT32 sleep_tick)
 	}
 	sctrl_enable_rosc_timer(rosc_period);
 	return true;
-
 }
+
+void lv_ps_force_software_beacon(void)
+{
+#if(CFG_HW_PARSER_TIM_ELEMENT == 1)
+	nxmac_gen_int_enable_set(nxmac_gen_int_enable_get() & ~ NXMAC_TIM_SET_BIT);
+	lvc_calc_g_bundle_reset();
+#endif
+}
+
+static void insertionSort(struct list_head *head)
+{
+    struct list_head *i, *j, *next;
+
+    for (i = head->next->next; i != head; i = next) {
+        next = i->next;
+        LV_PS_ELEMENT_ENV *i_entry = list_entry(i, LV_PS_ELEMENT_ENV, node);
+
+        for (j = i->prev; j != head; j = j->prev) {
+            LV_PS_ELEMENT_ENV *j_entry = list_entry(j,LV_PS_ELEMENT_ENV, node);
+            if (j_entry->lv_target_time <= i_entry->lv_target_time)
+                break;
+        }
+
+        list_del(i);
+        list_add_tail(i, j->next);
+    }
+}
+
+bool lv_ps_push_element(LV_PS_ELEMENT_ENV *elem)
+{
+    LV_PS_ELEMENT_ENV *node;
+    LIST_HEADER_T *list = &lv_element;
+
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    uint8_t size = list_size(list);
+    if (size > 1) {
+        bk_printf("assert:lv_ps_push_element %d\r\n",size);
+    }
+
+    if (list_empty(list)) {
+        list_add_head(&elem->node,&lv_element);
+    } else {
+        node = (LV_PS_ELEMENT_ENV *)list->next;
+
+        if (node->lv_target_time < elem->lv_target_time) {
+            list_add_tail(&elem->node,&lv_element);
+        } else {
+            list_add_head(&elem->node,&lv_element);
+        }
+        insertionSort(&lv_element);
+    }
+    GLOBAL_INT_RESTORE();
+    return true;
+}
+
+LV_PS_ELEMENT_ENV *lv_ps_pop_element(void)
+{
+    LIST_HEADER_T *tmp;
+    LIST_HEADER_T *pos;
+    LV_PS_ELEMENT_ENV *node;
+
+    LIST_HEADER_T *list = &lv_element;
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    node = NULLPTR;
+    list_for_each_safe(pos, tmp, list)
+    {
+        list_del(pos);
+        node = list_entry(pos, LV_PS_ELEMENT_ENV, node);
+        break;
+    }
+    GLOBAL_INT_RESTORE();
+    return node;
+}
+
+void lv_ps_element_check_pass(void)
+{
+    LIST_HEADER_T *list = &lv_element;
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    if (!list_empty(list)) {
+        LV_PS_ELEMENT_ENV *node = (LV_PS_ELEMENT_ENV *)list->next;
+        int32_t diff = (int32_t)(node->lv_target_time - cal_get_time_us());
+
+        if ((node->lv_type == LV_TYPE_BT && diff < 5000) || (node->lv_type == LV_TYPE_WIFI && diff < 0)) {
+            node = (LV_PS_ELEMENT_ENV *)lv_ps_pop_element();
+            if (node->object_cb) {
+                node->object_cb(node->lv_target_time, true);
+            }
+            os_free(node);
+        }
+    }
+    GLOBAL_INT_RESTORE();
+}
+
+uint8_t lv_ps_element_next(void)
+{
+    LIST_HEADER_T *list = &lv_element;
+    uint8_t ele = LV_TYPE_NONE;
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    if (!list_empty(list)) {
+        LV_PS_ELEMENT_ENV *node = (LV_PS_ELEMENT_ENV *)list->next;
+        ele = node->lv_type;
+    }
+    GLOBAL_INT_RESTORE();
+    return ele;
+}
+
+void lv_ps_element_bt_del(void)
+{
+    LV_PS_ELEMENT_ENV *node;
+    LIST_HEADER_T *list = &lv_element;
+    LIST_HEADER_T *tmp;
+    LIST_HEADER_T *pos;
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
+    list_for_each_safe(pos, tmp, list)
+    {
+        node = list_entry(pos, LV_PS_ELEMENT_ENV, node);
+        if (node->lv_type == LV_TYPE_BT) {
+            list_del(pos);
+            os_free(node);
+        }
+    }
+    GLOBAL_INT_RESTORE();
+}
+
 
 // eof
 

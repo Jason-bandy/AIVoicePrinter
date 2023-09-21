@@ -43,6 +43,8 @@
 #define MM_TBTT_EVT_MASK KE_EVT_PRIMARY_TBTT_BIT
 #endif
 
+#define MM_DEFAULT_BCN_INT  (100*TU_DURATION)
+
 /// Beacon loss threshold above which we consider the connection as lost
 #define MM_BEACON_LOSS_THD          (180)
 

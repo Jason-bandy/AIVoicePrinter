@@ -286,6 +286,16 @@ OSStatus beken_time_get_time(beken_time_t *time_ptr)
 	*time_ptr = (beken_time_t)(xTaskGetTickCount() * ms_to_tick_ratio) + beken_time_offset;
 	return kNoErr;
 }
+OSStatus beken_time_get_time_s(beken_time_t *time_ptr)
+{
+	*time_ptr = (beken_time_t)(xTaskGetTickCount() * ms_to_tick_ratio /1000) + beken_time_offset;
+	return kNoErr;
+}
+OSStatus beken_time_set_time_s(beken_time_t *time_ptr)
+{
+	beken_time_offset = *time_ptr - (beken_time_t)(xTaskGetTickCount() * ms_to_tick_ratio /1000);
+	return kNoErr;
+}
 
 OSStatus beken_time_set_time(beken_time_t *time_ptr)
 {

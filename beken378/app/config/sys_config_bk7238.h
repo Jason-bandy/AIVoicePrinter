@@ -19,6 +19,7 @@
 #define RTOS_RT_THREAD                             2
 #define RTOS_FREERTOS                              3
 #define RTOS_LITEOS                                4
+#define CFG_WIFI_TX_KEYDATA_USE_LOWEST_RATE        1
 
 /* CFG_OS_FREERTOS----RTOS_FREERTOS
    CFG_SUPPORT_RTT----RTOS_RT_THREAD
@@ -31,9 +32,9 @@
 #define FREERTOS_V10                               2
 #define CFG_FREERTOS_VER                           FREERTOS_V9
 
-#define ENC_METHOD_NULL                        1
-#define ENC_METHOD_XOR                         2
-#define ENC_METHOD_AES                         3
+#define ENC_METHOD_NULL                            1
+#define ENC_METHOD_XOR                             2
+#define ENC_METHOD_AES                             3
 
 #define FAST_CONNECT_INFO_ENC_METHOD               ENC_METHOD_NULL
 
@@ -79,6 +80,8 @@
 #define CFG_WIFI_AP_VSIE                           0
 /* Custom softap basic rates, supported rates, ht mcs set */
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
+/* repush txdesc when txl_reset happens */
+#define CFG_WIFI_REPUSH_WHEN_RESET                 0
 
 /*Use macro to shut down some unused functions*/
 #define CFG_WPA_MAYBE_UNUSED                       1
@@ -136,10 +139,10 @@
 #define CFG_QUICK_TRACK                            0
 
 /* use mbedtls as wpa crypto functions */
-#if(CFG_SUPPORT_RTOS == CFG_OS_FREERTOS)
-#define CFG_USE_MBEDTLS                            1
-#else
+#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
 #define CFG_USE_MBEDTLS                            0
+#else
+#define CFG_USE_MBEDTLS                            1
 #endif
 #if CFG_USE_MBEDTLS
 #define CFG_MBEDTLS                                1
@@ -161,8 +164,8 @@
 #define FOR_SDIO_BLK_512                           0
 #endif
 
-#define CFG_MSDU_RESV_HEAD_LEN                    96
-#define CFG_MSDU_RESV_TAIL_LEN                    16
+#define CFG_MSDU_RESV_HEAD_LEN                     96
+#define CFG_MSDU_RESV_TAIL_LEN                     16
 
 #define CFG_USE_USB_HOST                           0
 
@@ -197,10 +200,10 @@
 #define CFG_WIFI_SENSOR                            0
 #define CFG_WIFI_RAW_TX_CMD                        0
 
-#define ASSERT_HALT                       1
-#define ASSERT_IGNORE                     2
-#define ASSERT_REBOOT                     3
-#define CFG_ASSERT_OPTION                 ASSERT_IGNORE
+#define ASSERT_HALT                                1
+#define ASSERT_IGNORE                              2
+#define ASSERT_REBOOT                              3
+#define CFG_ASSERT_OPTION                          ASSERT_IGNORE
 
 /*section 5-----PRODUCT macro config-----*/
 #define CFG_RELEASE_FIRMWARE                       0
@@ -342,7 +345,7 @@
 #define CFG_BLE_DIAGNOSTIC_PORT                    0
 
 // 0 mean do not support ble master
-#define CFG_BLE_INIT_NUM                           0
+#define CFG_BLE_INIT_NUM                           1
 
 #define CFG_BLE_CONN_NUM                           1
 
@@ -368,13 +371,13 @@
 #define CFG_USE_MCU_PS                             RHINO_CONFIG_CPU_PWR_MGMT
 #endif
 
-#define LWIP_DEFAULT_MEM_POLICY                   1
-#define LWIP_REDUCE_THE_PLAN                      2
+#define LWIP_DEFAULT_MEM_POLICY                    1
+#define LWIP_REDUCE_THE_PLAN                       2
 #if CFG_IPERF_TEST
 /* for iperf test, temporary enlarge lwip MEM_SIZE */
-#define CFG_LWIP_MEM_POLICY                       LWIP_DEFAULT_MEM_POLICY
+#define CFG_LWIP_MEM_POLICY                        LWIP_DEFAULT_MEM_POLICY
 #else
-#define CFG_LWIP_MEM_POLICY                       LWIP_REDUCE_THE_PLAN
+#define CFG_LWIP_MEM_POLICY                        LWIP_REDUCE_THE_PLAN
 #endif
 
 #define FLASH_SELECTION_TYPE_DYNAMIC               0 //select with flashID runtime
@@ -396,8 +399,8 @@
 #define CFG_TASK_WDG_PERIOD_MS                     60000
 
 /*section 29 -----  peripheral interface open  */
-#define CFG_USE_I2C1                                0
-#define CFG_USE_I2C2                                0
+#define CFG_USE_I2C1                               0
+#define CFG_USE_I2C2                               0
 
 #define CFG_USE_SPI                                0
 #define CFG_USE_SPI_MASTER                         0
@@ -405,15 +408,12 @@
 #define CFG_USE_SPI_DMA                            0
 
 /*section 30 ----- peripheral interface test case */
-#define CFG_PERIPHERAL_TEST							0
-#define CFG_SUPPORT_SPI_TEST                        0
-
-
-#define AT_SERVICE_CFG                             0
+#define CFG_PERIPHERAL_TEST                        0
+#define CFG_SUPPORT_SPI_TEST                       0
 
 #define CFG_USE_FORCE_LOWVOL_PS                    1
 
-#define CFG_NO_POWTBL
+#define CFG_NO_POWTBL                              1
 #define CFG_TKIP_SW_CRYPT                          1
 #define CFG_BK7238_WORKAROUND                      1
 #define CFG_BK7238_NON_SIGNALING_OPTIMIZE          1
@@ -423,5 +423,37 @@
 #define CFG_NX_OPTIMIZE_WEAKSIGNAL                 1
 
 #define CFG_WRAP_LIBC                              1
+
+#if((!CFG_SUPPORT_ALIOS) && (!CFG_SUPPORT_RTT))
+#define AT_SERVICE_CFG                             0 //At command configurations
+#else
+#define AT_SERVICE_CFG                             0
+#endif
+
+#if (AT_SERVICE_CFG)
+#ifdef CFG_BLE_INIT_NUM
+#undef CFG_BLE_INIT_NUM
+#endif
+#define CFG_BLE_INIT_NUM                           1
+#ifdef _CJSON_USE_
+#undef _CJSON_USE_
+#endif
+#define _CJSON_USE_                                1
+#define CFG_USE_HTTP                               1
+#define CFG_USE_MQTT                               1
+#define CFG_USE_DISTRIBUTION_NETWORK               1
+#define CFG_USE_TCPUDP                             1
+#define CFG_USE_NETWORKING                         1
+#define CFG_USE_DEFUALT_CMD                        1
+#define CFG_USE_BLE                                1
+#define CFG_USE_NTP                                1
+
+#if (CFG_USE_MBEDTLS == 0)
+#undef CFG_USE_MBEDTLS
+#define CFG_USE_MBEDTLS                            1
+#define CFG_MBEDTLS                                1
+#endif // (CFG_USE_MBEDTLS == 0)
+#define CFG_USE_SOFT_RTC                           1
+#endif // (AT_SERVICE_CFG)
 
 #endif // _SYS_CONFIG_H_

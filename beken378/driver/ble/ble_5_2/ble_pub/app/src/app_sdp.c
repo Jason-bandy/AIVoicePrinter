@@ -2,16 +2,31 @@
 #include "rwip_config.h"             // SW configuration
 #include "rwprf_config.h"
 
-#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
+#if (BLE_APP_PRESENT && BLE_GATT_CLI)
 #include "app_sdp.h"
 #include "app_ble.h"
 #include "sdp_comm.h"
 #include "app_task.h"
 #include "prf_types.h"
+#include "common.h"
 
 app_sdp_env_tag app_sdp_env;
 sdp_notice_cb_t sdp_event_notice = NULL;
 sdp_discovery_cb_t sdp_discovery_notice = NULL;
+void register_app_sdp_characteristic_callback(app_sdp_callback cb)
+{
+	app_sdp_env.sdp_cb = cb;
+}
+
+void register_app_sdp_charac_callback(app_sdp_charac_callback cb)
+{
+	app_sdp_env.charac_cb = cb;
+}
+
+void register_app_sdp_common_callback(app_sdp_comm_callback comm_cb)
+{
+	app_sdp_env.comm_cb = comm_cb;
+}
 
 void register_app_sdp_service_tab(uint8_t service_tab_nb,app_sdp_service_uuid *service_tab)
 {
@@ -156,7 +171,6 @@ uint8_t sdp_update_gatt_mtu(uint8_t con_idx)
 
 ble_err_t sdp_get_att_infor(uint8_t con_idx,struct sdp_att_event_t *param)
 {
-
 	uint8_t conhdl = app_ble_get_connhdl(con_idx);
 
 	if((conhdl == UNKNOW_CONN_HDL) || (conhdl == USED_CONN_HDL)){
@@ -173,6 +187,7 @@ ble_err_t sdp_get_att_infor(uint8_t con_idx,struct sdp_att_event_t *param)
 		memcpy(p_cmd->uuid, param->uuid, 16);
 		p_cmd->start_hdl = param->start_hdl;
 		p_cmd->end_hdl = param->end_hdl;
+		p_cmd->svr_id = param->svr_id;
 		kernel_msg_send(p_cmd);
 	}
 	else
@@ -187,31 +202,89 @@ ble_err_t sdp_get_att_infor(uint8_t con_idx,struct sdp_att_event_t *param)
 			memcpy(p_cmd->uuid, param->uuid, 16);
 			p_cmd->start_hdl = param->start_hdl;
 			p_cmd->end_hdl = param->end_hdl;
+			p_cmd->svr_id = param->svr_id;
 			kernel_msg_send(p_cmd);
 		}
 	}
 	return COMMON_BUF_ERR_NO_ERROR;
 }
 
-uint8_t sdp_get_att_table(uint8_t con_idx,struct sdp_att_event_t const *param)
+uint16_t sdp_get_att_hdl(uint8_t con_idx,uint8_t srv_index,uint8_t char_index,uint8_t desc_index)
 {
+	uint16_t hdl=0xffff;
 	struct sdp_env_tag * p_env = sdp_get_env_use_conidx(con_idx);
-
-	if (p_env == NULL) {
-		return COMMON_BUF_ERR_INVALID_PARAM;
+	if((srv_index == 0)||(p_env == NULL))
+	{
+		return hdl;
 	}
 
 	struct sdp_db *p_db = (struct sdp_db *)common_list_pick(&p_env->svr_list);
 	struct db *p_svr = NULL;
+	uint8_t srv_idx=1;
+	while(p_db){
+		p_svr = &p_db->svr;
+
+		if(srv_idx == srv_index)
+		{
+			if((char_index != 0)&&(char_index <= p_svr->chars_nb))
+			{
+				if(desc_index != 0)
+				{
+					int first_desc_hdl=0;
+					for(int i=0;i<p_svr->descs_nb;i++)
+					{
+						if((p_svr->chars[char_index-1].val_hdl+1) == p_svr->descs[i].desc_hdl)
+						{
+							first_desc_hdl = p_svr->descs[i].desc_hdl;
+						}
+						if((p_svr->chars[char_index-1].val_hdl+desc_index)==p_svr->descs[i].desc_hdl)
+						{
+							if((p_svr->descs[i].desc_hdl - first_desc_hdl)==(desc_index-1))
+								hdl = p_svr->descs[i].desc_hdl;
+						}
+					}
+				}else
+				{
+
+					hdl = p_svr->chars[char_index-1].val_hdl;
+				}
+			}
+			break;
+		}
+
+		p_db = (struct sdp_db *)common_list_next(&p_db->hdr);
+		srv_idx++;
+	}
+	bk_printf("hdl:%d\r\n",hdl);
+	return hdl;
+}
+
+uint8_t sdp_get_att_table(uint8_t con_idx,struct sdp_att_event_t const *param)
+{
+	struct sdp_env_tag * p_env = sdp_get_env_use_conidx(con_idx);
+	uint8_t srv_idx=1;
+	if (p_env == NULL) {
+		return COMMON_BUF_ERR_INVALID_PARAM;
+	}
+	struct sdp_db *p_db = (struct sdp_db *)common_list_pick(&p_env->svr_list);
+	struct db *p_svr = NULL;
+	bk_printf("sdp_get_att_table param->type=%d\r\n",param->type);
 
 	while (p_db) {
 		p_svr = &p_db->svr;
-
 		if (param->type == SDP_ATT_GET_SVR_UUID_ALL) {
-			struct bk_prf_svc svc;
-			memcpy(&svc,&p_svr->svc, sizeof(struct bk_prf_svc));
+			//struct bk_prf_svc svc;
 			if (sdp_discovery_notice) {
-				sdp_discovery_notice(con_idx,SDP_ATT_GET_SVR_UUID_ALL,&svc);
+				sdp_discovery_notice(con_idx,SDP_ATT_GET_SVR_UUID_ALL,p_svr);
+			}
+		}
+
+		if (param->type == SDP_ATT_SVR_ATT_BY_SVR_UUID) {
+			if(param->svr_id == srv_idx )
+			{
+				if (sdp_discovery_notice) {
+					sdp_discovery_notice(con_idx,SDP_ATT_SVR_ATT_BY_SVR_UUID,p_svr);
+				}
 			}
 		}
 
@@ -239,8 +312,8 @@ uint8_t sdp_get_att_table(uint8_t con_idx,struct sdp_att_event_t const *param)
 			}
 		}
 		p_db = (struct sdp_db *)common_list_next(&p_db->hdr);
+		srv_idx++;
 	}
-
 	//report att end
 	if (sdp_discovery_notice) {
 		sdp_discovery_notice(con_idx,SDP_ATT_COMPLETE,NULL);
@@ -270,6 +343,7 @@ uint8_t sdp_get_all_char(uint8_t con_idx, uint16_t start_hdl, uint16_t end_hdl)
 
 	return sdp_get_att_infor(con_idx, &msg_event);
 }
+
 uint8_t sdp_get_all_desc(uint8_t con_idx, uint16_t start_hdl, uint16_t end_hdl)
 {
 	struct sdp_att_event_t msg_event;

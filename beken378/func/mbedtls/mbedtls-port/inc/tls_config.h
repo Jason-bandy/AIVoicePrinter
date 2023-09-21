@@ -192,6 +192,7 @@ extern void tls_mbedtls_mem_free(void *ptr);
 // #define MBEDTLS_X509_CRT_WRITE_C
 // #define MBEDTLS_X509_CSR_WRITE_C
 // #define MBEDTLS_XTEA_C
+/* Key exchanges using a PSK */
 
 #if defined(YOTTA_CFG_MBEDTLS_USER_CONFIG_FILE)
 #include YOTTA_CFG_MBEDTLS_USER_CONFIG_FILE

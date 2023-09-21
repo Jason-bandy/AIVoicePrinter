@@ -15,6 +15,14 @@
 #include "prot/ethernet.h"
 #endif
 
+#if CFG_WIFI_TX_KEYDATA_USE_LOWEST_RATE
+#include "lwip/prot/ip4.h"
+#include "lwip/prot/ethernet.h"
+#include "lwip/prot/ip.h"
+#include "lwip/prot/udp.h"
+#include "lwip/prot/dhcp.h"
+#endif
+
 #include "arm_arch.h"
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -592,6 +600,36 @@ int qos_need_enabled(struct sta_info_tag *sta)
 }
 #endif
 
+#if CFG_WIFI_TX_KEYDATA_USE_LOWEST_RATE
+// EAPoL, DHCP, ARP
+bool rwm_use_lowest_rate(ETH_HDR_T *eth)
+{
+	bool use = false;
+
+	switch (htons(eth->e_proto)) {
+	case ETHTYPE_ARP:
+		/* fall through */
+	case ETHTYPE_EAPOL:
+		use = true;
+		break;
+
+	case ETHTYPE_IP: {
+		struct ip_hdr *ip = (struct ip_hdr *)(eth + 1);
+
+		switch (IPH_PROTO(ip)) {
+		case IP_PROTO_UDP: {
+			struct udp_hdr *udp = (struct udp_hdr *)((uint8_t *)ip + IPH_HL(ip) * 4);
+			if (ntohs(udp->dest) == DHCP_SERVER_PORT)
+				use = true;
+		}	break;
+		}
+	}	break;
+	}
+
+	return use;
+}
+#endif
+
 UINT32 rwm_transfer_node(MSDU_NODE_T *node, u16 flag)
 {
     UINT8 tid;
@@ -694,9 +732,8 @@ UINT32 rwm_transfer_node(MSDU_NODE_T *node, u16 flag)
     txdesc_new->host.ethertype        = eth_hdr_ptr->e_proto;
 
 #if CFG_WIFI_TX_KEYDATA_USE_LOWEST_RATE
-    if (ntohs(eth_hdr_ptr->e_proto) == ETH_TYPE_EAPOL) {
+    if (rwm_use_lowest_rate(eth_hdr_ptr))
         txdesc_new->host.flags |= TXU_CNTRL_LOWEST_RATE;
-    }
 #endif
 
     txdesc_new->host.tid              = tid;

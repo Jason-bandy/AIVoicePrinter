@@ -18,6 +18,7 @@
 #include "vlan.h"
 #include "common/wpa_common.h"
 #include "common/ieee802_11_defs.h"
+#include "sae.h"
 
 /* STA flags */
 #define WLAN_STA_AUTH BIT(0)

@@ -30,6 +30,20 @@ int uart_print_port = UART1_PORT;
 #else
 int uart_print_port = UART2_PORT;
 #endif
+
+#ifndef FALSE
+#define FALSE    0
+#endif
+
+#ifndef TRUE
+#define TRUE    1
+#endif
+
+#if AT_SERVICE_CFG
+int print_log_enable = FALSE;
+#endif
+
+
 static struct uart_callback_des uart_receive_callback[2] = {{NULL}, {NULL}};
 static struct uart_callback_des uart_txfifo_needwr_callback[2] = {{NULL}, {NULL}};
 static struct uart_callback_des uart_tx_end_callback[2] = {{NULL}, {NULL}};
@@ -57,6 +71,20 @@ static DD_OPERATIONS uart2_op =
     uart2_write,
     uart2_ctrl
 };
+
+#if AT_SERVICE_CFG
+int log_enable(void)
+{
+    print_log_enable = TRUE;
+    return print_log_enable;
+}
+
+int log_disable(void)
+{
+    print_log_enable = FALSE;
+    return print_log_enable;
+}
+#endif
 
 UINT8 uart_is_tx_fifo_empty(UINT8 uport)
 {
@@ -108,6 +136,9 @@ void bk_send_string(UINT8 uport, const char *string)
 /*uart2 as deubg port*/
 void bk_printf(const char *fmt, ...)
 {
+    #if AT_SERVICE_CFG
+    if(print_log_enable == FALSE) return;
+    #endif
 #if (CFG_SUPPORT_RTT)
     va_list args;
     rt_size_t length;
@@ -252,9 +283,9 @@ void uart_hw_set_change(UINT8 uport, bk_uart_config_t *uart_config)
     if(parity_en)
     {
         if(parity_en == BK_PARITY_ODD)
-            parity_mode = 1;
+            parity_mode = 0;  // Attention 0: odd,  1: even.
         else
-            parity_mode = 0;
+            parity_mode = 1;
         parity_en = 1;
     }
 

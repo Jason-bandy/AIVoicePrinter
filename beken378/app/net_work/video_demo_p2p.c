@@ -326,7 +326,9 @@ app_demo_sta_exit:
 
     // cancel p2p
     bk_wlan_status_unregister_cb();
+#if CFG_WIFI_P2P
     wlan_p2p_cancel();
+#endif
 
     rtos_deinit_queue(&g_demo_p2p->msg_que);
 

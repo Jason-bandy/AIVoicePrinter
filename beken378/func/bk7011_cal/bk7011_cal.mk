@@ -47,8 +47,8 @@ $(NAME)_INCLUDES += ../../driver/dma\
 $(NAME)_SOURCES += bk7011_cal.c \
                    bk7231_cal.c \
                    manual_cal_bk7231.c \
-                   bk7231U_cal.c \
-                   bk7231N_cal.c \
-                   bk7221U_cal.c \
-                   manual_cal_bk7231U.c \
+                   bk7231u_cal.c \
+                   bk7231n_cal.c \
+                   bk7221u_cal.c \
+                   manual_cal_bk7231u.c \
                    chip_support.c

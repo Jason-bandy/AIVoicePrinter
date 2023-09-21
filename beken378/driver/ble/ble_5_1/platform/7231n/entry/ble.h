@@ -38,6 +38,12 @@ void ble_send_msg(UINT32 data);
 UINT32 ble_ctrl( UINT32 cmd, void *param );
 void ble_switch_rf_to_wifi(void);
 void ble_set_ext_wkup(uint8_t enable);
-
+bool ble_thread_is_up(void);
+#if (CFG_SUPPORT_MATTER == 0)
+// should not define in .h, if matter is open
+void ble_thread_exit(void);
+#endif
+void ble_coex_set_pta(bool enable);
+bool ble_coex_pta_is_on(void);
 #endif
 

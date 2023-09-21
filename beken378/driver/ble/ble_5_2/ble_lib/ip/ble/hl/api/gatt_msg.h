@@ -67,6 +67,8 @@ enum gatt_msg_id
     GATT_REQ_IND            = MSG_ID(GATT, 0x03),
     /// GATT confirmation
     GATT_CFM                = MSG_ID(GATT, 0x04),
+    /// Indicate that the ATT MTU has been updated (negotiated)
+    GATT_MTU_CHANGED_IND    = MSG_ID(GATT, 0x05),
 };
 
 
@@ -635,6 +637,15 @@ typedef struct gatt_cfm
     uint16_t        status;
 } gatt_cfm_t;
 
+/// Indicate that the ATT MTU has been updated (negotiated)
+/*@TRACE*/
+typedef struct gatt_mtu_changed_ind
+{
+    /// Connection index
+    uint8_t conidx;
+    /// Exchanged MTU value
+    uint16_t mtu;
+}gatt_mtu_changed_ind_t;
 
 /*
  * MESSAGE CONTENT

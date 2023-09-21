@@ -183,6 +183,9 @@ extern const struct bd_addr common_null_bdaddr;
 /// extern const struct bd_addr common_default_bdaddr;
 extern struct bd_addr common_default_bdaddr;
 
+/// Static address
+extern struct bd_addr common_static_addr;
+
 /// NULL Key
 extern const uint8_t common_null_key[KEY_LEN];
 

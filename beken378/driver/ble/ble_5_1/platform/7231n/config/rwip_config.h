@@ -87,6 +87,7 @@
 
 #if (CFG_BLE_SCAN_NUM)
 #define CFG_OBSERVER
+#define BK_BLE_SCAN_CHECK_LENGTH	1
 #endif
 
 #if (CFG_BLE_ADV_NUM)

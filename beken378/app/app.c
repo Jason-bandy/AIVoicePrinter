@@ -372,8 +372,15 @@ void ps_msg_process(UINT8 ps_msg)
         start_global_ap_bcn_timer();
         break;
 #endif
-        default:
-            break;
+
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    case PS_BMSG_IOCTL_ARP_TX:
+        lv_ps_keepalive_arp_tx();
+        break;
+#endif
+
+    default:
+        break;
     }
 }
 

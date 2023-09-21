@@ -2968,12 +2968,13 @@ void phy_init(const struct phy_cfg_tag *config)
     PHY_WPRT("phy_init-->RC_PATHs=0x%X , RF_PATHS=0x%X\n", phy_env->rc_path_sel, phy_env->rf_path_sel);
 
     //PHY blocks initialization-----------------------------------------------------------
-    //TRIDENT components
-    phy_trident_init();
 #if (CFG_SOC_NAME == SOC_BK7238)
     /* huaming suggest to config it bedore rf setting */
     mdm_fe1clkforce_setf(1);
 #endif
+
+    //TRIDENT components
+    phy_trident_init();
 
     //Radios alone through RC
     phy_rf_init();

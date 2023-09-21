@@ -10,6 +10,7 @@
 #include "uart_ble.h"
 #include "cmd_evm.h"
 #include "ble_pub.h"
+#include "bk7011_cal_pub.h"
 
 volatile static struct uart_env_tag uart_env;
 volatile static uint8_t  uart_rx_done = 0;
@@ -172,6 +173,11 @@ void uart_rx_cmd_handler(uint8_t *buff, uint8_t len)
 				bk_printf("unknow dut cmd");
 			}
 		break;
+		case XTAL_SET_CMD:
+		{
+			uint8_t xtalh = buff[1];
+			manual_cal_set_xtal(xtalh);
+		}break;
 		default:
 		break;
 	}

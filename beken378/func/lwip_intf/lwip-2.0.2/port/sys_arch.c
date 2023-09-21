@@ -484,7 +484,7 @@ u32_t sys_now(void)
 	beken_time_t now_tick = 0;
 
 	beken_time_get_time(&now_tick);
-	return now_tick * beken_tick_ms();
+	return now_tick;
 }
 
 u32_t sys_jiffies(void)

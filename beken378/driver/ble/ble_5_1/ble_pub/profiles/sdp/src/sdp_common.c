@@ -185,7 +185,9 @@ void sdp_discover_all_service(uint8_t conidx)
 #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_IMPO)
 	bk_printf("[%s]conidx:%x,conhdl:%d\r\n",__FUNCTION__,conidx,conhdl);
 #endif
-
+	if ((conhdl == UNKNOW_CONN_HDL) || (conhdl == USED_CONN_HDL)) {
+		return;
+	}
 	struct gattc_sdp_svc_disc_cmd * svc_req = KERNEL_MSG_ALLOC_DYN(GATTC_SDP_SVC_DISC_CMD,
 								            KERNEL_BUILD_ID(TASK_BLE_GATTC,conhdl),
 								            KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(conidx)),

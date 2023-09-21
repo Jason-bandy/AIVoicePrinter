@@ -446,17 +446,17 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
 /*
  * Set the socket blocking or non-blocking
  */
-//int mbedtls_net_set_block( mbedtls_net_context *ctx )
-//{
+int mbedtls_net_set_block( mbedtls_net_context *ctx )
+{
 //#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) &&
 //    !defined(EFI32)
 //    u_long n = 0;
 //    return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
 //#else
-//    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) & ~O_NONBLOCK ) );
+    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL,0 ) & ~O_NONBLOCK ) );
 //#endif
 
-//}
+}
 
 //int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
 //{

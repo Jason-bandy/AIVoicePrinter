@@ -5,9 +5,7 @@
 
 #if (BLE_APP_PRESENT && (BLE_CENTRAL))
 #include "app_ble_init.h"
-#if BLE_SDP_CLIENT
 #include "app_sdp.h"
-#endif
 #endif
 
 ble_notice_cb_t ble_event_notice = NULL;
@@ -33,7 +31,7 @@ uint8_t ble_appm_get_dev_name(uint8_t* name, uint32_t buf_len)
 uint8_t ble_appm_set_dev_name(uint8_t len, uint8_t* name)
 {
 	// copy name to provided pointer
-	if (len < APP_DEVICE_NAME_MAX_LEN) {
+	if (len <= APP_DEVICE_NAME_MAX_LEN) {
 		app_ble_env.dev_name_len = len;
 		memcpy(app_ble_env.dev_name, name, len);
 		// return name length
@@ -509,7 +507,7 @@ ble_err_t bk_ble_delete_scaning(uint8_t actv_idx, ble_cmd_cb_t callback)
 	return ret;
 }
 
-#if (BLE_CENTRAL || CFG_INIT_ENABLE)
+#if (BLE_CENTRAL)
 ble_err_t bk_ble_create_init(uint8_t con_idx,
 						unsigned short con_interval,
 						unsigned short con_latency,
@@ -611,4 +609,25 @@ ble_err_t bk_ble_write_service_data_req(uint8_t conidx,uint16_t handle,uint16_t 
 	return sdp_svc_write_characteristic(conidx,handle,data_len,data);
 }
 #endif
+ble_err_t bk_ble_gatt_mtu_change(uint8_t conn_idx,ble_cmd_cb_t callback)
+{
+	ble_err_t ret = ERR_SUCCESS;
+	ret = app_ble_mtu_exchange(conn_idx);
+	return ret;
+}
+
+int bk_ble_get_con_mtu(unsigned char con_idx,uint16_t *mtu)
+{
+	if(con_idx >= BLE_CONNECTION_MAX)
+		return ERR_BLE_STATUS;
+
+	uint8_t conhdl = app_ble_env.connections[con_idx].conhdl;
+
+	if ((conhdl == UNKNOW_CONN_HDL) || (conhdl == USED_CONN_HDL)) {
+		return ERR_BLE_STATUS;
+	}
+	app_ble_mtu_get(con_idx,mtu);
+	return ERR_SUCCESS;//gattc_get_mtu(conhdl);
+}
+
 

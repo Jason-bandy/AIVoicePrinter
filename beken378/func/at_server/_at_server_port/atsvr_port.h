@@ -19,6 +19,9 @@ extern int get_at_uart_overflow(void);
 extern void atsvr_overflow_handler(void);
 
 extern int IN atsvr_input_char(unsigned char *buf);
+extern int atsvr_get_size_rxbuf();
+extern void atsvr_copy_lenth_rxbuf(char *buf,int lenth);
+extern void atsvr_clear_size_rxbuf();
 
 #endif
 

@@ -1,12 +1,11 @@
 #include "rwip_config.h"             // SW configuration
 
 
-#if ((BLE_APP_PRESENT) && (BLE_CENTRAL) && CFG_INIT_ENABLE)
+#if ((BLE_APP_PRESENT) && BLE_CENTRAL)
 #include "rwapp_config.h"
 #include <string.h>
 
 #include "rwip.h"
-#include "app_ble_init.h"
 #include "app_sdp.h"
 #include "gapm_msg.h"
 #include "kernel_timer.h"
@@ -14,7 +13,7 @@
 
 #include "ble_api_5_x.h"
 #include "app_ble.h"
-#include "app_ble_init.h"
+#include "app_task.h"
 
 #define APP_BLE_INIT_CHECK_CONN_IDX(conn_idx)	if (conn_idx >= BLE_CONNECTION_MAX) {\
 													bk_printf("[%s]unknow conn_idx:%d\r\n",__FUNCTION__,conn_idx);\

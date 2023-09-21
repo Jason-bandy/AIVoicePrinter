@@ -407,12 +407,19 @@ static int sock_wait_to_be_idle(struct lwip_sock *sock)
 	while (count--) {
 		if (recving) {
 			LWIP_DEBUGF(SOCKETS_DEBUG, ("sock_wait_to_be_idle: free recv semphore.\n"));
-			if (!sys_mutex_trylock(&sock->mutex_recv)) recving = 0;
-			else sys_mbox_trypost(&sock->conn->recvmbox, NULL);
+			if (!sys_mutex_trylock(&sock->mutex_recv)){
+				recving = 0;
+				sys_mutex_unlock(&sock->mutex_recv);
+			}
+			else
+				sys_mbox_trypost(&sock->conn->recvmbox, NULL);
 		}
 
 		if (sending) {
-			if (!sys_mutex_trylock(&sock->mutex_send)) sending = 0;
+			if (!sys_mutex_trylock(&sock->mutex_send)){
+				sending = 0;
+				sys_mutex_unlock(&sock->mutex_send);
+			}
 			else {
 				LWIP_DEBUGF(SOCKETS_DEBUG, ("sock_wait_to_be_idle: free send semphore.\n"));
 			    	if (sys_sem_valid(&(sock->conn->op_completed))) {
@@ -546,7 +553,7 @@ alloc_socket(struct netconn *newconn, int accepted)
   for (i = 0; i < NUM_SOCKETS; ++i) {
     /* Protect socket array */
     SYS_ARCH_PROTECT(lev);
-    if (!sockets[i].conn && (sockets[i].select_waiting == 0)) {
+    if (!sockets[i].conn) {
       sockets[i].conn       = newconn;
       /* The socket is not yet known to anyone, so no need to protect
          after having marked it as used. */
@@ -559,7 +566,8 @@ alloc_socket(struct netconn *newconn, int accepted)
       sockets[i].sendevent  = (NETCONNTYPE_GROUP(newconn->type) == NETCONN_TCP ? (accepted != 0) : 1);
       sockets[i].errevent   = 0;
       sockets[i].err        = 0;
-	  SOC_INIT_SYNC(&sockets[i]);
+      sockets[i].select_waiting = 0;
+      SOC_INIT_SYNC(&sockets[i]);
       return i + LWIP_SOCKET_OFFSET;
     }
     SYS_ARCH_UNPROTECT(lev);

@@ -28,4 +28,10 @@ struct hostapd_data *
 sta_track_seen_on(struct hostapd_iface *iface, const u8 *addr,
 		  const char *ifname);
 
+enum sae_pwe_mechanism {
+	SAE_PWE_HUNT_AND_PECK = 0,
+	SAE_PWE_HASH_TO_ELEMENT = 1,
+	SAE_PWE_BOTH = 2,
+};
+
 #endif /* BEACON_H */

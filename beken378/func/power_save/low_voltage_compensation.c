@@ -18,8 +18,8 @@
 #define GOAL_TARGET_LEAD_VALUE_US               (1500)
 #define GOAL_TARGET_LEAD_VALUE_US_LITTLE_DTIM     (1500)
 #else
-#define GOAL_TARGET_LEAD_VALUE_US               (2500)
-#define GOAL_TARGET_LEAD_VALUE_US_LITTLE_DTIM     (2300)
+#define GOAL_TARGET_LEAD_VALUE_US               (1800)
+#define GOAL_TARGET_LEAD_VALUE_US_LITTLE_DTIM     (1800)
 #endif
 #endif
 #endif
@@ -28,7 +28,7 @@ BCN_BUNDLE_T g_bundles[BUNDLE_MAX_COUNT] = {{0}};
 uint32_t lvc_general_sleep_flag = 0;
 int32_t g_duration_target_lead = INIT_TARGET_LEAD_VALUE_US;
 int32_t g_duration_config_lead = INIT_TARGET_LEAD_VALUE_US;
-
+uint64_t g_dpll_lock_delay = 0;
 uint32_t lvc_calc_compensation(void);
 void lvc_init(void)
 {
@@ -58,7 +58,7 @@ static int32_t lvc_get_targe_lead_value(void)
 	} else {
 		duration_of_lead = GOAL_TARGET_LEAD_VALUE_US_LITTLE_DTIM;
 	}
-
+	duration_of_lead += g_dpll_lock_delay;
 	return duration_of_lead;
 }
 
@@ -384,11 +384,6 @@ uint32_t lvc_recv_bcn_handler(uint64_t tsf, uint32_t tsf_offset)
 
 	lv_ps_set_bcn_timing(local_time, duration);
 	lvc_debug(delta_wakeup, duration);
-	if((0 == lv_ps_get_start_flag())
-		|| (0 == lvc_general_sleep_flag))
-	{
-		return LVC_FAILURE;
-	}
 
 	lvc_general_sleep_flag = 0;
 
@@ -410,7 +405,7 @@ uint32_t lvc_recv_bcn_handler(uint64_t tsf, uint32_t tsf_offset)
 	 * 1. tim count reaches the limit (now is 10, will be variable in the future)
 	 * 2. a soft beacon received after beacon loss (no matter what tim_cnt is)
 	*/
-	if (power_save_get_hw_tim_cnt() > 0)
+	if ((nxmac_gen_int_enable_get() & NXMAC_TIM_SET_BIT) && (power_save_get_hw_tim_cnt() > 0))
 		lvc_update_clock_drift_tim(delta_wakeup, delta_tbtt);
 	else
 		lvc_record_delta_time_info(delta_wakeup, delta_tbtt);

@@ -63,6 +63,8 @@
 //#include "sys.h"
 #endif
 #include "low_voltage_ps.h"
+#include "intc_pub.h"
+#include "arm_arch.h"
 
 monitor_cb_t g_monitor_cb = 0;
 unsigned char g_monitor_is_not_filter = 0;
@@ -2490,7 +2492,21 @@ int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 	if(sleep_ms > MCU_SLEEP_DURATION_MIN)
 		lv_ps_sleep_check( sleep_ticks );
 
-	GLOBAL_INT_RESTORE();
+    #if (CFG_LOW_VOLTAGE_PS && (CFG_SOC_NAME == SOC_BK7238))
+    uint32_t int_enable_reg_save = 0;
+    extern uint8_t rwip_driver_ext_wakeup_get(void);
+    if (rwip_driver_ext_wakeup_get()) {
+        int_enable_reg_save = REG_READ(ICU_INTERRUPT_ENABLE);
+        REG_WRITE(ICU_INTERRUPT_ENABLE, CO_BIT(FIQ_BLE) | CO_BIT(FIQ_BTDM));
+    }
+    GLOBAL_INT_RESTORE();
+    while(rwip_driver_ext_wakeup_get());
+    if (int_enable_reg_save) {
+        REG_WRITE(ICU_INTERRUPT_ENABLE,int_enable_reg_save);
+    }
+    #else
+    GLOBAL_INT_RESTORE();
+    #endif
 	#endif
 #endif
 #endif
@@ -2523,12 +2539,10 @@ int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
 #endif
 
 #if CFG_USE_MCU_PS
-static uint32_t mcu_ps_enabled = 0;
 /** @brief  Enable mcu power save,close mcu ,and wakeup by irq
  */
 int bk_wlan_mcu_ps_mode_enable(void)
 {
-	mcu_ps_enabled = 1;
     bmsg_ps_sender(PS_BMSG_IOCTL_MCU_ENABLE);
 
     return 0;
@@ -2538,7 +2552,6 @@ int bk_wlan_mcu_ps_mode_enable(void)
  */
 int bk_wlan_mcu_ps_mode_disable(void)
 {
-    mcu_ps_enabled = 0;
     bmsg_ps_sender(PS_BMSG_IOCTL_MCU_DISABLE);
 
     return 0;
@@ -2546,7 +2559,7 @@ int bk_wlan_mcu_ps_mode_disable(void)
 
 int bk_wlan_mcu_ps_get_enable_flag(void)
 {
-	return mcu_ps_enabled;
+	return mcu_ps_is_on();
 }
 #endif
 
@@ -2715,7 +2728,9 @@ int http_ota_download(const char *uri)
     httpclient_t httpclient;
     httpclient_data_t httpclient_data;
     char http_content[HTTP_RESP_CONTENT_LEN];
-
+    #if AT_SERVICE_CFG
+    http_is_ota = 1;
+    #endif
     os_memset(&httpclient, 0, sizeof(httpclient_t));
     os_memset(&httpclient_data, 0, sizeof(httpclient_data));
     os_memset(&http_content, 0, sizeof(HTTP_RESP_CONTENT_LEN));
@@ -2728,7 +2743,7 @@ int http_ota_download(const char *uri)
                             80,/*port*/
                             NULL,
                             HTTPCLIENT_GET,
-                            20000,
+                            50000,
                             &httpclient_data);
 
     if (0 != ret) {

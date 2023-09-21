@@ -581,6 +581,10 @@ void mhdr_set_station_status(rw_evt_type val)
     GLOBAL_INT_DECLARATION();
     GLOBAL_INT_DISABLE();
     connect_flag = val;
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    if(val == RW_EVT_STA_GOT_IP)
+        lv_ps_update_arp_send_time();
+#endif
 #if (CFG_SUPPORT_ALIOS)
 	if(val > RW_EVT_STA_CONNECTING && val < RW_EVT_STA_CONNECTED)
 	{

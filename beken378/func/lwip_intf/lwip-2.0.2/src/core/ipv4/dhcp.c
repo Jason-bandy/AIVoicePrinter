@@ -1481,6 +1481,10 @@ static void
 dhcp_set_state(struct dhcp *dhcp, u8_t new_state)
 {
   if (new_state != dhcp->state) {
+    if(new_state != DHCP_STATE_BOUND)
+        mhdr_set_station_status(RW_EVT_STA_CONNECTED);
+    else
+        mhdr_set_station_status(RW_EVT_STA_GOT_IP);
     dhcp->state = new_state;
     dhcp->tries = 0;
     dhcp->request_timeout = 0;

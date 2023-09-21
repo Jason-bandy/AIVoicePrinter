@@ -494,9 +494,9 @@ void ble_thread_exit(void)
     }
 }
 
-UINT32 ble_thread_is_up(void)
+bool ble_thread_is_up(void)
 {
-	return (ble_thread_handle) ? 1 : 0;
+	return (ble_thread_handle) ? true: false;
 }
 
 
@@ -573,4 +573,14 @@ UINT32 ble_in_dut_mode(void)
 const struct rwip_eif_api* rwip_eif_get(uint8_t idx)
 {
     return &uart_api;
+}
+
+void ble_coex_set_pta(bool enable)
+{
+	(void)enable;
+}
+
+bool ble_coex_pta_is_on(void)
+{
+	return false;
 }

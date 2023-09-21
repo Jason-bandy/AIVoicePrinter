@@ -74,6 +74,8 @@ struct sae_data {
 	int group;
 	unsigned int sync; /* protocol instance variable: Sync */
 	u16 rc; /* protocol instance variable: Rc (received send-confirm) */
+	unsigned int h2e:1;
+	unsigned int pk:1;
 	struct sae_temporary_data *tmp;
 };
 

@@ -77,11 +77,13 @@ int32_t HAL_TCP_Destroy(uintptr_t fd)
     int rc;
 
     //Shutdown both send and receive operations.
+    #if 0
     rc = shutdown((int) fd, 2);
     if (0 != rc) {
         log_err("shutdown error");
         return -1;
     }
+    #endif
 
     rc = close((int) fd);
     if (0 != rc) {

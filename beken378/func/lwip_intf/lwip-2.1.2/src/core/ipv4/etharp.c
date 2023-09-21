@@ -56,6 +56,8 @@
 #include "netif/ethernet.h"
 
 #include <string.h>
+#include "lwip_netif_address.h"
+#include "net.h"
 
 #ifdef LWIP_HOOK_FILENAME
 #include LWIP_HOOK_FILENAME
@@ -1199,6 +1201,37 @@ etharp_request(struct netif *netif, const ip4_addr_t *ipaddr)
 {
   LWIP_DEBUGF(ETHARP_DEBUG | LWIP_DBG_TRACE, ("etharp_request: sending ARP request.\n"));
   return etharp_request_dst(netif, ipaddr, &ethbroadcast);
+}
+
+void
+etharp_reply(void)
+{
+	int i;
+	int mark = 0;
+	struct wlan_ip_config sta_addr;
+	void *netif;
+	ip_addr_t dhcp_server_gw, *dhcp_server_gw_ptr;
+	dhcp_server_gw_ptr = &dhcp_server_gw;
+	net_get_if_addr(&sta_addr, net_get_sta_handle());
+	ip_addr_set_ip4_u32(dhcp_server_gw_ptr, sta_addr.ipv4.gw);
+	netif = net_get_sta_handle();
+	if (sta_addr.ipv4.gw != 0) {
+		for (i = 0; i < ARP_TABLE_SIZE; ++i) {
+			u8_t state = arp_table[i].state;
+			if (state != ETHARP_STATE_EMPTY && ip4_addr_cmp(ip_2_ip4(dhcp_server_gw_ptr), &arp_table[i].ipaddr)) {
+				etharp_raw(arp_table[i].netif,
+						 (struct eth_addr *)arp_table[i].netif->hwaddr, &arp_table[i].ethaddr,
+						 (struct eth_addr *)arp_table[i].netif->hwaddr, netif_ip4_addr(arp_table[i].netif),
+						 &arp_table[i].ethaddr, &arp_table[i].ipaddr,
+						 ARP_REPLY);
+				mark = 1;
+			}
+		}
+		if(mark == 0) {
+			LWIP_DEBUGF(ETHARP_DEBUG, ("mark null, send request\n"));
+			etharp_request(netif, (ip4_addr_t *)&sta_addr.ipv4.gw);
+		}
+	}
 }
 
 #endif /* LWIP_IPV4 && LWIP_ARP */

@@ -61,6 +61,8 @@ typedef enum {
 #define HTTP_RESP_CONTENT_LEN   CFG_HTTP_RESP_CONTENT_LEN
 #endif
 
+#define HTTP_SIZE	1*1024
+
 
 /** @defgroup httpclient_struct Struct
  * @{
@@ -139,6 +141,27 @@ extern int httpclient_common(httpclient_t *client,
                              uint32_t timeout_ms,
                              httpclient_data_t *client_data);
 
+
+int httpclient_parse_host(const char *url, char *host, uint32_t maxhost_len);
+int httpclient_parse_url(const char *url, char *scheme, uint32_t max_scheme_len, char *host,
+                            uint32_t maxhost_len, int *port, char *path, uint32_t max_path_len);
+int httpclient_conn(httpclient_t *client);
+int httpclient_recv(httpclient_t *client, char *buf, int min_len, int max_len, int *p_read_len,
+                        uint32_t timeout);
+int httpclient_retrieve_content(httpclient_t *client, char *data, int len, uint32_t timeout,
+                                    httpclient_data_t *client_data);
+int httpclient_response_parse(httpclient_t *client, char *data, int len, uint32_t timeout,
+                                    httpclient_data_t *client_data);
+iotx_err_t httpclient_connect(httpclient_t *client);
+void httpclient_close(httpclient_t *client);
+
+iotx_err_t httpclient_send_request(httpclient_t *client, const char *url, int method, httpclient_data_t *client_data);
+iotx_err_t httpclient_recv_response(httpclient_t *client, uint32_t timeout_ms, httpclient_data_t *client_data);
+int httpclient_send_header(httpclient_t *client, const char *url, int method, httpclient_data_t *client_data);
+int httpclient_send_userdata(httpclient_t *client, httpclient_data_t *client_data);
+iotx_err_t user_httpclient_recv_response(httpclient_t *client, uint32_t timeout_ms, httpclient_data_t *client_data,int type);
+
+extern volatile char http_is_ota;
 
 #ifdef __cplusplus
 }

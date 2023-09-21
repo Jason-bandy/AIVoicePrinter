@@ -24,18 +24,28 @@
 --
  |  
  |  |                                                                          |
-80KB|
+8*4KB|
 -------------flash_option_arr data[FLASH_NAME_SPACE_MAX_ARRAY]------------| //Depends on the actual amount of data
 --- |                           4KB * FLASH_NAME_SPACE_MAX_ARRAY               |
 --- |--- ----------------------------------------------------------------------| 
 
 --- |----------------------------DATA START ------    -------------------------| 
-80KB|--------------------4KB * FLASH_NAME_SPACE_MAX_ARRAY----------------------| 
+8*4KB|--------------------4KB * FLASH_NAME_SPACE_MAX_ARRAY----------------------| 
 --- |------------------------------DATA END------------------------------------| 
 
 --- |------------------------------END-----------------------------------------| 
 **************************************************************************
 *************************************************************************/
+
+#define BK_RETURN_NS_IS_CONFIG_COUNTER(ucnamespace)   \
+    do{ \
+        if(0 == strcmp(ucnamespace, "chip-config") || 0 == strcmp(ucnamespace, "chip-counters")) \
+        {\
+            bk_printf("[%s] [%d] chip-config and chip-counters is in BEKEN0 and BEKEN1 \r\n", __FUNCTION__,__LINE__);\
+            return kGeneralErr;\
+        }\
+    }while(0)
+
 
 
 /*********************************************************************
@@ -69,17 +79,67 @@ uint32_t bk_strnlen (const char *ucdata,uint32_t dwLenMax)
  * 
  * Date:2021-12-22
  *******************************************************************/
-uint32_t get_matter_flash_base_addr (uint32_t *base_addr) 
+uint32_t _get_matter_flash_base_addr (uint32_t *base_addr, char * ucnamespace) 
 {
     bk_logic_partition_t *partition_info = NULL;
 
     BK_CHECK_POINTER_NULL(base_addr);
-    
-    partition_info = bk_flash_get_info(BK_PARTITION_MATTER_FLASH);
-    BK_CHECK_POINTER_NULL(partition_info);
+
+    if (0 == strcmp(ucnamespace, "chip-factory")) {
+        partition_info = bk_flash_get_info(BK_PARTITION_MATTER_FACTORY_FLASH);
+        BK_CHECK_POINTER_NULL(partition_info);
+    } else {
+        partition_info = bk_flash_get_info(BK_PARTITION_MATTER_FLASH);
+        BK_CHECK_POINTER_NULL(partition_info);
+    }
 
     *base_addr = partition_info->partition_start_addr;
 
+    return kNoErr;
+}
+#define get_matter_flash_base_addr(base_addr) _get_matter_flash_base_addr(base_addr, ucnamespace);
+uint8_t get_falsh_name_space_max_array(char *ucnamespace)
+{
+    bk_logic_partition_t *partition_info = NULL;
+    if (0 == strcmp(ucnamespace, "chip-factory")) {
+        partition_info = bk_flash_get_info(BK_PARTITION_MATTER_FACTORY_FLASH);
+    } else {
+        partition_info = bk_flash_get_info(BK_PARTITION_MATTER_FLASH);
+    }
+    BK_CHECK_POINTER_NULL(partition_info);
+    return (partition_info->partition_length)/(FLASH_SECTOR_SIZE);
+}
+
+uint8_t change_namespace_to_beken(const char **ucnamespace, const char **name, char *buf, uint8_t buf_len)
+{
+    if( 0 == strcmp(*ucnamespace, "chip-config"))
+    {
+        if (strlen(*ucnamespace) + strlen(*name) > buf_len)
+        {
+            return kGeneralErr;
+        }
+        if (*name != NULL) {
+            strcpy(buf, *ucnamespace);
+            strcpy(buf + strlen(buf), ".");
+            strcpy(buf + strlen(buf), *name);
+            *name = buf;
+        }
+        *ucnamespace = "BEKEN0";
+    }
+    else if ( 0 == strcmp(*ucnamespace, "chip-counters"))
+    {
+        if (strlen(*ucnamespace) + strlen(*name) > buf_len)
+        {
+            return kGeneralErr;
+        }
+        if (*name != NULL) {
+            strcpy(buf, *ucnamespace);
+            strcpy(buf + strlen(buf), ".");
+            strcpy(buf + strlen(buf), *name);
+            *name = buf;
+        }
+        *ucnamespace = "BEKEN1";
+    }
     return kNoErr;
 }
 
@@ -609,7 +669,10 @@ uint32_t bk_clean_data ( const char * ucnamespace,const char * ucname)
     //name_flash_t name_temp = {0};
 
     BK_CHECK_POINTER_NULL(ucnamespace);
+    BK_RETURN_NS_IS_FACTORY(ucnamespace);
     BK_CHECK_POINTER_NULL(ucname);
+    char buf[64];
+    BK_CHECK_NO_RETURN(change_namespace_to_beken(&ucnamespace, &ucname, buf, 64));
 
     dw_rtn = get_matter_flash_base_addr(&np_base_addr);
     BK_CHECK_RETURN_VAULEL(dw_rtn);
@@ -673,6 +736,8 @@ uint32_t bK_clear_namespace ( const char * ucnamespace) //base_addr 要用上
     namespace_flash_t *namespace_temp = NULL;
 
     BK_CHECK_POINTER_NULL(ucnamespace);
+    BK_RETURN_NS_IS_FACTORY(ucnamespace);
+    BK_RETURN_NS_IS_CONFIG_COUNTER(ucnamespace);
     dw_rtn = get_matter_flash_base_addr(&np_base_addr);
     BK_CHECK_RETURN_VAULEL(dw_rtn);
 
@@ -746,6 +811,8 @@ uint32_t bk_read_data( const char * ucnamespace,const char * ucname,char * out_d
     BK_CHECK_POINTER_NULL(ucname);
     BK_CHECK_POINTER_NULL(out_data);
     BK_CHECK_POINTER_NULL(out_length);
+    char buf[64];
+    BK_CHECK_NO_RETURN(change_namespace_to_beken(&ucnamespace, &ucname, buf, 64));
     
     dw_rtn = get_matter_flash_base_addr(&np_base_addr);
     BK_CHECK_RETURN_VAULEL(dw_rtn);
@@ -804,8 +871,11 @@ uint32_t bk_write_data( const char * ucnamespace,const char * ucname, char * ind
     uint32_t np_base_addr = 0;
 
     BK_CHECK_POINTER_NULL(ucnamespace);
+    BK_RETURN_NS_IS_FACTORY(ucnamespace);
     BK_CHECK_POINTER_NULL(ucname);
     BK_CHECK_POINTER_NULL(indata);
+    char buf[64];
+    BK_CHECK_NO_RETURN(change_namespace_to_beken(&ucnamespace, &ucname, buf, 64));
 
     dw_rtn = get_matter_flash_base_addr(&np_base_addr);
     BK_CHECK_RETURN_VAULEL(dw_rtn);
@@ -841,6 +911,8 @@ uint32_t bk_ensure_namespace( const char * ucnamespace)
     uint32_t np_base_addr = 0;
 
     BK_CHECK_POINTER_NULL(ucnamespace);
+    char buf[64];
+    BK_CHECK_NO_RETURN(change_namespace_to_beken(&ucnamespace, NULL, buf, 64));
     dw_rtn = get_matter_flash_base_addr(&np_base_addr);
     BK_CHECK_RETURN_VAULEL(dw_rtn);
 
@@ -881,6 +953,8 @@ uint32_t bk_ensure_name_data( const char * ucnamespace,const char * ucname)
     uint32_t dw_data_offset_addr = 0;
 
     BK_CHECK_POINTER_NULL(ucnamespace);
+    char buf[64];
+    BK_CHECK_NO_RETURN(change_namespace_to_beken(&ucnamespace, &ucname, buf, 64));
     dw_rtn = get_matter_flash_base_addr(&np_base_addr);
     BK_CHECK_RETURN_VAULEL(dw_rtn);
 

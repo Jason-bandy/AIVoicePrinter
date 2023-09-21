@@ -112,7 +112,8 @@ SECTIONS
 		*(.text.rt_thread_resume)
 		*port_asm.o(.text .text.*)
 		*context_gcc.o(.text .text.*)
-		*(.text.flash_bypass_wr_sr_cb)
+        	*(.text.flash_bypass_op_write)
+		*(.text.flash_bypass_op_read)
     } > itcm AT>flash
     _itcmcode_flash_begin = LOADADDR(.itcm.code);
     _itcmcode_ram_begin = ADDR(.itcm.code);

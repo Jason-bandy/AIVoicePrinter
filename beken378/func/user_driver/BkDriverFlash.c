@@ -100,7 +100,7 @@ const bk_logic_partition_t bk7231_partitions_2M[BK_PARTITION_MAX] =
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "Application",
         .partition_start_addr      = 0x11000,
-        .partition_length          = 0x143000,
+        .partition_length          = 0x121000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
     [BK_PARTITION_OTA] =
@@ -141,10 +141,36 @@ const bk_logic_partition_t bk7231_partitions_2M[BK_PARTITION_MAX] =
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "matter info",
         .partition_start_addr      = 0x1e2000,// for matter
-        .partition_length          = 0x15000,
+        .partition_length          = 0x9000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
+    [BK_PARTITION_MATTER_FACTORY_FLASH] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "matter factory info",
+        .partition_start_addr      = 0x1eb000,// for matter factory
+        .partition_length          = 0x3000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    }
 #endif
+	#if AT_SERVICE_CFG
+    [BK_PARTITION_USR_CONFIG] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "USER info",
+        .partition_start_addr      = 0x1f7000,// for net related info
+        .partition_length          = 0x1000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    [BK_PARTITION_BLE_SVR_CONFIG] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "BLE SERVER",
+        .partition_start_addr      = 0x1f8000,// for ble svr in ATSVR
+        .partition_length          = 0x1000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    #endif
 };
 #endif
 
@@ -197,10 +223,36 @@ const bk_logic_partition_t bk7231_partitions_4M[BK_PARTITION_MAX] =
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "matter info",
         .partition_start_addr      = 0x3e2000,// for matter
-        .partition_length          = 0x15000,
+        .partition_length          = 0x9000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
+    [BK_PARTITION_MATTER_FACTORY_FLASH] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "matter factory info",
+        .partition_start_addr      = 0x3eb000,// for matter factory
+        .partition_length          = 0x3000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    }
 #endif
+    #if AT_SERVICE_CFG
+	[BK_PARTITION_USR_CONFIG] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "USER info",
+        .partition_start_addr      = 0x3f7000,// for net related info
+        .partition_length          = 0x1000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    [BK_PARTITION_BLE_SVR_CONFIG] =
+    {
+        .partition_owner           = BK_FLASH_EMBEDDED,
+        .partition_description     = "BLE SERVER",
+        .partition_start_addr      = 0x3f8000,// for ble svr in ATSVR
+        .partition_length          = 0x1000,
+        .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
+    },
+    #endif
 };
 #endif
 
@@ -220,7 +272,7 @@ const bk_logic_partition_t bk7231_partitions_8M[BK_PARTITION_MAX] =
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "Application",
         .partition_start_addr      = 0x11000,
-        .partition_length          = 0x143000,
+        .partition_length          = 0x121000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
     [BK_PARTITION_OTA] =
@@ -294,11 +346,16 @@ OSStatus BkFlashUninit(void)
 
 OSStatus bk_flash_erase(bk_partition_t inPartition, uint32_t off_set, uint32_t size)
 {
-	uint32_t start_addr;
+    uint32_t start_addr;
     bk_logic_partition_t *partition_info;
 
     partition_info = bk_flash_get_info(inPartition);
-	start_addr = partition_info->partition_start_addr + off_set;
+    if (NULL == partition_info)
+    {
+        os_printf("%s partiion not found\r\n", __FUNCTION__);
+        return kNotFoundErr;
+    }
+    start_addr = partition_info->partition_start_addr + off_set;
 
     return bk_flash_abs_addr_erase(start_addr, size);
 }
@@ -365,6 +422,24 @@ uint32_t bk_flash_read_otp(uint32_t off_set, uint8_t *out_buf, uint32_t buf_len)
 	otp_cfg.addr = off_set;
 	otp_cfg.len = buf_len;
 	return ddev_control(flash_hdl, CMD_FLASH_READ_OTP, (void *)&otp_cfg);
+}
+
+uint32_t bk_flash_get_uid(uint8_t *uid_buf, uint32_t uid_buf_len)
+{
+	UINT32 status;
+	DD_HANDLE flash_hdl;
+	flash_otp_t otp_cfg;
+
+	flash_hdl = ddev_open(FLASH_DEV_NAME, &status, 0);
+	if (DD_HANDLE_UNVALID == flash_hdl) {
+		os_printf("%s open failed\r\n", __FUNCTION__);
+		return kOpenErr;
+	}
+
+	otp_cfg.buf = uid_buf;
+	otp_cfg.addr = 0;
+	otp_cfg.len = uid_buf_len;
+	return ddev_control(flash_hdl, CMD_FLASH_GET_UID, (void *)&otp_cfg);
 }
 
 OSStatus bk_flash_enable_security(PROTECT_TYPE type )

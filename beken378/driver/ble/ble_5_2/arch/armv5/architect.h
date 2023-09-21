@@ -49,7 +49,7 @@
 /// Reset platform and reload FW
 #define    RESET_AND_LOAD_FW      0xC3C3C3C3
 
-#define BK_BLE_ASSERT 1
+#define BK_BLE_ASSERT 0 
 #define BK_BLE_DEBUG  0
 
 #if (BK_BLE_ASSERT)

@@ -36,7 +36,6 @@ typedef enum
     PRF_START_IND,
 } prf_conf;
 
-
 /**
  *   15   14   13   12   11   10    9    8    7    6    5    4    3    2    1    0
  * +----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+----+
@@ -198,7 +197,6 @@ enum
     BK_PERM_RIGHT_UUID_RFU        = 3,
 };
 
-
 typedef enum  {
 	BLE_CMD_NONE,
 	// ADV_CMD:FOR BLE 5.1
@@ -240,6 +238,7 @@ typedef enum  {
 	BLE_5_READ_EVENT,
 	BLE_5_REPORT_ADV,
 	BLE_5_MTU_CHANGE,
+	BLE_5_PHY_IND_EVENT,
 	BLE_5_CONNECT_EVENT,
 	BLE_5_DISCONNECT_EVENT,
 	BLE_5_ATT_INFO_REQ,
@@ -251,7 +250,7 @@ typedef enum  {
 	BLE_5_INIT_DISCONNECT_EVENT,
 	BLE_5_INIT_CONNECT_FAILED_EVENT,
 	BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT,
-
+	BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT,
 	BLE_5_SDP_REGISTER_FAILED,
 } ble_notice_t;
 
@@ -356,6 +355,13 @@ typedef struct
 
 typedef struct
 {
+	uint8_t tx_phy;                       /**< The transmitter PHY */
+	uint8_t rx_phy;                       /**< The receiver PHY */
+	uint8_t phy_opt;                      /**< PHY options  */
+} ble_set_phy_t;
+
+typedef struct
+{
 	uint8_t conn_idx;
 	/// Peer address type
 	uint8_t peer_addr_type;
@@ -385,6 +391,25 @@ typedef struct
 
 typedef struct
 {
+	uint8_t conn_idx;
+	uint16_t interval;
+	/// Latency
+	uint16_t latency;
+	/// Supervision timeout
+	uint16_t time_out;
+} conn_update_ind_t;
+
+typedef struct
+{
+    uint8_t conn_idx;
+    /// LE PHY for data transmission (@see enum gap_phy)
+    uint8_t tx_phy;
+    /// LE PHY for data reception (@see enum gap_phy)
+    uint8_t rx_phy;
+} conn_phy_ind_t;
+
+typedef struct
+{
 	uint8_t status;
 	uint8_t prf_id;
 } create_db_t;
@@ -411,6 +436,7 @@ typedef struct
 	/// note: for included service, contains target service handle
 	uint16_t max_size;
 }bk_attm_desc_t;
+
 #elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
 typedef struct
 {
@@ -463,14 +489,86 @@ typedef struct ext_adv_param_cfg {
 	uint8_t prop;
 }ext_adv_param_cfg_t;
 
-
 struct scan_param {
 	uint8_t  filter_en;
 	uint8_t  channel_map;
 	uint16_t interval;
 	uint16_t window;
+	uint8_t filter_type;
+	uint8_t filter_param[32];
 };
 
+#define MST_ATT_UUID_128_LEN                        0x0010
+struct mst_sdp_svc_ind
+{
+	uint8_t  svr_id;
+	/// Service UUID Length
+	uint8_t  uuid_len;
+	/// Service UUID
+	uint8_t  uuid[MST_ATT_UUID_128_LEN];
+	/// Service start handle
+	uint16_t start_hdl;
+	/// Service end handle
+	uint16_t end_hdl;
+};
+
+/// characteristic info
+struct mst_sdp_char_inf
+{
+	uint8_t  svr_id;
+	uint8_t uuid_len;
+	uint8_t uuid[MST_ATT_UUID_128_LEN]; // add by sean 2016.11.15 refer 3431n Master
+	/// Characteristic handle
+	uint16_t char_hdl;
+	/// Value handle
+	uint16_t val_hdl;
+	/// Characteristic properties
+	uint8_t prop;
+	/// End of characteristic offset
+	uint8_t char_ehdl_off;
+};
+
+/// characteristic description
+struct mst_sdp_char_desc_inf
+{
+	uint8_t  svr_id;
+	/// UUID length
+	uint8_t uuid_len;
+	/// UUID
+	uint8_t uuid[MST_ATT_UUID_128_LEN];
+
+	uint8_t char_code;
+	/// Descriptor handle
+	uint16_t desc_hdl;
+};
+
+typedef enum{
+	MST_TYPE_SVR_UUID = 0,
+	MST_TYPE_ATT_UUID,
+	MST_TYPE_ATT_DESC,
+	MST_TYPE_SDP_END,
+
+	MST_TYPE_ATTC_SVR_UUID,  ///Service the UUID
+	MST_TYPE_ATTC_ATT_UUID,  ///ATT of a service
+	MST_TYPE_ATTC_ATT_DESC,  ///ATT DESC of a service
+	MST_TYPS_ATTC_PARAM_ERR,  ///The delivered parameter is abnormal or unknown
+	MST_TYPE_ATTC_ERR,	 ///if appm_get_init_attc_info return is ok && ble is disconnect,so update the event
+	MST_TYPE_ATTC_END,	 ///End of the operation
+	MST_TYPE_ATTC_WRITE_RSP,
+	MST_TYPE_ATTC_WRITE_NO_RESPONSE,
+	MST_TYPE_ATTC_CHARAC_READ_DONE,
+
+	MST_TYPE_MTU_EXC = 0x10,
+	MST_TYPE_MTU_EXC_DONE,
+
+	MST_TYPE_UPP_ASK = 0x20,   ///Ask if you agree to update the parameter
+	MST_TYPE_UPDATA_STATUS,    ////updata param status
+
+
+	MST_TYPE_INIT_CREATE_OK = 0x80,
+}MASTER_COMMON_TYPE;
+
+typedef void (*app_sdp_comm_callback)(MASTER_COMMON_TYPE type,uint8 conidx,void *param);
 typedef void (*ble_cmd_cb_t)(ble_cmd_t cmd, ble_cmd_param_t *param);
 typedef void (*ble_notice_cb_t)(ble_notice_t notice, void *param);
 
@@ -504,7 +602,7 @@ ble_err_t bk_ble_stop_scaning(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_delete_scaning(uint8_t actv_idx, ble_cmd_cb_t callback);
 ble_err_t bk_ble_send_ind_value(uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
 ble_err_t bk_ble_send_ntf_value( uint32_t len, uint8_t *buf, uint16_t prf_id, uint16_t att_idx);
-
+int bk_ble_get_con_mtu(unsigned char con_idx,uint16_t *mtu);
 extern void ble_ps_enable_set(void);
 extern void ble_ps_enable_clear(void);
 extern UINT32 ble_ps_enabled(void );

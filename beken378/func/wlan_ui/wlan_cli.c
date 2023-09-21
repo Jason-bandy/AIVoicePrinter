@@ -66,7 +66,9 @@
 #include "los_interrupt.h"
 #include "los_swtmr.h"
 #endif
-
+#if AT_SERVICE_CFG
+#include "atsvr_comm.h"
+#endif
 #if (CFG_SUPPORT_BLE == 1)
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
 #include "application.h"
@@ -126,8 +128,9 @@ extern u32 monitor_process(u8 start);
 #if CFG_SARADC_CALIBRATE
 static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 #endif
-
+#if !AT_SERVICE_CFG
 static void cli_rx_callback(int uport, void *param);
+#endif
 
 static void efuse_cmd_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 static void efuse_mac_cmd_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
@@ -184,7 +187,8 @@ static const struct cli_command *lookup_command(char *name, int len)
 *          input line.
 *          2 on invalid syntax: the arguments list couldn't be parsed
 */
-static int handle_input(char *inbuf)
+extern void log_output_state(int flag);
+ int handle_input(char *inbuf)
 {
     struct
     {
@@ -283,8 +287,21 @@ static int handle_input(char *inbuf)
         (p - argv[0]);
     command = lookup_command(argv[0], i);
     if (command == NULL)
+    {
         return 1;
+    }
 
+    /*open log  for ATE test*/
+    #if AT_SERVICE_CFG
+    if(g_env_param.workmode)
+    {
+        log_output_state(0);   //close log output
+    }
+    else
+    {
+        log_output_state(1); //open log output
+    }
+    #endif
     os_memset(pCli->outbuf, 0, OUT_BUF_LEN);
     cli_putstr("\r\n");
 
@@ -300,6 +317,7 @@ static int handle_input(char *inbuf)
     os_printf("heap=%u\n", xPortGetFreeHeapSize());
     return 0;
 }
+#if !AT_SERVICE_CFG
 
 /* Perform basic tab-completion on the input buffer by string-matching the
 * current input line against the cli functions table.  The current input line
@@ -526,7 +544,7 @@ exit:
     bk_uart_set_rx_callback(cli_uart, NULL, NULL);
     rtos_delete_thread(NULL);
 }
-
+#endif
 static void task_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
 {
 #if CFG_OS_FREERTOS
@@ -1212,8 +1230,11 @@ void ping_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **arg
     }
     else
     {
-		os_printf("ping IP address:%s\n",argv[1]);
-		ping(argv[1], 4, 0);
+        int count = 4;
+        if (argc >= 3)
+            count = atoi(argv[2]);
+            os_printf("ping IP address: %s for %d times\n", argv[1], count);
+            ping(argv[1], count, 0);
 	}
 }
 
@@ -1241,7 +1262,6 @@ void memory_show_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
 #else
 #endif
 }
-
 
 void memory_dump_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
 {
@@ -1977,7 +1997,7 @@ uint8_t cli_ble_read_callback(read_req_t *read_req)
 void appm_adv_data_decode(uint8_t len, const uint8_t *data)
 {
     uint8_t index;
-	uint8_t i;
+    uint8_t i;
     for(index = 0; index < len;)
     {
         switch(data[index + 1])
@@ -2374,7 +2394,7 @@ void ble_notice_cb(ble_notice_t notice, void *param)
 	case BLE_5_MTU_CHANGE:
 	{
 		mtu_change_t *m_ind = (mtu_change_t *)param;
-		bk_printf("m_ind:conn_idx:%d, mtu_size:%d\r\n", m_ind->conn_idx, m_ind->mtu_size);
+		bk_printf("BLE_5_MTU_CHANGE:conn_idx:%d, mtu_size:%d\r\n", m_ind->conn_idx, m_ind->mtu_size);
 		break;
 	}
 	case BLE_5_CONNECT_EVENT:
@@ -2405,14 +2425,13 @@ void ble_notice_cb(ble_notice_t notice, void *param)
 		bk_printf("cd_ind:prf_id:%d, status:%d\r\n", cd_ind->prf_id, cd_ind->status);
 		break;
 	}
-	#if (BLE_SDP_CLIENT)
+	#if (BLE_CENTRAL)
 	case BLE_5_INIT_CONNECT_EVENT:
 	{
 		conn_ind_t *c_ind = (conn_ind_t *)param;
 		#if (CFG_SOC_NAME == SOC_BK7238)
-		sdp_common_create(c_ind->conn_idx,256);
 		app_ble_get_peer_feature(c_ind->conn_idx);
-		app_ble_set_le_pkt_size(c_ind->conn_idx);
+		app_ble_set_le_pkt_size(c_ind->conn_idx,LE_MAX_OCTETS);
 		app_ble_mtu_exchange(c_ind->conn_idx);
 		sdp_discover_all_service(c_ind->conn_idx);
 		#endif
@@ -2424,9 +2443,6 @@ void ble_notice_cb(ble_notice_t notice, void *param)
 	case BLE_5_INIT_DISCONNECT_EVENT:
 	{
 		discon_ind_t *d_ind = (discon_ind_t *)param;
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		sdp_common_cleanup(d_ind->conn_idx);
-		#endif
 		bk_printf("BLE_5_INIT_DISCONNECT_EVENT:conn_idx:%d,reason:0x%x\r\n", d_ind->conn_idx,d_ind->reason);
 		break;
 	}
@@ -2437,6 +2453,12 @@ void ble_notice_cb(ble_notice_t notice, void *param)
 		bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:conn_idx:%d,intv_min:%d,intv_max:%d,time_out:%d\r\n",d_ind->conn_idx,
 			d_ind->intv_min,d_ind->intv_max,d_ind->time_out);
 		app_ble_send_conn_param_update_cfm(d_ind->conn_idx,true);
+	}break;
+	case BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT:
+	{
+		conn_update_ind_t *d_ind = (conn_update_ind_t *)param;
+		bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT:conn_idx:%d,interval:%d,time_out:%d,latency\r\n",d_ind->conn_idx,
+			d_ind->interval,d_ind->time_out,d_ind->latency);
 	}break;
 	case BLE_5_SDP_REGISTER_FAILED:
 		bk_printf("BLE_5_SDP_REGISTER_FAILED\r\n");
@@ -2450,7 +2472,7 @@ void ble_cmd_cb(ble_cmd_t cmd, ble_cmd_param_t *param)
 {
 	bk_printf("cmd:%d idx:%d status:%d\r\n", cmd, param->cmd_idx, param->status);
 }
-#if BLE_SDP_CLIENT && (CFG_SOC_NAME == SOC_BK7231N)
+#if BLE_CENTRAL && (CFG_SOC_NAME == SOC_BK7231N)
 static void ble_app_sdp_characteristic_cb(unsigned char conidx,uint16_t chars_val_hdl,unsigned char uuid_len,unsigned char *uuid)
 {
 	bk_printf("[APP]characteristic conidx:%d,handle:0x%02x(%d),UUID:0x",conidx,chars_val_hdl,chars_val_hdl);
@@ -2483,7 +2505,7 @@ static const app_sdp_service_uuid service_tab[] ={
 	},
 };
 
-#elif (CFG_SOC_NAME == SOC_BK7238) && (BLE_SDP_CLIENT)
+#elif (CFG_SOC_NAME == SOC_BK7238) && (BLE_GATT_CLI)
 void sdp_event_cb(sdp_notice_t notice, void *param)
 {
 	switch (notice) {
@@ -2585,6 +2607,14 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	uint8_t adv_data[31];
 	uint8_t actv_idx;
 
+	if(os_strcmp(argv[1],"pta")==0){
+        uint32_t enable = os_strtoul(argv[2], NULL, 10);
+		ble_coex_set_pta(enable ? true : false);
+	}
+
+	if(os_strcmp(argv[1],"exit")==0){
+		ble_thread_exit();
+	}
 	if(os_strcmp(argv[1],"notify")==0){
 		uint32_t len;
 		uint16 prf_id;
@@ -2656,9 +2686,17 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_bass_init();
 	}
 	if(os_strcmp(argv[1], "bass_ntf") == 0){
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_bass_ntf_send(os_strtoul(argv[2], NULL, 10));
 	}
 	if(os_strcmp(argv[1], "bass_enable") == 0){
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_bass_enable(os_strtoul(argv[2], NULL, 10));
 	}
 	#endif
@@ -2683,6 +2721,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_diss_init();
 	}
 	if (os_strcmp(argv[1], "diss_set") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		if(os_strtoul(argv[2], NULL, 10) == 0){
 			uint8_t set_data[5];
 			set_data[0]=0x62;//b
@@ -2744,11 +2786,19 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_ble_create_advertising(actv_idx, 7, 160, 160, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "create_ext_adv") == 0) {
+		if (argc < 4){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		actv_idx = app_ble_get_idle_actv_idx_handle();
 		bk_ble_create_extended_advertising(actv_idx, 7, 160, 160, /*scannable*/os_strtoul(argv[2], NULL, 10), /*connectable*/os_strtoul(argv[3], NULL, 10), ble_cmd_cb);
 	}
 	#if (CFG_SOC_NAME == SOC_BK7231N)
 	if (os_strcmp(argv[1], "set_adv_data") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		adv_data[0] = 0x02;
 		adv_data[1] = 0x01;
 		adv_data[2] = 0x06;
@@ -2758,12 +2808,20 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_ble_set_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, 0xF, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "set_rsp_data") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		adv_data[0] = 0x07;
 		adv_data[1] = 0x08;
 		memcpy(&adv_data[2], "7231N", 6);
 		bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, 0x8, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "set_ext_adv_data") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		uint16_t data_len;
 	#if (CFG_BLE_AUX_CHAIN)
 		data_len = 140;
@@ -2790,6 +2848,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_ble_set_ext_adv_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "set_ext_rsp_data") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		uint16_t data_len;
 	#if (CFG_BLE_AUX_CHAIN)
 		data_len = 260;
@@ -2816,6 +2878,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	#elif (CFG_SOC_NAME == SOC_BK7238)
 	/*note:AD type flags already added to adv data,not be set by application*/
 	if (os_strcmp(argv[1], "set_adv_data") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		adv_data[0] = 0x0A;
 		adv_data[1] = 0x09;
 		memcpy(&adv_data[2], "7238_BLE", 9);
@@ -2823,6 +2889,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	}
 	if (os_strcmp(argv[1], "set_rsp_data") == 0) {
 		uint8_t adv_data_len;
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		adv_data[0] = 0x06;
 		adv_data[1] = 0x08;
 		memcpy(&adv_data[2], "7238", 5);
@@ -2839,7 +2909,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	}
 	if (os_strcmp(argv[1], "set_ext_adv_data") == 0) {
 		uint16_t data_len;
-
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		#if (CFG_BLE_AUX_CHAIN)
 		data_len = 140;		//189frag
 		#else
@@ -2864,6 +2937,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	}
 	if (os_strcmp(argv[1], "set_ext_rsp_data") == 0) {
 		uint16_t data_len;
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		#if (CFG_BLE_AUX_CHAIN)
 		data_len = 260;
 		#else
@@ -2888,16 +2965,32 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 	}
 
 	if (os_strcmp(argv[1], "rssi") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		app_ble_get_con_rssi(os_strtoul(argv[2], NULL, 10));
 	}
 	#endif
 	if (os_strcmp(argv[1], "start_adv") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_start_advertising(os_strtoul(argv[2], NULL, 10), 0, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "stop_adv") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_stop_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "delete_adv") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_delete_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "create_scan") == 0) {
@@ -2905,23 +2998,47 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_ble_create_scaning(actv_idx, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "start_scan") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_start_scaning(os_strtoul(argv[2], NULL, 10), 100, 30, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "stop_scan") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_stop_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "delete_scan") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_delete_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "update_conn") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_update_param(os_strtoul(argv[2], NULL, 10), 50, 50, 0, 800, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "dis_conn") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_disconnect(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	#if (CFG_SOC_NAME == SOC_BK7231N)
 	/*note:bk7238 auto mtu exchange by gatt_cli,not be call it by application*/
 	if (os_strcmp(argv[1], "mtu_change") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_gatt_mtu_change(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	#endif // (CFG_SOC_NAME == SOC_BK7231N)
@@ -2964,6 +3081,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_ble_adv_start(actv_idx, &adv_info, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "deinit_adv") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_adv_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "init_scan") == 0) {
@@ -2975,12 +3096,20 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_ble_scan_start(actv_idx, &scan_info, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "deinit_scan") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		bk_ble_scan_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	#if BLE_APP_SEC
 	if (os_strcmp(argv[1], "smp_init") == 0) {
 		struct app_pairing_cfg par;
 		par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		if (os_strtoul(argv[2], NULL, 10) == 0) {
 			//legacy pairing
 			par.sec_req = GAP_SEC1_AUTH_PAIR_ENC;
@@ -2999,6 +3128,10 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		app_sec_config(&par, security_notice_cb);
 	}
 	if (os_strcmp(argv[1], "sec_req") == 0) {
+		if (argc < 3){
+			bk_printf("\nThe number of param is wrong!\n");
+			return;
+		}
 		app_sec_send_security_req(os_strtoul(argv[2], NULL, 10));
 	}
 	#endif
@@ -3018,7 +3151,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		bk_printf("------------->conn_idx:%d\r\n",actv_idx);
 		bk_ble_create_init(actv_idx, 0, 0, 0,ble_cmd_cb);
 	}
-	else if ((os_strcmp(argv[1], "con_start") == 0) && (argc >= 3))
+	else if ((os_strcmp(argv[1], "con_start") == 0) && (argc >= 5))
 	{
 		struct bd_addr bdaddr;
 		unsigned char addr_type = ADDR_PUBLIC;
@@ -3054,7 +3187,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 		actv_idx = actv_idx_str;
 		app_ble_master_appm_disconnect(actv_idx);
 	}
-#if BLE_SDP_CLIENT
+#if BLE_CENTRAL
 	else if (os_strcmp(argv[1], "con_read") == 0)
 	{
 		if(argc < 4){
@@ -3965,6 +4098,16 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
             goto IDLE_CMD_ERR;
         }
     }
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    else if(0 == os_strcmp(argv[1], "gpio"))
+    {
+        if(argc < 4)
+        {
+            goto IDLE_CMD_ERR;
+        }
+        sctrl_set_gpio_wakeup_index(os_strtoul(argv[2], NULL, 10),os_strtoul(argv[3], NULL, 10));
+    }
+#endif
 #endif
 #if CFG_USE_STA_PS
     else if(0 == os_strcmp(argv[1], "rfdtim"))
@@ -4514,13 +4657,13 @@ IDLE_CMD_ERR:
 	os_printf("Usage:ps [func] [param]\r\n");
 }
 #endif
-
+#if !AT_SERVICE_CFG
 static void cli_rx_callback(int uport, void *param)
 {
 	if(log_rx_interrupt_sema)
     	rtos_set_semaphore(&log_rx_interrupt_sema);
 }
-
+#endif
 /* ========= CLI input&output APIs ============ */
 int cli_printf(const char *msg, ...)
 {
@@ -4581,9 +4724,7 @@ int cli_get_all_chars_len(void)
     return bk_uart_get_length_in_buffer(cli_uart);
 }
 
-#if CFG_IPERF_TEST
 extern void iperf(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
-#endif // CFG_IPERF_TEST
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
 extern void cmd_la(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
 #endif
@@ -4608,9 +4749,9 @@ static const struct cli_command user_clis[] =
     {"tcp_server", "tcp_server [ip] [port]",make_tcp_server_command },
 #endif
 
-#if CFG_IPERF_TEST
+#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
     {"iperf", "iperf help", iperf },
-#endif // CFG_IPERF_TEST
+#endif // (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 
 #if CFG_SUPPORT_TPC_PA_MAP
     {"pwr", "pwr help", pwr_Command },
@@ -4631,6 +4772,12 @@ static const struct cli_command user_clis[] =
 #endif
 };
 
+static const struct cli_command ate_clis[] =
+{
+#if (CFG_IPERF_TEST == IPERF_OPEN_ONLY)
+    {"iperf", "iperf help", iperf },
+#endif // (CFG_IPERF_TEST == IPERF_OPEN_ONLY)
+};
 
 extern int video_demo_register_cmd(void);
 
@@ -4638,9 +4785,14 @@ extern int video_demo_register_cmd(void);
 void bk_peripheral_cli_init();
 #endif
 
+
+#if AT_SERVICE_CFG
+int atsvr_app_init(void);
+#endif
+
 int cli_init(void)
 {
-    int ret;
+  //  int ret;
 
     if (UART1_PORT == uart_print_port)
     {
@@ -4668,14 +4820,24 @@ int cli_init(void)
         goto init_general_err;
     }
 
+    if (get_ate_mode_state()) {
+         if(cli_register_commands(ate_clis, sizeof(ate_clis) / sizeof(struct cli_command))) {
+             goto init_general_err;
+         }
+    }
+
     if (video_demo_register_cmd()) {
         goto init_general_err;
     }
 
 #if CFG_PERIPHERAL_TEST
-	bk_peripheral_cli_init();
+    bk_peripheral_cli_init();
 #endif
 
+#if AT_SERVICE_CFG
+    atsvr_app_init();
+#else
+    int ret;
     ret = rtos_create_thread(&cli_thread_handle,
                              BEKEN_DEFAULT_WORKER_PRIORITY,
                              "cli",
@@ -4692,6 +4854,7 @@ int cli_init(void)
                   ret);
         goto init_general_err;
     }
+#endif
 
     pCli->initialized = 1;
     pCli->echo_disabled = 0;

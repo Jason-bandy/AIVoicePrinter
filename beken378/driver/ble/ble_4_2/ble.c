@@ -635,6 +635,11 @@ UINT8 ble_is_start(void)
     return (ble_thread_handle == NULL)? 0:1;
 }
 
+bool ble_thread_is_up(void)
+{
+    return (ble_thread_handle) ? true : false;
+}
+
 UINT8* ble_get_mac_addr(void)
 {
     return (UINT8*)&common_default_bdaddr;
@@ -776,3 +781,13 @@ UINT32 ble_in_dut_mode(void)
     return (ble_dut_flag == 1)  ? 1 :  0;
 }
 #endif
+
+void ble_coex_set_pta(bool enable)
+{
+	(void)enable;
+}
+
+bool ble_coex_pta_is_on(void)
+{
+	return false;
+}

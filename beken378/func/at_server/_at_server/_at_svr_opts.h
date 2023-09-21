@@ -10,7 +10,7 @@
 #endif
 
 #ifndef ATSVR_MAX_COMMANDS
-#define ATSVR_MAX_COMMANDS           64
+#define ATSVR_MAX_COMMANDS           250
 #endif
 
 /////set arguments max number
@@ -39,7 +39,7 @@
 #endif
 
 #ifndef ATSVR_CMD_HELP_BUF_SIZE
-#define ATSVR_CMD_HELP_BUF_SIZE             (5 * 1024)
+#define ATSVR_CMD_HELP_BUF_SIZE             (9 * 1024)
 #endif
 
 #ifndef ATSVR_ECHO_DEFAULT
@@ -67,6 +67,12 @@
 #define ATSVR_READY_MSG                     "ready\r\n"
 #endif
 
+
+#ifndef ATSVR_CMD_RSP_ENTER_PASSTHROUGH
+#define ATSVR_CMD_RSP_ENTER_PASSTHROUGH     "\r\n>"
+#endif
+
+
 #ifndef ATSVR_CMD_RSP_SUCCEED
 #define ATSVR_CMD_RSP_SUCCEED               "\r\nCMDRSP:OK\r\n"
 #endif
@@ -74,6 +80,11 @@
 #ifndef ATSVR_CMD_RSP_ERROR
 #define ATSVR_CMD_RSP_ERROR                 "\r\nCMDRSP:ERROR\r\n"
 #endif
+
+#ifndef ATSVR_CMD_RSP_BUSY
+#define ATSVR_CMD_RSP_BUSY                  "\r\nBUSY\r\n"
+#endif
+
 
 #ifndef ATSVR_CMDMSG_ERROR_RSP
 #define ATSVR_CMDMSG_ERROR_RSP              "\r\nCMDRSP:ERROR\r\n"
@@ -90,6 +101,14 @@
 #ifndef ATSVR_EVT_WLAN_CONNECTED
 #define ATSVR_EVT_WLAN_CONNECTED            "EVT:WLAN CONNECTED\r\n"
 #endif
+
+#ifndef ATSVR_EVT_WLAN_PASSWORD_ERROR
+#define ATSVR_EVT_WLAN_PASSWORD_ERROR       "EVT:WLAN PASSWORD ERROR\r\n"
+#endif
+#ifndef ATSVR_EVT_WLAN_NO_AP
+#define ATSVR_EVT_WLAN_NO_AP                "EVT:WLAN NO AP\r\n"
+#endif
+
 
 #ifndef ATSVR_EVT_WLAN_DISCONNECTED
 #define ATSVR_EVT_WLAN_DISCONNECTED         "EVT:WLAN DISCONNECTED\r\n"

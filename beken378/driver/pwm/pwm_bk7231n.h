@@ -36,12 +36,16 @@
 #define REG_PWM_GROUP_CTRL(x)               	(*((volatile unsigned long *) REG_PWM_GROUP_CTRL_ADDR(x)))
 
 #define PWM_GROUP_MODE_SET_BIT(x)				(8*x)
+#define PWM_GROUP_MODE_SET_MASK(x)				(0x7<< PWM_GROUP_MODE_SET_BIT(x))
 
 #define PWM_GROUP_PWM_ENABLE_BIT(x)				(8*x + 3)
 #define PWM_GROUP_PWM_ENABLE_MASK(x)			(1 <<PWM_GROUP_PWM_ENABLE_BIT(x))
 
 #define PWM_GROUP_PWM_INT_ENABLE_BIT(x)			(8*x + 4)
+#define PWM_GROUP_PWM_INT_ENABLE_MASK(x)		(1<<PWM_GROUP_PWM_INT_ENABLE_BIT(x))
+
 #define PWM_GROUP_PWM_STOP_BIT(x)				(8*x + 5)
+#define PWM_GROUP_PWM_STOP_MASK(x)		        (1<<PWM_GROUP_PWM_STOP_BIT(x))
 
 #define PWM_GROUP_PWM_INT_LEVL_BIT(x)			(8*x + 6)
 #define PWM_GROUP_PWM_INT_LEVL_MASK(x)			(1<< PWM_GROUP_PWM_INT_LEVL_BIT(x))
@@ -112,18 +116,6 @@ UINT32 pwm_ctrl(UINT32 cmd, void *param);
 void pwm_init(void);
 void pwm_exit(void);
 void pwm_isr(void);
-bk_err_t init_pwm_param(pwm_param_t *pwm_param, UINT8 enable);
-bk_err_t pwm_unit_enable(UINT8 ucChannel);
-bk_err_t pwm_unit_disable(UINT8 ucChannel);
-bk_err_t pwm_group_mode_enable(UINT8 ucChannel);
-bk_err_t pwm_group_mode_disable(UINT8 ucChannel);
-bk_err_t pwm_update_param_enable(UINT8 channel);
-bk_err_t pwm_single_update_param_enable(UINT8 channel,UINT32 level);
-bk_err_t pwm_group_update_param_enable(UINT8 channel1,UINT8 channel2);
-bk_err_t pwm_init_levl_set_low(UINT8 ucChannel);
-bk_err_t pwm_init_levl_set_high(UINT8 ucChannel);
-bk_err_t pwm_init_levl_get(UINT8 ucChannel);
-bk_err_t pwm_check_group(UINT32 channel1, UINT32 channel2);
 
 #endif
 #endif //_PWM_H_

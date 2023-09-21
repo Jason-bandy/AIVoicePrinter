@@ -3,7 +3,7 @@
 
 #include "include.h"
 
-#if CFG_WIFI_P2P
+#if (CFG_USE_APP_DEMO_VIDEO_TRANSFER)
 #define APP_DEMO_VIDEO_TRANSFER           1
 #else
 #define APP_DEMO_VIDEO_TRANSFER           0

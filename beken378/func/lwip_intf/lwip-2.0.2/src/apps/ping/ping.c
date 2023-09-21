@@ -142,6 +142,106 @@ static int ping_recv(int s, int *ttl)
     return len;
 }
 
+#if AT_SERVICE_CFG
+extern void atsvr_output_msg(char *msg,unsigned int msg_len);
+int at_ping(char* target_name, uint32_t times, size_t size)
+{
+    int s, ttl=0, recv_len;
+    struct timeval timeout = { PING_RCV_TIMEO / 1000, PING_RCV_TIMEO % 1000 };
+    ip_addr_t target_addr;
+    uint32_t send_times;
+    uint32_t recv_start_tick;
+    struct addrinfo hint, *res = NULL;
+    struct sockaddr_in *h = NULL;
+    struct in_addr ina;
+    int n = 0;
+    char resultbuf[300];
+
+    send_times = 0;
+    ping_seq_num = 0;
+
+    if (size == 0)
+    {
+        size = PING_DATA_SIZE;
+    }
+
+    memset(&hint, 0, sizeof(hint));
+    if (!sta_ip_is_start() && !uap_ip_is_start())
+    {
+        atsvr_output_msg("ping: unknown host\r\n",strlen("ping: unknown host\r\n"));
+        return -1;
+    }
+    /* convert URL to IP */
+    if (lwip_getaddrinfo(target_name, NULL, &hint, &res) != 0)
+    {
+        atsvr_output_msg( "ping: unknown host\r\n",strlen("ping: unknown host\r\n"));
+        return -1;
+    }
+    memcpy(&h, &res->ai_addr, sizeof(struct sockaddr_in *));
+    memcpy(&ina, &h->sin_addr, sizeof(ina));
+    lwip_freeaddrinfo(res);
+    #if (LWIP_IPV6)
+    target_addr.type = IPADDR_TYPE_V4;
+    if (inet_aton(inet_ntoa(ina), &target_addr.u_addr.ip4) == 0)
+    #else
+    if (inet_aton(inet_ntoa(ina), &target_addr) == 0)
+    #endif
+    {
+        atsvr_output_msg("ping: unknown host\r\n",strlen("ping: unknown host\r\n"));
+        return -1;
+    }
+    /* new a socket */
+    if ((s = lwip_socket(AF_INET, SOCK_RAW, IP_PROTO_ICMP)) < 0)
+    {
+        atsvr_output_msg("ping: create socket failed\r\n",strlen("ping: create socket failed\r\n"));
+        return -1;
+    }
+
+    lwip_setsockopt(s, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(struct timeval));
+
+    while (1)
+    {
+        if (ping_send(s, &target_addr, size) == ERR_OK)
+        {
+            recv_start_tick = sys_now();
+
+            if ((recv_len = ping_recv(s, &ttl)) >= 0)
+            {
+                //bk_printf("%d bytes from %s icmp_seq=%d ttl=%d time=%d ticks\n", recv_len, inet_ntoa(ina), send_times,
+                //   ttl, sys_now() - recv_start_tick);
+                n = snprintf(resultbuf,sizeof(resultbuf),"%d bytes from %s icmp_seq=%d ttl=%d time=%d ticks\r\n",recv_len, inet_ntoa(ina), send_times,
+                            ttl, sys_now() - recv_start_tick);
+                atsvr_output_msg(resultbuf,n);
+            }
+            else
+            {
+                //bk_printf("From %s icmp_seq=%d timeout\n", inet_ntoa(ina), send_times);
+                n = snprintf(resultbuf,sizeof(resultbuf),"From %s icmp_seq=%d timeout\r\n",inet_ntoa(ina), send_times);
+                atsvr_output_msg(resultbuf,n);
+            }
+        }
+        else
+        {
+            //bk_printf("Send %s - error\n", inet_ntoa(ina));
+            n = snprintf(resultbuf,sizeof(resultbuf),"Send %s - error\r\n",inet_ntoa(ina));
+            atsvr_output_msg(resultbuf,n);
+        }
+
+        send_times++;
+        if (send_times >= times)
+        {
+            /* send ping times reached, stop */
+            break;
+        }
+        sys_msleep(PING_DELAY);
+    }
+
+    lwip_close(s);
+
+    return 0;
+}
+#endif // AT_SERVICE_CFG
+
 int ping(char* target_name, uint32_t times, size_t size)
 {
     int s, ttl=0, recv_len;
@@ -545,7 +645,7 @@ void tcp_client_test_demo(void)
 	}
 
 	rtos_delay_milliseconds(100);
-	close(client_fd); ///¹Ø±Õ¿Í»§¶ËÌ×½Ó×Ö
+	close(client_fd); ///ï¿½Ø±Õ¿Í»ï¿½ï¿½ï¿½ï¿½×½ï¿½ï¿½ï¿½
 	bk_printf("close client_fd:%d\r\n",client_fd);
 }
 

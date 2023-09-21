@@ -11,6 +11,7 @@
 #include "mcu_ps_pub.h"
 #include "mem_pub.h"
 #include "ate_app.h"
+#include "flash_bypass.h"
 
 static const flash_config_t flash_config[] =
 {
@@ -716,6 +717,27 @@ static UINT32 flash_read_otp(flash_otp_t *param)
 
 	return read_len;
 }
+
+static int flash_read_uid(flash_otp_t *param)
+{
+    UINT8 tx_buf[5] = {0x4B, 0x00, 0x00, 0x00, 0x00};
+    UINT8 rx_buf[16] = {0};
+    int ret = 0;
+
+    if((param == NULL) || (param->buf == NULL))
+        return 0;
+
+    ret = flash_bypass_op_read(tx_buf, 5, rx_buf, 16);
+    if(ret > 0)
+    {
+        int cp_len = (int)param->len;
+        if(cp_len > ret)
+            cp_len = ret;
+        os_memcpy(param->buf, rx_buf, cp_len);
+        return cp_len;
+    }
+    return ret;
+}
 #endif
 
 static void flash_write_data(UINT8 *buffer, UINT32 address, UINT32 len)
@@ -1029,10 +1051,10 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
     case CMD_FLASH_READ_MID:
         (*(UINT32 *)parm) = flash_read_mid();
         break;
-		
-	case CMD_FLASH_GET_PROTECT:
-		(*(UINT32 *)parm) = get_flash_protect();
-		break;
+
+    case CMD_FLASH_GET_PROTECT:
+        (*(UINT32 *)parm) = get_flash_protect();
+        break;
 
     case CMD_FLASH_ERASE_SECTOR:
         address = (*(UINT32 *)parm);
@@ -1042,21 +1064,32 @@ UINT32 flash_ctrl(UINT32 cmd, void *parm)
     case CMD_FLASH_SET_HPM:
         flash_set_hpm();
         break;
-	
-	case CMD_FLASH_SET_PROTECT:
-		reg =  (*(UINT32 *)parm);
-		flash_protection_op(FLASH_XTX_16M_SR_WRITE_DISABLE, reg);
-		break;
 
-	case CMD_FLASH_READ_OTP:
+    case CMD_FLASH_SET_PROTECT:
+        reg =  (*(UINT32 *)parm);
+        flash_protection_op(FLASH_XTX_16M_SR_WRITE_DISABLE, reg);
+        break;
+
+    case CMD_FLASH_READ_OTP:
         #if (CFG_SOC_NAME == SOC_BK7238)
-		otp_cfg = (flash_otp_t *)parm;
-		ret = flash_read_otp(otp_cfg);
+        otp_cfg = (flash_otp_t *)parm;
+        ret = flash_read_otp(otp_cfg);
         #else
-		otp_cfg = otp_cfg;
-		ret = FLASH_FAILURE;
+        otp_cfg = otp_cfg;
+        ret = FLASH_FAILURE;
         #endif
-		break;
+        break;
+
+    case CMD_FLASH_GET_UID:
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        otp_cfg = (flash_otp_t *)parm;
+        ret = flash_read_uid(otp_cfg);
+        #else
+        otp_cfg = otp_cfg;
+        ret = FLASH_FAILURE;
+        #endif
+        break;
+
     default:
         ret = FLASH_FAILURE;
         break;

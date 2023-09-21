@@ -123,8 +123,10 @@ OSStatus BkGpioEnableIRQ( bk_gpio_t gpio, bk_gpio_irq_trigger_t trigger, bk_gpio
 
 OSStatus BkGpioDisableIRQ( bk_gpio_t gpio )
 {
+    UINT32 param = gpio;
+
     BkGpioAssert(gpio);
-    return sddev_control(GPIO_DEV_NAME, CMD_GPIO_INT_DISABLE, &gpio);
+    return sddev_control(GPIO_DEV_NAME, CMD_GPIO_INT_DISABLE, &param);
 }
 
 OSStatus BKGpioOp(char cmd, uint32_t id, char mode)

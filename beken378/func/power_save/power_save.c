@@ -31,6 +31,8 @@
 #include "phy_trident.h"
 #include "mcu_ps.h"
 #include "calendar_pub.h"
+#include "bk_timer.h"
+#include "bk_timer_pub.h"
 
 
 /* Forward Declaration */
@@ -217,6 +219,7 @@ bool power_save_sleep(void)
 
 #if (1 == CFG_LOW_VOLTAGE_PS)
 	/* disable radio controller */
+	lv_ps_rf_pre_pwr_down = 1;
 	rc_cntl_stat_set(0x00); //7011
 #if (1 == CFG_LOW_VOLTAGE_PS_TEST)
 	lv_ps_info_rf_sleep(1);
@@ -237,6 +240,7 @@ bool power_save_sleep(void)
 
 #if (1 == CFG_LOW_VOLTAGE_PS)
 		rc_cntl_stat_set(0x09); //7011
+		lv_ps_rf_pre_pwr_down = 0;
 #if (1 == CFG_LOW_VOLTAGE_PS_TEST)
 		lv_ps_info_rf_wakeup(1);
 #endif
@@ -282,6 +286,7 @@ bool power_save_sleep(void)
 		rtos_unlock_scheduling();
 	}
 #endif
+
 	GLOBAL_INT_RESTORE();
 	return true;
 }
@@ -377,12 +382,22 @@ static UINT8 power_save_set_all_vif_prevent_sleep(UINT32 prevent_bit)
 		if (vif_entry->active && vif_entry->type == VIF_STA) {
 			vif_entry->prevent_sleep |= prevent_bit;
 			#if (NX_HW_PARSER_TIM_ELEMENT)
-			if (PS_HW_TIM_ALLOWED && (lvc_calc_g_bundle_ready()))
+			if (PS_HW_TIM_ALLOWED)
 			{
-				LV_PSC_PRT("%d ", power_save_get_hw_tim_cnt());
-				nxmac_ack_tim_set_clearf(1);
-				nxmac_gen_int_enable_set(nxmac_gen_int_enable_get() | NXMAC_TIM_SET_BIT);
-				lvc_apply_clock_drift_tim();
+				if(((mcu_ps_is_on())&&(lvc_calc_g_bundle_ready()))
+					||((!mcu_ps_is_on())&&(lv_ps_wake_up_way != PS_DEEP_WAKEUP_GPIO)))
+				{
+					LV_PSC_PRT("%d ", power_save_get_hw_tim_cnt());
+					nxmac_ack_tim_set_clearf(1);
+					nxmac_gen_int_enable_set(nxmac_gen_int_enable_get() | NXMAC_TIM_SET_BIT);
+					lvc_apply_clock_drift_tim();
+				}
+				else if((!mcu_ps_is_on()) && (lv_ps_wake_up_way == PS_DEEP_WAKEUP_GPIO))
+				{
+					lv_ps_force_software_beacon();
+					lv_ps_wake_up_way = PS_DEEP_WAKEUP_NULL;
+				}
+					
 			}
 			#endif
 		}
@@ -416,8 +431,11 @@ static UINT8 power_save_clr_all_vif_prevent_sleep(UINT32 prevent_bit)
  */
 static void power_save_wkup_wait_idle_int_cb ( void )
 {
+
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
     #if (1 == CFG_LOW_VOLTAGE_PS)
+        if(lv_ps_rf_reinit)
+            return;
         #if (CFG_SOC_NAME == SOC_BK7231N)
         sctrl_fix_dpll_div();
         #endif
@@ -427,8 +445,14 @@ static void power_save_wkup_wait_idle_int_cb ( void )
         extern void lv_ps_info_rf_ready(void);
         lv_ps_info_rf_ready();
         #endif
+        lv_ps_rf_reinit = 1;
     #endif
 #endif
+}
+
+void power_save_ble_lv_cb(void)
+{
+    power_save_wkup_wait_idle_int_cb();
 }
 
 #if CFG_SUPPORT_BLE
@@ -444,6 +468,14 @@ void power_save_wakeup(void)
 	 * may set to TRUE if wait timer is not enabled.
 	 */
 	bk_ps_info.waited_beacon = STA_GET_FALSE;
+
+#if (1 == CFG_LOW_VOLTAGE_PS)
+	if (1 == lv_ps_rf_pre_pwr_down)
+	{
+		rc_cntl_stat_set(0x09); //7011
+		lv_ps_rf_pre_pwr_down = 0;
+	}
+#endif
 
 #if CFG_USE_STA_PS
 	/* wakeup rf first */
@@ -506,7 +538,6 @@ static void power_save_ieee_dtim_wakeup(void)
 
 #if (1==CFG_LV_PS_WITH_IDLE_TICK)
 		lv_ps_wakeup_set_timepoint();
-		lv_ps_clear_anchor_point();
 #endif
 
 		if (!bk_ps_info.ps_real_sleep)
@@ -523,6 +554,8 @@ static void power_save_ieee_dtim_wakeup(void)
 #if PS_USE_KEEP_TIMER
 
 #if (1 == CFG_LOW_VOLTAGE_PS)
+		// lv_ps_wakeup_wifi = 1;
+
 		if (( !power_save_if_sleep_first() ) && (mcu_ps_is_on())) {
 			bmsg_ps_sender ( PS_BMSG_IOCTL_RF_PS_TIMER_INIT );
 		}
@@ -1055,12 +1088,18 @@ UINT32 power_save_wait_get(void)
 #if PS_USE_KEEP_TIMER
 void power_save_keep_timer_stop ( void )
 {
-	OSStatus err;
 	GLOBAL_INT_DECLARATION();
+#if ( 1 == CFG_LOW_VOLTAGE_PS)
+	UINT32 timer_channel;
+	timer_channel = BKTIMER5;
+	bk_timer_ctrl(CMD_TIMER_UNIT_DISABLE,&timer_channel);
+#else
+	OSStatus err;
 	if (rtos_is_oneshot_timer_running(&ps_keep_timer)) {
 		err = rtos_stop_oneshot_timer(&ps_keep_timer);
 		ASSERT(kNoErr == err);
 	}
+#endif
 
 	GLOBAL_INT_DISABLE();
 	ps_keep_timer_status = 0;
@@ -1077,13 +1116,30 @@ void power_save_keep_timer_real_handler(void)
 	GLOBAL_INT_DISABLE();
 
 	if ( ( PS_STA_DTIM_SWITCH )
-		&& bk_ps_info.ps_arm_wakeup_way == PS_ARM_WAKEUP_RW
+		&& ((bk_ps_info.ps_arm_wakeup_way == PS_ARM_WAKEUP_RW)
+#if (1 == CFG_LOW_VOLTAGE_PS)
+		|| (bk_ps_info.ps_arm_wakeup_way == PS_ARM_WAKEUP_USER)
+#endif
+		)
 		&& 0 == bk_ps_info.ps_real_sleep ) {
 		{
 #if (1 == CFG_LOW_VOLTAGE_PS)
+			power_save_keep_timer_stop();
+
 			bk_ps_info.ps_arm_wakeup_way = PS_ARM_WAKEUP_USER;
-			power_save_clr_all_vif_prevent_sleep((UINT32)(PS_VIF_WAITING_BCN));
 			ps_bcn_loss_max_count ++;
+			if(ps_bcn_loss_max_count < PS_BCN_MAX_LOSS_LIMIT)
+			{
+				power_save_clr_all_vif_prevent_sleep((UINT32)(PS_VIF_WAITING_BCN));
+			}
+			else if(ps_bcn_loss_max_count == PS_BCN_MAX_LOSS_LIMIT)
+			{
+				os_printf("beacon loss %d, keep wakeup for 200ms more to catch beacon!\r\n",ps_bcn_loss_max_count);
+				/* close hardware tim if beacon loss cnt > 5*/
+				lv_ps_force_software_beacon();
+				ps_bcn_loss_max_count = 0;
+				power_save_set_keep_timer_time(200);
+			}
 
 			lv_ps_beacon_missing_handler();
 #else
@@ -1112,6 +1168,7 @@ void power_save_keep_timer_real_handler(void)
 			}
 #endif
 		}
+
 		GLOBAL_INT_RESTORE();
 		delay(1);
 		PS_DEBUG_PWM_TRIGER;
@@ -1131,7 +1188,7 @@ void power_save_keep_timer_handler(void *data)
 
 void power_save_set_keep_timer_time ( UINT32 time )
 {
-	if ( time >= 0 && time < 100 ) {
+	if ( time >= 0 && time < 500 ) {
 		GLOBAL_INT_DECLARATION();
 		GLOBAL_INT_DISABLE();
 #if(CFG_LV_PS_WITH_IDLE_TICK == 1)
@@ -1148,16 +1205,22 @@ void power_save_set_keep_timer_time ( UINT32 time )
 
 void power_save_keep_timer_init ( void )
 {
+#if ( 1 == CFG_LOW_VOLTAGE_PS)
+	timer_param_t param;
+	param.channel = BKTIMER5;
+	param.div = 1;              //timer0 timer1 timer2 26M // timer4 timer5 32K (n+1) division
+	param.period = ps_keep_timer_period;
+	param.t_Int_Handler= (TFUNC)power_save_keep_timer_real_handler;
+	UINT32 timer_channel;
+	timer_channel = param.channel;
+	bk_timer_ctrl(CMD_TIMER_INIT_PARAM,&param);
+	bk_timer_ctrl(CMD_TIMER_UNIT_ENABLE,&timer_channel);
+	ps_keep_timer_status = 1;
+#else
 	UINT32 err;
 
 	if ( rtos_is_oneshot_timer_init ( &ps_keep_timer ) )
 	{
-#if ( 1 == CFG_LOW_VOLTAGE_PS)
-		power_save_keep_timer_set();
-		err = rtos_change_period_1( &ps_keep_timer ,ps_keep_timer_period);
-		ASSERT ( kNoErr == err );
-		return ;
-#endif
 		power_save_keep_timer_stop();
 		err = rtos_deinit_oneshot_timer ( &ps_keep_timer );
 		ASSERT ( kNoErr == err );
@@ -1173,6 +1236,7 @@ void power_save_keep_timer_init ( void )
 		                        NULL );
 		ASSERT ( kNoErr == err );
 	}
+#endif
 }
 
 void power_save_keep_timer_set ( void )
@@ -1294,6 +1358,15 @@ void power_save_beacon_state_update(void)
 #if PS_USE_KEEP_TIMER
 		ps_bcn_loss_max_count = 0;
 #endif
+#if ( 1 == CFG_LOW_VOLTAGE_PS)
+	if (1 == ps_keep_timer_status)
+		power_save_keep_timer_stop();
+
+	if (0 == ps_keep_timer_flag) {
+		PS_DBG("@%d ", __LINE__);
+		ps_run_td_timer(0);
+	}
+#else
 		if (platform_is_in_interrupt_context() != RTOS_SUCCESS) {
 			if (1 == ps_keep_timer_status)
 				//bmsg_ps_sender(PS_BMSG_IOCTL_RF_KP_STOP);
@@ -1303,6 +1376,7 @@ void power_save_beacon_state_update(void)
 				ps_run_td_timer(0);
 			}
 		}
+#endif
 	}
 }
 

@@ -68,6 +68,7 @@ extern void wifi_get_mac_address(char *mac, u8 type);
 extern void *net_get_netif_handle(uint8_t iface);
 
 extern int bmsg_tx_sender(struct pbuf *p, uint32_t vif_idx);
+extern int hostapd_scan_started;
 
 //#define MINI_DUMP
 //#define ETH_RX_DUMP
@@ -472,10 +473,18 @@ static int wlan_scan_done_handler(struct rt_wlan_scan_result **ppscan_result)
 	int i;
 
 	ap_list.ApList = 0;
-	if (wlan_sta_scan_result(&ap_list)) {
-		ret = -RT_ERROR;
-		rt_kprintf("failed to get scan result\r\n");
-		goto out;
+	if (bk_wlan_ap_is_up() > 0 || hostapd_scan_started) {
+		if (wlan_ap_scan_result(&ap_list)) {
+			ret = -RT_ERROR;
+			rt_kprintf("failed to get scan result\r\n");
+			goto out;
+		}
+	} else {
+		if (wlan_sta_scan_result(&ap_list)) {
+			ret = -RT_ERROR;
+			rt_kprintf("failed to get scan result\r\n");
+			goto out;
+		}
 	}
 
 	scan_rst_ap_num = ap_list.ApNum;

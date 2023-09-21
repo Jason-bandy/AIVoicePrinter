@@ -32,9 +32,9 @@
 #define FREERTOS_V10                               2
 #define CFG_FREERTOS_VER                           FREERTOS_V9
 
-#define ENC_METHOD_NULL                        1
-#define ENC_METHOD_XOR                         2
-#define ENC_METHOD_AES                         3
+#define ENC_METHOD_NULL                            1
+#define ENC_METHOD_XOR                             2
+#define ENC_METHOD_AES                             3
 
 #define FAST_CONNECT_INFO_ENC_METHOD               ENC_METHOD_NULL
 
@@ -80,6 +80,8 @@
  * CFG_AP_SUPPORT_HT_IE must be enabled to support N mode
  */
 #define CFG_WIFI_AP_HW_MODE                        0
+/* repush txdesc when txl_reset happens */
+#define CFG_WIFI_REPUSH_WHEN_RESET                 0
 
 #define CfG_MACRO_MAYBE_UNUSED                     1
 #if CfG_MACRO_MAYBE_UNUSED
@@ -150,8 +152,8 @@
 #define FOR_SDIO_BLK_512                           0
 #endif
 
-#define CFG_MSDU_RESV_HEAD_LEN                    96
-#define CFG_MSDU_RESV_TAIL_LEN                    16
+#define CFG_MSDU_RESV_HEAD_LEN                     96
+#define CFG_MSDU_RESV_TAIL_LEN                     16
 
 #define CFG_PCM_RESAMPLER                          1
 
@@ -159,8 +161,8 @@
 #define CFG_USE_USB_HOST                           1
 #define CFG_USE_USB_DEVICE                         0
 
-#define USE_USB1_PORT		1
-#define USE_USB2_PORT		2
+#define USE_USB1_PORT		                        1
+#define USE_USB2_PORT		                        2
 #define CFG_USE_USB_PORT	USE_USB1_PORT
 
 #if CFG_USB
@@ -170,7 +172,7 @@
 #endif
 
 #if CFG_USE_USB_DEVICE
-#define CFG_USE_USB_DEVICE_CARD_READER              1
+#define CFG_USE_USB_DEVICE_CARD_READER             1
 #endif
 
 #if CFG_USB
@@ -295,9 +297,9 @@
 #define CFG_USE_SDCARD_HOST                        0
 
 //select SD or SD1
-#define SD_HOST_INTF                                0
-#define SD1_HOST_INTF                               1
-#define CFG_SD_HOST_INTF                            SD_HOST_INTF
+#define SD_HOST_INTF                               0
+#define SD1_HOST_INTF                              1
+#define CFG_SD_HOST_INTF                           SD_HOST_INTF
 
 /*section 20 ----- support mp3 decoder*/
 #define CONFIG_APP_MP3PLAYER                       0
@@ -423,12 +425,12 @@
 #define CFG_FLASH_SELECTION_TYPE                   FLASH_SELECTION_TYPE_8M
 
 /*section 29 -----  peripheral interface open  */
-#define CFG_USE_I2C1                                1
-#define CFG_USE_I2C2                                0
+#define CFG_USE_I2C1                               1
+#define CFG_USE_I2C2                               0
 
 /*section 30 ----- peripheral interface test case */
-#define CFG_PERIPHERAL_TEST							0
-#define CFG_SUPPORT_SPI_TEST                        0
+#define CFG_PERIPHERAL_TEST                        0
+#define CFG_SUPPORT_SPI_TEST                       0
 
 /* watchdog, freertos only */
 #define CFG_INT_WDG_ENABLED                        1

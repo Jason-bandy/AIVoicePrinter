@@ -356,7 +356,7 @@ void *net_sock_to_interface(int sock)
 
 void net_send_gratuitous_arp(void)
 {
-	etharp_gratuitous(&g_mlan.netif);
+	etharp_reply();
 }
 
 void *net_get_sta_handle(void)

@@ -2,6 +2,7 @@
 #define _SCTRL_PUB_H_
 
 #include "start_type_pub.h"
+#include "mcu_ps_pub.h"
 
 #define SCTRL_DEV_NAME       "sys_ctrl"
 
@@ -68,11 +69,11 @@ enum
     CMD_BLE_RF_BIT_SET,
     CMD_BLE_RF_BIT_CLR,
     CMD_BLE_RF_BIT_GET,
-	#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
-
-	CMD_BLE_RF_PTA_EN,
-	CMD_BLE_RF_PTA_DIS,
-	#endif
+    #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238)
+    CMD_BLE_RF_PTA_EN,
+    CMD_BLE_RF_PTA_DIS,
+    CMD_BLE_RF_PTA_GET,
+    #endif
     CMD_EFUSE_WRITE_BYTE,
     CMD_EFUSE_READ_BYTE,
     CMD_GET_SCTRL_RETETION,
@@ -230,6 +231,7 @@ enum
 #define DEFAULT_TXID_XTAL                        (0x70)
 #else
 #define DEFAULT_TXID_XTAL_C                      (0x0C)//(12)
+#define DEFAULT_TXID_XTAL_P                      (0x1E)//(30)
 #define DEFAULT_TXID_XTAL                        (0x26)//(38)
 #endif
 #elif (CFG_SOC_NAME == SOC_BK7221U)
@@ -403,6 +405,10 @@ extern void sctrl_reboot_with_deep_sleep(UINT32 sleep_ms);
 extern int bk_init_deep_wakeup_gpio_status(void);
 extern uint32_t bk_save_deep_get_wakeup_gpio_status(void);
 extern void bk_save_deep_set_wakeup_gpio_status(uint32_t wakeup_gpio_num);
+extern bool sctrl_set_gpio_wakeup_index(UINT8 gpio_index, WAKEUP_GPIO_TYPE gpio_type);
+#if CFG_USE_FORCE_LOWVOL_PS
+extern int bk_get_lv_sleep_wakeup_gpio_status(void);
+#endif
 
 #endif // _SCTRL_PUB_H_
 

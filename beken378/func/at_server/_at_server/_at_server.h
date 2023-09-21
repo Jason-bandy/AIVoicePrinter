@@ -78,6 +78,8 @@ extern int _atsvr_input_msg_analysis_handler(_atsvr_env_t *env,char *msg,unsigne
 
 extern void _atsvr_notice_ready(_atsvr_env_t *env);
 extern void _atsvr_cmd_analysis_notice_error(_atsvr_env_t *env);
+extern void _atsvr_cmd_rsp_passthrough(_atsvr_env_t *env);
+extern void _atsvr_cmd_rsp_busy(_atsvr_env_t *env);
 extern void _atsvr_cmd_rsp_ok(_atsvr_env_t *env);
 extern void _atsvr_cmd_rsp_error(_atsvr_env_t *env);
 extern void _atsvr_output_msg(_atsvr_env_t *env,char *msg,unsigned int msg_len);

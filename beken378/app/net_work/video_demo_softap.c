@@ -205,7 +205,7 @@ static void app_demo_softap_rw_event_func(void *new_evt)
 static void app_demo_softap_start_http_ota(int ota_param)
 {
 #define HTTP_RESP_CONTENT_LEN   (256)
-#define HTTPS_DEF_URL               "url://192.168.1.100/beken7231_fullcode.rbl"
+#define HTTPS_DEF_URL               "url://192.168.1.100/bk7231_fullcode.rbl"
 #define HTTPS_DEF_PORT              (80)
 #define HTTPS_DEF_TIMEOUT_MS        (5000)
 

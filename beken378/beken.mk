@@ -43,7 +43,8 @@ $(NAME)_INCLUDES := app/standalone-ap \
 					func/video_transfer \
 					func/user_driver \
 					func/force_sleep \
-					func/ble_wifi_exchange
+					func/ble_wifi_exchange \
+					driver/ble/ble_5_1/platform/7231n/entry
 
 $(NAME)_INCLUDES += ip/ke \
 					ip/mac \

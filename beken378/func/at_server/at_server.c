@@ -1,6 +1,7 @@
 #include "at_server.h"
 #include "_at_server.h"
 #include "_atsvr_func.h"
+#include "rtos_pub.h"
 
 
 _at_svr_ctrl_env_t _at_svr_env = {
@@ -41,6 +42,17 @@ void atsvr_cmd_rsp_ok(void)
 {
 	_atsvr_cmd_rsp_ok(&_at_svr_env);
 }
+
+void atsvr_cmd_rsp_passthrough(void)
+{
+	_atsvr_cmd_rsp_passthrough(&_at_svr_env);
+}
+
+void atsvr_cmd_rsp_busy(void)
+{
+	_atsvr_cmd_rsp_busy(&_at_svr_env);
+}
+
 
 void atsvr_cmd_rsp_error(void)
 {
@@ -126,7 +138,38 @@ unsigned int atsvr_input_msg_get(char *data,unsigned int data_len)
 	return length;
 }
 
+unsigned int atsvr_input_msg_get_block(char *data,unsigned int data_len)
+{
+	unsigned int length=0 ;
+	while(length < data_len)
+	{
+		length +=_atsvr_input_msg_get(&_at_svr_env,&data[length],data_len);
+		rtos_delay_milliseconds(10);
+	}
+	data[length-1]='\0';
+	return length;
+}
 
+unsigned int atsvr_input_msg_get_block_one(char *data,unsigned int data_len)
+{
+	unsigned int length=0 ;
+	unsigned int totallength=0 ;
+	while(length < data_len)
+	{
+		length +=_atsvr_input_msg_get(&_at_svr_env,&data[length],data_len - length);
+		if(totallength > 0 && totallength == length)
+		{
+			break;
+		}
+		totallength = length;
+		rtos_delay_milliseconds(10);
+	}
+	data[data_len-1]='\0';
+	return data_len;
+
+}
+
+#if CFG_USE_DEFUALT_CMD
 void atsvr_def_cmd_init(void)
 {
 	_atsvr_def_cmd_init(&_at_svr_env);
@@ -136,4 +179,5 @@ void at_server_init(void)
 {
 	_atsvr_def_config(&_at_svr_env);
 }
+#endif
 

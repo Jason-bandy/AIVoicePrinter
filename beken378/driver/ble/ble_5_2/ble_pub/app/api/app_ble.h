@@ -334,6 +334,8 @@ actv_state_t app_ble_actv_state_get(uint8_t actv_idx);
 uint8_t app_ble_get_idle_conn_idx_handle(void);
 uint8_t app_ble_find_conn_idx_handle(uint16_t conhdl);
 uint8_t app_ble_find_actv_idx_handle(uint16_t gap_actv_idx);
+uint8_t app_ble_actv_state_find(uint8_t status);
+
 uint8_t app_ble_get_connhdl(int conn_idx);
 void app_ble_run(uint8_t idx, ble_cmd_t cmd, uint32_t op_mask, ble_cmd_cb_t callback);
 void app_ble_reset(void);
@@ -352,7 +354,7 @@ ble_err_t app_ble_create_scaning(uint8_t actv_idx);
 ble_err_t app_ble_start_scaning(uint8_t actv_idx, uint16_t scan_intv, uint16_t scan_wd);
 ble_err_t app_ble_stop_scaning(uint8_t actv_idx);
 ble_err_t app_ble_delete_scaning(uint8_t actv_idx);
-ble_err_t app_ble_set_le_pkt_size(uint8_t conn_idx);
+ble_err_t app_ble_set_le_pkt_size(uint8_t conn_idx, uint16_t pkt_size);
 ble_err_t app_ble_get_peer_feature(uint8_t conn_idx);
 #ifdef __cplusplus
 extern "C"   ble_err_t app_ble_mtu_get(uint8_t conn_idx, uint16_t *p_mtu);
@@ -361,7 +363,9 @@ ble_err_t app_ble_mtu_get(uint8_t conn_idx, uint16_t *p_mtu);
 #endif
 
 ble_err_t app_ble_mtu_exchange(uint8_t conn_idx);
+ble_err_t app_ble_gap_set_phy(uint8_t conn_idx, ble_set_phy_t * phy_info);
 void app_ble_send_conn_param_update_cfm(uint8_t con_idx,bool accept);
+ble_err_t app_ble_set_pref_slave_evt_dur(uint8_t con_idx, uint8_t duration);
 uint8_t app_ble_get_connect_status(uint8_t con_idx);
 void app_ble_next_operation(uint8_t idx, uint8_t status);
 

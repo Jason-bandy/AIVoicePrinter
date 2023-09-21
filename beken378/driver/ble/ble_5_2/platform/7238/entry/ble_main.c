@@ -38,6 +38,9 @@
 #include "ate_app.h"
 #include "power_save_pub.h"
 #include "rf.h"
+#if CFG_LOW_VOLTAGE_PS
+#include "low_voltage_ps.h"
+#endif
 
 beken_queue_t ble_msg_que = NULL;
 beken_thread_t ble_thread_handle = NULL;
@@ -108,7 +111,7 @@ void ble_set_power_up(uint32 up)
 	}
 }
 
-void bdaddr_env_init(void)
+void bdaddr_env_init(uint8_t addr_type, struct bd_addr *addr)
 {
 	uint8_t sta_mac[BD_ADDR_LEN];
 	uint8_t *ble_mac = &common_default_bdaddr.addr[0];
@@ -121,6 +124,13 @@ void bdaddr_env_init(void)
 	}
 	bk_printf("ble mac:%02x-%02x-%02x-%02x-%02x-%02x\r\n",
 		ble_mac[5], ble_mac[4], ble_mac[3], ble_mac[2], ble_mac[1], ble_mac[0]);
+
+	if (addr_type == ADDR_RAND) {
+		ble_mac = &common_static_addr.addr[0];
+		memcpy(ble_mac, &addr->addr[0], BD_ADDR_LEN);
+		bk_printf("ble static addr:%02x-%02x-%02x-%02x-%02x-%02x\r\n",
+			ble_mac[5], ble_mac[4], ble_mac[3], ble_mac[2], ble_mac[1], ble_mac[0]);
+	}
 }
 
 void ble_sys_mode_init(uint8_t mode)
@@ -374,7 +384,7 @@ void ble_thread_main(void *arg)
 		ble_sys_mode_init(NORMAL_MODE);
 	}
 
-	bdaddr_env_init();
+	bdaddr_env_init(ADDR_PUBLIC, NULL);
 
 	ble_uart_init();
 
@@ -419,7 +429,12 @@ void ble_thread_exit(void)
     if (ble_thread_handle || ble_msg_que) {
         if(if_ble_sleep()) {
             rwip_prevent_sleep_set(RW_BLE_ACTIVE_MODE);
+            #if CFG_LOW_VOLTAGE_PS
+            lv_ps_element_bt_del();
+            lv_ps_bt_wakeup();
+            #else
             ble_set_ext_wkup(1);
+            #endif
             while(if_ble_sleep()) {
                 rtos_delay_milliseconds(4);
             }
@@ -577,18 +592,22 @@ UINT32 ble_in_dut_mode(void)
 
 void bk_ble_request_rf(void)
 {
-	#if CFG_USE_PTA
-	power_save_rf_hold_bit_set(RF_HOLD_BY_BLE_BIT);
-	bk7011_set_rx_hpf_bypass(1);
-	#endif
+    if (ble_coex_pta_is_on()) {
+        power_save_rf_hold_bit_set(RF_HOLD_BY_BLE_BIT);
+        bk7011_set_rx_hpf_bypass(1);
+        #if (CFG_LOW_VOLTAGE_PS)
+        extern void power_save_ble_lv_cb(void);
+        power_save_ble_lv_cb();
+        #endif
+    }
 }
 
 void bk_ble_release_rf(void)
 {
-	#if CFG_USE_PTA
-	bk7011_set_rx_hpf_bypass(0);
-	power_save_rf_hold_bit_clear(RF_HOLD_BY_BLE_BIT);
-	#endif
+    if (ble_coex_pta_is_on()) {
+        bk7011_set_rx_hpf_bypass(0);
+        power_save_rf_hold_bit_clear(RF_HOLD_BY_BLE_BIT);
+    }
 }
 
 const struct rwip_eif_api* rwip_eif_get(uint8_t idx)
@@ -620,5 +639,22 @@ UINT32 ble_ps_enabled(void )
     value =  ble_sleep_enable;
     GLOBAL_INT_RESTORE();
     return value;
+}
+
+void ble_coex_set_pta(bool enable)
+{
+	if (enable) {
+		sctrl_ctrl(CMD_BLE_RF_PTA_EN,NULL);
+	} else {
+		sctrl_ctrl(CMD_BLE_RF_PTA_DIS,NULL);
+	}
+}
+
+bool ble_coex_pta_is_on(void)
+{
+    uint32_t value;
+    sctrl_ctrl(CMD_BLE_RF_PTA_GET,&value);
+
+    return value ? true : false;
 }
 

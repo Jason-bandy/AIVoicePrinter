@@ -46,10 +46,10 @@
 #define CFG_GAIA
 #define CFG_PRF
 #define CFG_EXT_ADV
-//#define CFG_PHY_UPD
-//#define CFG_SMP
-//#define CFG_SMP_SEC_CON
-//#define CFG_SMP_RPA
+#define CFG_PHY_UPD
+#define CFG_SMP
+#define CFG_SMP_SEC_CON
+#define CFG_SMP_RPA
 //#define CFG_EATT
 //#define CFG_CLK_ACC
 //#define CFG_PER_SYNC
@@ -72,6 +72,7 @@
 
 #if (CFG_BLE_SCAN_NUM)
 #define CFG_OBSERVER
+#define BK_BLE_SCAN_CHECK_LENGTH	1
 #endif
 
 #if (CFG_BLE_ADV_NUM)
@@ -84,12 +85,6 @@
 
 #if ((CFG_BLE_INIT_NUM) && (CFG_BLE_CONN_NUM))
 #define CFG_ALLROLES
-#endif
-
-#if (CFG_BLE_INIT_NUM)
-#define CFG_INIT_ENABLE		1
-#else
-#define CFG_INIT_ENABLE		0
 #endif
 
 #if defined(CFG_SMP)
@@ -968,7 +963,7 @@ enum KERNEL_TASK_TYPE
     // allocate a certain number of profiles task
     TASK_BLE_PRF_MAX = (TASK_BLE_GAPC + BLE_NB_PROFILES),
     #endif // (BLE_HL_MSG_API)
-    #if (CFG_INIT_ENABLE)
+    #if (BLE_GATT_CLI)
     TASK_BLE_SDP,
     #endif
 #endif // (BLE_HOST_PRESENT)

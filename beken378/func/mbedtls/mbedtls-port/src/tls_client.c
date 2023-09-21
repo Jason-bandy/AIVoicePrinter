@@ -43,7 +43,8 @@ static void my_debug( void *ctx, int level,
     ((void) level);
 
    // mbedtls_fprintf( (FILE *) ctx, "%s:%04d: %s", file, line, str );
-    ///fflush(  (FILE *) ctx  );
+    ///fflush(  (FILE *) ctx  );
+
     bk_printf("[mbed]%s:%04d: %s\r\n", file, line, str);
 }
 #endif 

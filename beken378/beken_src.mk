@@ -332,12 +332,19 @@ endif
 
 
 ifeq ($(ATSVR_CFG),1)
-INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/
+#INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/include
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/mqtt
 INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/_at_server
 INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/_at_server_port
 INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/at_server_func
 INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/atsvr_cmd
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/network
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/atsvr_net_cmd
+INCLUDES += -I$(ROOT_DIR)/beken378/func/at_server/atsvr_airkiss_cmd
 endif
+INCLUDES += -I$(ROOT_DIR)/beken378/func/ntp
+INCLUDES += -I$(ROOT_DIR)/beken378/func/rtc
 
 # -------------------------------------------------------------------
 # Source file list
@@ -418,6 +425,10 @@ SRC_C += ./beken378/app/http/utils_httpc.c
 SRC_C += ./beken378/app/http/utils_net.c
 SRC_C += ./beken378/app/http/utils_timer.c
 SRC_C += ./beken378/app/http/lite-log.c
+SRC_FUNC_C += ./beken378/func/ntp/ntp.c
+SRC_FUNC_C += ./beken378/func/rtc/rtc.c
+SRC_FUNC_C += ./beken378/func/rtc/soft_rtc.c
+SRC_FUNC_C += ./beken378/func/rtc/rtc_time.c
 
 SRC_WPA_C += ./beken378/func/hostapd_intf/hostapd_intf.c
 ifeq ($(CFG_USE_SDCARD_HOST),1)
@@ -608,7 +619,7 @@ SRC_DRV_C += ./beken378/driver/spi/spi_slave.c
 SRC_FUNC_C += ./beken378/func/sd_music/sdcard_test.c
 endif
 
-# For BK7231u
+# For BK7231U
 ifeq ($(CFG_SOC_NAME), 2)
 SRC_DRV_C += ./beken378/driver/spi/spi.c
 SRC_DRV_C += ./beken378/driver/spi/spi_master.c
@@ -902,11 +913,48 @@ SRC_FUNC_C += ./beken378/func/at_server/_at_server_port/atsvr_core.c
 SRC_FUNC_C += ./beken378/func/at_server/_at_server_port/atsvr_port.c
 SRC_FUNC_C += ./beken378/func/at_server/atsvr_cmd/atsvr_cmd.c
 SRC_FUNC_C += ./beken378/func/at_server/atsvr_cmd/atsvr_wlan.c
+SRC_FUNC_C += ./beken378/func/at_server/atsvr_cmd/atsvr_ble.c
 SRC_FUNC_C += ./beken378/func/at_server/atsvr_cmd/atsvr_misc.c
+
+SRC_FUNC_C += ./beken378/func/at_server/atsvr_http_cmd/atsvr_http_cmd.c
+SRC_FUNC_C += ./beken378/func/at_server/atsvr_airkiss_cmd/atsvr_airkiss_cmd.c
+SRC_FUNC_C += ./beken378/func/at_server/atsvr_airkiss_cmd/ble_config.c
+
+
 SRC_FUNC_C += ./beken378/func/at_server/_at_server/_at_server.c
-SRC_FUNC_C += ./beken378/func/at_server/_at_server/_at_server_port.c
 SRC_FUNC_C += ./beken378/func/at_server/at_server_func/_atsvr_func.c
 SRC_FUNC_C += ./beken378/func/at_server/at_server.c
+SRC_FUNC_C += ./beken378/func/at_server/atsvr_comm.c
+SRC_FUNC_C += ./beken378/func/at_server/network/network_interface.c
+SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_TCP_lwip.c
+SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_UDP_lwip.c
+SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_TLS_mbedtls.c
+SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_freertos.c
+SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_DTLS_mbedtls.c
+#SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_Device_freertos.c
+#SRC_FUNC_C += ./beken378/func/at_server/network/net_hal/HAL_Device_bk_flash.c
+SRC_FUNC_C += ./beken378/func/at_server/atsvr_net_cmd/atsvr_net_cmd.c
+SRC_FUNC_C += ./beken378/func/at_server/network/network_app.c
+SRC_FUNC_C += ./beken378/func/at_server/network/network_tls.c
+SRC_FUNC_C += ./beken378/func/at_server/network/network_socket.c
+SRC_FUNC_C += ./beken378/func/at_server/utils/utils_base64.c
+
+SRC_FUNC_C += ./beken378/func/at_server/utils/utils_sha1.c
+SRC_FUNC_C += ./beken378/func/at_server/utils/utils_ringbuff.c
+SRC_FUNC_C += ./beken378/func/at_server/utils/utils_md5.c
+SRC_FUNC_C += ./beken378/func/at_server/utils/utils_list.c
+
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/qcloud_at_mqtt.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_common.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_connect.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_net.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_publish.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_subscribe.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_unsubscribe.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/mqtt_client_yield.c
+SRC_FUNC_C += ./beken378/func/at_server/mqtt/atsvr_mqtt_cmd.c
+
 endif
 
 ifeq ($(CFG_WRAP_LIBC),1)

@@ -14,45 +14,9 @@
 #include "rtos_pub.h"
 #include "generic.h"
 #include "param_config.h"
-
-typedef struct{
-	unsigned dhcp : 1;
-	unsigned station_status : 1;
-#define STATION_UP     1
-#define STATION_DOWN   0
-	unsigned softap_status : 1;
-#define SOFTAP_UP     1
-#define SOFTAP_DOWN   0
-
-	unsigned char static_ip[16];
-	unsigned char static_maks[16];
-	unsigned char static_gate[16];
-	unsigned char static_dns1[16];
-	unsigned char static_dns2[16];
-
-	unsigned char softap_ip[16];
-	unsigned char softap_mask[16];
-	unsigned char softap_gate[16];
-	unsigned char softap_dns[16];
-}atsvr_wlan_t;
-
-atsvr_wlan_t atsvr_wlan = {
-	.dhcp = ATSVR_WLAN_STA_DHCP,
-	.station_status = STATION_DOWN,
-	.softap_status = SOFTAP_DOWN,
-	.static_ip = ATSVR_WLAN_STA_DEFAULT_IP,
-	.static_maks = ATSVR_WLAN_STA_DEFAULT_MASK,
-	.static_gate = ATSVR_WLAN_STA_DEFAULT_GW,
-	.static_dns1 = ATSVR_WLAN_STA_DEFAULT_DNS,
-	.static_dns2 = ATSVR_WLAN_STA_DEFAULT_DNS,
-
-	.softap_ip = ATSVR_WLAN_DEFAULT_IP,
-	.softap_mask = ATSVR_WLAN_DEFAULT_MASK,
-	.softap_gate = ATSVR_WLAN_DEFAULT_GW,
-	.softap_dns = ATSVR_WLAN_DEFAULT_DNS,
-};
-
-
+#include "atsvr_comm.h"
+#include "rtc.h"
+#include "ntp.h"
 
 void wlan_get_station_mac_address(char *mac)
 {
@@ -81,14 +45,13 @@ int wlan_start_station_connect(char *my_ssid,char* connect_key)
 		wNetConfig.dhcp_mode = DHCP_CLIENT;
 	}else{
 		ATSVRLOG("DHCP Static ip:%s,maks:%s,gate:%s,dns1:%s,dns2:%s\r\n",
-			atsvr_wlan.static_ip,atsvr_wlan.static_maks, atsvr_wlan.static_gate, 
-			atsvr_wlan.static_dns1, atsvr_wlan.static_dns2);
+			g_env_param.stainfo.sta_local_ip, g_env_param.stainfo.sta_mask, g_env_param.stainfo.sta_gate,
+			g_env_param.dnsinfo.dns1, g_env_param.dnsinfo.dns2);
 		wNetConfig.dhcp_mode = DHCP_DISABLE;
-		strncpy((char*)wNetConfig.local_ip_addr, (char *)atsvr_wlan.static_ip,16);
-		strncpy((char*)wNetConfig.net_mask, (char *)atsvr_wlan.static_maks,16);
-		strncpy((char*)wNetConfig.gateway_ip_addr, (char *)atsvr_wlan.static_gate,16);
-		strncpy((char*)wNetConfig.dns_server_ip_addr, (char *)atsvr_wlan.static_dns1,16);
-		///strncpy((char*)wNetConfig.dns2_server_ip_addr, (char *)atsvr_wlan.static_dns2,16);
+		strncpy((char *) wNetConfig.local_ip_addr, (char *) g_env_param.stainfo.sta_local_ip, 16);
+		strncpy((char *) wNetConfig.net_mask, (char *) g_env_param.stainfo.sta_mask, 16);
+		strncpy((char *) wNetConfig.gateway_ip_addr, (char *) g_env_param.stainfo.sta_gate, 16);
+		strncpy((char *) wNetConfig.dns_server_ip_addr, (char *) g_env_param.dnsinfo.dns1, 16);
 	}
 	wNetConfig.wifi_retry_interval = 100;
 	if ( bssid != NULL){
@@ -111,68 +74,51 @@ int wlan_stop_station(void)
 
 void wlan_set_station_dhcp(int en)
 {
-	atsvr_wlan.dhcp = ( en ) ? 1 : 0;
+	g_env_param.stainfo.dhcp = ( en ) ? 1 : 0;
 }
 
 int wlan_get_station_dhcp(void)
 {
-	return ( atsvr_wlan.dhcp != 0 ) ? 1 : 0;
+	return ( g_env_param.stainfo.dhcp != 0 ) ? 1 : 0;
 }
 
-int wlan_set_station_static_ip(char *ip,char *mask,char *gate,char *dns,char *dns2)
+int wlan_set_station_static_ip(char * ip, char * mask, char * gate)
 {
-	strncpy((char *)atsvr_wlan.static_ip,ip,16);
-    strncpy((char *)atsvr_wlan.static_maks,mask,16);
-    strncpy((char *)atsvr_wlan.static_gate,gate,16);
-	if( dns != NULL){
-		strncpy((char *)atsvr_wlan.static_dns1,dns,16);
-	}
-	if( dns != NULL){
-		strncpy((char *)atsvr_wlan.static_dns2,dns2,16);
-	}
-	return 0;
-}
-
-int wlan_set_station_dns(char *dns_ip,char *dns2_ip)
-{
-	if( dns_ip != NULL ) {
-		strncpy((char *)atsvr_wlan.static_dns1,dns_ip,16);
-	}
-	if( dns2_ip != NULL ) {
-		strncpy((char *)atsvr_wlan.static_dns2,dns2_ip,16);
-	}
+	strncpy((char *) g_env_param.stainfo.sta_local_ip, ip, 16);
+	strncpy((char *) g_env_param.stainfo.sta_mask, mask, 16);
+	strncpy((char *) g_env_param.stainfo.sta_gate, gate, 16);
 	return 0;
 }
 
 int wlan_get_station_cur_status(void)
 {
-	return (atsvr_wlan.station_status == STATION_UP) ? 1 : 0;
+	return (g_atsvr_status.station_connect_status == STATION_UP) ? 1 : 0;
 }
 
-int wlan_softap_start(char *ap_ssid, char *ap_key)
+int wlan_softap_start(char * ap_ssid, char * ap_key, int chnnel, int proto, int ssidhidden)
 {
-    network_InitTypeDef_st wNetConfig;
-    int len;
+	network_InitTypeDef_st wNetConfig;
+	int len;
 
-    len = strlen(ap_ssid);
-    if(ATSVR_MAX_SSID_LEN < len) {
-        ATSVRLOG("ssid name more than 32 Bytes\r\n");
-        return -1;
-    }
+	len = strlen(ap_ssid);
+	if(ATSVR_MAX_SSID_LEN < len) {
+		ATSVRLOG("ssid name more than 32 Bytes\r\n");
+		return -1;
+	}
 
 	memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
-    strncpy((char *)wNetConfig.wifi_ssid, ap_ssid,33);
-    strncpy((char *)wNetConfig.wifi_key, ap_key,64);
+	strncpy((char *)wNetConfig.wifi_ssid, ap_ssid,33);
+	strncpy((char *)wNetConfig.wifi_key, ap_key,64);
 
-    wNetConfig.wifi_mode = BK_SOFT_AP;
-    wNetConfig.dhcp_mode = DHCP_SERVER;
-    wNetConfig.wifi_retry_interval = 100;
-    strncpy((char *)wNetConfig.local_ip_addr, (char *)atsvr_wlan.softap_ip,16);
-    strncpy((char *)wNetConfig.net_mask, (char *)atsvr_wlan.softap_mask,16);
-    strncpy((char *)wNetConfig.gateway_ip_addr, (char *)atsvr_wlan.softap_gate,16);
-    strncpy((char *)wNetConfig.dns_server_ip_addr, (char *)atsvr_wlan.softap_dns,16);
+	wNetConfig.wifi_mode = BK_SOFT_AP;
+	wNetConfig.dhcp_mode = DHCP_SERVER;
+	wNetConfig.wifi_retry_interval = 100;
+	strncpy((char *) wNetConfig.local_ip_addr, (char *) g_env_param.apinfo.ap_local_ip, 16);
+	strncpy((char *) wNetConfig.net_mask, (char *) g_env_param.apinfo.ap_mask, 16);
+	strncpy((char *) wNetConfig.gateway_ip_addr, (char *) g_env_param.apinfo.ap_gate, 16);
+	strncpy((char *) wNetConfig.dns_server_ip_addr, (char *) g_env_param.dnsinfo.dns1, 16);
 
-    ATSVRLOG("softap-ssid:%s  |  key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
+	ATSVRLOG("softap-ssid:%s  |  key:%s\r\n", wNetConfig.wifi_ssid, wNetConfig.wifi_key);
 	bk_wlan_start(&wNetConfig);
 	return 0;
 }
@@ -183,26 +129,17 @@ int wlan_stop_softap(void)
 	return 0;
 }
 
-int wlan_set_softap_static_ip(char *ip,char *mask,char *gate,char *dns_ip)
+int wlan_set_softap_static_ip(char * ip, char * mask, char * gate)
 {
-	strncpy((char *)atsvr_wlan.softap_ip,ip,16);
-    strncpy((char *)atsvr_wlan.softap_mask,mask,16);
-    strncpy((char *)atsvr_wlan.softap_gate,gate,16);
-	if(dns_ip  != NULL){
-		strncpy((char *)atsvr_wlan.softap_dns,dns_ip,16);
-	}
-	return 0;
-}
-
-int wlan_set_softap_dns(char *dns_ip)
-{
-	strncpy((char *)atsvr_wlan.softap_dns,dns_ip,16);
+	strncpy((char *) g_env_param.apinfo.ap_local_ip, ip, 16);
+	strncpy((char *) g_env_param.apinfo.ap_mask, mask, 16);
+	strncpy((char *) g_env_param.apinfo.ap_gate, gate, 16);
 	return 0;
 }
 
 int wlan_get_softap_cur_status(void)
 {
-	return (atsvr_wlan.softap_status == SOFTAP_UP) ? 1 : 0;
+	return (g_atsvr_status.softap_connect_status == SOFTAP_UP) ? 1 : 0;
 }
 
 atsvr_wlan_sec_type wlan2atsvr_sec_type(int sec_type)
@@ -260,7 +197,6 @@ int atsvr2wlan_sec_type(atsvr_wlan_sec_type sec_type)
 	}
 	return BK_SECURITY_TYPE_AUTO;
 }
-
 
 static beken_semaphore_t atsvr_scan_sema = NULL;
 
@@ -416,13 +352,13 @@ int atsvr_wlan_scan_ap_result(void)
 			n += sprintf(resultbuf+n,"%s","UNKNOWN");
 			break;
 		}
-        n += sprintf(resultbuf+n,",%d",ATSVR_RSSI2APPOWER(at_scan_rst_table[index].level)); ///RSSI
-        n += sprintf(resultbuf+n,","ATSVR_MACSTR,at_scan_rst_table[index].bssid[0],
-			        at_scan_rst_table[index].bssid[1],at_scan_rst_table[index].bssid[2],
-			        at_scan_rst_table[index].bssid[3],at_scan_rst_table[index].bssid[4],
-			        at_scan_rst_table[index].bssid[5]);
-        n += sprintf(resultbuf+n,",%d\r\n",at_scan_rst_table[index].channel);
-    }
+		n += sprintf(resultbuf+n,",%d",ATSVR_RSSI2APPOWER(at_scan_rst_table[index].level)); ///RSSI
+		n += sprintf(resultbuf+n,","ATSVR_MACSTR,at_scan_rst_table[index].bssid[0],
+					at_scan_rst_table[index].bssid[1],at_scan_rst_table[index].bssid[2],
+					at_scan_rst_table[index].bssid[3],at_scan_rst_table[index].bssid[4],
+					at_scan_rst_table[index].bssid[5]);
+		n += sprintf(resultbuf+n,",%d\r\n",at_scan_rst_table[index].channel);
+	}
 
 exit:
 	atsvr_output_msg(resultbuf,strlen(resultbuf));
@@ -435,7 +371,7 @@ exit:
 		at_free(sorting_array);
 		sorting_array = NULL;
 	}
-    return 0;
+	return 0;
 #elif (defined(CFG_WPA_CTRL_IFACE) && CFG_WPA_CTRL_IFACE)	/* CFG_WPA_CTRL_IFACE */
 		ScanResult_adv apList;
 		if (wlan_sta_scan_result(&apList) == 0) {
@@ -516,11 +452,11 @@ int wlan_scan_start(char *ssid)
 	int err;
 
 	if( atsvr_scan_sema == NULL ) {
-        err = rtos_init_semaphore( &atsvr_scan_sema, 1 );
+		err = rtos_init_semaphore( &atsvr_scan_sema, 1 );
 		if(err != kNoErr){
 			return -1;
 		}
-    }
+	}
 	extern void mhdr_scanu_reg_cb(FUNC_2PARAM_PTR ind_cb, void *ctxt);
 	mhdr_scanu_reg_cb(atsvr_wlan_scan_callback, 0);
 	bk_wlan_start_scan();
@@ -538,34 +474,64 @@ int wlan_scan_start(char *ssid)
 	if(atsvr_wlan_scan_ap_result() != 0){
 		return -1;
 	}
-
-
 	return 0;
 }
 
+int wlan_get_sta_localip(char * localip)
+{
+	if (g_atsvr_status.station_connect_status == STATION_UP)
+	{
+		IPStatusTypedef ipStatus;
+		bk_wlan_get_ip_status(&ipStatus, BK_STATION);
+		strcpy(localip, ipStatus.ip);
+		return 0;
+	}
+	return - 1;
+}
 
 int wlan_event_handler(int event)
 {
 	int ret = 0;
 	switch(event){
 	case ATSVR_WLAN_DISCONNECT:
-		atsvr_wlan.station_status = STATION_DOWN;
+		g_atsvr_status.station_connect_status = STATION_DOWN;
 		ATSVR_SIZEOF_OUTPUT_STRRING(ATSVR_EVT_WLAN_DISCONNECTED);
 		break;
 	case ATSVR_WLAN_CONNECTTED:
-		atsvr_wlan.station_status = STATION_UP;
+		g_atsvr_status.station_connect_status = STATION_UP;
 		ATSVR_SIZEOF_OUTPUT_STRRING(ATSVR_EVT_WLAN_CONNECTED);
 		break;
 	case ATSVR_WLAN_GOT_IP:
 		ATSVR_SIZEOF_OUTPUT_STRRING(ATSVR_EVT_GOT_IP);
-		break;
-	default:
-		ret = -1;
-		break;
+			if (g_env_param.wifimode.autoconnect && g_env_param.stainfo.dhcp == 0)
+			{
+
+				IPStatusTypedef ipstatus;
+				strcpy(ipstatus.ip, g_env_param.stainfo.sta_local_ip);
+				strcpy(ipstatus.mask, g_env_param.stainfo.sta_mask);
+				strcpy(ipstatus.gate, g_env_param.stainfo.sta_gate);
+				strcpy(ipstatus.dns, g_env_param.dnsinfo.dns1);
+				ipstatus.dhcp		= g_env_param.stainfo.dhcp;
+				bk_wlan_set_ip_status(&ipstatus, BK_STATION);
+			}
+
+			//update ntp
+			#if CFG_USE_NTP
+			if (g_env_param.ntpinfo.enable)
+			{
+				ntp_info_update(g_env_param.ntpinfo.timezone, g_env_param.ntpinfo.hostname);
+				rt_rtc_ntp_sync_init();
+			}
+			#endif
+
+			break;
+
+		default:
+			ret = -1;
+			break;
 	}
 	return ret;
 }
-
 
 static void wlan_status_callback(void *ctxt)
 {
@@ -616,7 +582,7 @@ int judge_the_string_is_ipv4_string(char *is_ip_string)
 				if((ip_num[j] < '0') || (ip_num[j] > '9')){
 					return -1;
 				}
-			}
+			}
 
 			ip_num[j] = '\0';
 			num = atoi( ip_num );
@@ -655,9 +621,46 @@ int judge_the_string_is_ipv4_string(char *is_ip_string)
 	return 0;
 }
 
+int update_wifi_action(int lastmode, int curmode)
+{
+	if (curmode == 0)
+	{
+		power_save_dtim_rf_ps_disable_send_msg();
+	}
+	else
+	{
+
+		if ((lastmode ^ curmode) & 0x01)
+		{
+
+			if (lastmode & 0x01)
+			{
+				wlan_stop_station();
+			}
+		}
+
+		if ((lastmode ^ curmode) & 0x02)
+		{
+
+			if (lastmode & 0x2)
+			{
+				wlan_stop_softap();
+			}
+		}
+	}
+
+	return 0;
+}
+
+void atsvr_update_wlan_info()
+{
+
+}
+
 void atsvr_wlan_init(void)
 {
 	extern void bk_wlan_status_register_cb(FUNC_1PARAM_PTR cb);
+	atsvr_update_wlan_info();
 	bk_wlan_status_register_cb(wlan_status_callback);
 }
 

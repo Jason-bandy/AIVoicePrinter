@@ -3,8 +3,7 @@
 
 #include "rwip_config.h"             // SW configuration
 
-
-#if (BLE_APP_PRESENT && (BLE_CENTRAL) && (BLE_SDP_CLIENT))
+#if (BLE_APP_PRESENT && BLE_GATT_CLI)
 #include "rwprf_config.h"
 #include "rwble_hl_config.h"
 #include "prf_types.h"
@@ -64,7 +63,7 @@ extern uint8_t sdp_discover_all_service(uint8_t con_idx);
 extern struct sdp_env_tag * sdp_get_free_env(void);
 extern struct sdp_env_tag * sdp_get_env_use_conidx(uint8_t con_idx);
 extern void * sdp_get_db_use_handle(uint8_t con_idx,uint16_t handle,uint8_t *charac_type);
-#endif  ////BLE_CENTRAL
+#endif  ////BLE_GATT_CLI
 #endif  ///_SDP_COMM_H_
 
 

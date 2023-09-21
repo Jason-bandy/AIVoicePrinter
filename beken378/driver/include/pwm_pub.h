@@ -39,6 +39,7 @@ enum
 };
 
 typedef void (*PFUNC)(UINT8);
+typedef void (*PWM_CAP_FUNC)(UINT8, UINT32);
 
 
 #define PWM_ENABLE           (0x01)
@@ -149,11 +150,68 @@ typedef struct
     UINT32 value;
 } pwm_capture_t;
 
+
+#define PWM_GROUP_NUM			3
+#define PWM_CHAN_IN_GROUP		2
+typedef struct
+{
+	UINT32 is_active;
+	UINT8 p0_init_level;  // if duty cycle not 0, high level pwm pin first
+	UINT8 p1_init_level;  // if duty cycle not 0, low level pwm pin first
+	UINT8 status;
+	UINT8 group;
+	UINT32 p0_t1;
+	UINT32 p1_t1;
+	UINT32 p1_t2;
+	UINT32 p_t4;
+} pwm_cw_group_param_t;
+
+typedef struct
+{
+	UINT8 init_level;  // if duty cycle not 0, high level pwm pin first
+	UINT8 status;
+	UINT8 chan;
+	UINT8 is_active;
+	UINT32 t1;
+	UINT32 t4;
+} pwm_param_st;
+
+typedef struct
+{
+	UINT8 mode;   // must be larger than 3
+	UINT8 status;
+	UINT8 chan;
+	UINT8 is_active;
+	PWM_CAP_FUNC p_Int_Handler;
+} pwm_cap_param_st;
+
 /*******************************************************************************
 * Function Declarations
 *******************************************************************************/
 extern void pwm_init(void);
 extern void pwm_exit(void);
 extern void pwm_isr(void);
+
+UINT8 pwm_cw_group_check(UINT8 pwm1, UINT8 pwm2);
+
+UINT8 pwm_init_param(pwm_param_st *pwm_param);
+UINT8 pwm_update_param(pwm_param_st *pwm_param);
+UINT8 pwm_start(UINT8 chan);
+UINT8 pwm_stop(UINT8 chan);
+
+UINT8 pwm_cw_init_param(pwm_cw_group_param_t *pwm_param);
+UINT8 pwm_cw_update_param(pwm_cw_group_param_t *pwm_param);
+UINT8 pwm_cw_stop(UINT8 pwm1, UINT8 pwm2);
+UINT8 pwm_cw_start(UINT8 pwm1, UINT8 pwm2);
+
+UINT8 pwm_cw_group_init_param(pwm_cw_group_param_t *pwm_param);
+UINT8 pwm_cw_group_update_param(pwm_cw_group_param_t *pwm_param);
+UINT8 pwm_cw_group_start(UINT8 group);
+UINT8 pwm_cw_group_stop(UINT8 group);
+
+UINT8 pwm_capture_init_param(pwm_cap_param_st *pwm_param);
+UINT8 pwm_capture_start(UINT8 chan);
+UINT8 pwm_capture_stop(UINT8 chan);
+UINT32 pwm_capture_value_get(UINT8 chan);
 
 #endif //_PWM_PUB_H_
