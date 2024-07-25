@@ -7,7 +7,7 @@
 #include <string.h>
 
 #include "include.h"
-#if ((CFG_SOC_NAME == SOC_BK7221U) && (CFG_USE_AUD_ADC == 1))
+#if (((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7252N)) && (CFG_USE_AUD_ADC == 1))
 #include "arm_arch.h"
 #include "general_dma_pub.h"
 #include "audio.h"
@@ -171,6 +171,18 @@ static rt_err_t audio_adc_control(rt_device_t dev, int cmd, void *args)
         break;
     }
 
+    case CODEC_CMD_LINEIN:
+    {
+        rt_uint32_t linein = *(rt_uint32_t *)args;
+        if (linein) {
+            audio_adc_enable_linein();
+            rt_kprintf("set line in enable\r\n");
+        } else {
+            audio_adc_disable_linein();
+            rt_kprintf("set line in disable\r\n");
+        }
+    }
+
     default:
         result = RT_ERROR;
     }
@@ -254,22 +266,31 @@ void adc_dma_finish_handler(UINT32 flag)
     adc_buf_ptr = (rt_uint8_t *)audio_adc->cur_ptr;
     end_buf = ((rt_uint8_t *)audio_adc->recv_fifo) + audio_adc->recv_fifo_len;
 
-    if(adc_buf_ptr) 
-	{	
-		GDMA_CFG_ST en_cfg; 
-		rt_uint8_t *write_ptr, *write_ptr_bak; 
+    if(adc_buf_ptr)
+    {
+        GDMA_CFG_ST en_cfg;
+        rt_uint8_t *write_ptr, *write_ptr_bak;
 
-		en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL; 
-		write_ptr_bak = write_ptr = (rt_uint8_t *)sddev_control(GDMA_DEV_NAME, CMD_GDMA_GET_DST_WRITE_ADDR, &en_cfg); 
+        en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
+        write_ptr_bak = write_ptr = (rt_uint8_t *)sddev_control(GDMA_DEV_NAME, CMD_GDMA_GET_DST_WRITE_ADDR, &en_cfg);
 
-		if(write_ptr < adc_buf_ptr) 
-			write_ptr = (end_buf - (rt_size_t)adc_buf_ptr) + (rt_size_t)(write_ptr - (rt_size_t)((rt_uint8_t *)audio_adc->recv_fifo)); 
-		else 
-			write_ptr -= (rt_size_t)adc_buf_ptr; 
-		// copy(actually only need change write ptr of pipe) 
-		rt_device_write(&audio_adc->record_pipe.parent, 0, 	adc_buf_ptr, (rt_size_t)write_ptr); 
-		audio_adc->cur_ptr = (rt_uint16_t *)write_ptr_bak; 
-	} 
+        // copy(actually only need change write ptr of pipe)
+        if(write_ptr <= adc_buf_ptr)
+        {
+            // if write_ptr <= adc_buf_ptr, need copy twice, for (buffer) src is also ringbuff
+            rt_size_t copy_len = (rt_size_t)(end_buf - (rt_size_t)adc_buf_ptr);
+            rt_device_write(&audio_adc->record_pipe.parent, 0, 	adc_buf_ptr, copy_len);
+
+            copy_len = (rt_size_t)(write_ptr - (rt_size_t)((rt_uint8_t *)audio_adc->recv_fifo));
+            rt_device_write(&audio_adc->record_pipe.parent, 0, 	audio_adc->recv_fifo, copy_len);
+        }
+        else
+        {
+            write_ptr -= (rt_size_t)adc_buf_ptr;
+            rt_device_write(&audio_adc->record_pipe.parent, 0, 	adc_buf_ptr, (rt_size_t)write_ptr);
+        }
+        audio_adc->cur_ptr = (rt_uint16_t *)write_ptr_bak;
+    }
 }
 
 void adc_dma_init(struct audio_mic_device *audio_adc)
@@ -307,8 +328,8 @@ void adc_dma_init(struct audio_mic_device *audio_adc)
 
     cfg.half_fin_handler = NULL;//adc_dma_half_handler;
     cfg.fin_handler = adc_dma_finish_handler;
-    
-    cfg.src_module = GDMA_X_SRC_AUDIO_TX_REQ;
+
+    cfg.src_module = GDMA_X_SRC_AUDIO_RX_REQ;
     cfg.dst_module = GDMA_X_DST_DTCM_WR_REQ;
 
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE5, &cfg);

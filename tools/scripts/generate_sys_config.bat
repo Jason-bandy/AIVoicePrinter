@@ -36,6 +36,12 @@ set new_linkscript=config\bk7238_boot.lds
 set new_rt_config=config\rtconfig\rtconfig_bk7238.h
 goto update_sys_config
 )
+if "%1" equ "bk7252n" (
+set new_sys_config=beken378\app\config\sys_config_bk7252n.h
+set new_linkscript=config\bk7252n_boot.lds
+set new_rt_config=config\rtconfig\rtconfig_bk7252n.h
+goto update_sys_config
+)
 if "%1" equ "bk7231" (
 set new_sys_config=beken378\app\config\sys_config_bk7231.h
 set new_linkscript=config\bk72xx.lds

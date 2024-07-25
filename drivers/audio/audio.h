@@ -1,7 +1,11 @@
 #ifndef _BK_AUDIO_H_
 #define _BK_AUDIO_H_
 
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#define AUDIO_BASE                                   (0x00A06000)
+#else
 #define AUDIO_BASE                                   (0x00802B00)
+#endif
 
 #define AUDIO_CONFIG                                 (AUDIO_BASE + 0x0 * 4)
 #define SAMPLE_RATE_ADC_POSI                         (0)
@@ -19,7 +23,7 @@
 
 #define AUD_DTMF_CONFIG_0                            (AUDIO_BASE + 0x1 * 4)
 #define TONE_PATTERN                                 (1 << 0)
-#define TONE_MODE                                    (1 << 0)
+#define TONE_MODE                                    (1 << 1)
 #define TONE_PAUSE_TIME_POSI                         (2)
 #define TONE_PAUSE_TIME_MASK                         (0xFU)
 #define TONE_ACTIVE_TIME_POSI                        (6)

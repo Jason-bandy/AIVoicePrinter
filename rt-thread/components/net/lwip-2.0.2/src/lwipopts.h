@@ -62,7 +62,7 @@
 #define LWIP_DNS                    0
 #endif
 
-#define LWIP_HAVE_LOOPIF            0
+#define LWIP_HAVE_LOOPIF            1
 
 #define LWIP_PLATFORM_BYTESWAP      0
 

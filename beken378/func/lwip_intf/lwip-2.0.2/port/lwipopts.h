@@ -33,6 +33,7 @@
 #define __LWIPOPTS_H__
 
 #include "sys_config.h"
+#include <stdint.h>
 
 /**
  * Loopback demo related options.
@@ -483,8 +484,7 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 #define IP_FRAG                         0
 
 #define MEM_LIBC_MALLOC                (1)
-
-#define MEMP_MEM_MALLOC (1)
+#define MEMP_MEM_MALLOC                (1)
 #define TCP_MSL (TCP_TMR_INTERVAL)
 
 #define LWIP_COMPAT_MUTEX_ALLOWED       (1)
@@ -493,11 +493,14 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 #define MEMP_STATS                       1
 #define MEM_STATS                        1
 #endif
+
+#if (!CFG_IPERF_TEST_ACCEL)
 #define TCPIP_MBOX_SIZE                 16
 #define DEFAULT_ACCEPTMBOX_SIZE         8
 #define DEFAULT_RAW_RECVMBOX_SIZE       4
 #define DEFAULT_UDP_RECVMBOX_SIZE       8
 #define DEFAULT_TCP_RECVMBOX_SIZE       8
+#endif
 
 #define LWIP_DONT_PROVIDE_BYTEORDER_FUNCTIONS
 
@@ -507,6 +510,11 @@ The STM32F107 allows computing and verifying the IP, UDP, TCP and ICMP checksums
 
 /* Beken specific LWIP options */
 #define BK_DHCP                         1
+
+#if CFG_LWIP_HW_CSUM
+uint16_t hw_ipcksum_standard_chksum(const void *dataptr, int len);
+#define LWIP_CHKSUM hw_ipcksum_standard_chksum
+#endif
 
 #endif /* __LWIPOPTS_H__ */
 

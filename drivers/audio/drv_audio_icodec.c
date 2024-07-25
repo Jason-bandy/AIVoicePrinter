@@ -9,7 +9,7 @@
 
 #include "include.h"
 
-#if ((CFG_SOC_NAME == SOC_BK7221U) && (CFG_USE_AUD_DAC == 1))
+#if ((CFG_SOC_NAME == SOC_BK7221U || CFG_SOC_NAME == SOC_BK7252N) && (CFG_USE_AUD_DAC == 1))
 #include "arm_arch.h"
 #include "general_dma_pub.h"
 #include "audio.h"
@@ -262,7 +262,7 @@ void rt_data_node_empty(struct rt_data_node_list *node_list)
     rt_hw_interrupt_enable(level);
 }
 
-#if ((CFG_SOC_NAME == SOC_BK7221U) && (CFG_USE_AUD_DAC == 1))
+#if ((CFG_SOC_NAME == SOC_BK7221U || CFG_SOC_NAME == SOC_BK7252N) && (CFG_USE_AUD_DAC == 1))
 /**
  * RT-Thread Audio Driver Interface
  */
@@ -641,7 +641,7 @@ int dac_dma_init(struct audio_codec_device *audio)
     init_cfg.fin_handler = dac_dma_finish_handler;
 
     init_cfg.src_module = GDMA_X_SRC_DTCM_RD_REQ;
-    init_cfg.dst_module = GDMA_X_DST_AUDIO_RX_REQ;
+    init_cfg.dst_module = GDMA_X_DST_AUDIO_TX_REQ;
 
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE4, &init_cfg);
 

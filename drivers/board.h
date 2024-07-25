@@ -38,10 +38,15 @@ extern unsigned char _empty_ram;
 #define RT_HW_TCM_END       (void*)(0x00400000 + 256 * 1024)
 #endif
 
+#if (CFG_SOC_NAME == SOC_BK7221U)
 /* Low Speed */ 
 #define RT_HW_SDRAM_BEGIN   (void*)(0x00900000)
 #define RT_HW_SDRAM_END     (void*)(0x00900000 + 256 * 1024) 
-
+#elif (CFG_SOC_NAME == SOC_BK7252N)
+/* share memery, normal speed */
+#define RT_HW_SDRAM_BEGIN   (void*)(0x02000000)
+#define RT_HW_SDRAM_END     (void*)(0x02000000 + 256 * 1024)
+#endif
 void rt_hw_board_init(void);
 
 void rt_sdram_heap_init(void);

@@ -585,7 +585,7 @@ static void ble(int argc, char **argv)
 		bk_ble_init();
 	}
 	if (os_strcmp(argv[1], "create_adv") == 0) {
-		actv_idx = app_ble_get_idle_actv_idx_handle();
+		actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
 		bk_ble_create_advertising(actv_idx, 7, 160, 160, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "set_adv_data") == 0) {
@@ -613,7 +613,7 @@ static void ble(int argc, char **argv)
 		bk_ble_delete_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "create_scan") == 0) {
-		actv_idx = app_ble_get_idle_actv_idx_handle();
+		actv_idx = app_ble_get_idle_actv_idx_handle(SCAN_ACTV);
 		bk_ble_create_scaning(actv_idx, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "start_scan") == 0) {
@@ -626,13 +626,13 @@ static void ble(int argc, char **argv)
 		bk_ble_delete_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "update_conn") == 0) {
-		bk_ble_update_param(os_strtoul(argv[2], NULL, 10), 50, 50, 0, 800, ble_cmd_cb);
+		bk_ble_update_param(os_strtoul(argv[2], NULL, 10), 50, 50, 0, 800);
 	}
 	if (os_strcmp(argv[1], "dis_conn") == 0) {
-		bk_ble_disconnect(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+		bk_ble_disconnect(os_strtoul(argv[2], NULL, 10));
 	}
 	if (os_strcmp(argv[1], "mtu_change") == 0) {
-		bk_ble_gatt_mtu_change(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+		bk_ble_gatt_mtu_change(os_strtoul(argv[2], NULL, 10));
 	}
 	if (os_strcmp(argv[1], "init_adv") == 0) {
 		struct adv_param adv_info;
@@ -652,7 +652,7 @@ static void ble(int argc, char **argv)
 		adv_info.respData[1] = 0x08;
 		memcpy(&adv_info.respData[2], "7231N", 6);
 		adv_info.respDataLen = 0x8;
-		actv_idx = app_ble_get_idle_actv_idx_handle();
+		actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
 		bk_ble_adv_start(actv_idx, &adv_info, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "deinit_adv") == 0) {
@@ -663,7 +663,7 @@ static void ble(int argc, char **argv)
 		scan_info.channel_map = 7;
 		scan_info.interval = 100;
 		scan_info.window = 30;
-		actv_idx = app_ble_get_idle_actv_idx_handle();
+		actv_idx = app_ble_get_idle_actv_idx_handle(SCAN_ACTV);
 		bk_ble_scan_start(actv_idx, &scan_info, ble_cmd_cb);
 	}
 	if (os_strcmp(argv[1], "deinit_scan") == 0) {
@@ -677,7 +677,7 @@ static void ble(int argc, char **argv)
 		register_app_sdp_characteristic_callback(ble_app_sdp_characteristic_cb);
 		register_app_sdp_charac_callback(app_sdp_charac_cb);
 #endif
-		actv_idx = app_ble_get_idle_conn_idx_handle();
+		actv_idx = app_ble_get_idle_conn_idx_handle(INIT_ACTV);
 		bk_printf("------------->actv_idx:%d\r\n",actv_idx);
 		///actv_idx = BLE_VSN5_DEFAULT_MASTER_IDX;
 		///appm_create_init(actv_idx, 0, 0, 0);
@@ -734,7 +734,7 @@ static void ble(int argc, char **argv)
 		actv_idx = actv_idx_str;
 		int handle = atoi(argv[2]);
 		if(handle >=0 && handle <= 0xFFFF){
-			bk_ble_read_service_data_by_handle_req(actv_idx,handle,ble_cmd_cb);
+			bk_ble_read_service_data_by_handle_req(actv_idx,handle);
 			///appm_read_service_data_by_handle_req(BLE_VSN5_DEFAULT_MASTER_IDX,handle);
 		}
 		else{
@@ -756,7 +756,7 @@ static void ble(int argc, char **argv)
 		actv_idx = actv_idx_str;
 		unsigned char test_buf[4] = {0x01,0x02,0x22,0x32};
 		if(handle >=0 && handle <= 0xFFFF){
-			bk_ble_write_service_data_req(actv_idx,handle,4,test_buf,ble_cmd_cb);
+			bk_ble_write_service_data_req(actv_idx,handle,4,test_buf);
 			///appc_write_service_data_req(BLE_VSN5_DEFAULT_MASTER_IDX,handle,4,test_buf);
 		}else{
 			bk_printf("handle(%x) error\r\n",handle);

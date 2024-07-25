@@ -64,6 +64,11 @@ case $platform in
 		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
 		make_target="beken_ip beken_ble beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
 		;;
+	bk7252n)
+		modify_config ${SYS_CFG_FILE} CFG_SUPPORT_BLE 1
+		modify_config ${SYS_CFG_FILE} CFG_WIFI_SENSOR 1
+		make_target="beken_ip beken_ble beken_vad beken_sensor beken_cal beken_rf_use beken_rf_test beken_uart_debug beken_supplicant"
+		;;
 	*)
 		echo "unsupported platform"
 		exit 1

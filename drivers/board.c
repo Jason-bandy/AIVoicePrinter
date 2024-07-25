@@ -34,6 +34,7 @@
 #include "func_pub.h"
 #include <string.h>
 #include "start_type_pub.h"
+#include "sys_ctrl_pub.h"
 
 
 enum wdg_status {
@@ -92,17 +93,23 @@ void rt_hw_board_init(void)
 {
 #ifdef RT_USING_HEAP
     /* init memory system */
-#if(CFG_SOC_NAME == SOC_BK7221U)
+#if((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7252N))
     rt_system_heap_init(RT_HW_SDRAM_BEGIN, RT_HW_SDRAM_END);
 	rt_sdram_heap_init(); 
 #endif
     rt_memheap_init(&tcm_heap, "TCM", RT_HW_TCM_BEGIN, RT_HW_TCM_END-RT_HW_TCM_BEGIN); 
 #endif
 
+#if CFG_USE_DEEP_PS
+    bk_init_deep_wakeup_gpio_status();
+#endif
 	bk_misc_init_start_type();
 
     /* init hardware */
     driver_init();
+
+    bk_misc_check_start_type();
+
     /* interrupt init */
     rt_hw_interrupt_init();
     /* init hardware interrupt */

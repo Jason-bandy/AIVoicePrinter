@@ -228,6 +228,7 @@ rt_uint32_t rt_audio_format_to_bits(rt_uint32_t format);
 #define CODEC_CMD_3D                6
 #define CODEC_CMD_SUSPEND           7
 #define CODEC_CMD_RESUME            8
+#define CODEC_CMD_LINEIN            9
 
 #define CODEC_VOLUME_MAX            (63)
 

@@ -247,7 +247,7 @@ static struct beken_wifi_info _g_ap_info;
 
 #define RT_WLAN_SSID_MAX_LEN 32
 #define SCAN_WAIT_OUT_TIME 10000
-static rt_sem_t _g_scan_done_sem;
+static rt_sem_t _g_scan_done_sem = NULL;
 int start_connect_tick = 0;
 int end_connect_tick = 0;
 
@@ -285,11 +285,13 @@ rt_kprintf("===wlan_event_handle:%d===\r\n",event);
         rt_wlan_indicate_event_handle(&_g_sta_device, WIFI_EVT_STA_CONNECTED, RT_NULL);
         break;
 
-    case RW_EVT_STA_DISCONNECTED:
+    case RW_EVT_STA_DEAUTH:
+    case RW_EVT_STA_AUTH_FAILED:
         rt_wlan_indicate_event_handle(&_g_sta_device, WIFI_EVT_STA_DISCONNECTED, RT_NULL);
         break;
 
-    case RW_EVT_STA_CONNECT_FAILED:
+    case RW_EVT_STA_DISASSOC:
+    case RW_EVT_STA_ASSOC_FAILED:
         if (_g_sta_info.mode == ADVANCED_MODE)
         {
   //          wlan_fast_connect_info_erase();
@@ -913,7 +915,10 @@ static rt_err_t beken_wlan_init(rt_device_t dev)
 #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
 
     /* Initialize semaphore for scan */
-    _g_scan_done_sem = rt_sem_create("scan_done", 0, RT_IPC_FLAG_FIFO);
+    if(_g_scan_done_sem == NULL)
+    {
+        _g_scan_done_sem = rt_sem_create("scan_done", 0, RT_IPC_FLAG_FIFO);
+    }
 
     return RT_EOK;
 }

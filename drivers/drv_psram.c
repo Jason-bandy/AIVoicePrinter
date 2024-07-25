@@ -5,7 +5,7 @@
 #include "mem_pub.h"
 #include "rtos_pub.h"
 
-#if (CFG_SOC_NAME != SOC_BK7231N)
+#if (CFG_SOC_NAME != SOC_BK7231N && CFG_SOC_NAME != SOC_BK7252N)
 #define RT_HW_PSRAM_BEGIN (void*)(0x3000000)
 #define RT_HW_PSRAM_END   (void*)(0x3000000 + 8 *1024 * 1024)
 

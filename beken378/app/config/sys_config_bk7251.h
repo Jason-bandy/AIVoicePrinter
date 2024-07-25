@@ -63,6 +63,8 @@
 #define CFG_WPA3_ENTERPRISE                        0
 /* WiFi Direct Support, CFG_WIFI_WPS must be enabled */
 #define CFG_WIFI_P2P                               0
+#define CFG_RWNX_REODER                            0
+#define CFG_FORCE_RATE                             0
 
 #if CFG_WIFI_P2P
 /* WPS(WSC) Support */
@@ -81,6 +83,8 @@
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
 /* repush txdesc when txl_reset happens */
 #define CFG_WIFI_REPUSH_WHEN_RESET                 0
+/* Send deauth before sending auth to AP */
+#define CFG_WIFI_DEAUTH_BEFORE_AUTH                0
 
 /*Use macro to shut down some unused functions*/
 #define CFG_WPA_MAYBE_UNUSED                       1
@@ -187,14 +191,6 @@
 #define CFG_UART_DEBUG                             0
 #define CFG_SUPPORT_BKREG                          1
 #define CFG_ENABLE_WPA_LOG                         0
-#define IPERF_CLOSE                                0  /* close iperf */
-#define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
-#define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
-#define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
-#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
-#define CFG_IPERF_TEST_ACCEL                       1
-#define CFG_IPERF_DONT_MALLOC_BUFFER               1
-#endif
 #define CFG_TCP_SERVER_TEST                        0
 #define CFG_AIRKISS_TEST                           0
 #define CFG_ENABLE_DEMO_TEST                       0
@@ -215,6 +211,7 @@
 #define SOC_BK7271                                 4
 #define SOC_BK7231N                                5
 #define CFG_SOC_NAME                               SOC_BK7221U
+#define CFG_SOC_NAME_STR                           "bk7251"
 
 /*section 7-----calibration*/
 #if (CFG_RUNNING_PLATFORM == FPGA_PLATFORM)
@@ -241,6 +238,11 @@
 #define CFG_USE_TEMPERATURE_DETECT                 0
 
 /*section 12-----for video transfer*/
+#define IPERF_CLOSE                                0  /* close iperf */
+#define IPERF_OPEN_WITH_ACCEL                      1  /* open iperf and accel */
+#define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
+#define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
+
 #if CFG_WIFI_P2P
 #define CFG_USE_APP_DEMO_VIDEO_TRANSFER            1
 #define CFG_USE_CAMERA_INTF                        1
@@ -253,6 +255,18 @@
 #if CFG_USE_CAMERA_INTF
 #define CFG_USE_I2C1                               1
 #define CFG_USE_I2C2                               0
+#endif
+
+#if (CFG_USE_APP_DEMO_VIDEO_TRANSFER)
+#undef CFG_IEEE80211N
+#define CFG_IEEE80211N                             0
+#undef CFG_IPERF_TEST
+#define CFG_IPERF_TEST                             IPERF_OPEN_WITH_ACCEL
+#endif
+
+#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
+#define CFG_IPERF_TEST_ACCEL                       1
+#define CFG_IPERF_DONT_MALLOC_BUFFER               1
 #endif
 
 /*section 13-----for GENERRAL DMA */
@@ -311,6 +325,10 @@
 
 /*section 24 ----- less memery in rwnx*/
 #define CFG_LESS_MEMERY_IN_RWNX                    1
+#if CFG_IPERF_TEST_ACCEL
+#undef CFG_LESS_MEMERY_IN_RWNX
+#define CFG_LESS_MEMERY_IN_RWNX                    0
+#endif
 
 /*section 25 ----- use audio*/
 #if (CFG_SOC_NAME == SOC_BK7221U)

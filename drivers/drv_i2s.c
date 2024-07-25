@@ -7,8 +7,10 @@
 #include "typedef.h"
 #include "sys_config.h"
 #include "rtos_pub.h"
+
 #include "i2s_pub.h"
 #include "i2s.h"
+
 #include "drv_i2s.h"
 #include "general_dma_pub.h"
 #include "board.h"
@@ -23,6 +25,10 @@
 #define I2S_BIT_LENGTH        (32)
 #define PAUSE_EN              1
 //#define I2S_RX_CALLBACK
+
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#define FIFO_LEVEL_32 FIFO_LEVEL_24
+#endif
 
 #define I2S_DEFAULT_MODE (I2S_MODE| I2S_LRCK_NO_TURN| I2S_SCK_NO_TURN| I2S_MSB_FIRST| (0<<I2S_SYNC_LENGTH_BIT)| (0<<I2S_PCM_DATA_LENGTH_BIT))
 

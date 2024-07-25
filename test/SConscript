@@ -4,7 +4,7 @@ cwd = GetCurrentDir()
 
 src  = Glob('*.c')
 
-if GetDepend('CONFIG_RT_USING_AUDIO') == False:
+if GetDepend('RT_USING_AUDIO') == False:
     SrcRemove(src, 'mic_record.c')
     SrcRemove(src, 'web_camera.c')
     SrcRemove(src, 'i2s_test.c')

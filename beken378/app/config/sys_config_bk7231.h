@@ -78,6 +78,9 @@
 /* repush txdesc when txl_reset happens */
 #define CFG_WIFI_REPUSH_WHEN_RESET                 0
 
+#define CFG_RWNX_REODER                            0
+#define CFG_FORCE_RATE                             0
+
 /*Use macro to shut down some unused functions*/
 #define CFG_WPA_MAYBE_UNUSED                       1
 #if CFG_WPA_MAYBE_UNUSED
@@ -199,6 +202,7 @@
 #define SOC_BK7221U                                3
 #define SOC_BK7231N                                5
 #define CFG_SOC_NAME                               SOC_BK7231
+#define CFG_SOC_NAME_STR                           "bk7231"
 
 /*section 7-----calibration*/
 #if (CFG_RUNNING_PLATFORM == FPGA_PLATFORM)

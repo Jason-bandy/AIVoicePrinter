@@ -1,3 +1,5 @@
+#define MIC_DAC_LOOP_TEST
+
 #if 0
 /*adc test*/
 #define ADC_TEST

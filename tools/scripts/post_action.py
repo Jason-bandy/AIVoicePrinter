@@ -152,6 +152,8 @@ if __name__=='__main__':
         bootloader_str = "tools/beken_packager/bootloader_bk7236_uart2_v1.0.8.bin"
     elif beken_str == "bk7238":
         bootloader_str = "tools/beken_packager/bootloader_bk7238_uart1_v1.0.14.bin"
+    elif beken_str == "bk7252n":
+        bootloader_str = "tools/beken_packager/bootloader_bk7252n_uart1_v1.0.14.bin"
     elif beken_str == "bk7271":
         bootloader_str = "tools/beken_packager/bootloader_bk7271_uart2_v1.0.8.bin"
     else:

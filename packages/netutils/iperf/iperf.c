@@ -45,6 +45,10 @@ static void iperf_udp_client(void *thread_param)
     rt_uint32_t packet_count = 0;
     rt_uint32_t tick;
     int send_size;
+    uint64_t sentlen;
+    rt_tick_t tick1, tick2;
+    char speed[64] = { 0 };
+    int ret;
 
     send_size = IPERF_BUFSZ > 1470 ? 1470 : IPERF_BUFSZ;
     buffer = malloc(IPERF_BUFSZ);
@@ -70,7 +74,35 @@ static void iperf_udp_client(void *thread_param)
         buffer[0] = htonl(packet_count);
         buffer[1] = htonl(tick / RT_TICK_PER_SECOND);
         buffer[2] = htonl((tick % RT_TICK_PER_SECOND) * 1000);
-        sendto(sock, buffer, send_size, 0, (struct sockaddr *)&server, sizeof(struct sockaddr_in));
+//      ret = sendto(sock, buffer, send_size, 0, (struct sockaddr *)&server, sizeof(struct sockaddr_in));
+
+        sentlen = 0;
+
+        tick1 = rt_tick_get();
+        while (param.mode != IPERF_MODE_STOP && param.mode != IPERF_MODE_STOPPING)
+        {
+            tick2 = rt_tick_get();
+            if (tick2 - tick1 >= RT_TICK_PER_SECOND * 5)
+            {
+                float f;
+
+                f = (float)(sentlen * RT_TICK_PER_SECOND / 125 / (tick2 - tick1));
+                f /= 1000.0f;
+                snprintf(speed, sizeof(speed), "%.4f Mbps!\n", f);
+                rt_kprintf("%s", speed);
+                tick1 = tick2;
+                sentlen = 0;
+            }
+
+            ret = sendto(sock, buffer, send_size, 0, (struct sockaddr *)&server, sizeof(struct sockaddr_in));
+            if (ret > 0)
+            {
+                sentlen += ret;
+            }
+
+            if (ret < 0) break;
+        }
+
     }
     closesocket(sock);
     free(buffer);

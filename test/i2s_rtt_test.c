@@ -23,6 +23,7 @@ rt_err_t i2s_test_rtt_tx_done(rt_device_t dev, void *buffer)
     {
         rt_sem_release(g_i2s_sync_sem);
     }
+	return 0;
 }
 
 int i2s_test_loopback(int sample_rate, int bits_length)
@@ -34,7 +35,6 @@ int i2s_test_loopback(int sample_rate, int bits_length)
     rt_err_t result;
     rt_uint32_t buffer_index;
     rt_uint8_t index;
-    rt_uint8_t master = 0;
 
     memset((void *)buffers, 0, sizeof(buffers));
 
@@ -114,12 +114,12 @@ int i2s_test_loopback(int sample_rate, int bits_length)
         {
             result = rt_device_read(i2s_device, 0, buffers[index] + offset, (I2S_TEST_BUFFER_LENGTH - offset) * sizeof(buffers[index][0]));
             result = result / sizeof(buffers[index][0]);
-            for (offset == 0; offset < result; offset++)
+            for (offset = 0; offset < result; offset++)
             {
                 if (buffers[index][offset])
                 {
                     /* skip empty data */
-                    bk_printf("%d vs %d\n", offset, result);
+                    rt_kprintf("%d vs %d\n", offset, result);
                     memmove(buffers[index], buffers[index] + offset, (result - offset) * sizeof(buffers[index][0]));
                     break;
                 }
@@ -326,7 +326,6 @@ static int i2s_test_rtt(int argc, char *argv[])
             {
                 result = rt_device_read(i2s_device, 0, buffers[index] + offset, (I2S_TEST_BUFFER_LENGTH - offset) * sizeof(buffers[index][0]));
                 offset += result / sizeof(buffers[index][0]);
-                rt_thread_delay(rt_tick_from_millisecond(50));
             }
         }
         for (index = 0; index < I2S_TEST_BUFFER_COUNT; index++)
@@ -340,7 +339,7 @@ static int i2s_test_rtt(int argc, char *argv[])
                     break;
                 }
 #else
-                rt_kprintf("buffers[%d][%d] 0x%x vs 0x%x\r\n", index, buffer_index, buffers[index][buffer_index], (0x80004000 | (index<<24) | (buffer_index<<16) | (buffer_index<<8) | (buffer_index<<0)));
+                rt_kprintf("buffers[%d][%d] 0x%x vs 0x%x\r\n", index, buffer_index, buffers[index][buffer_index], (0x80004000 | (index<<24) | (buffer_index<<16) | (index<<8) | (buffer_index<<0)));
 #endif
             }
         }

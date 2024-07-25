@@ -6,28 +6,39 @@
 #include "mem_pub.h"
 #include "str_pub.h"
 
-static DRV_SDEV_S drv_sdev_tbl[DD_MAX_SDEV] =
-{
-    {0},
-};
+static UINT32 allocated_size_sdev = 0;
+static UINT32 allocated_size_dev  = 0;
 
-static DRV_DEV_S drv_dev_tbl[DD_MAX_DEV] =
-{
-    {0},
-};
+static DRV_SDEV_PTR drv_sdev_tbl = NULLPTR;
+static DRV_DEV_PTR  drv_dev_tbl  = NULLPTR;
 
 UINT32 drv_model_init(void)
 {
-    os_memset(drv_dev_tbl, 0, sizeof(drv_dev_tbl));
-    os_memset(drv_sdev_tbl, 0, sizeof(drv_sdev_tbl));
+    drv_sdev_tbl = os_malloc(DD_INITIAL_SIZE * sizeof(DRV_SDEV_S));
+    drv_dev_tbl  = os_malloc(DD_INITIAL_SIZE * sizeof(DRV_DEV_S ));
+
+    ASSERT(drv_sdev_tbl);
+    ASSERT(drv_dev_tbl );
+
+    os_memset(drv_sdev_tbl, 0, DD_INITIAL_SIZE * sizeof(DRV_SDEV_S));
+    os_memset(drv_dev_tbl, 0, DD_INITIAL_SIZE * sizeof(DRV_DEV_S ));
+
+    allocated_size_sdev = DD_INITIAL_SIZE;
+    allocated_size_dev  = DD_INITIAL_SIZE;
 
     return DRV_SUCCESS;
 }
 
 UINT32 drv_model_uninit(void)
 {
-    os_memset(drv_dev_tbl, 0, sizeof(drv_dev_tbl));
-    os_memset(drv_sdev_tbl, 0, sizeof(drv_sdev_tbl));
+    os_free(drv_sdev_tbl);
+    os_free(drv_dev_tbl );
+
+    drv_sdev_tbl = NULLPTR;
+    drv_dev_tbl  = NULLPTR;
+
+    allocated_size_sdev = 0;
+    allocated_size_dev  = 0;
 
     return DRV_SUCCESS;
 }
@@ -40,7 +51,7 @@ UINT32 ddev_check_handle(DD_HANDLE handle)
     magic = handle & DD_HANDLE_MAGIC_MASK;
     id    = handle & DD_HANDLE_ID_MASK;
     if((DD_HANDLE_MAGIC_WORD == magic)
-            && (id < DD_MAX_DEV))
+            && (id < allocated_size_dev))
     {
         return DRV_SUCCESS;
     }
@@ -54,7 +65,7 @@ DD_HANDLE ddev_make_handle(UINT32 id)
 {
     UINT32 handle = DD_HANDLE_UNVALID;
 
-    if(id >= DD_MAX_DEV)
+    if(id >= allocated_size_dev)
     {
         goto make_exit;
     }
@@ -99,7 +110,7 @@ DD_HANDLE ddev_open(char *dev_name, UINT32 *status, UINT32 op_flag)
 
     *status = DRV_FAILURE;
 
-    for(i = 0; i < DD_MAX_DEV; i ++)
+    for(i = 0; i < allocated_size_dev; i ++)
     {
         dev_ptr = &drv_dev_tbl[i];
         if((dev_ptr)
@@ -264,7 +275,7 @@ UINT32 sddev_control(char *dev_name, UINT32 cmd, VOID *param)
     ASSERT(dev_name);
     status = DRV_FAILURE;
     name_len = os_strlen(dev_name);
-    for(i = 0; i < DD_MAX_SDEV; i ++)
+    for(i = 0; i < allocated_size_sdev; i ++)
     {
         dev_ptr = &drv_sdev_tbl[i];
         if((dev_ptr)
@@ -296,7 +307,7 @@ UINT32 ddev_register_dev(char *dev_name, DD_OPERATIONS *optr)
     }
 
     dev_ptr = NULLPTR;
-    for(i = 0; i < DD_MAX_DEV; i ++)
+    for(i = 0; i < allocated_size_dev; i ++)
     {
         dev_ptr = &drv_dev_tbl[i];
         if( (NULLPTR == dev_ptr->name)
@@ -310,8 +321,19 @@ UINT32 ddev_register_dev(char *dev_name, DD_OPERATIONS *optr)
         }
     }
 
-    ASSERT(DD_MAX_DEV != i);
     ASSERT(NULLPTR != dev_ptr->op);
+
+    if (i == allocated_size_dev - 1)
+    {
+        dev_ptr = os_realloc(drv_dev_tbl, (DD_EXP_STEP_SIZE + allocated_size_dev) * sizeof(DRV_DEV_S));
+        ASSERT(dev_ptr);
+
+        /*newly allocated memory must be init*/
+        os_memset(&dev_ptr[allocated_size_dev], 0, DD_EXP_STEP_SIZE * sizeof(DRV_DEV_S));
+        allocated_size_dev += DD_EXP_STEP_SIZE;
+
+        drv_dev_tbl = dev_ptr;
+    }
 
     return DRV_SUCCESS;
 }
@@ -327,7 +349,7 @@ UINT32 sddev_register_dev(char *dev_name, SDD_OPERATIONS *optr)
     }
 
     dev_ptr = NULLPTR;
-    for(i = 0; i < DD_MAX_SDEV; i ++)
+    for(i = 0; i < allocated_size_sdev; i ++)
     {
         dev_ptr = &drv_sdev_tbl[i];
         if( (NULLPTR == dev_ptr->name)
@@ -341,8 +363,19 @@ UINT32 sddev_register_dev(char *dev_name, SDD_OPERATIONS *optr)
         }
     }
 
-    ASSERT(DD_MAX_SDEV != i);
     ASSERT(NULLPTR != dev_ptr->op);
+
+    if (i == allocated_size_sdev - 1)
+    {
+        dev_ptr = os_realloc(drv_sdev_tbl, (DD_EXP_STEP_SIZE + allocated_size_sdev) * sizeof(DRV_SDEV_S));
+        ASSERT(dev_ptr);
+
+        /*newly allocated memory must be init*/
+        os_memset(&dev_ptr[allocated_size_sdev], 0, DD_EXP_STEP_SIZE * sizeof(DRV_SDEV_S));
+        allocated_size_sdev += DD_EXP_STEP_SIZE;
+
+        drv_sdev_tbl = dev_ptr;
+    }
 
     return DRV_SUCCESS;
 }
@@ -365,7 +398,7 @@ UINT32 ddev_unregister_dev(char *dev_name)
         return DRV_FAILURE;
     }
 
-    for(i = 0; i < DD_MAX_DEV; i ++)
+    for(i = 0; i < allocated_size_dev; i ++)
     {
         dev_ptr = &drv_dev_tbl[i];
         if(0 == os_strncmp(dev_ptr->name, dev_name, name_len))
@@ -403,7 +436,7 @@ UINT32 sddev_unregister_dev(char *dev_name)
         return DRV_FAILURE;
     }
 
-    for(i = 0; i < DD_MAX_DEV; i ++)
+    for(i = 0; i < allocated_size_dev; i ++)
     {
         dev_ptr = &drv_sdev_tbl[i];
         if(0 == os_strncmp(dev_ptr->name, dev_name, name_len))

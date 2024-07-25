@@ -13,13 +13,175 @@
 #include "typedef.h"
 #include "arm_arch.h"
 #include "qspi_pub.h"
+#if (CFG_SOC_NAME != SOC_BK7252N)
 #include "BkDriverQspi.h"
+#endif
 #include "test_config.h"
 #include "drv_wdt.h"
-
+#include "drv_model_pub.h"
 
 //#define QSPI_TEST
 #ifdef  QSPI_TEST
+
+#if (CFG_SOC_NAME == SOC_BK7252N)
+static void qspi_psram_enter_quad_mode(void)
+{
+	qspi_cmd_t enter_quad_cmd = {0};
+
+	enter_quad_cmd.wire_mode = QSPI_1WIRE;
+	enter_quad_cmd.work_mode = INDIRECT_MODE;
+	enter_quad_cmd.op = QSPI_WRITE;
+	enter_quad_cmd.cmd = APS6404_CMD_ENTER_QUAD_MODE;
+
+	sddev_control(QSPI_DEV_NAME, QSPI_CMD_DCACHE_CONFIG, &enter_quad_cmd);
+}
+
+static void qspi_psram_exit_quad_mode(void)
+{
+	qspi_cmd_t exit_quad_cmd = {0};
+
+	exit_quad_cmd.wire_mode = QSPI_4WIRE;
+	exit_quad_cmd.work_mode = INDIRECT_MODE;
+	exit_quad_cmd.op = QSPI_WRITE;
+	exit_quad_cmd.cmd = APS6404_CMD_EXIT_QUAD_MODE;
+
+	sddev_control(QSPI_DEV_NAME, QSPI_CMD_DCACHE_CONFIG, &exit_quad_cmd);
+}
+
+static void qspi_psram_quad_write(void)
+{
+	qspi_cmd_t quad_wr_cmd = {0};
+
+	quad_wr_cmd.wire_mode = QSPI_4WIRE;
+	quad_wr_cmd.work_mode = MEMORY_MAPPED_MODE;
+	quad_wr_cmd.op = QSPI_WRITE;
+	quad_wr_cmd.cmd = APS6404_CMD_QUAD_WRITE;
+	quad_wr_cmd.addr = 0;
+	quad_wr_cmd.dummy_cycle = 0;
+
+	sddev_control(QSPI_DEV_NAME, QSPI_CMD_DCACHE_CONFIG, &quad_wr_cmd);
+}
+
+static void qspi_psaram_quad_read(void)
+{
+	qspi_cmd_t qspi_rd_cmd = {0};
+
+	qspi_rd_cmd.wire_mode = QSPI_4WIRE;
+	qspi_rd_cmd.work_mode = MEMORY_MAPPED_MODE;
+	qspi_rd_cmd.op = QSPI_READ;
+	qspi_rd_cmd.cmd = APS6404_CMD_FAST_READ_QUAD;
+	qspi_rd_cmd.addr = 0;
+	qspi_rd_cmd.dummy_cycle = 6;
+
+	sddev_control(QSPI_DEV_NAME, QSPI_CMD_DCACHE_CONFIG, &qspi_rd_cmd);
+}
+
+static void qspi_psram_single_write(void)
+{
+	qspi_cmd_t quad_wr_cmd = {0};
+
+	quad_wr_cmd.wire_mode = QSPI_1WIRE;
+	quad_wr_cmd.work_mode = MEMORY_MAPPED_MODE;
+	quad_wr_cmd.op = QSPI_WRITE;
+	quad_wr_cmd.cmd = APS6404_CMD_WRITE;
+	quad_wr_cmd.addr = 0;
+	quad_wr_cmd.dummy_cycle = 0;
+
+	sddev_control(QSPI_DEV_NAME, QSPI_CMD_DCACHE_CONFIG, &quad_wr_cmd);
+}
+
+static void qspi_psram_single_read(void)
+{
+	qspi_cmd_t qspi_rd_cmd = {0};
+
+	qspi_rd_cmd.wire_mode = QSPI_1WIRE;
+	qspi_rd_cmd.work_mode = MEMORY_MAPPED_MODE;
+	qspi_rd_cmd.op = QSPI_READ;
+	qspi_rd_cmd.cmd = APS6404_CMD_READ;
+	qspi_rd_cmd.addr = 0;
+	qspi_rd_cmd.dummy_cycle = 0;
+
+	sddev_control(QSPI_DEV_NAME, QSPI_CMD_DCACHE_CONFIG, &qspi_rd_cmd);
+}
+
+static void qspi_psram_test(int argc,char *argv[])
+{
+	int i;
+	UINT32 param;
+	qspi_data_t qspi_data;
+
+	if (strcmp(argv[1], "init") == 0) {
+		sddev_control(QSPI_DEV_NAME, QSPI_DCACHE_CMD_OPEN, NULL);
+		sddev_control(QSPI_DEV_NAME, QSPI_CMD_CLK_SET_120M, NULL);
+		param = 1;
+		sddev_control(QSPI_DEV_NAME, QSPI_CMD_DIV_CLK_SET, &param);
+		param = 4;
+		sddev_control(QSPI_DEV_NAME, QSPI_CMD_GPIO_CONFIG, &param);
+		rt_kprintf("qspi init done\r\n");
+	} else if (strcmp(argv[1], "enter_quad_mode") == 0) {
+		qspi_psram_enter_quad_mode();
+		rt_kprintf("qspi enter quad mode\r\n");
+	} else if (strcmp(argv[1], "exit_quad_mode") == 0) {
+		qspi_psram_exit_quad_mode();
+		rt_kprintf("qspi exit quad mode\r\n");
+	} else if (strcmp(argv[1], "quad_write") == 0) {
+		qspi_psram_quad_write();
+		rt_kprintf("qspi enter quad write mode\r\n");
+	} else if (strcmp(argv[1], "quad_read") == 0) {
+		qspi_psaram_quad_read();
+		rt_kprintf("qspi enter quad read mode\r\n");
+	} else if (strcmp(argv[1], "single_write") == 0) {
+		qspi_psram_single_write();
+		rt_kprintf("qspi enter single write mode\r\n");
+	} else if (strcmp(argv[1], "single_read") == 0) {
+		qspi_psram_single_read();
+		rt_kprintf("qspi enter single read mode\r\n");
+	} else if (strcmp(argv[1], "write") == 0) {
+		qspi_data.op = QSPI_WRITE;
+		qspi_data.addr = strtoul(argv[2], NULL, 16);
+		param = strtoul(argv[3], NULL, 16);
+		qspi_data.size = strtoul(argv[4], NULL, 10);
+
+		qspi_data.buf = rt_malloc(qspi_data.size);
+		if (!qspi_data.buf) {
+			rt_kprintf("malloc write buffer fail\r\n");
+			return;
+		}
+		param &= 0xFF;
+		memset(qspi_data.buf, param, qspi_data.size);
+		sddev_control(QSPI_DEV_NAME, QSPI_CMD_DATA_CONFIG, &qspi_data);
+
+		if (qspi_data.buf) {
+			rt_free(qspi_data.buf);
+			qspi_data.buf = NULL;
+		}
+		rt_kprintf("qspi psram write %02x done\r\n", param);
+	} else if (strcmp(argv[1], "read") == 0) {
+		qspi_data.op = QSPI_READ;
+		qspi_data.addr = strtoul(argv[2], NULL, 16);
+		qspi_data.size = strtoul(argv[3], NULL, 10);
+
+		qspi_data.buf = rt_malloc(qspi_data.size);
+		if (qspi_data.buf == NULL) {
+			rt_kprintf("malloc read buffer fail\r\n");
+			return;
+		}
+
+		sddev_control(QSPI_DEV_NAME, QSPI_CMD_DATA_CONFIG, &qspi_data);
+		for (i = 0; i < qspi_data.size; i++) {
+			rt_kprintf("read_buf[%d]=%02x\r\n", i, qspi_data.buf[i]);
+		}
+
+		if (qspi_data.buf) {
+			rt_free(qspi_data.buf);
+			qspi_data.buf = NULL;
+		}
+		rt_kprintf("qspi psram read done\r\n");
+	}
+}
+
+MSH_CMD_EXPORT(qspi_psram_test, qspi_psram_test);
+#else
 
 #define QSPI_TEST_LENGTH			( 0x4 * 64 )
 #define QSPI_TEST_ADDR				(0x100000*8)
@@ -668,5 +830,5 @@ MSH_CMD_EXPORT(qspi_psram_switch_line_mode, qspi_psram_switch_line_mode);
 MSH_CMD_EXPORT(qspi_psram_line_mode_test, qspi_psram_line_mode_test);
 MSH_CMD_EXPORT(qspi_psram_read_id_test, qspi_psram_read_id_test);
 MSH_CMD_EXPORT(qspi_psram_while_test, qspi_psram_while_test);
-
+#endif
 #endif

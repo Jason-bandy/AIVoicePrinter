@@ -6,6 +6,9 @@
 #include "sys_rtos.h"
 #include "rtos_pub.h"
 #include "sdio_driver.h"
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#include "sdio_host.h"
+#endif
 
 #include "sdcard.h"
 #include "sdcard_pub.h"
@@ -62,10 +65,10 @@ static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_
     read_blk_num = size;
     read_data_buf = (UINT8*)buffer;
 
-#if 0 
+#if 0
     for(num=0; num<read_blk_num; num++)
     {
-        result = sdcard_read_single_block(read_data_buf, start_blk_addr, 
+        result = sdcard_read_single_block(read_data_buf, start_blk_addr,
                     SD_DEFAULT_BLOCK_SIZE);
         if(result!=SD_OK)
         {
@@ -80,7 +83,7 @@ static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_
  #else
 	if(SD_OK != sdcard_read_multi_block(read_data_buf,start_blk_addr,read_blk_num))
 		size = 0;
-	
+
  #endif
     rt_mutex_release(&sdcard_mutex);
 
@@ -90,7 +93,7 @@ static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_
 static rt_size_t rt_sdcard_write (rt_device_t dev, rt_off_t pos, const void* buffer, rt_size_t size)
 {
     UINT32 start_blk_addr;
-    UINT8* write_data_buf;	
+    UINT8* write_data_buf;
 
     //	rt_kprintf("===rt write start addr=%x,size=%x====\r\n",pos,size);
     rt_mutex_take(&sdcard_mutex, RT_WAITING_FOREVER);
@@ -118,7 +121,7 @@ static rt_err_t rt_sdcard_control(rt_device_t dev, int cmd, void *args)
     RT_ASSERT(dev != RT_NULL);
 
     rt_kprintf("[SDIO]:rt_sdcard_control, CMD=%d\n", cmd);
-    
+
     if (cmd == RT_DEVICE_CTRL_BLK_GETGEOME)
     {
         struct rt_device_blk_geometry *geometry;
@@ -126,14 +129,14 @@ static rt_err_t rt_sdcard_control(rt_device_t dev, int cmd, void *args)
 
         memset(&card_info, 0, sizeof(SDCARD_S));
         sdcard_get_card_info(&card_info);
-        
+
         if ((card_info.total_block == 0) || (card_info.block_size == 0)) {
             return -RT_ERROR;
         }
 
         geometry = (struct rt_device_blk_geometry *)args;
-        
-        if (geometry == RT_NULL) 
+
+        if (geometry == RT_NULL)
             return -RT_ERROR;
 
         geometry->bytes_per_sector = SD_DEFAULT_BLOCK_SIZE;
@@ -160,8 +163,11 @@ int rt_hw_sdcard_init(void)
 {
     /*this 'sdcard_init' has called in dd.c */
     //sdcard_init();
-    
+
     //sdcard_initialize();
+#if (CFG_SOC_NAME == SOC_BK7252N)
+    bk_sdio_host_driver_init();
+#endif
 
 	/* register sdcard device */
 	sdcard_device.type  = RT_Device_Class_Block;
@@ -178,7 +184,7 @@ int rt_hw_sdcard_init(void)
 
 	/* no private */
 	sdcard_device.user_data = RT_NULL;
-    
+
 	rt_device_register(&sdcard_device, "sd0",
 			RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_REMOVABLE | RT_DEVICE_FLAG_STANDALONE);
 
