@@ -564,6 +564,134 @@ int list_fd(void)
     return 0;
 }
 MSH_CMD_EXPORT(list_fd, list file descriptor);
+
+#if 0//TEST FOR sdcard, cli_cmd: sd_test_write1 0
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#include "sys_ctrl_pub.h"
+#include "dfs_posix.h"
+#define SD_TEST_SIZE    8*512
+#define COUNTER         5
+#define RW_BUF_SIZE     COUNTER*SD_TEST_SIZE
+#define	SD_ROOT "/sd"
+static int mount_sd(void)
+{
+	int ret;
+	/* mount sd card fat partition 1 as root directory */
+	ret = dfs_mount("sd0", SD_ROOT, "elm", 0, 0);
+	if(ret == 0)
+		rt_kprintf("SD Card initialized!\n");
+	else
+		rt_kprintf("SD Card initialzation failed!\n");
+	return ret;
+}
+
+static void unmount_sd(void)
+{
+	int ret;
+	ret = dfs_unmount(SD_ROOT);
+	rt_kprintf("unmount sd :ret =%d\r\n",ret);
+}
+
+void sd_test_write1(int argc, char *argv[])
+{
+	unsigned char *pbuf;
+	unsigned char *read_buf;
+	const char path_name[] = "sd/write_file1.txt";
+
+	long   fds;
+	int i,j,ret = 0;
+	int mode;
+	if(argc != 2)
+		return;
+
+    j = 0;
+#if (CFG_SOC_NAME == SOC_BK7252N)
+	saradc_config_vddram_voltage(PSRAM_VDD_3_5V);
+#else
+	saradc_config_vddram_voltage(PSRAM_VDD_3_3V);
+#endif
+	pbuf = rt_malloc(SD_TEST_SIZE);
+	if(pbuf == NULL)
+		return;
+	read_buf = rt_malloc(SD_TEST_SIZE);
+	if(read_buf == NULL)
+		return;
+
+	for(i=0;i<SD_TEST_SIZE;)
+	{
+		pbuf[i++] = 0x55;
+		pbuf[i++] = 0x56;
+		pbuf[i++] = 0x57;
+		pbuf[i++] = 0x58;
+		pbuf[i++] = 0x59;
+		pbuf[i++] = 0x60;
+		pbuf[i++] = 0x61;
+		pbuf[i++] = 0x62;
+	}
+
+	mode = atoi(argv[1]);
+
+	rt_kprintf("start time:%d\r\n",rt_tick_get());
+
+	if(mode == 0)
+	{
+		if(mount_sd() == 0)
+		{
+			rt_kprintf("---sd mount ok---\r\n");
+		}
+		else
+		{
+			rt_kprintf("!!!! sd mount failed\r\n");
+		}
+		for(i=0; i<1; i++)
+		{
+			fds = open(path_name,O_RDWR|O_CREAT|O_BINARY|O_TRUNC ,0600);
+			if(fds >= 0)
+			{
+				ret = write(fds,pbuf,SD_TEST_SIZE);
+				if(ret != SD_TEST_SIZE)
+				{
+					rt_kprintf("------write failed\r\n");
+				}
+			}
+			else
+			{
+				rt_kprintf("!!open failed!!\r\n");
+			}
+			close(fds);
+
+			fds = open(path_name,O_RDONLY);
+			if(fds >= 0)
+			{
+				ret = read(fds,read_buf,SD_TEST_SIZE);
+				if(ret != SD_TEST_SIZE)
+				{
+					rt_kprintf("------write failed\r\n");
+				}
+			}
+			else
+			{
+				rt_kprintf("!!open failed!!\r\n");
+			}
+			close(fds);
+
+			if(memcmp(read_buf, pbuf, SD_TEST_SIZE) == 0)
+			{
+				rt_kprintf("compare ok:%d\r\n",j);
+			}
+			else
+			{
+				rt_kprintf("!!!compare failed \r\n");
+			}
+			j++;
+		}
+		unmount_sd();
+	 }
+	rt_kprintf("end time:%d\r\n",rt_tick_get());
+}
+MSH_CMD_EXPORT(sd_test_write1, sd_test_write1);
+#endif
+#endif
 #endif
 /*@}*/
 

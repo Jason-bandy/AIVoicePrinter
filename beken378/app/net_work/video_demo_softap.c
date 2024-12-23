@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "video_demo_config.h"
 
@@ -452,7 +466,7 @@ static void app_demo_softap_main(beken_thread_arg_t data)
 
                     #if APP_DEMO_CFG_USE_UDP_SDP
                     vudp_sdp_stop();
-                    #endif   
+                    #endif
                     APP_DEMO_SOFTAP_PRT("wifi disconnected!\r\n");
                 }
                 break;
@@ -469,7 +483,7 @@ static void app_demo_softap_main(beken_thread_arg_t data)
                     #if APP_DEMO_CFG_USE_TCP
                     app_demo_tcp_init();
                     #endif
-                    
+
                     #if APP_DEMO_CFG_USE_UDP_SDP
                     vudp_sdp_start();
                     #endif
@@ -511,9 +525,9 @@ static void app_demo_softap_main(beken_thread_arg_t data)
 
 app_demo_softap_exit:
 
-#if APP_DEMO_CFG_USE_UDP_SDP
+    #if APP_DEMO_CFG_USE_UDP_SDP
     vudp_sdp_stop();
-#endif
+    #endif
 
     bk_wlan_stop(BK_SOFT_AP);
 

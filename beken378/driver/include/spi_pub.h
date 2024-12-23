@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _SPI_PUB_H_
 #define _SPI_PUB_H_
 
@@ -38,10 +52,10 @@ enum
     CMD_SPI_TXTRANS_EN,
     CMD_SPI_RXTRANS_EN,
     CMD_SPI_CS_EN,
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+    #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
     CMD_SPI_SET_TX_FINISH_INT_CALLBACK,
     CMD_SPI_SET_RX_FINISH_INT_CALLBACK,
-#endif
+    #endif
 };
 
 #define BK_SPI_DEBUG                0
@@ -93,20 +107,20 @@ enum
 
 struct spi_message
 {
-#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236) && (CFG_SOC_NAME != SOC_BK7238) && (CFG_SOC_NAME != SOC_BK7252N)
+    #if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7236) && (CFG_SOC_NAME != SOC_BK7238) && (CFG_SOC_NAME != SOC_BK7252N)
     UINT8 *send_buf;
     UINT32 send_len;
 
     UINT8 *recv_buf;
     UINT32 recv_len;
-#else
+    #else
     UINT8*send_buf;
     UINT32 send_len;
 
     UINT8*recv_buf;
     UINT32 recv_len;
     UINT32 repeat_cnt;
-#endif
+    #endif
 };
 
 /**

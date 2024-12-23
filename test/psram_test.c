@@ -1,7 +1,22 @@
-#include "test_config.h"
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-#define PSRAM_TEST
-#if defined(PSRAM_TEST) && (CFG_SOC_NAME != SOC_BK7231N)
+#include "test_config.h"
+#include "sys_config.h"
+
+#ifdef PSRAM_TEST
+#if (CFG_SOC_NAME != SOC_BK7231N)
 #include <stdio.h>
 #include <string.h>
 #include <stdint.h>
@@ -49,9 +64,9 @@ static void psram_mem_api_test(int argc, char * argv [])
 
 
     printf("psram_mem_api_test start!\r\n");
-    
+
     malloc_ptr = calloc_ptr = realloc_ptr = NULL;
-    
+
     if(bpsram_init == 0)
     {
         psram_init(0,2);//NOTE:should set according to the actual situation! here default set as 1 line;3.3v
@@ -90,7 +105,7 @@ static void psram_mem_api_test(int argc, char * argv [])
         printf("%p\r\n",realloc_ptr);
         psram_mem_rw_test((uint32_t)realloc_ptr,nksize * 1024 + 1024);
     }
-    else 
+    else
     {
         printf("param err!\r\n");
     }
@@ -120,5 +135,5 @@ static void psram_mem_api_test(int argc, char * argv [])
 }
 
 MSH_CMD_EXPORT(psram_mem_api_test, psram_mem_api_test);
-
-#endif
+#endif  // (CFG_SOC_NAME != SOC_BK7231N)
+#endif  // ifdef(PSRAM_TEST)

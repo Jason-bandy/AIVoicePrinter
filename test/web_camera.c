@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -5,7 +19,7 @@
 #include <rtthread.h>
 #include <finsh.h>
 #include <dfs_posix.h>
-#include <sys/socket.h> 
+#include <sys/socket.h>
 #include "include.h"
 #include "net.h"
 #include "typedef.h"
@@ -27,17 +41,17 @@ int send_first_response(int client)
     g_send_buf[0] = 0;
 
     rt_snprintf(g_send_buf, 1024,
-             "HTTP/1.0 200 OK\r\n"
-             "Connection: close\r\n"
-             "Server: MJPG-Streamer/0.2\r\n"
-             "Cache-Control: no-store, no-cache, must-revalidate, pre-check=0,"
-             " post-check=0, max-age=0\r\n"
-             "Pragma: no-cache\r\n"
-             "Expires: Mon, 3 Jan 2000 12:34:56 GMT\r\n"
-             "Content-Type: multipart/x-mixed-replace;boundary="
-             MJPEG_BOUNDARY "\r\n"
-             "\r\n"
-             "--" MJPEG_BOUNDARY "\r\n");
+                "HTTP/1.0 200 OK\r\n"
+                "Connection: close\r\n"
+                "Server: MJPG-Streamer/0.2\r\n"
+                "Cache-Control: no-store, no-cache, must-revalidate, pre-check=0,"
+                " post-check=0, max-age=0\r\n"
+                "Pragma: no-cache\r\n"
+                "Expires: Mon, 3 Jan 2000 12:34:56 GMT\r\n"
+                "Content-Type: multipart/x-mixed-replace;boundary="
+                MJPEG_BOUNDARY "\r\n"
+                "\r\n"
+                "--" MJPEG_BOUNDARY "\r\n");
     if (send(client, g_send_buf, strlen(g_send_buf), 0) < 0)
     {
         close(client);
@@ -73,8 +87,8 @@ int mjpeg_send_stream(int client, void *data, int size)
         snprintf(g_send_buf, 1024, "\r\n--" MJPEG_BOUNDARY "\r\n");
         if (send(client, g_send_buf, strlen(g_send_buf), 0) < 0)
         {
-        	close(client);
-        	return -1;
+            close(client);
+            return -1;
         }
 
         return 0;
@@ -90,8 +104,6 @@ void mjpeg_server_thread(void *arg)
     int fream_length=0;
     struct sockaddr_in addr;
     socklen_t sock_len = sizeof(struct sockaddr_in);
-
-    int bufsz = 50 * 1024;
     uint8_t *buf = (uint8_t *) malloc (MAX_BUF_SIZE);
 
     if (!buf)
@@ -105,7 +117,7 @@ void mjpeg_server_thread(void *arg)
     if (srv_sock < 0)
     {
         rt_kprintf("mjpeg_server: create server socket failed due to (%s)\n",
-              strerror(errno));
+                   strerror(errno));
         goto exit;
     }
 
@@ -122,54 +134,55 @@ void mjpeg_server_thread(void *arg)
     if (bind(srv_sock, (struct sockaddr *)&addr, sock_len) != 0)
     {
         rt_kprintf("mjpeg_server: bind() failed due to (%s)\n",
-              strerror(errno));
+                   strerror(errno));
         goto exit;
     }
 
-    if (listen(srv_sock , RT_LWIP_TCP_PCB_NUM) != 0)
+    if (listen(srv_sock, RT_LWIP_TCP_PCB_NUM) != 0)
     {
         rt_kprintf("mjpeg_server: listen() failed due to (%s)\n",
-              strerror(errno));
+                   strerror(errno));
         goto exit;
     }
 
     g_mjpeg_stop = 0;
     while (!g_mjpeg_stop)
     {
-    	struct sockaddr_in client_addr;
-		int client = accept(srv_sock, (struct sockaddr *)&client_addr, &sock_len);
-		if (client < 0)
-			continue;
+        struct sockaddr_in client_addr;
+        int client = accept(srv_sock, (struct sockaddr *)&client_addr, &sock_len);
+        if (client < 0)
+            continue;
 
-		rt_kprintf("mjpeg_server: client connected\n");
-		if (send_first_response(client) < 0)
-		{
-			client = -1;
-			continue;
-		}
+        rt_kprintf("mjpeg_server: client connected\n");
+        if (send_first_response(client) < 0)
+        {
+            client = -1;
+            continue;
+        }
 
-		while (1)
-		{
-			fream_length = 0;
-			/* capture a jpeg frame */
-            fream_length = video_buffer_read_frame(buf, MAX_BUF_SIZE);
+        while (1)
+        {
+            int get_ret = -1;
+            fream_length = 0;
+            /* capture a jpeg frame */
+            fream_length = video_buffer_read_frame(buf, MAX_BUF_SIZE, &get_ret, RT_WAITING_FOREVER);
             rt_kprintf("len:%d\r\n",fream_length);
-			if (fream_length !=0)
-			{
-				/* send out this frame */
-				if (mjpeg_send_stream(client, (void*)buf, fream_length) < 0)
-				{
-					rt_kprintf("client disconnected!\n");
-					break;
-				}
-			}
-		}
-	}
+            if ((fream_length !=0) && (get_ret == 0))
+            {
+                /* send out this frame */
+                if (mjpeg_send_stream(client, (void*)buf, fream_length) < 0)
+                {
+                    rt_kprintf("client disconnected!\n");
+                    break;
+                }
+            }
+        }
+    }
 
 exit:
-	if (srv_sock >= 0) 
+    if (srv_sock >= 0)
         close(srv_sock);
-	if (buf)
+    if (buf)
     {
         free(buf);
         buf=NULL;
@@ -178,8 +191,6 @@ exit:
 
 int web_jpeg_stream(int argc, char** argv)
 {
-    int frame_len;
-    unsigned char *jpg_buf = NULL;
     if (argc != 2)
     {
         rt_kprintf("%s start|stop\n", argv[0]);
@@ -193,7 +204,7 @@ int web_jpeg_stream(int argc, char** argv)
         rt_kprintf("start web camerar\r\n");
         rt_thread_t tid;
         tid = rt_thread_create("jpeg_stream", mjpeg_server_thread, NULL, 2048,20, 10);
-        if (tid) 
+        if (tid)
             rt_thread_startup(tid);
     }
     else

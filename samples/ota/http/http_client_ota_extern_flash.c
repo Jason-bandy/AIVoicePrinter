@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*
  * 程序清单： 这是一个OTA外部存储flash设备的使用例程
  * 例程导出了http_ota_extern_flash 命令到控制终端
@@ -66,7 +80,7 @@ static void print_progress(size_t cur_size, size_t total_size)
 static int spi_flash_partition_init(const struct fal_partition *part)
 {
     assert(part);
-    
+
     int ret = 0;
     const struct fal_flash_dev *flash_dev = NULL;
 
@@ -111,7 +125,7 @@ int http_ota_extern_flash_download(const char *uri)
         rt_kprintf("not found %s partition \n", RT_BK_APP_NAME);
     }
 
-    session = webclient_session_create(1024); 
+    session = webclient_session_create(1024);
     if (!session)
     {
         LOG_E("open uri failed.");
@@ -212,11 +226,11 @@ int http_ota_extern_flash_download(const char *uri)
             if ((page_pos >= 96) && (rt_memcmp(buffer_read, "RBL", 4) == 0))
             {
                 // Determine if this file is an RBL file. if not, do not process it.
-                char desc_part_name[16] = {0}; 
+                char desc_part_name[16] = {0};
 
                 // Gets the original size of the OTA file
                 rt_uint32_t raw_size = (buffer_read[84] + (buffer_read[85] << 8) + (buffer_read[86] << 16) + (buffer_read[87] << 24));
-                log_i("OTA file raw size %d bytes.", raw_size); 
+                log_i("OTA file raw size %d bytes.", raw_size);
 
                 // Gets the describe partition name of the OTA file
                 rt_strncpy(desc_part_name, &buffer_read[12], 16);
@@ -308,12 +322,12 @@ int http_ota_extern_flash_download(const char *uri)
     }
 
     bk_flash_enable_security(FLASH_PROTECT_NONE);
-    
+
     uint32_t address = FLASH_RBL_HEADER_ADDR;
     rt_kprintf("flash_erase %d 0x%08X\n", address, address);
     flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);
     flash_write(buffer_read, RBL_HEADER_LEN, address);
-            		
+
     memset(buffer_swap,0,RBL_HEADER_LEN);
     flash_read(buffer_swap, RBL_HEADER_LEN, address);
 
@@ -322,8 +336,8 @@ int http_ota_extern_flash_download(const char *uri)
     {
         LOG_E("verify rbl header failed!");
         goto __exit;
-    }  
- 
+    }
+
     need_reboot = 1;
 
 __exit:
@@ -358,16 +372,16 @@ void http_ota_extern_flash(uint8_t argc, char **argv)
         LOG_D("Initialize failed! Don't found the partition table.");
         return;
     }
-    
+
     if (argc == 2)
     {
         http_ota_extern_flash_download(argv[1]);
     }
-	else
-	{
+    else
+    {
         LOG_D("parm count error!");
         return;
-	}
+    }
 }
 /**
  * msh />http_ota_extern_flash [url]

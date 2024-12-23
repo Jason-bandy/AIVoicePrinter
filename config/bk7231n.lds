@@ -31,8 +31,8 @@
 MEMORY
 {
         flash  (rx) : ORIGIN = 0x00000000, LENGTH = 2M
-        tcm   (rw!x): ORIGIN = 0x003F0000, LENGTH = 60k
-        itcm   (rwx): ORIGIN = 0x003FF000, LENGTH = 4k
+        tcm   (rw!x): ORIGIN = 0x003F0000, LENGTH = 56k
+        itcm   (rwx): ORIGIN = 0x003FF000, LENGTH = 8k
         ram   (rw!x): ORIGIN = 0x00400100, LENGTH = 192k - 0x100
 }
 
@@ -79,6 +79,8 @@ SECTIONS
 		*(.text.flash_ctrl)
 		*(.text.power_save_dtim_wake)
 		*(.text.sctrl_fix_dpll_div)
+		*(.text.flash_bypass_op_write)
+		*(.text.flash_bypass_op_read)
 
 		*(.text.rt_irq_dispatch)
 		*(.text.rt_fiq_dispatch)

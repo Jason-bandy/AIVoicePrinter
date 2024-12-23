@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -14,21 +28,21 @@
 #if ((CFG_USE_SPI_MASTER) &&(CFG_USE_SPI_SLAVE))
 int gspi_test(int argc, char** argv)
 {
-	struct rt_spi_device *spi_device;
+    struct rt_spi_device *spi_device;
     struct rt_spi_configuration cfg;
-    
+
     spi_device = (struct rt_spi_device *)rt_device_find("gspi");
     if (spi_device == RT_NULL)
     {
         rt_kprintf("spi device %s not found!\r\n", "gspi");
         return -RT_ENOSYS;
     }
-    
+
     cfg.data_width = 8;
-    
+
     if(strcmp(argv[1], "master") == 0)
     {
-        cfg.mode = RT_SPI_MODE_0 | RT_SPI_MSB | RT_SPI_MASTER; 
+        cfg.mode = RT_SPI_MODE_0 | RT_SPI_MSB | RT_SPI_MASTER;
     }
     else if(strcmp(argv[1], "slave") == 0)
     {
@@ -36,18 +50,18 @@ int gspi_test(int argc, char** argv)
     }
     else
     {
-        rt_kprintf("gspi_test master/slave   tx/rx  rate  len\r\n"); 
+        rt_kprintf("gspi_test master/slave   tx/rx  rate  len\r\n");
         return -RT_ENOSYS;
     }
-    
+
     /* SPI Interface with Clock Speeds Up to 30 MHz */
     if(argc == 5)
         cfg.max_hz = atoi(argv[3]);
     else
         cfg.max_hz = SPI_BAUDRATE;
-    
+
     rt_kprintf("cfg:%d, 0x%02x, %d\r\n", cfg.data_width, cfg.mode, cfg.max_hz);
-    
+
     rt_spi_configure(spi_device, &cfg);
 
     if(strcmp(argv[2], "tx") == 0)
@@ -67,20 +81,20 @@ int gspi_test(int argc, char** argv)
         if(buf)
         {
             rt_memset(buf, 0, tx_len);
-            for(int i=0; i<tx_len; i++) 
+            for(int i=0; i<tx_len; i++)
             {
                 buf[i] = i & 0xff;
             }
-            
+
             rt_spi_send(spi_device, buf, tx_len);
 
-            for(int i=0; i<tx_len; i++) 
+            for(int i=0; i<tx_len; i++)
             {
                 rt_kprintf("%02x,", buf[i]);
                 if((i+1)%32 == 0)
                     rt_kprintf("\r\n");
             }
-            rt_kprintf("\r\n"); 
+            rt_kprintf("\r\n");
 
             rt_free(buf);
         }
@@ -102,24 +116,24 @@ int gspi_test(int argc, char** argv)
         if(buf)
         {
             rt_memset(buf, 0, rx_len);
-            
+
             rx_len = rt_spi_recv(spi_device, buf, rx_len);
             rt_kprintf("rx ret:%d\r\n", rx_len);
-            
-            for(int i=0; i<rx_len; i++) 
+
+            for(int i=0; i<rx_len; i++)
             {
                 rt_kprintf("%02x,", buf[i]);
                 if((i+1)%32 == 0)
                     rt_kprintf("\r\n");
             }
-            rt_kprintf("\r\n"); 
+            rt_kprintf("\r\n");
 
             rt_free(buf);
         }
     }
-    else 
+    else
     {
-        rt_kprintf("gspi_test master/slave   tx/rx  rate  len\r\n"); 
+        rt_kprintf("gspi_test master/slave   tx/rx  rate  len\r\n");
     }
 }
 

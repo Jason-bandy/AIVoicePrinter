@@ -1,14 +1,17 @@
-/**
- **************************************************************************************
- * @file    amrnb_encoder.h
- * @brief   A narrow band AMR encoder implementation
- * 
- * @author  Aixing.Li
- * @version V1.0.0
- *
- * &copy; 2018 BEKEN Corporation Ltd. All rights reserved.
- **************************************************************************************
- */
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 
 #ifndef __AMRNB_ENCODER_H__
 #define __AMRNB_ENCODER_H__
@@ -24,27 +27,27 @@ extern "C" {
 
 enum AMRNB_MODE
 {
-	AMRNB_MODE_MR475 = 0,/* 4.75 kbps */
-	AMRNB_MODE_MR515,    /* 5.15 kbps */
-	AMRNB_MODE_MR59,     /* 5.90 kbps */
-	AMRNB_MODE_MR67,     /* 6.70 kbps */
-	AMRNB_MODE_MR74,     /* 7.40 kbps */
-	AMRNB_MODE_MR795,    /* 7.95 kbps */
-	AMRNB_MODE_MR102,    /* 10.2 kbps */
-	AMRNB_MODE_MR122,    /* 12.2 kbps */
-	AMRNB_MODE_MRDTX,    /* DTX       */
-	AMRNB_MODE_N_MODES   /* Not Used  */
+    AMRNB_MODE_MR475 = 0,/* 4.75 kbps */
+    AMRNB_MODE_MR515,    /* 5.15 kbps */
+    AMRNB_MODE_MR59,     /* 5.90 kbps */
+    AMRNB_MODE_MR67,     /* 6.70 kbps */
+    AMRNB_MODE_MR74,     /* 7.40 kbps */
+    AMRNB_MODE_MR795,    /* 7.95 kbps */
+    AMRNB_MODE_MR102,    /* 10.2 kbps */
+    AMRNB_MODE_MR122,    /* 12.2 kbps */
+    AMRNB_MODE_MRDTX,    /* DTX       */
+    AMRNB_MODE_N_MODES   /* Not Used  */
 };
 
 enum AMRNB_ENCODER_ERROR_CODE
 {
-	AMRNB_ENCODER_INIT_FAIL = -128,
-	AMRNB_ENCODER_DEINIT_FAIL,
-	AMRNB_ENCODER_ENCODE_FAIL,
-	AMRNB_DECODER_INIT_FAIL,
-	AMRNB_DECODER_DEINIT_FAIL,
-	AMRNB_DECODER_DECODE_FAIL,
-	AMRNB_NO_ERROR = 0
+    AMRNB_ENCODER_INIT_FAIL = -128,
+    AMRNB_ENCODER_DEINIT_FAIL,
+    AMRNB_ENCODER_ENCODE_FAIL,
+    AMRNB_DECODER_INIT_FAIL,
+    AMRNB_DECODER_DEINIT_FAIL,
+    AMRNB_DECODER_DECODE_FAIL,
+    AMRNB_NO_ERROR = 0
 };
 
 /**

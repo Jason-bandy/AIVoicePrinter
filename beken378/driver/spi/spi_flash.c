@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "arm_arch.h"
 
@@ -129,13 +143,13 @@ static void spi_flash_write_status(UINT16 ustatus)
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
 
-    spi_flash_send_command(CMD_WRITE_ENABLE); 
+    spi_flash_send_command(CMD_WRITE_ENABLE);
 
     while(spi_flash_is_busy())
     {
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
-    
+
     bk_spi_master_xfer(&msg);
 }
 
@@ -152,7 +166,7 @@ static void spi_flash_earse(UINT32 addr, UINT32 mode)
         ucmd[0] = CMD_ERASE_ALL;
         send_len = 1;
     }
-    else 
+    else
     {
         if(mode == ERASE_MODE_BLOCK_64K)
         {
@@ -171,13 +185,13 @@ static void spi_flash_earse(UINT32 addr, UINT32 mode)
             BK_SPI_FATAL("earse wrong mode:%d\r\n", mode);
             return;
         }
-        
+
         ucmd[1] = ((addr >> 16) & 0xff);
         ucmd[2] = ((addr >> 8) & 0xff);
         ucmd[3] = (addr & 0xff);
         send_len = 4;
     }
-    
+
     msg.send_buf = ucmd;
     msg.send_len = send_len;
 
@@ -189,13 +203,13 @@ static void spi_flash_earse(UINT32 addr, UINT32 mode)
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
 
-    spi_flash_send_command(CMD_WRITE_ENABLE); 
+    spi_flash_send_command(CMD_WRITE_ENABLE);
 
     while(spi_flash_is_busy())
     {
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
-    
+
     bk_spi_master_xfer(&msg);
 }
 
@@ -209,10 +223,10 @@ static int spi_flash_read_page(UINT32 addr, UINT32 size, UINT8 *dst)
 
     if(size > FLASH_PHY_PAGE_SIZE)
         return 1;
-    
+
     if(size == 0)
         return 0;
-    
+
     os_memset(&msg, 0, sizeof(struct spi_message));
     ucmd[1] = ((addr >> 16) & 0xff);
     ucmd[2] = ((addr >> 8) & 0xff);
@@ -220,17 +234,17 @@ static int spi_flash_read_page(UINT32 addr, UINT32 size, UINT8 *dst)
 
     msg.send_buf = ucmd;
     msg.send_len = sizeof(ucmd);
-    
+
     msg.recv_buf = dst;
     msg.recv_len = size;
-    
+
     while(spi_flash_is_busy())
     {
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
 
     bk_spi_master_xfer(&msg);
-    
+
     return 0;
 }
 
@@ -250,8 +264,8 @@ static int spi_flash_program_page(UINT32 addr, UINT32 size, UINT8 *src)
 
     ucmd = os_malloc(size + 4);
     if(!ucmd)
-        return 1;  
-    
+        return 1;
+
     os_memset(&msg, 0, sizeof(struct spi_message));
     os_memset(ucmd, 0, size + 4);
 
@@ -270,18 +284,18 @@ static int spi_flash_program_page(UINT32 addr, UINT32 size, UINT8 *src)
     {
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
-    
-    spi_flash_send_command(CMD_WRITE_ENABLE); 
+
+    spi_flash_send_command(CMD_WRITE_ENABLE);
 
     while(spi_flash_is_busy())
     {
         rtos_delay_milliseconds(DELAY_WHEN_BUSY_MS);
     }
-    
+
     bk_spi_master_xfer(&msg);
 
     os_free(ucmd);
-    
+
     return 0;
 }
 
@@ -304,7 +318,11 @@ static void spi_flash_enable_voltage(void)
     param = QSPI_IO_3_3V;
     sddev_control(SCTRL_DEV_NAME, CMD_QSPI_IO_VOLTAGE, &param);
 
+    #if (CFG_SOC_NAME == SOC_BK7252N)
+    param = PSRAM_VDD_3_5V_DEF;
+    #else
     param = PSRAM_VDD_3_3V_DEF;
+    #endif
     sddev_control(SCTRL_DEV_NAME, CMD_QSPI_VDDRAM_VOLTAGE, &param);
 }
 
@@ -322,7 +340,7 @@ int spi_flash_init(void)
 {
     spi_flash_enable_voltage();
     spi_flash_init_extral_gpio();
-    
+
     return bk_spi_master_init(SPI_DEF_CLK_HZ, SPI_DEF_MODE);
 }
 
@@ -344,7 +362,7 @@ UINT32 spi_flash_read_id(void)
     msg.send_len = sizeof(uid_cmd);
     msg.recv_buf = uid_buf;
     msg.recv_len = READ_ID_RESPONE_LEN;
-    
+
     bk_spi_master_xfer(&msg);
 
     uid = (uid_buf[0] << 16) | (uid_buf[1] << 8) | (uid_buf[2]);
@@ -448,7 +466,8 @@ int spi_flash_erase(UINT32 addr, UINT32 size)
             erase_mode = ERASE_MODE_BLOCK_64K;
         }
 
-        spi_flash_earse(addr, erase_mode);
+        spi_flash_earse(addr, erase_mode);
+
         if(addr & (erase_size - 1))
         {
             size = erase_size - (addr & (erase_size - 1));
@@ -457,11 +476,11 @@ int spi_flash_erase(UINT32 addr, UINT32 size)
         {
             size = erase_size;
         }
-            
+
         left_size -= size;
         addr += size;
     }
-    
+
     return 0;
 }
 

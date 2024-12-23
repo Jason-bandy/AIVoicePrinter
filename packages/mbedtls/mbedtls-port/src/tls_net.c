@@ -431,6 +431,8 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
 /*
  * Set the socket blocking or non-blocking
  */
+
+/*
 //int mbedtls_net_set_block( mbedtls_net_context *ctx )
 //{
 //#if ( defined(_WIN32) || defined(_WIN32_WCE) ) && !defined(EFIX64) && \
@@ -453,11 +455,13 @@ int mbedtls_net_accept( mbedtls_net_context *bind_ctx,
 //    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) | O_NONBLOCK ) );
 //#endif
 //}
-
+*/
 
 /*
  * Set the socket blocking or non-blocking
  */
+
+
 int net_set_block(int fd)
 {
 #if defined(WIN32) || defined(_WIN32_WCE)|| defined(RT_VERSION)    //?RTT???????

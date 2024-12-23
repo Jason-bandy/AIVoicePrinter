@@ -50,6 +50,7 @@
 #define CFG_SMP
 #define CFG_SMP_SEC_CON
 #define CFG_SMP_RPA
+#define CFG_CON_MTU_INCLUDE
 //#define CFG_EATT
 //#define CFG_CLK_ACC
 //#define CFG_PER_SYNC
@@ -152,6 +153,11 @@
 #define CFG_BLE_PHY_UPD		0
 #endif
 
+#if defined(CFG_CON_MTU_INCLUDE)
+#define BLE_CON_MTU_INCLUDE 1
+#else
+#define BLE_CON_MTU_INCLUDE 0
+#endif
 //   <o> CFG_ACT <1-10>
 //   <i> CFG NUMBER OF ACTIVITIES IN BLE SIMULTANEOUS (1 -- 10)
 #define CFG_ACT                 CFG_BLE_ADV_NUM + CFG_BLE_SCAN_NUM + CFG_BLE_INIT_NUM + CFG_BLE_CONN_NUM + CFG_BLE_PER_SYNC

@@ -223,6 +223,7 @@ rt_err_t rt_sem_init(rt_sem_t    sem,
 
     /* set init value */
     sem->value = value;
+    sem->max_value = RT_SEM_VALUE_MAX;
 
     /* set parent */
     sem->parent.parent.flag = flag;
@@ -282,6 +283,8 @@ rt_sem_t rt_sem_create(const char *name, rt_uint32_t value, rt_uint8_t flag)
 
     /* set init value */
     sem->value = value;
+
+    sem->max_value = RT_SEM_VALUE_MAX;
 
     /* set parent */
     sem->parent.parent.flag = flag;
@@ -456,7 +459,19 @@ rt_err_t rt_sem_release(rt_sem_t sem)
         need_schedule = RT_TRUE;
     }
     else
-        sem->value ++; /* increase value */
+    {
+
+        if(sem->value < sem->max_value)
+        {
+            sem->value ++; /* increase value */
+        }
+        else
+        {
+            /* enable interrupt */
+            rt_hw_interrupt_enable(temp);
+            return -RT_EFULL; /* value overflowed */
+        }
+    }
 
     /* enable interrupt */
     rt_hw_interrupt_enable(temp);

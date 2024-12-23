@@ -6,9 +6,6 @@ from rtconfig import RTT_ROOT
 sys.path = sys.path + [os.path.join(RTT_ROOT, 'tools')]
 from building import *
 
-sys.path = sys.path + [os.path.join(RTT_ROOT, 'tools')]
-from building import *
-
 TARGET = 'rtthread.' + rtconfig.TARGET_EXT
 
 env = Environment(tools = ['mingw'],

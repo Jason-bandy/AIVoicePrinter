@@ -144,17 +144,17 @@ uint8_t app_ble_get_idle_conn_idx_handle(ACTV_TYPE type)
 		case INIT_ACTV:
 		{
 			if (app_ble_env.actv_cnt.init_actv >= CFG_BLE_INIT_NUM) {
-				return UNKNOW_CONN_HDL;
+				return BLE_CONNECTION_MAX;
 			}
 		}break;
 		case CONN_ACTV:
 		{
 			if (app_ble_env.actv_cnt.conn_actv >= CFG_BLE_CONN_NUM) {
-				return UNKNOW_CONN_HDL;
+				return BLE_CONNECTION_MAX;
 			}
 		}break;
 		default:
-			return UNKNOW_CONN_HDL;
+			return BLE_CONNECTION_MAX;
 		break;
 	}
 

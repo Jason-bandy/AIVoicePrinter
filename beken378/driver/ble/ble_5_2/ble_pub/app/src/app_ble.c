@@ -180,17 +180,17 @@ uint8_t app_ble_get_idle_conn_idx_handle(ACTV_TYPE type)
 		case INIT_ACTV:
 		{
 			if (app_ble_env.actv_cnt.init_actv >= CFG_BLE_INIT_NUM) {
-				return UNKNOW_CONN_HDL;
+				return BLE_CONNECTION_MAX;
 			}
 		}break;
 		case CONN_ACTV:
 		{
 			if (app_ble_env.actv_cnt.conn_actv >= CFG_BLE_CONN_NUM) {
-				return UNKNOW_CONN_HDL;
+				return BLE_CONNECTION_MAX;
 			}
 		}break;
 		default:
-			return UNKNOW_CONN_HDL;
+			return BLE_CONNECTION_MAX;
 		break;
 	}
 
@@ -236,6 +236,47 @@ uint8_t app_ble_get_connect_status(uint8_t con_idx)
 			return 1;
 		}
 	return 0;
+}
+
+bool app_ble_init_is_created(uint8_t conn_idx)
+{
+	return (app_ble_env.connections[conn_idx].u.master.init_state > APP_INIT_STATE_IDLE);
+}
+
+uint8_t app_ble_get_connect_status_by_peer_addr(struct bd_addr *peer_addr)
+{
+	struct bd_addr addr;
+
+	memcpy(&addr.addr[0], &peer_addr->addr[0], 6);
+
+	uint8_t conn_idx = 0;
+	for (; conn_idx < BLE_CONNECTION_MAX;conn_idx ++) {
+		if (!memcmp(&app_ble_env.connections[conn_idx].peer_addr.addr[0], &peer_addr->addr[0], 6))
+			break;
+	}
+
+	if (conn_idx == BLE_CONNECTION_MAX)
+		return 0;
+
+	if (app_ble_env.connections[conn_idx].conhdl >= USED_CONN_HDL)
+		return 0;
+
+	return 1;
+}
+
+uint8_t app_ble_find_conn_idx_by_peer_addr(struct bd_addr *peer_addr)
+{
+	struct bd_addr addr;
+
+	memcpy(&addr.addr[0], &peer_addr->addr[0], 6);
+
+	uint8_t conn_idx = 0;
+	for (; conn_idx < BLE_CONNECTION_MAX;conn_idx ++) {
+		if (!memcmp(&app_ble_env.connections[conn_idx].peer_addr.addr[0], &peer_addr->addr[0], 6))
+			break;
+	}
+
+	return conn_idx;
 }
 
 uint8_t app_ble_get_connhdl(int conn_idx)
@@ -1073,6 +1114,39 @@ ble_err_t app_ble_mtu_exchange(uint8_t conn_idx)
 	#endif
 }
 
+ble_err_t app_ble_set_pref_mtu(uint8_t conn_idx,uint16_t mtu)
+{
+	ble_err_t ret = ERR_CMD_NOT_SUPPORT;
+
+	#if (BLE_CON_MTU_INCLUDE)
+	uint8_t conhdl = app_ble_get_connhdl(conn_idx);
+
+	if (mtu > GAP_LE_MTU_MAX || mtu <= L2CAP_LE_MTU_MIN) {
+		ret = ERR_INVALID_PARAM;
+	} else {
+		if (BLE_APP_CONHDL_IS_VALID(conhdl)) {
+			struct gatt_set_pref_mtu_cmd *p_cmd = KERNEL_MSG_ALLOC(GATT_CMD,TASK_BLE_GATT,
+																	TASK_BLE_APP,
+																	gatt_set_pref_mtu_cmd);
+			if (p_cmd) {
+				p_cmd->cmd_code = GATT_SET_PREF_MTU;
+				p_cmd->dummy = 0;
+				p_cmd->conidx = conhdl;
+				p_cmd->pref_mtu = mtu;
+
+				kernel_msg_send(p_cmd);
+
+				ret = ERR_SUCCESS;
+			}
+		} else {
+			ret = ERR_INVALID_PARAM;
+		}
+	}
+	#endif
+
+	return ret;
+}
+
 ble_err_t app_ble_gap_read_phy(uint8_t conn_idx, ble_read_phy_t *phy)
 {
 	ble_err_t ret = ERR_SUCCESS;
@@ -1185,7 +1259,7 @@ ble_err_t app_ble_get_bonded_device_num(uint8_t *dev_num)
     return ERR_SUCCESS;
 }
 
-ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, bk_ble_bond_dev_t *dev_list)
+ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, device_addr_t *dev_list)
 {
     ble_err_t ret = ERR_SUCCESS;
     uint8_t exp_num = *dev_num;

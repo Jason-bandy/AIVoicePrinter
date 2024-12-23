@@ -10,6 +10,7 @@ if GetDepend('RT_USING_AUDIO') == False:
     SrcRemove(src, 'i2s_test.c')
     SrcRemove(src, 'i2s_rtt_test.c')
     SrcRemove(src, 'video_buffer_test.c')
+    SrcRemove(src, 'mic_test.c')
 
 group = DefineGroup('test', src, depend = [''])
 

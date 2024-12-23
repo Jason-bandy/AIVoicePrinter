@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _SCTRL_PUB_H_
 #define _SCTRL_PUB_H_
 
@@ -20,8 +34,8 @@ enum
 
     CMD_SCTRL_MCLK_SELECT,
     CMD_SCTRL_MCLK_DIVISION,
-	CMD_SCTRL_MCLK_MUX_GET,
-	CMD_SCTRL_MCLK_DIV_GET,
+    CMD_SCTRL_MCLK_MUX_GET,
+    CMD_SCTRL_MCLK_DIV_GET,
 
     CMD_SCTRL_RESET_SET,
     CMD_SCTRL_RESET_CLR,
@@ -44,10 +58,10 @@ enum
     CMD_SCTRL_MODEM_POWERUP,
     CMD_SCTRL_BLE_POWERDOWN,
     CMD_SCTRL_BLE_POWERUP,
-#if (CFG_SOC_NAME == SOC_BK7252N)
+    #if (CFG_SOC_NAME == SOC_BK7252N)
     CMD_SCTRL_OFDM_POWERDOWN,
     CMD_SCTRL_OFDM_POWERUP,
-#endif
+    #endif
     CMD_SCTRL_MAC_AON_ISOLATE_RELEASE,
     CMD_SCTRL_MAC_CLOCK_GATING_ADMIT,
 
@@ -88,9 +102,9 @@ enum
     CMD_SCTRL_UNCONDITIONAL_RF_UP,
     CMD_SCTRL_UNCONDITIONAL_MAC_DOWN,
     CMD_SCTRL_UNCONDITIONAL_MAC_UP,
-#endif // (CFG_SOC_NAME != SOC_BK7231)
+    #endif // (CFG_SOC_NAME != SOC_BK7231)
 
-#if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
+    #if (CFG_SOC_NAME != SOC_BK7231) && (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
     CMD_QSPI_VDDRAM_VOLTAGE,
     CMD_QSPI_IO_VOLTAGE,
     #endif // (CFG_SOC_NAME != SOC_BK7231)
@@ -117,10 +131,10 @@ enum
     CMD_SCTRL_GET_ANALOG8,
     CMD_SCTRL_GET_ANALOG9,
     CMD_SCTRL_GET_ANALOG10,
-#if (CFG_SOC_NAME == SOC_BK7221U)
+    #if (CFG_SOC_NAME == SOC_BK7221U)
     CMD_SCTRL_SET_LINEIN_VOLUME_ANALOG,
-#endif
-#if ((CFG_SOC_NAME == SOC_BK7252N) || (CFG_SOC_NAME == SOC_BK7221U))
+    #endif
+    #if ((CFG_SOC_NAME == SOC_BK7252N) || (CFG_SOC_NAME == SOC_BK7221U))
     CMD_SCTRL_OPEN_DAC_ANALOG,
     CMD_SCTRL_CLOSE_DAC_ANALOG,
     CMD_SCTRL_OPEN_ADC_MIC_ANALOG,
@@ -131,18 +145,18 @@ enum
     CMD_SCTRL_SET_VOLUME_PORT,
     CMD_SCTRL_SET_AUD_DAC_MUTE,
     CMD_SCTRL_AUDIO_PLL,
-#endif
-#if (CFG_SOC_NAME == SOC_BK7221U)
+    #endif
+    #if (CFG_SOC_NAME == SOC_BK7221U)
     CMD_SCTRL_USB_CHARGE_CAL,
     CMD_SCTRL_USB_CHARGE_START,
     CMD_SCTRL_USB_CHARGE_STOP,
 
-    
-	#endif // (CFG_SOC_NAME == SOC_BK7221)
+
+    #endif // (CFG_SOC_NAME == SOC_BK7221)
     CMD_SCTRL_SET_LOW_PWR_CLK,
     CMD_SCTRL_SET_GADC_SEL,
-	CMD_SCTRL_SET_VDD_VALUE,
-	CMD_SCTRL_GET_VDD_VALUE,
+    CMD_SCTRL_SET_VDD_VALUE,
+    CMD_SCTRL_GET_VDD_VALUE,
     CMD_RF_HOLD_BIT_SET,
     CMD_RF_HOLD_BIT_CLR,
     CMD_SCTRL_SKIP_BOOT,
@@ -153,6 +167,10 @@ enum
 #define PSRAM_VDD_2_5V                                       (0x1)
 #define PSRAM_VDD_3_3V                                       (0x2)
 #define PSRAM_VDD_3_3V_DEF                                   (0x3)
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#define PSRAM_VDD_3_5V                                       (0x4)
+#define PSRAM_VDD_3_5V_DEF                                   (0x7)
+#endif
 
 #define QSPI_IO_1_8V                                         (0x0)
 #define QSPI_IO_2_5V                                         (0x1)
@@ -319,7 +337,7 @@ typedef union
 typedef struct efuse_oper_st
 {
     UINT8 addr;
-    UINT8 data;    
+    UINT8 data;
 } EFUSE_OPER_ST, *EFUSE_OPER_PTR;
 
 typedef enum

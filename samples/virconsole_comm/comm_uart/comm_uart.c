@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtdevice.h>
 #include <rthw.h>
 #include <rtthread.h>
@@ -5,7 +19,7 @@
 #include "comm_uart.h"
 
 
-typedef struct 
+typedef struct
 {
     rt_device_t device;
     rt_sem_t rx_sem;
@@ -19,16 +33,16 @@ static int comm_uart_rx_ind(rt_device_t dev, rt_size_t size)
         return -1;
     }
 
-    
+
     return rt_sem_release(g_comm_uart.rx_sem);
 }
 
 uint8_t comm_uart_getchar(void)
 {
     uint8_t ch;
-    
 
-    while (rt_device_read(g_comm_uart.device, (-1), &ch, 1) != 1) 
+
+    while (rt_device_read(g_comm_uart.device, (-1), &ch, 1) != 1)
     {
         rt_sem_take(g_comm_uart.rx_sem, RT_WAITING_FOREVER);
     }
@@ -41,7 +55,7 @@ int comm_uart_putchar(const rt_uint8_t ch)
     return rt_device_write(g_comm_uart.device, 0, &ch, 1);
 }
 
-int comm_uart_sendstr(const char *str, size_t len) 
+int comm_uart_sendstr(const char *str, size_t len)
 {
     return rt_device_write(g_comm_uart.device, 0, str, len);
 }
@@ -51,17 +65,17 @@ int comm_uart_init(void)
     rt_device_t dev = RT_NULL;
     comm_uart_st *pcomm_uart = NULL;
 
-    
+
     pcomm_uart = &g_comm_uart;
     pcomm_uart->rx_sem = rt_sem_create("com_rxsem", 0, RT_IPC_FLAG_FIFO);
     dev = rt_device_find(RT_CONSOLE_DEVICE_NAME);
-    if (dev == RT_NULL) 
+    if (dev == RT_NULL)
     {
         return -1;
     }
 
     int ret = rt_device_open(dev,RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_INT_RX);
-    if (ret == RT_EOK) 
+    if (ret == RT_EOK)
     {
         pcomm_uart->device = dev;
         rt_device_set_rx_indicate(dev, comm_uart_rx_ind);
@@ -82,11 +96,11 @@ int comm_uart_deinit(void)
         rt_sem_delete(g_comm_uart.rx_sem);
         g_comm_uart.rx_sem = NULL;
     }
-    
+
     if(g_comm_uart.device)
     {
         rt_device_set_rx_indicate(g_comm_uart.device, NULL);
-        
+
         rt_device_close(g_comm_uart.device);
         g_comm_uart.device = NULL;
     }

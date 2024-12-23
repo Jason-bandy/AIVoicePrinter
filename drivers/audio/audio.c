@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "arm_arch.h"
 
@@ -17,9 +31,9 @@ void audio_power_up(void)
     UINT32 param;
     param = PWD_AUDIO_CLK_BIT;
     sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_UP, &param);
-#if (CFG_SOC_NAME == SOC_BK7252N)
+    #if (CFG_SOC_NAME == SOC_BK7252N)
     sddev_control(ICU_DEV_NAME, CMD_ICU_CLKGATING_DISABLE, &param);
-#endif
+    #endif
 }
 
 void audio_power_down(void)
@@ -27,9 +41,9 @@ void audio_power_down(void)
     UINT32 param;
     param = PWD_AUDIO_CLK_BIT;
     sddev_control(ICU_DEV_NAME, CMD_CLK_PWR_DOWN, &param);
-#if (CFG_SOC_NAME == SOC_BK7252N)
+    #if (CFG_SOC_NAME == SOC_BK7252N)
     sddev_control(ICU_DEV_NAME, CMD_ICU_CLKGATING_ENABLE, &param);
-#endif
+    #endif
 }
 
 void audio_enable_interrupt(void)
@@ -64,9 +78,9 @@ static void audio_isr(void)
     }
     if (status & ADC_INT_FLAG)
     {
-#if CFG_USE_AUD_ADC
+        #if CFG_USE_AUD_ADC
         audio_adc_irq_handler(status);
-#endif
+        #endif
 
         REG_WRITE(AUD_AD_FIFO_STATUS,
                   ADC_NEAR_FULL | ADC_NEAR_EMPTY | ADC_FIFO_FULL
@@ -143,8 +157,8 @@ void audio_exit(void)
     val = REG_READ(AUD_AD_FIFO_STATUS);
     REG_WRITE(AUD_AD_FIFO_STATUS, val);
 
-#if CFG_USE_AUD_DAC
+    #if CFG_USE_AUD_DAC
     ddev_unregister_dev(AUD_DAC_DEV_NAME);
-#endif
+    #endif
 }
 #endif // CFG_USE_AUDIO

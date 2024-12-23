@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -31,7 +45,7 @@ rt_err_t _spi_configure(struct rt_spi_device *dev, struct rt_spi_configuration *
     RT_ASSERT(cfg != RT_NULL);
 
     dbg_log(DBG_LOG, "data_width = %d \n", cfg->data_width);
-    
+
     /* baudrate */
     dbg_log(DBG_LOG, "max_hz = %d,  mode:0x%02x\n", cfg->max_hz, cfg->mode);
 
@@ -82,7 +96,7 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
         {
             spi_msg.send_buf = NULL;
             spi_msg.send_len = 0;
-            
+
             spi_msg.recv_buf = msg->recv_buf;
             spi_msg.recv_len = msg->length;
         }
@@ -90,7 +104,7 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
         {
             spi_msg.send_buf = (UINT8*)msg->send_buf;
             spi_msg.send_len = msg->length;
-            
+
             spi_msg.recv_buf = NULL;
             spi_msg.recv_len = 0;
         }
@@ -98,7 +112,7 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
         {
             return 0;
         }
-        
+
         length = bk_spi_master_xfer(&spi_msg);
     }
     else
@@ -107,7 +121,7 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
         {
             spi_msg.send_buf = NULL;
             spi_msg.send_len = 0;
-            
+
             spi_msg.recv_buf = msg->recv_buf;
             spi_msg.recv_len = msg->length;
         }
@@ -115,7 +129,7 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
         {
             spi_msg.send_buf = (UINT8*)msg->send_buf;
             spi_msg.send_len = msg->length;
-            
+
             spi_msg.recv_buf = NULL;
             spi_msg.recv_len = 0;
         }
@@ -123,10 +137,10 @@ rt_uint32_t _spi_xfer(struct rt_spi_device *dev, struct rt_spi_message *msg)
         {
             return 0;
         }
-        
+
         length = bk_spi_slave_xfer(&spi_msg);
     }
-  
+
     return length;
 }
 
@@ -166,7 +180,7 @@ int rt_hw_spi_bus_register(char *name)
 
     spi_bus->parent.user_data = spi_dev;
     rt_spi_bus_register(spi_bus, name, &spi_ops);
-    
+
     return result;
 
 _exit:
@@ -191,7 +205,7 @@ int rt_hw_spi_device_init(void)
     int result = RT_EOK;
 
     rt_kprintf("[spi]:rt_hw_spi_device_init\n");
-    
+
     if (spi_device)
     {
         return RT_EOK;

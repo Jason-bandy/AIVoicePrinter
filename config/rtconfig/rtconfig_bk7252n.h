@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef RT_CONFIG_H__
 #define RT_CONFIG_H__
 
@@ -109,7 +123,7 @@
 #define RT_USING_AUDIO
 #define RT_USING_SPI
 #define RT_USING_I2S
-
+#define RT_USING_PWM
 /* Using USB */
 
 
@@ -288,12 +302,13 @@
 //#define BEKEN_USING_SPI_FLASH
 //#define BEKEN_USING_SPI_PSRAM
 //#define BEKEN_USING_SPI_HSLAVE
+//#define BEKEN_USING_QSPI_PSRAM_HEAP
 #define RT_USING_BLE
 
 /* Player Config */
 
 /* PLAYER 1.2.7 ************************************************************************** */
-#define PKG_USING_PLAYER
+//#define PKG_USING_PLAYER
 #define PKG_USING_PLAYER_V127
 #define PLAYER_DEVICE "sound"
 #define PLAYER_DEFAULT_VOLUME 65
@@ -349,3 +364,4 @@
 
 #define RT_USING_MEMTRACE
 #endif
+#define RT_DFS_ELM_USE_EXFAT

@@ -645,11 +645,11 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 			if (actv_idx >= BLE_ACTIVITY_MAX) {
 				bk_printf("unknow actv idx:%d\r\n", actv_idx);
 			} else {
-				if (app_ble_env.cmd == BLE_DELETE_SCAN) {
+				if ((app_ble_env.cmd == BLE_DELETE_SCAN) || (app_ble_env.cmd == BLE_DEINIT_SCAN)) {
 					app_ble_env.actv_cnt.scan_actv--;
 					app_ble_env.op_mask &= ~(1 << BLE_OP_DEL_SCAN_POS);
 					app_ble_env.actvs[actv_idx].actv_status = ACTV_IDLE;
-				} else if (app_ble_env.cmd == BLE_DELETE_ADV) {
+				} else if ((app_ble_env.cmd == BLE_DELETE_ADV) || (app_ble_env.cmd == BLE_DEINIT_ADV)) {
 					app_ble_env.actv_cnt.adv_actv--;
 					app_ble_env.op_mask &= ~(1 << BLE_OP_DEL_ADV_POS);
 					app_ble_env.actvs[actv_idx].actv_status = ACTV_IDLE;
@@ -1480,12 +1480,14 @@ static int gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
 	}
 	#endif
 
-	if (ble_event_notice) {
-		ble_cmd_cmp_evt_t event;
-		event.conn_idx = app_ble_find_conn_idx_handle(conidx);
-		event.status = param->status;
-		event.cmd = BLE_CONN_UPDATE_MTU;
-		ble_event_notice(BLE_5_GAP_CMD_CMP_EVENT, &event);
+	if (param->operation == GATTC_MTU_EXCH) {
+		if (ble_event_notice) {
+			ble_cmd_cmp_evt_t event;
+			event.conn_idx = app_ble_find_conn_idx_handle(conidx);
+			event.status = param->status;
+			event.cmd = BLE_CONN_UPDATE_MTU;
+			ble_event_notice(BLE_5_GAP_CMD_CMP_EVENT, &event);
+		}
 	}
 
 	return (KERNEL_MSG_CONSUMED);

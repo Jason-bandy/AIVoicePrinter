@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "arm_arch.h"
 #include "drv_model_pub.h"
@@ -268,7 +282,7 @@ static void yuv_buf_mode_init(yuv_buf_config_t *config)
     yuv_config = (yuv_buf_config_t*)os_malloc(sizeof(yuv_buf_config_t));
     if (yuv_config)
     {
-        os_memset(yuv_config, 0 ,sizeof(yuv_buf_config_t));
+        os_memset(yuv_config, 0,sizeof(yuv_buf_config_t));
         os_memcpy(yuv_config, config, sizeof(yuv_buf_config_t));
     }
     else
@@ -411,29 +425,29 @@ void yuv_buf_exit(void)
 UINT32 yuv_buf_ctrl(UINT32 cmd, void *param)
 {
     switch (cmd) {
-        case YUV_BUF_CTRL_INIT:
-            yuv_buf_mode_init(param);
-            break;
-        case YUV_BUF_SOFT_MODE:
-            yuv_buf_soft_mode_config();
-            break;
-        case YUV_BUF_RENC_START:
-            yuv_buf_send_renc_start();
-            break;
-        case YUV_BUF_EMADDR_SET:
-            yuv_buf_em_base_addr_set(*(UINT32 *)param);
-            break;
-        case YUV_BUF_EMADDR_GET:
-            yuv_buf_em_base_addr_get(param);
-            break;
-        case YUV_BUF_CTRL_DEINIT:
-            yuv_buf_mode_deinit();
-            break;
-        case YUV_BUF_CMD_RESET:
-            yuv_buf_soft_reset();
-            break;
-        default:
-            break;
+    case YUV_BUF_CTRL_INIT:
+        yuv_buf_mode_init(param);
+        break;
+    case YUV_BUF_SOFT_MODE:
+        yuv_buf_soft_mode_config();
+        break;
+    case YUV_BUF_RENC_START:
+        yuv_buf_send_renc_start();
+        break;
+    case YUV_BUF_EMADDR_SET:
+        yuv_buf_em_base_addr_set(*(UINT32 *)param);
+        break;
+    case YUV_BUF_EMADDR_GET:
+        yuv_buf_em_base_addr_get(param);
+        break;
+    case YUV_BUF_CTRL_DEINIT:
+        yuv_buf_mode_deinit();
+        break;
+    case YUV_BUF_CMD_RESET:
+        yuv_buf_soft_reset();
+        break;
+    default:
+        break;
     }
 
     return 0;

@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "sys_config.h"
 
 #if CFG_USE_SPI_MST_FLASH
@@ -21,33 +35,33 @@
 
 static int init(void)
 {
-	LOG_D("****init");
-	return spi_flash_init();
+    LOG_D("****init");
+    return spi_flash_init();
 }
 
 static int erase(long offset, size_t size)
 {
-	spi_flash_unprotect();
+    spi_flash_unprotect();
 
-	LOG_D("****erase");
-	spi_flash_erase(offset,size);
+    LOG_D("****erase");
+    spi_flash_erase(offset,size);
 
-	return size;
+    return size;
 }
 
 static int read(long offset, uint8_t *buf, size_t size)
 {
-	spi_flash_read(offset,size,buf);
-	LOG_D("****read");
+    spi_flash_read(offset,size,buf);
+    LOG_D("****read");
     return size;
 }
 
 static int write(long offset, const uint8_t *buf, size_t size)
 {
-	spi_flash_unprotect();
-	spi_flash_write(offset,size, (uint8_t*)buf);
-	LOG_D("***write");
-	return size;
+    spi_flash_unprotect();
+    spi_flash_write(offset,size, (uint8_t*)buf);
+    LOG_D("***write");
+    return size;
 }
 
 #ifndef NOR_FLASH_DEV_NAME
@@ -55,12 +69,12 @@ static int write(long offset, const uint8_t *buf, size_t size)
 #endif
 
 /* spi nor flash dev */
-const struct fal_flash_dev beken_ext_flash_device = 
+const struct fal_flash_dev beken_ext_flash_device =
 {
-    NOR_FLASH_DEV_NAME, 
-    0, 
-    4*1024*1024, 
+    NOR_FLASH_DEV_NAME,
+    0,
+    4*1024*1024,
     4096,
-    {init, read, write, erase} 
+    {init, read, write, erase}
 };
 #endif

@@ -378,6 +378,7 @@ SRC_C += ./beken378/app/net_work/video_demo_main.c
 SRC_C += ./beken378/app/net_work/video_demo_station.c
 SRC_C += ./beken378/app/net_work/video_demo_softap.c
 SRC_C += ./beken378/app/net_work/video_demo_p2p.c
+SRC_C += ./beken378/app/net_work/video_demo_co_ap_p2p.c
 
 
 #demo module

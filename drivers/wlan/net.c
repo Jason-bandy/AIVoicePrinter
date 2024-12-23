@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include <stdio.h>
 #include <string.h>
@@ -34,7 +48,7 @@
 #include <wlan_dev.h>
 #include <wlan_mgnt.h>
 #include "drv_wlan.h"
-#include <sys/socket.h> 
+#include <sys/socket.h>
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"
@@ -213,14 +227,14 @@ static void wm_netif_status_static_callback(struct netif *n)
         // static IP success;
         os_printf("using static ip...\n");
         mhdr_set_station_status(RW_EVT_STA_GOT_IP);/* dhcp success*/
-        
+
         if(sta_ipup_cb != NULL)
             sta_ipup_cb(NULL);
 
-    } 
-    else 
+    }
+    else
     {
-    	// static IP fail;
+        // static IP fail;
     }
 }
 
@@ -231,9 +245,9 @@ extern int _wifi_connect_done(void *ctx);
 static void wm_netif_status_callback(struct netif *n)
 {
     struct dhcp *dhcp;
-	u32 val;
-	FUNC_1PARAM_PTR fn;
-	
+    u32 val;
+    FUNC_1PARAM_PTR fn;
+
     NET_DBG("L%d, %s \r\n", __LINE__, __FUNCTION__);
 
     if (n->flags & NETIF_FLAG_UP)
@@ -254,16 +268,16 @@ static void wm_netif_status_callback(struct netif *n)
 
                 netif_set_default(n); // rtthread TODO
 
-#if CFG_ROLE_LAUNCH
+                #if CFG_ROLE_LAUNCH
                 rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
-#endif
-				fn = bk_wlan_get_status_cb();
-				if(fn)
-				{
-					val = RW_EVT_STA_GOT_IP;
-					(*fn)(&val);
-				}
-				mhdr_set_station_status(RW_EVT_STA_GOT_IP);
+                #endif
+                fn = bk_wlan_get_status_cb();
+                if(fn)
+                {
+                    val = RW_EVT_STA_GOT_IP;
+                    (*fn)(&val);
+                }
+                mhdr_set_station_status(RW_EVT_STA_GOT_IP);
                 ip_up_tick = rt_tick_get();
                 rt_kprintf("[ip_up]:start tick =  %d, ip_up tick = %d, total = %d \n", start_connect_tick, ip_up_tick, ip_up_tick - start_connect_tick);
                 _wifi_connect_done(NULL);
@@ -275,6 +289,11 @@ static void wm_netif_status_callback(struct netif *n)
                 #if CFG_USE_STA_PS
                 auto_check_dtim_rf_ps_mode();
                 #endif
+
+                extern struct wpa_supplicant *wpa_suppliant_ctrl_get_wpas();
+                extern void wlan_store_fci(struct wpa_supplicant *wpa_s);
+                struct wpa_supplicant *wpa_s = wpa_suppliant_ctrl_get_wpas();
+                wlan_store_fci(wpa_s);
             }
             else
             {
@@ -339,6 +358,11 @@ void *net_sock_to_interface(int sock)
     lwip_getpeername(sock, (struct sockaddr *)&peer, &peerlen);
     req_iface = net_ip_to_interface(peer.sin_addr.s_addr);
     return req_iface;
+}
+
+void net_send_gratuitous_arp(void)
+{
+    etharp_reply();
 }
 
 void *net_get_sta_handle(void)
@@ -550,7 +574,7 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
      * address configuration.
      */
     netif_set_status_callback(if_handle->netif, NULL);
-#ifdef CONFIG_IPV6
+    #ifdef CONFIG_IPV6
     if (if_handle == &g_mlan)
     {
         netif_set_ipv6_status_callback(&if_handle->netif,
@@ -560,7 +584,7 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
          * address in its lifetime */
         wm_netif_ipv6_status_callback(&if_handle->netif);
     }
-#endif
+    #endif
     switch (addr->addr_type)
     {
     case ADDR_TYPE_STATIC:
@@ -569,14 +593,14 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
         if_handle->gw.addr = addr->gw;
         netifapi_netif_set_addr(if_handle->netif, &if_handle->ipaddr,
                                 &if_handle->nmask, &if_handle->gw);
-		netif_set_status_callback(if_handle->netif,
-					wm_netif_status_static_callback);
+        netif_set_status_callback(if_handle->netif,
+                                  wm_netif_status_static_callback);
         netifapi_netif_set_up(if_handle->netif);
         if (!strncmp(if_handle->netif->name, WIFI_DEVICE_STA_NAME, sizeof(if_handle->netif->name)))
         {
             net_configure_dns((struct wlan_ip_config *)addr);
         }
-		break;
+        break;
 
     case ADDR_TYPE_DHCP:
         NET_DBG("L%d, %s \r\n", __LINE__, __FUNCTION__);
@@ -591,7 +615,7 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
                                   wm_netif_status_callback);
         netifapi_netif_set_up(if_handle->netif);
         netifapi_dhcp_start(if_handle->netif);
-		net_configure_dns((struct wlan_ip_config*)addr);
+        net_configure_dns((struct wlan_ip_config*)addr);
         break;
 
     default:
@@ -628,6 +652,14 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
     }
 
     return 0;
+}
+
+struct netif *net_get_if_p(void *intrfc_handle)
+{
+    struct interface *if_handle = (struct interface *)intrfc_handle;
+
+    NET_DBG("L%d, %s \r\n", __LINE__, __FUNCTION__);
+    return if_handle->netif;
 }
 
 int net_get_if_addr(struct wlan_ip_config *addr, void *intrfc_handle)
@@ -713,12 +745,12 @@ int net_get_if_ip_mask(uint32_t *nm, void *intrfc_handle)
 
 int net_get_if_gw_addr(uint32_t *ip, void *intrfc_handle)
 {
-	struct interface *if_handle = (struct interface *)intrfc_handle;
+    struct interface *if_handle = (struct interface *)intrfc_handle;
 
-	*ip = if_handle->netif->gw.addr;
+    *ip = if_handle->netif->gw.addr;
     NET_DBG("L%d, %s \r\n", __LINE__, __FUNCTION__);
-    
-	return 0;
+
+    return 0;
 }
 
 void net_configure_dns(struct wlan_ip_config *ip)
@@ -751,9 +783,9 @@ void net_wlan_initial(void)
     NET_DBG("L%d, %s \r\n", __LINE__, __FUNCTION__);
     net_ipv4stack_init();
 
-#ifdef CONFIG_IPV6
+    #ifdef CONFIG_IPV6
     net_ipv6stack_init(&g_mlan.netif);
-#endif /* CONFIG_IPV6 */
+    #endif /* CONFIG_IPV6 */
 }
 
 void net_wlan_add_netif(void *mac)

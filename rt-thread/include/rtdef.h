@@ -587,7 +587,7 @@ typedef struct rt_thread *rt_thread_t;
 
 #define RT_WAITING_FOREVER              -1              /**< Block forever until get resource. */
 #define RT_WAITING_NO                   0               /**< Non-block. */
-
+#define RT_SEM_VALUE_MAX                RT_UINT16_MAX   /**< Maximum number of semaphore .value */
 /**
  * Base structure of IPC object
  */
@@ -607,6 +607,7 @@ struct rt_semaphore
     struct rt_ipc_object parent;                        /**< inherit from ipc_object */
 
     rt_uint16_t          value;                         /**< value of semaphore. */
+    rt_uint16_t          max_value; 
 };
 typedef struct rt_semaphore *rt_sem_t;
 #endif

@@ -1,10 +1,12 @@
 from __future__ import print_function
 import os
+import subprocess
 
 # toolchains options
 ARCH        ='arm'
 CPU         ='beken'
 CROSS_TOOL  ='gcc'
+SDK_TOOLCHAIN = '5.4.1'
 
 if os.getenv('RTT_ROOT'):
     RTT_ROOT = os.getenv('RTT_ROOT')
@@ -26,6 +28,11 @@ else:
 
 if os.getenv('RTT_EXEC_PATH'):
     EXEC_PATH = os.getenv('RTT_EXEC_PATH')
+    rtt_toolchain = subprocess.check_output(EXEC_PATH+"arm-none-eabi-gcc -dumpversion", shell=True).strip()
+
+if rtt_toolchain != SDK_TOOLCHAIN:
+    print('Please make sure your toolchains version is %s!' % SDK_TOOLCHAIN)
+    exit(0)
 
 print('EXEC_PATH is: %s' % EXEC_PATH)
 

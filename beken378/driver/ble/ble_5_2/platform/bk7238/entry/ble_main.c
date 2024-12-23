@@ -130,7 +130,7 @@ void bdaddr_env_init()
 		ble_mac[i] = sta_mac[BD_ADDR_LEN - 1 - i];
 	}
 
-	bk_printf("ble public addr:%02x-%02x-%02x-%02x-%02x-%02x\r\n",
+	bk_printf("ble mac: %02x:%02x:%02x:%02x:%02x:%02x\r\n",
 		ble_mac[5], ble_mac[4], ble_mac[3], ble_mac[2], ble_mac[1], ble_mac[0]);
 
 #if CFG_BLE_RANDOM_STATIC_ADDR
@@ -143,7 +143,7 @@ void bdaddr_env_init()
 		common_static_addr.addr[5] |= 0xC0;
 	}
 	ble_mac = &common_static_addr.addr[0];
-	bk_printf("ble static addr:%02x-%02x-%02x-%02x-%02x-%02x\r\n",
+	bk_printf("ble static mac:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
 		ble_mac[5], ble_mac[4], ble_mac[3], ble_mac[2], ble_mac[1], ble_mac[0]);
 #endif
 }
@@ -303,6 +303,12 @@ void enter_normal_app_mode(void)
 	#else
 	sctrl_ctrl(CMD_BLE_RF_PTA_DIS,NULL);
 	#endif
+
+	#if CFG_BLE_DIAGNOSTIC_PORT
+	//ble test code for debug pin
+	ble_diagcntl_pack(1,0x03,1,0x03,0,0,0,0);
+	#endif
+
 	while (1) {
 		OSStatus err;
 		BLE_MSG_T msg;
@@ -311,10 +317,6 @@ void enter_normal_app_mode(void)
 		if (kNoErr == err) {
 			switch (msg.data) {
 				case BLE_MSG_POLL:
-					#if CFG_BLE_DIAGNOSTIC_PORT
-					//ble test code for debug pin
-					ble_diagcntl_pack(1,0x03,1,0x03,0,0,0,0);
-					#endif
 					//schedule all pending events
 					rwip_schedule();
 					break;

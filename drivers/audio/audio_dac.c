@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "arm_arch.h"
 #include "audio.h"
@@ -313,8 +327,8 @@ void audio_dac_volume_use_single_port(void)
     UINT32 param;
 
     param = AUDIO_DAC_VOL_SINGLE_MODE;
-    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, 
-        &param);
+    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT,
+                  &param);
 }
 
 void audio_dac_volume_diff_port(void)
@@ -324,8 +338,8 @@ void audio_dac_volume_diff_port(void)
     UINT32 param;
 
     param = AUDIO_DAC_VOL_DIFF_MODE;
-    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT, 
-        &param);
+    sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_SET_VOLUME_PORT,
+                  &param);
 }
 
 void audio_dac_open_analog_regs(void)
@@ -341,7 +355,7 @@ void audio_dac_close_analog_regs(void)
 void audio_dac_set_analog_mute(UINT32 enable)
 {
     UINT32 val = 0;
-    
+
     if (enable)
         val = AUDIO_DAC_ANALOG_MUTE;
     else
@@ -363,35 +377,35 @@ void audio_dac_init_mute_pin(void)
 
 void audio_dac_eable_mute(UINT32 enable)
 {
-	static uint8_t mute_flg = 0xFF;
-	UINT32 param;
-	UINT32 cur_tick, delay_tick;
+    static uint8_t mute_flg = 0xFF;
+    UINT32 param;
+    UINT32 cur_tick, delay_tick;
 
-	if (enable) {
-		if(mute_flg == 1) {
-			return;
-		}
+    if (enable) {
+        if(mute_flg == 1) {
+            return;
+        }
 
-		mute_flg = 1;
-		param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, AUD_DAC_MUTE_ENA_LEVEL);
-		delay_tick = PA_MUTE_DELAY;
-	} else {
-		if(mute_flg == 0) {
-			return;
-		}
+        mute_flg = 1;
+        param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, AUD_DAC_MUTE_ENA_LEVEL);
+        delay_tick = PA_MUTE_DELAY;
+    } else {
+        if(mute_flg == 0) {
+            return;
+        }
 
-		mute_flg = 0;
-		param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, ~AUD_DAC_MUTE_ENA_LEVEL);
-		delay_tick = PA_UNMUTE_DELAY;
-	}
-	sddev_control(GPIO_DEV_NAME, CMD_GPIO_OUTPUT, &param);
+        mute_flg = 0;
+        param = GPIO_CFG_PARAM(AUD_DAC_MUTE_PIN, ~AUD_DAC_MUTE_ENA_LEVEL);
+        delay_tick = PA_UNMUTE_DELAY;
+    }
+    sddev_control(GPIO_DEV_NAME, CMD_GPIO_OUTPUT, &param);
 
-	cur_tick = fclk_get_tick();
-	while(1) {
-		if(fclk_get_tick() - cur_tick > delay_tick) {
-			break;
-		}
-	}
+    cur_tick = fclk_get_tick();
+    while(1) {
+        if(fclk_get_tick() - cur_tick > delay_tick) {
+            break;
+        }
+    }
 }
 #endif
 
@@ -415,16 +429,16 @@ void audio_dac_set_volume(UINT32 percent)
     if (percent == 0)
     {
         // no volume, so do mute(disable extral PA)
-#if AUD_USE_EXT_PA
+        #if AUD_USE_EXT_PA
         audio_dac_eable_mute(1);
-#endif
+        #endif
     }
     else
     {
-#if AUD_USE_EXT_PA
+        #if AUD_USE_EXT_PA
         if(audio_dac_is_enable_bit())
             audio_dac_eable_mute(0);
-#endif
+        #endif
     }
 
     AUD_PRT("set dac vol:%d - indx:%d,dig:%d,ana:%02x\r\n", percent, idx, vol->dig_gain, vol->ana_gain);

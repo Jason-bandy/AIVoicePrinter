@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "rtthread.h"
 #include "include.h"
 #include "sound_delay.h"
@@ -21,7 +35,7 @@ void sdly_set_micphone_vol(int vol)
     if(sound_delay_ptr)
     {
         SDLY_PRINTF("sdly_set_micphone_vol :%d-%d\r\n",
-            sound_delay_ptr->micphone_vol, vol);
+                    sound_delay_ptr->micphone_vol, vol);
         if(vol < 0)
             vol = 0;
 
@@ -32,22 +46,22 @@ void sdly_set_micphone_vol(int vol)
 void sdly_set_value(int argc, char** argv)
 {
     int32_t decay_value, pcm_vol, micphone_vol;
-    
-    if (argc != 4) 
+
+    if (argc != 4)
     {
         SDLY_PRINTF("sdly_set_value err\r\n");
         return;
     }
 
-    if(argc == 4) 
+    if(argc == 4)
     {
         decay_value = atoi(argv[1]);
         pcm_vol = atoi(argv[2]);
         micphone_vol = atoi(argv[3]);
-        
-        SDLY_PRINTF("set decay pcm mic:%d-%d-%d\r\n", 
-            decay_value, pcm_vol, micphone_vol);
-        
+
+        SDLY_PRINTF("set decay pcm mic:%d-%d-%d\r\n",
+                    decay_value, pcm_vol, micphone_vol);
+
         sound_delay_ptr->decay_value = decay_value;
         sound_delay_ptr->pcm_vol = pcm_vol;
         sound_delay_ptr->micphone_vol = micphone_vol;
@@ -323,7 +337,7 @@ void sdly_mixer_single_playing(uint8_t *sample_ptr, uint16_t simple_len_byte)
         //temp = ((int32_t)(*sound_delay_ptr->op_ptr) * sound_delay_ptr->decay_value ) / SDLY_MIN_DECAY_VAL;
         temp = (int32_t)(*sound_delay_ptr->op_ptr);
         temp += (int32_t)sample[i];
-        
+
         temp = (temp * sound_delay_ptr->micphone_vol) >> 4;
         temp = sdly_low_pass_filter(temp);
 
@@ -369,7 +383,7 @@ void sdly_mixer_multi_playing(uint8_t *sample_adc, uint8_t *sample_audio, uint16
         temp = (int32_t)(*sound_delay_ptr->op_ptr);
         temp += (int32_t)simple_ptr[i];
         temp = (temp * sound_delay_ptr->micphone_vol) >> 4;
-		temp = sdly_low_pass_filter(temp);
+        temp = sdly_low_pass_filter(temp);
 
         left_data = (left_data * sound_delay_ptr->pcm_vol) >> 4;
         left_data += temp;

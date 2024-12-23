@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 /*
  * 程序清单： 这是一个以littlefs挂载外部存储flash设备的使用例
  * 例程导出了spi_flash_lfs_test 命令到控制终端
@@ -92,29 +106,29 @@ static int lfs_flash_sync(const struct lfs_config* c)
 
 
 #ifndef LFS_READ_SIZE
-    #define LFS_READ_SIZE 256
+#define LFS_READ_SIZE 256
 #endif
 
 #ifndef LFS_PROG_SIZE
-    #define LFS_PROG_SIZE 256
+#define LFS_PROG_SIZE 256
 #endif
 
 #ifndef LFS_BLOCK_SIZE
-    #define LFS_BLOCK_SIZE 4096
+#define LFS_BLOCK_SIZE 4096
 #endif
 
 #ifndef LFS_CACHE_SIZE
-    #define LFS_CACHE_SIZE LFS_PROG_SIZE
+#define LFS_CACHE_SIZE LFS_PROG_SIZE
 #endif
 
 #ifndef LFS_BLOCK_CYCLES
-    #define LFS_BLOCK_CYCLES (-1)
+#define LFS_BLOCK_CYCLES (-1)
 #endif
 
 #ifndef LFS_LOOKAHEAD_MAX
-    #define LFS_LOOKAHEAD_MAX 128
+#define LFS_LOOKAHEAD_MAX 128
 #endif
-static void lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_device * mtd_nor) 
+static void lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_device * mtd_nor)
 {
     lfs_cfg->context = (void*)mtd_nor;
 
@@ -137,7 +151,7 @@ static void lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_device
     {
         lfs_cfg->lookahead_size = LFS_LOOKAHEAD_MAX;
     }
-	
+
     lfs_cfg->read = &lfs_flash_read;
     lfs_cfg->prog = &lfs_flash_prog;
     lfs_cfg->erase = &lfs_flash_erase;
@@ -152,7 +166,7 @@ static void lfs_load_config(struct lfs_config* lfs_cfg, struct rt_mtd_nor_device
 //#define DFS_LFS_TEST
 static void spi_flash_lfs_test(int argc, char **argv)
 {
-#ifdef DFS_LFS_TEST/*LFS 挂载到DFS TEST*/
+    #ifdef DFS_LFS_TEST/*LFS 挂载到DFS TEST*/
     if(argc != 2)
     {
         rt_kprintf("argc error!\n");
@@ -175,23 +189,23 @@ static void spi_flash_lfs_test(int argc, char **argv)
 
         rt_kprintf("create mtd nor flash device ok\n");
 
-    	/* mount lfs */
-    	if(dfs_mount(LFS_SPI_NOR_FLASH_PARTITION_NAME,MOUNT_PATH, "lfs", 0, 0) == 0)
-    	{
-    		rt_kprintf("lfs spi flash File System initialized!\n");
-    	}
-    	else
-    	{
-    		ret = dfs_mkfs("lfs",LFS_SPI_NOR_FLASH_PARTITION_NAME);
-    		if(dfs_mount(LFS_SPI_NOR_FLASH_PARTITION_NAME,MOUNT_PATH, "lfs", 0, 0) == 0)
-    		{
-    			rt_kprintf("lfs spi flash lfs File System initialized!\n");
-    		}
-    		else
-    		{
-    			rt_kprintf("lfs spi flash lfs File System initialzation failed!ret:%d\n",ret);
-    		}
-    	}
+        /* mount lfs */
+        if(dfs_mount(LFS_SPI_NOR_FLASH_PARTITION_NAME,MOUNT_PATH, "lfs", 0, 0) == 0)
+        {
+            rt_kprintf("lfs spi flash File System initialized!\n");
+        }
+        else
+        {
+            ret = dfs_mkfs("lfs",LFS_SPI_NOR_FLASH_PARTITION_NAME);
+            if(dfs_mount(LFS_SPI_NOR_FLASH_PARTITION_NAME,MOUNT_PATH, "lfs", 0, 0) == 0)
+            {
+                rt_kprintf("lfs spi flash lfs File System initialized!\n");
+            }
+            else
+            {
+                rt_kprintf("lfs spi flash lfs File System initialzation failed!ret:%d\n",ret);
+            }
+        }
     }
     else if(!strcmp(argv[1],"file"))
     {
@@ -215,7 +229,7 @@ static void spi_flash_lfs_test(int argc, char **argv)
         }
 
         int i;
-        for(i=0;i<10;i++)
+        for(i=0; i<10; i++)
         {
             offset = lseek(fd, 0, SEEK_SET);
             rt_kprintf("------offset: 0x%08x\n", offset);
@@ -223,7 +237,7 @@ static void spi_flash_lfs_test(int argc, char **argv)
             boot_count += 1;
             rt_kprintf("update boot_count: %d\n", boot_count);
             write(fd, &boot_count, sizeof(boot_count));
-            
+
             offset = lseek(fd, 0, SEEK_SET);
             rt_kprintf("======offset: 0x%08x\n", offset);
             size = read(fd, &boot_count, sizeof(boot_count));
@@ -232,11 +246,11 @@ static void spi_flash_lfs_test(int argc, char **argv)
 
         ret = fsync(fd);
         if(ret)rt_kprintf("fsync data to storage fail!\n");
-        
+
         ret = close(fd);
         if(ret)rt_kprintf("close fail!\n");
-        
-    exit:
+
+exit:
         return;
     }
     else if(!strcmp(argv[1],"unmount"))
@@ -250,7 +264,7 @@ static void spi_flash_lfs_test(int argc, char **argv)
     {
         rt_kprintf("parm error!\n");
     }
-#else/*LFS RAW API TEST*/
+    #else/*LFS RAW API TEST*/
     struct rt_device *mtd_dev = fal_mtd_nor_device_create(LFS_SPI_NOR_FLASH_PARTITION_NAME);
     if (!mtd_dev)
     {
@@ -265,14 +279,14 @@ static void spi_flash_lfs_test(int argc, char **argv)
 
     // reformat if we can't mount the filesystem
     // this should only happen on the first boot
-    if (err) 
+    if (err)
     {
         lfs_format(&lfs, &cfg);
         err = lfs_mount(&lfs, &cfg);
-    	if(err)
-    	{
-    		rt_kprintf("lfs_mount fail!\n");
-    	}
+        if(err)
+        {
+            rt_kprintf("lfs_mount fail!\n");
+        }
     }
 
     // read current count
@@ -284,7 +298,7 @@ static void spi_flash_lfs_test(int argc, char **argv)
 
     // update boot count
     boot_count += 10;
-	rt_kprintf("update boot_count: %d\n", boot_count);
+    rt_kprintf("update boot_count: %d\n", boot_count);
     lfs_file_rewind(&lfs, &file);
     lfs_file_write(&lfs, &file, &boot_count, sizeof(boot_count));
 
@@ -294,7 +308,7 @@ static void spi_flash_lfs_test(int argc, char **argv)
     // release any resources we were using
     err = lfs_unmount(&lfs);
     if(err)rt_kprintf("lfs lfs_unmount fail!\n");
-#endif
+    #endif
 }
 
 MSH_CMD_EXPORT(spi_flash_lfs_test, spi_flash_lfs_test);

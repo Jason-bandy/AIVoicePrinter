@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #ifdef BLE_CONFIG_SAMPLE
 
@@ -51,21 +65,21 @@ static void station_connect(const char *ssid, const char *passwd)
 
 static int result_cb(char *ssid, char *password,char *ble_get_openid, void *user_data, void *userdata_len)
 {
- 
-#ifdef XIAOYA_OS
+
+    #ifdef XIAOYA_OS
     xiaoya_player_tips(TIP_FIND_AP_INFO,0);
     parm_set_wechat_openid_str((uint8_t *)ble_get_openid);
-    sta_cfg_t sta_cfg; 
+    sta_cfg_t sta_cfg;
     memcpy(sta_cfg.ssid_str,ssid,strlen(ssid)+1);
     memcpy(sta_cfg.pwd_str,password,strlen(password)+1);
     parm_set_sta_cfg(&sta_cfg);
-#endif
+    #endif
 
-#ifdef AP_DIERCT_CONNECT_TEST
-	extern direct_ap_info_t direct_ap_info;
-	memcpy(direct_ap_info.direct_ssid,ssid,strlen(ssid)+1);
-	memcpy(direct_ap_info.direct_pwd,password,strlen(password)+1);
-#endif
+    #ifdef AP_DIERCT_CONNECT_TEST
+    extern direct_ap_info_t direct_ap_info;
+    memcpy(direct_ap_info.direct_ssid,ssid,strlen(ssid)+1);
+    memcpy(direct_ap_info.direct_pwd,password,strlen(password)+1);
+    #endif
 
     rt_kprintf("ssid:%s, password:%s,openid:%s\n", ssid, password,ble_get_openid);
     ble_netconfig_state=BLE_NETCONFIG_RECIVE_INFO;
@@ -77,12 +91,12 @@ const bk_attm_desc_t netconfig_att_db[AAAAS_IDX_NB] =
 {
     //  Service Declaration
     [AAAAS_IDX_SVC]                     =   {BK_ATT_DECL_PRIMARY_SERVICE_128,   BK_PERM_SET(RD, ENABLE), 0, 0},
-    
+
     //  Level Characteristic Declaration
     [AAAAS_IDX_BBB0_VAL_CHAR]           =   {BK_ATT_DECL_CHARACTERISTIC_128,   BK_PERM_SET(RD, ENABLE), 0, 0},
     //  Level Characteristic Value
     [AAAAS_IDX_BBB0_VAL_VALUE]          =   {WRITE_REQ_CHARACTERISTIC_128,   BK_PERM_SET(WRITE_REQ, ENABLE),BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16),AAAA_CHAR_DATA_LEN},
-    
+
     [AAAAS_IDX_BBB1_VAL_CHAR]           =   {BK_ATT_DECL_CHARACTERISTIC_128,   BK_PERM_SET(RD, ENABLE), 0, 0},
     //  Level Characteristic Value
     [AAAAS_IDX_BBB1_VAL_VALUE]          =   {NOTIFY_CHARACTERISTIC_128,   BK_PERM_SET(NTF, ENABLE)|BK_PERM_SET(RD, ENABLE),BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16),AAAA_CHAR_DATA_LEN},
@@ -177,8 +191,8 @@ static void ble_write_callback(write_req_t *param)
             }
             else
             {
-                 ble_session->status = START;
-                 goto __restart;
+                ble_session->status = START;
+                goto __restart;
             }
         }
         else
@@ -214,7 +228,7 @@ static void ble_write_callback(write_req_t *param)
         ble_session->status = RECVING;
         goto __exit;
     }
-    
+
 __restart:
     if(root != RT_NULL)
     {
@@ -223,7 +237,7 @@ __restart:
     }
     ble_clean_data();
 __exit:
-    return;    
+    return;
 }
 
 static uint8_t ble_read_callback(read_req_t *param)
@@ -238,47 +252,47 @@ static void ble_event_callback(ble_event_t event, void *param)
 {
     switch(event)
     {
-       case BLE_STACK_OK:
-        {
-            rt_kprintf("STACK INIT OK\r\n");
-            ble_create_db();
-        }
+    case BLE_STACK_OK:
+    {
+        rt_kprintf("STACK INIT OK\r\n");
+        ble_create_db();
+    }
+    break;
+    case BLE_STACK_FAIL:
+        rt_kprintf("STACK INIT FAIL\r\n");
         break;
-        case BLE_STACK_FAIL:
-            rt_kprintf("STACK INIT FAIL\r\n");
+    case BLE_CREATE_DB_OK:
+    {
+        rt_kprintf("BLE_CREATE_DB_OK\r\n");
+        ble_create_prf_ok=1;
+    }
+    break;
+    case BLE_CREATE_DB_FAIL:
+        bk_printf("BLE_CREATE_DB_FAIL\r\n");
         break;
-        case BLE_CREATE_DB_OK:
-        {
-            rt_kprintf("BLE_CREATE_DB_OK\r\n"); 
-            ble_create_prf_ok=1;         
-        }
+    case BLE_CONNECT:
+        rt_kprintf("BLE CONNECT\r\n");
         break;
-        case BLE_CREATE_DB_FAIL:
-            bk_printf("BLE_CREATE_DB_FAIL\r\n");         
+    case BLE_DISCONNECT:
+    {
+        rt_kprintf("BLE DISCONNECT\r\n");
+    }
+    break;
+    case BLE_MTU_CHANGE:
+        rt_kprintf("BLE_MTU_CHANGE:%d\r\n", *(uint16_t *)param);
         break;
-        case BLE_CONNECT:
-            rt_kprintf("BLE CONNECT\r\n");
+    case BLE_CFG_NOTIFY:
+        rt_kprintf("BLE_CFG_NOTIFY:%d\r\n", *(uint16_t *)param);
         break;
-        case BLE_DISCONNECT:
-        {
-            rt_kprintf("BLE DISCONNECT\r\n");
-        }
+    case BLE_CFG_INDICATE:
+        rt_kprintf("BLE_CFG_INDICATE:%d\r\n", *(uint16_t *)param);
         break;
-        case BLE_MTU_CHANGE:
-            rt_kprintf("BLE_MTU_CHANGE:%d\r\n", *(uint16_t *)param);
-        break;
-        case BLE_CFG_NOTIFY:
-            rt_kprintf("BLE_CFG_NOTIFY:%d\r\n", *(uint16_t *)param);
-        break;
-        case BLE_CFG_INDICATE:
-            rt_kprintf("BLE_CFG_INDICATE:%d\r\n", *(uint16_t *)param);
-        break;
-        case BLE_TX_DONE:
-            rt_kprintf("BLE_TX_DONE\r\n");
+    case BLE_TX_DONE:
+        rt_kprintf("BLE_TX_DONE\r\n");
         break;
 
-        default:
-            rt_kprintf("UNKNOW EVENT\r\n");
+    default:
+        rt_kprintf("UNKNOW EVENT\r\n");
         break;
     }
 }
@@ -299,23 +313,32 @@ static void ble_start(void)
     adv_info.interval_max = 160;
 
     adv_idx = 0;
-    adv_info.advData[adv_idx] = 0x02; adv_idx++;
-    adv_info.advData[adv_idx] = 0x01; adv_idx++;
-    adv_info.advData[adv_idx] = 0x06; adv_idx++;
+    adv_info.advData[adv_idx] = 0x02;
+    adv_idx++;
+    adv_info.advData[adv_idx] = 0x01;
+    adv_idx++;
+    adv_info.advData[adv_idx] = 0x06;
+    adv_idx++;
 
-    adv_info.advData[adv_idx] = adv_name_len + 1; adv_idx +=1;
-    adv_info.advData[adv_idx] = 0x09; adv_idx +=1; //name
-    memcpy(&adv_info.advData[adv_idx], ble_name, adv_name_len); adv_idx +=adv_name_len;
+    adv_info.advData[adv_idx] = adv_name_len + 1;
+    adv_idx +=1;
+    adv_info.advData[adv_idx] = 0x09;
+    adv_idx +=1; //name
+    memcpy(&adv_info.advData[adv_idx], ble_name, adv_name_len);
+    adv_idx +=adv_name_len;
 
     adv_info.advDataLen = adv_idx;
 
     adv_idx = 0;
 
-    adv_info.respData[adv_idx] = adv_name_len + 1; adv_idx +=1;
-    adv_info.respData[adv_idx] = 0x08; adv_idx +=1; //name
-    memcpy(&adv_info.respData[adv_idx], ble_name, adv_name_len); adv_idx +=adv_name_len;
+    adv_info.respData[adv_idx] = adv_name_len + 1;
+    adv_idx +=1;
+    adv_info.respData[adv_idx] = 0x08;
+    adv_idx +=1; //name
+    memcpy(&adv_info.respData[adv_idx], ble_name, adv_name_len);
+    adv_idx +=adv_name_len;
     adv_info.respDataLen = adv_idx;
-    
+
     if (ERR_SUCCESS != appm_start_advertising())
     {
         rt_kprintf("ERROR\r\n");
@@ -324,7 +347,7 @@ static void ble_start(void)
 
 static rt_err_t ble_netconfig_stop(void)
 {
-	appm_disconnect();
+    appm_disconnect();
     rt_thread_delay(500);
     if(ERR_SUCCESS==appm_stop_advertising())
         rt_kprintf("appm_stop_advertising success\r\n");
@@ -334,17 +357,17 @@ static rt_err_t ble_netconfig_stop(void)
         ble_session->response_buf=NULL;
     }
     ble_stop();
-    
+
     return RT_EOK;
 }
 
 rt_err_t bk_ble_netconfig_thread()
 {
-	extern rt_sem_t direct_conn_done_sem;
-	if(direct_conn_done_sem != RT_NULL)
-	{
-	 	 rt_kprintf(" rt_sem_release direct_conn_done_sem =%d \n",rt_sem_release(direct_conn_done_sem));
-	}
+    extern rt_sem_t direct_conn_done_sem;
+    if(direct_conn_done_sem != RT_NULL)
+    {
+        rt_kprintf(" rt_sem_release direct_conn_done_sem =%d \n",rt_sem_release(direct_conn_done_sem));
+    }
     int time=rt_tick_get();
     if(BLE_NETCONFIG_START==ble_netconfig_state)
     {
@@ -353,7 +376,7 @@ rt_err_t bk_ble_netconfig_thread()
     }
     ble_netconfig_state=BLE_NETCONFIG_START;
     ble_session->response_buf = rt_malloc(1024);
-    if(ble_session->response_buf == RT_NULL) 
+    if(ble_session->response_buf == RT_NULL)
     {
         rt_kprintf("malloc failed\n");
         return -RT_ENOMEM;
@@ -362,14 +385,14 @@ rt_err_t bk_ble_netconfig_thread()
     ble_session->len = 0;
     ble_session->tick = 0;
     ble_session->status = START;
-    
+
     //ble activate
-    
+
     ble_set_write_cb(ble_write_callback);
     ble_set_read_cb(ble_read_callback);
     ble_set_event_cb(ble_event_callback);
     ble_activate(NULL);
-    gapm_set_max_mtu(AAAA_CHAR_DATA_LEN); 
+    gapm_set_max_mtu(AAAA_CHAR_DATA_LEN);
     while(!ble_create_prf_ok)
     {
         rt_thread_delay(10);
@@ -380,19 +403,19 @@ rt_err_t bk_ble_netconfig_thread()
     {
         if(BLE_NETCONFIG_STOP==ble_netconfig_state)
             break;
-    #ifdef XIAOYA_OS
+        #ifdef XIAOYA_OS
         if(rt_tick_get()-time>=NETCONFIG_TIMEOUT)
         {
             rt_kprintf("[PLAYER] netconfig timeout\r\n");
             xiaoya_player_tips(TIP_NET_CONFIG_TIMEOUT,0);
             break;
         }
-    #endif
+        #endif
         rt_thread_delay(10);
     }
 _exit:
     tid=NULL;
-   ble_netconfig_stop();
+    ble_netconfig_stop();
     return RT_EOK;
 }
 
@@ -445,7 +468,7 @@ static void wifi_got_ip_cb()
 
 static void ble_netconfig_sample()
 {
-   // net_set_sta_ipup_callback(wifi_got_ip_cb);
+    // net_set_sta_ipup_callback(wifi_got_ip_cb);
     bk_ble_netconfig_stop();
     bk_ble_netconfig_start();
 }

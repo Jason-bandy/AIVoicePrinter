@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _SYS_CONFIG_H_
 #define _SYS_CONFIG_H_
 
@@ -68,6 +82,17 @@
 #define CFG_WPA_CTRL_IFACE                         1
 #define CFG_RWNX_QOS_MSDU                          1
 #define CFG_WLAN_FAST_CONNECT                      0
+#if CFG_WLAN_FAST_CONNECT
+#define CFG_WLAN_FAST_CONNECT_STATIC_IP            0
+#define CFG_WLAN_SUPPORT_FAST_DHCP                 0
+#if (CFG_WLAN_FAST_CONNECT_STATIC_IP && CFG_WLAN_SUPPORT_FAST_DHCP)
+#error "static ip support and fast dhcp support cannot be opened at the same time"
+#endif
+/* fast connect will connects to AP without any scan */
+#define CFG_WLAN_FAST_CONNECT_WITHOUT_SCAN         0
+/* fast connect will disconnect with AP first before AUTH */
+#define CFG_WLAN_FAST_CONNECT_DEAUTH_FIRST         0
+#endif
 #define CFG_WPA2_ENTERPRISE                        0
 #define CFG_WPA3_ENTERPRISE                        0
 /* WPS(WSC) Support */
@@ -75,6 +100,14 @@
 /* WiFi Direct Support, CFG_WIFI_WPS must be enabled */
 #define CFG_WIFI_P2P                               0
 #define CFG_WIFI_P2P_GO                            0
+#define CFG_WIFI_P2P_USE_LISTEN                    0
+/* WiFi Direct and softap coexist enabled */
+#define CFG_WIFI_P2P_SOFTAP_COEX                   0
+#if CFG_WIFI_P2P_SOFTAP_COEX
+#undef CFG_WIFI_P2P_USE_LISTEN
+#define CFG_WIFI_P2P_USE_LISTEN                    1
+#endif
+
 /* Vendor Specific IEs when STA Probe Req/Association Req*/
 #define CFG_WIFI_STA_VSIE                          0
 /* Vendor Specific IEs when AP Beacon  */
@@ -83,6 +116,10 @@
 #define CFG_WIFI_AP_CUSTOM_RATES                   0
 /* repush txdesc when txl_reset happens */
 #define CFG_WIFI_REPUSH_WHEN_RESET                 0
+/* Send deauth before sending auth to AP */
+#define CFG_WIFI_DEAUTH_BEFORE_AUTH                0
+/* Connection retry support*/
+#define CFG_STA_AUTO_RECONNECT                     0
 
 /*Use macro to shut down some unused functions*/
 #define CFG_WPA_MAYBE_UNUSED                       1
@@ -126,13 +163,25 @@
 #define CFG_OWE                                    1
 /* use wpa2 instead of wpa3-sae if in wpa3 transition mode */
 #define CFG_CFG_WPA2_PREFER_TO_SAE                 0
+#if CFG_WLAN_FAST_CONNECT
+/*
+ * wpa3 fast connect support, use with caution. If system power off
+ * for a long time (24h for example), first connection will fail because
+ * pmksa is timedout.
+ */
+#define CFG_WLAN_FAST_CONNECT_WPA3                 0
+#endif
 #endif
 #define CFG_WFA_CERT                               0
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             0
+#define CFG_FLASH_BYPASS_OTP                       0
 #define CFG_AP_SUPPORT_HT_IE                       0
 #define CFG_SUPPORT_BSSID_CONNECT                  0
+#if CFG_SUPPORT_BSSID_CONNECT
+#define CFG_BSSID_FAST_CONNECT                     0
+#endif
 #define CFG_USE_CONV_UTF8                          0
 #define CFG_BK_AWARE                               0
 #define CFG_BK_AWARE_OUI                           "\xC8\x47\x8C"
@@ -156,6 +205,7 @@
 #define CFG_SUPPORT_SARADC                         1
 #define CFG_SARADC_INTFACE                         1
 #define CFG_SARADC_CALIBRATE                       1
+#define CFG_SARADC_VERIFY                          0
 
 /* The following four macro will be reconstruct
  * TODO
@@ -237,7 +287,11 @@
 #define CFG_USE_DHCPD                              1 // for servicers in ap mode
 
 /*section 11-----temperature detect*/
+#if CFG_SARADC_VERIFY
+#define CFG_USE_TEMPERATURE_DETECT                 0
+#else
 #define CFG_USE_TEMPERATURE_DETECT                 1
+#endif
 #define CFG_USE_VOLTAGE_DETECT                     0
 
 /*section 12-----for video transfer*/
@@ -246,13 +300,9 @@
 #define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
 #define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
 
-#if CFG_WIFI_P2P
 #define CFG_USE_APP_DEMO_VIDEO_TRANSFER            1
 #define CFG_USE_CAMERA_INTF                        1
-#else
-#define CFG_USE_APP_DEMO_VIDEO_TRANSFER            1
-#define CFG_USE_CAMERA_INTF                        1
-#endif
+
 #define CFG_USE_HSLAVE_SPI                         0
 #define CFG_USE_SPIDMA                             0
 #if CFG_USE_CAMERA_INTF
@@ -291,15 +341,14 @@
 #define CFG_USE_BLE_PS                             1
 #define CFG_USE_AP_IDLE                            0
 #define CFG_USE_FAKERTC_PS                         0
+#if( CFG_SUPPORT_ALIOS )
+#define CFG_LOW_VOLTAGE_PS                         0
+#else
 #define CFG_LOW_VOLTAGE_PS                         1
+#endif
 #define CFG_LOW_VOLTAGE_PS_32K_DIV                 0
 #define CFG_LOW_VOLTAGE_PS_COEXIST                 0
 #define CFG_LOW_VOLTAGE_PS_TEST                    0
-
-#if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) )
-#undef CFG_LOW_VOLTAGE_PS
-#define CFG_LOW_VOLTAGE_PS                         0
-#endif
 
 #if(CFG_LOW_VOLTAGE_PS == 1)
 #define CFG_HW_PARSER_TIM_ELEMENT                  1
@@ -343,6 +392,9 @@
 #define CFG_USE_AUDIO                              1
 #define CFG_USE_AUD_DAC                            1
 #define CFG_USE_AUD_ADC                            1
+#define CFG_AUD_DAC_SINGLE_PORT                    1
+#define CFG_AUD_DAC_DIFF_PORT                      2
+#define CFG_AUD_DAC_USE_PORT_SET                   CFG_AUD_DAC_SINGLE_PORT
 
 /*section 25 ----- use tick time calibrate*/
 #define CFG_USE_TICK_CAL                           1

@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -46,22 +60,22 @@ static struct rt_i2s_bus_device g_i2s_bus;
 #if 0
 static void i2s_dma_mode_isr(void)
 {
-	uint32_t tx_done;
-	uint32_t i2s_status;
+    uint32_t tx_done;
+    uint32_t i2s_status;
 
-	i2s_status= REG_READ(PCM_STAT);
-	tx_done  = i2s_status & TX_FIFO0_EMPTY;
-	if (i2s_status & TX_FIFO0_EMPTY)
-	{
-	    i2s_status = i2s_status ^ TX_FIFO0_EMPTY;
+    i2s_status= REG_READ(PCM_STAT);
+    tx_done  = i2s_status & TX_FIFO0_EMPTY;
+    if (i2s_status & TX_FIFO0_EMPTY)
+    {
+        i2s_status = i2s_status ^ TX_FIFO0_EMPTY;
         if (g_i2s_bus.tx_paused)
         {
             bk_printf("#\r\n");
             i2s_dma_master_enable(0);
         }
-	}
+    }
 
-	REG_WRITE(PCM_STAT,i2s_status);
+    REG_WRITE(PCM_STAT,i2s_status);
 }
 #endif
 
@@ -169,13 +183,13 @@ void i2s_dma_tx_half_handler(UINT32 flag)
     result = rt_data_node_is_empty(i2s->tx_list);
     if (result)
     {
-#ifdef PAUSE_EN
+        #ifdef PAUSE_EN
         i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo + (I2S_TX_BUFFER_SIZE -4));
-		i2s->tx_paused = 1;
+        i2s->tx_paused = 1;
         //i2s_dma_master_enable(!i2s->tx_paused);
-		i2s->tx_fill_pos = (UINT32)i2s->tx_fifo;
-		i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2;
-#endif
+        i2s->tx_fill_pos = (UINT32)i2s->tx_fifo;
+        i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2;
+        #endif
 
         memset(i2s->tx_fifo, 0, I2S_TX_BUFFER_SIZE / 2);
     }
@@ -184,16 +198,16 @@ void i2s_dma_tx_half_handler(UINT32 flag)
         memset(i2s->tx_fifo, 0, I2S_TX_BUFFER_SIZE / 2);
         result = rt_data_node_read(i2s->tx_list, i2s->tx_fifo, I2S_TX_BUFFER_SIZE / 2);
 
-#ifdef PAUSE_EN
-		if (result < (I2S_TX_BUFFER_SIZE / 2))
-		{
-			i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo + (I2S_TX_BUFFER_SIZE -4));
-			i2s->tx_paused = 1;
+        #ifdef PAUSE_EN
+        if (result < (I2S_TX_BUFFER_SIZE / 2))
+        {
+            i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo + (I2S_TX_BUFFER_SIZE -4));
+            i2s->tx_paused = 1;
             //i2s_dma_master_enable(!i2s->tx_paused);
-		    i2s->tx_fill_pos = (UINT32)i2s->tx_fifo + result;
-		    i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2 - result;
-		}
-#endif
+            i2s->tx_fill_pos = (UINT32)i2s->tx_fifo + result;
+            i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2 - result;
+        }
+        #endif
     }
 }
 
@@ -208,13 +222,13 @@ void i2s_dma_tx_finish_handler(UINT32 flag)
     result = rt_data_node_is_empty(i2s->tx_list);
     if (result)
     {
-    #ifdef PAUSE_EN
+        #ifdef PAUSE_EN
         i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo + (I2S_TX_BUFFER_SIZE / 2 -4));
-		i2s->tx_paused = 1;
+        i2s->tx_paused = 1;
         //i2s_dma_master_enable(!i2s->tx_paused);
-		i2s->tx_fill_pos = (UINT32)i2s->tx_fifo + I2S_TX_BUFFER_SIZE / 2;
-		i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2;
-	#endif
+        i2s->tx_fill_pos = (UINT32)i2s->tx_fifo + I2S_TX_BUFFER_SIZE / 2;
+        i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2;
+        #endif
         //rt_kprintf("* ");
         memset(i2s->tx_fifo + (I2S_TX_BUFFER_SIZE / 2), 0, I2S_TX_BUFFER_SIZE / 2);
     }
@@ -222,16 +236,16 @@ void i2s_dma_tx_finish_handler(UINT32 flag)
     {
         memset(i2s->tx_fifo + (I2S_TX_BUFFER_SIZE / 2), 0, I2S_TX_BUFFER_SIZE / 2);
         result = rt_data_node_read(i2s->tx_list, i2s->tx_fifo + (I2S_TX_BUFFER_SIZE / 2), I2S_TX_BUFFER_SIZE / 2);
-	#ifdef PAUSE_EN
-		if (result < (I2S_TX_BUFFER_SIZE / 2))
-		{
-			i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo + (I2S_TX_BUFFER_SIZE / 2 -4));
-			i2s->tx_paused = 1;
+        #ifdef PAUSE_EN
+        if (result < (I2S_TX_BUFFER_SIZE / 2))
+        {
+            i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo + (I2S_TX_BUFFER_SIZE / 2 -4));
+            i2s->tx_paused = 1;
             //i2s_dma_master_enable(!i2s->tx_paused);
-		    i2s->tx_fill_pos = (UINT32)i2s->tx_fifo + I2S_TX_BUFFER_SIZE / 2 + result;
-		    i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2 - result;
-		}
-	#endif
+            i2s->tx_fill_pos = (UINT32)i2s->tx_fifo + I2S_TX_BUFFER_SIZE / 2 + result;
+            i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2 - result;
+        }
+        #endif
     }
 }
 
@@ -278,9 +292,9 @@ void i2s_dma_rx_half_handler(UINT32 flag)
 
     rt_kprintf("%s:%d\r\n", __FUNCTION__, __LINE__);
     //rt_kprintf("%s:%d PCM_CTRL=0x%x,PCM_CN=0x%x,PCM_STAT=0x%x\r\n", __FUNCTION__, __LINE__, REG_READ(PCM_CTRL), REG_READ(PCM_CN), REG_READ(PCM_STAT));
-#ifdef PAUSE_EN
+    #ifdef PAUSE_EN
     //i2s_dma_rx_pause_addr_set((UINT32)i2s->rx_fifo + (I2S_RX_BUFFER_SIZE -4));
-#endif
+    #endif
 
     int index;
     int *ptr = (int *)i2s->rx_fifo;
@@ -300,9 +314,9 @@ void i2s_dma_rx_finish_handler(UINT32 flag)
 
     rt_kprintf("%s:%d\r\n", __FUNCTION__, __LINE__);
     //rt_kprintf("%s:%d PCM_CTRL=0x%x,PCM_CN=0x%x,PCM_STAT=0x%x\r\n", __FUNCTION__, __LINE__, REG_READ(PCM_CTRL), REG_READ(PCM_CN), REG_READ(PCM_STAT));
-#ifdef PAUSE_EN
+    #ifdef PAUSE_EN
     //i2s_dma_rx_pause_addr_set((UINT32)i2s->rx_fifo + (I2S_RX_BUFFER_SIZE / 2 -4));
-#endif
+    #endif
 
     int index;
     int *ptr = (int *)i2s->rx_fifo + I2S_RX_BUFFER_SIZE / 8;
@@ -328,51 +342,51 @@ int i2s_dma_rx_init(struct rt_i2s_bus_device *i2s)
     init_cfg.srcdat_width = i2s->bits_length;
     init_cfg.dstptr_incr = 1;
     init_cfg.srcptr_incr = 0;
-    
+
     init_cfg.src_start_addr = (void *)PCM_DAT0;
     init_cfg.dst_start_addr = i2s->rx_fifo;
-    
+
     init_cfg.channel = I2S_RX_DMA_CHANNEL;
     init_cfg.prio = 0;
     init_cfg.u.type5.dst_loop_start_addr = i2s->rx_fifo;
     init_cfg.u.type5.dst_loop_end_addr = i2s->rx_fifo + I2S_RX_BUFFER_SIZE;
 
-#if defined(I2S_RX_CALLBACK)
+    #if defined(I2S_RX_CALLBACK)
     init_cfg.half_fin_handler = i2s_dma_rx_half_handler;
     init_cfg.fin_handler = i2s_dma_rx_finish_handler;
-#endif
+    #endif
 
     init_cfg.src_module = GDMA_X_SRC_I2S_RX_REQ;
     init_cfg.dst_module = GDMA_X_DST_DTCM_WR_REQ;
 
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE5, (void *)&init_cfg);
-    
+
     en_cfg.channel = I2S_RX_DMA_CHANNEL;
     en_cfg.param = I2S_RX_BUFFER_SIZE; // dma translen
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
 
-#if !defined(I2S_RX_CALLBACK)
+    #if !defined(I2S_RX_CALLBACK)
     rb_init_dma_write(&i2s->rb_dma_wr, (UINT8*)i2s->rx_fifo, I2S_RX_BUFFER_SIZE, I2S_RX_DMA_CHANNEL);
-#endif
-	return 0;
+    #endif
+    return 0;
 }
 
 static rt_err_t rt_i2s_init(rt_device_t dev)
 {
     rt_kprintf("%s:%d\r\n", __FUNCTION__, __LINE__);
     i2s_init(0);
-	return RT_EOK;
+    return RT_EOK;
 }
 
 static rt_err_t rt_i2s_open(rt_device_t dev, rt_uint16_t oflag)
 {
     struct rt_i2s_bus_device *i2s = (struct rt_i2s_bus_device *)dev;
-    
-	/* open audio , set fifo level set sample rate/datawidth */
-	if (!oflag)
-	{
+
+    /* open audio , set fifo level set sample rate/datawidth */
+    if (!oflag)
+    {
         return -RT_EINVAL;
-	}
+    }
 
     if (!i2s->open_flag)
     {
@@ -380,12 +394,12 @@ static rt_err_t rt_i2s_open(rt_device_t dev, rt_uint16_t oflag)
         i2s->tx_dma_irq_cnt = 0;
         #if 1
         i2s->tx_paused = 1;
-		i2s->tx_fill_pos = (UINT32)i2s->tx_fifo;
-		i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2;
-		#endif
+        i2s->tx_fill_pos = (UINT32)i2s->tx_fifo;
+        i2s->tx_fill_size = I2S_TX_BUFFER_SIZE / 2;
+        #endif
 
-		i2s->sample_rate = I2S_SAMPLE_RATE;
-		i2s->bits_length = I2S_BIT_LENGTH;
+        i2s->sample_rate = I2S_SAMPLE_RATE;
+        i2s->bits_length = I2S_BIT_LENGTH;
 
         //sddev_control(I2S_DEV_NAME, I2S_CMD_DMA_ISR, (void *)i2s_dma_mode_isr);
         /* rate=8/16/44.4/48 * 1000  bitlength=8/16/24/32 */
@@ -419,7 +433,7 @@ static rt_err_t rt_i2s_close(rt_device_t dev)
     if (i2s->open_flag)
     {
         // wait_node_free(i2s->tx_list);
-        rt_data_node_empty(i2s->tx_list); 
+        rt_data_node_empty(i2s->tx_list);
 
         i2s_dma_rx_enable(0);
         i2s_dma_tx_enable(0);
@@ -444,14 +458,14 @@ static rt_size_t rt_i2s_read(rt_device_t dev, rt_off_t pos, void *buffer, rt_siz
         return 0;
     }
 
-#if !defined(I2S_RX_CALLBACK)
-#if CFG_GENERAL_DMA
+    #if !defined(I2S_RX_CALLBACK)
+    #if CFG_GENERAL_DMA
     fill_size = rb_get_fill_size_dma_write(&i2s->rb_dma_wr);
     if(fill_size > size)
         fill_size = size;
     rb_read_dma_write(&i2s->rb_dma_wr, (UINT8 *)buffer + pos, fill_size, 1);
-#endif
-#endif
+    #endif
+    #endif
 
     return fill_size;
 }
@@ -470,9 +484,9 @@ static rt_size_t rt_i2s_write(rt_device_t dev, rt_off_t pos, const void *buffer,
     rt_kprintf("%s:%d size=%d\r\n", __FUNCTION__, __LINE__, size);
     ret = rt_data_node_write(i2s->tx_list, (void *)((UINT8 *)buffer + pos), size);
 
-#ifdef PAUSE_EN
+    #ifdef PAUSE_EN
     if (i2s->tx_paused)
-    {    
+    {
         result = rt_data_node_read(i2s->tx_list, (void*)i2s->tx_fill_pos, i2s->tx_fill_size);
         rt_kprintf("%s:%d result=%d,fill_size=%d\r\n", __FUNCTION__, __LINE__, result, i2s->tx_fill_size);
 
@@ -488,7 +502,7 @@ static rt_size_t rt_i2s_write(rt_device_t dev, rt_off_t pos, const void *buffer,
             i2s->tx_fill_size -= result;
         }
     }
-#endif
+    #endif
     return ret;
 }
 
@@ -500,42 +514,42 @@ static rt_err_t rt_i2s_cotrol(rt_device_t dev, int cmd, void *args)
 
     switch (cmd)
     {
-        case RT_DEVICE_CTRL_I2S_DMA_RX_ENABLE:
-            i2s_dma_rx_enable(*(rt_int32_t *)args);
-            break;
-        case RT_DEVICE_CTRL_I2S_DMA_TX_ENABLE:
-            i2s_dma_tx_enable(*(rt_int32_t *)args);
-            break;
-        case RT_DEVICE_CTRL_I2S_DMA_MASTER_ENABLE:
-            i2s_dma_master_enable(*(rt_int32_t *)args);
-            break;
-        case RT_DEVICE_CTRL_I2S_SAMPLE_RATE_SET:
-            if (i2s->sample_rate != *(rt_int32_t *)args)
+    case RT_DEVICE_CTRL_I2S_DMA_RX_ENABLE:
+        i2s_dma_rx_enable(*(rt_int32_t *)args);
+        break;
+    case RT_DEVICE_CTRL_I2S_DMA_TX_ENABLE:
+        i2s_dma_tx_enable(*(rt_int32_t *)args);
+        break;
+    case RT_DEVICE_CTRL_I2S_DMA_MASTER_ENABLE:
+        i2s_dma_master_enable(*(rt_int32_t *)args);
+        break;
+    case RT_DEVICE_CTRL_I2S_SAMPLE_RATE_SET:
+        if (i2s->sample_rate != *(rt_int32_t *)args)
+        {
+            i2s->sample_rate = *(rt_int32_t *)args;
+            i2s_configure(FIFO_LEVEL_32, i2s->sample_rate, i2s->bits_length, I2S_DEFAULT_MODE);
+        }
+        break;
+    case RT_DEVICE_CTRL_I2S_BIT_LENGTH_SET:
+        if (i2s->bits_length != *(rt_int32_t *)args)
+        {
+            i2s->bits_length = *(rt_int32_t *)args;
+            i2s_configure(FIFO_LEVEL_32, i2s->sample_rate, i2s->bits_length, I2S_DEFAULT_MODE);
+            if (i2s->open_flag & RT_DEVICE_OFLAG_RDONLY)
             {
-                i2s->sample_rate = *(rt_int32_t *)args;
-                i2s_configure(FIFO_LEVEL_32, i2s->sample_rate, i2s->bits_length, I2S_DEFAULT_MODE);
+                i2s_dma_rx_init(i2s);
+                i2s_dma_rx_pause_addr_set(0);
             }
-            break;
-        case RT_DEVICE_CTRL_I2S_BIT_LENGTH_SET:
-            if (i2s->bits_length != *(rt_int32_t *)args)
+            if (i2s->open_flag & RT_DEVICE_OFLAG_WRONLY)
             {
-                i2s->bits_length = *(rt_int32_t *)args;
-                i2s_configure(FIFO_LEVEL_32, i2s->sample_rate, i2s->bits_length, I2S_DEFAULT_MODE);
-                if (i2s->open_flag & RT_DEVICE_OFLAG_RDONLY)
-                {
-                    i2s_dma_rx_init(i2s);
-                    i2s_dma_rx_pause_addr_set(0);
-                }
-                if (i2s->open_flag & RT_DEVICE_OFLAG_WRONLY)
-                {
-                    i2s_dma_tx_init(i2s);
-                    i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo);
-                }
+                i2s_dma_tx_init(i2s);
+                i2s_dma_tx_pause_addr_set((UINT32)i2s->tx_fifo);
             }
-            break;
+        }
+        break;
     }
 
-	return RT_ERROR;
+    return RT_ERROR;
 }
 
 #ifdef RT_USING_DEVICE_OPS
@@ -553,7 +567,7 @@ static const struct rt_device_ops i2s_ops =
 int  rt_i2s_hw_init(void)
 {
     struct rt_i2s_bus_device *i2s = &g_i2s_bus;
-	struct rt_device *device = &i2s->parent;
+    struct rt_device *device = &i2s->parent;
 
     /* set device type */
     device->type = RT_Device_Class_I2SBUS;
@@ -561,16 +575,16 @@ int  rt_i2s_hw_init(void)
     device->tx_complete = RT_NULL;
     device->user_data   = RT_NULL;
 
-#ifdef RT_USING_DEVICE_OPS
+    #ifdef RT_USING_DEVICE_OPS
     device->ops = &i2s_ops;
-#else
+    #else
     device->control = rt_i2s_cotrol;
     device->init    = rt_i2s_init;
     device->open    = rt_i2s_open;
     device->close   = rt_i2s_close;
     device->read    = rt_i2s_read;
     device->write   = rt_i2s_write;
-#endif /* RT_USING_DEVICE_OPS */	
+    #endif /* RT_USING_DEVICE_OPS */
 
     i2s->tx_fifo = (char *)sdram_malloc(I2S_TX_BUFFER_SIZE);
     if (i2s->tx_fifo == RT_NULL)
@@ -580,7 +594,7 @@ int  rt_i2s_hw_init(void)
     }
     memset(i2s->tx_fifo, 0, I2S_TX_BUFFER_SIZE);
 
-#if 1
+    #if 1
     i2s->rx_fifo = (char *)sdram_malloc(I2S_RX_BUFFER_SIZE);
     if (i2s->rx_fifo == RT_NULL)
     {
@@ -589,7 +603,7 @@ int  rt_i2s_hw_init(void)
         return -RT_ENOMEM;
     }
     memset(i2s->rx_fifo, 0, I2S_RX_BUFFER_SIZE);
-#endif
+    #endif
 
     rt_data_node_init(&i2s->tx_list, I2S_TX_NODE_COUNT);
     i2s->tx_list->read_complete = i2s_tx_node_read_complete;
@@ -597,11 +611,11 @@ int  rt_i2s_hw_init(void)
 
     /* register to device manager */
 
-	rt_device_register(device, I2S_DEV_NAME, RT_DEVICE_FLAG_RDWR);
+    rt_device_register(device, I2S_DEV_NAME, RT_DEVICE_FLAG_RDWR);
 
-	rt_kprintf("---i2s register over---\r\n");
+    rt_kprintf("---i2s register over---\r\n");
 
-	return RT_EOK;
+    return RT_EOK;
 
 }
 

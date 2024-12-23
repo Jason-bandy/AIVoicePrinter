@@ -557,7 +557,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 					if (ble_event_notice) {
 						discon_ind_t dis_info;
 						dis_info.conn_idx =  BLE_APP_INITING_GET_INDEX(conidx);
-						dis_info.reason = 0xFF;
+						dis_info.reason = param->status;
 						ble_event_notice(BLE_5_INIT_CONNECT_FAILED_EVENT, &dis_info);
 					}
 				}
@@ -603,7 +603,7 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 				if (ble_event_notice) {
 					discon_ind_t dis_info;
 					dis_info.conn_idx =  BLE_APP_INITING_GET_INDEX(conidx);
-					dis_info.reason = 0xFF;
+					dis_info.reason = param->status;
 					ble_event_notice(BLE_5_INIT_CONNECT_FAILED_EVENT, &dis_info);
 				}
 			}
@@ -639,11 +639,11 @@ static int gapm_cmp_evt_handler(kernel_msg_id_t const msgid,
 			if (actv_idx >= BLE_ACTIVITY_MAX) {
 				bk_printf("unknow actv idx:%d\r\n", actv_idx);
 			} else {
-				if (app_ble_env.cmd == BLE_DELETE_SCAN) {
+				if ((app_ble_env.cmd == BLE_DELETE_SCAN) || (app_ble_env.cmd == BLE_DEINIT_SCAN)) {
 					app_ble_env.actv_cnt.scan_actv--;
 					app_ble_env.op_mask &= ~(1 << BLE_OP_DEL_SCAN_POS);
 					app_ble_env.actvs[actv_idx].actv_status = ACTV_IDLE;
-				} else if (app_ble_env.cmd == BLE_DELETE_ADV) {
+				} else if ((app_ble_env.cmd == BLE_DELETE_ADV) || (app_ble_env.cmd == BLE_DEINIT_ADV)) {
 					app_ble_env.actv_cnt.adv_actv--;
 					app_ble_env.op_mask &= ~(1 << BLE_OP_DEL_ADV_POS);
 					app_ble_env.actvs[actv_idx].actv_status = ACTV_IDLE;
@@ -840,7 +840,7 @@ static int gapc_connection_req_ind_handler(kernel_msg_id_t const msgid,
 		conn_info.peer_addr_type = param->peer_addr_type;
 		memcpy(conn_info.peer_addr, param->peer_addr.addr, GAP_BD_ADDR_LEN);
 		#if (BLE_GATT_CLI)
-		sdp_common_create(conn_idx,256);
+		sdp_common_create(conn_idx,GAP_LE_MTU_MAX);
 		#endif
 		if(param->role == APP_BLE_MASTER_ROLE) {
 			#if (BLE_CENTRAL && APP_INIT_SET_STOP_CONN_TIMER)
@@ -1074,7 +1074,7 @@ static int gapc_disconnect_ind_handler(kernel_msg_id_t const msgid,
 	}
 	dis_info.reason = param->reason;
 	dis_info.conn_idx = conn_idx;
-	app_ble_env.connections[conn_idx].sdp_end = 0;
+
 	#if (BLE_GATT_CLI)
 	sdp_common_cleanup(conn_idx);
 	#endif
@@ -1088,6 +1088,12 @@ static int gapc_disconnect_ind_handler(kernel_msg_id_t const msgid,
 		}
 		app_ble_env.actv_cnt.conn_actv--;
 	}
+
+	app_ble_env.connections[conn_idx].role = APP_BLE_NONE_ROLE;
+	app_ble_env.connections[conn_idx].sdp_end = 0;
+	app_ble_env.connections[conn_idx].peer_addr_type = 0;
+	memset(app_ble_env.connections[conn_idx].peer_addr.addr,0,6);
+
 	return (KERNEL_MSG_CONSUMED);
 }
 

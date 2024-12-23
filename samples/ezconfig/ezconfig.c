@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <rthw.h>
@@ -15,7 +29,7 @@
 #define EZCONFIG_SWITCH_TIMER    rt_tick_from_millisecond(50)    // ms
 #define EZCONFIG_DOING_TIMER     rt_tick_from_millisecond(30000)  // 20s
 #define MAX_CHANNEL_NUM          14
- 
+
 static rt_timer_t g_switch_timer;
 static rt_timer_t g_doing_timer;
 static struct rt_wlan_device *g_wlan_device = RT_NULL;
@@ -26,7 +40,7 @@ static int channel_model;
 EZconfig_result_t *ez_result;
 static void bk_ezconfig_switch_channel(void *parameter)
 {
-       
+
     g_current_channel++;
     if (g_current_channel >= MAX_CHANNEL_NUM)
     {
@@ -35,13 +49,13 @@ static void bk_ezconfig_switch_channel(void *parameter)
     }
     if(0==channel_model)
     {
-        bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);  
+        bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);
     }
     else
     {
-        bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_40);  
+        bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_40);
     }
-   
+
     EZCONFIG_PRINTF("Switch channel %d \n", g_current_channel);
 
 }
@@ -56,7 +70,7 @@ static void bk_ezconfig_doing_timeout(void *parameter)
 static void bk_ezconfig_monitor_callback(uint8_t *data, int len, void *user_data)
 {
 
-    
+
     ezconfig_recv_ret=bk_ezconfig_recv(data);
 
     if (ezconfig_recv_ret == EZCONFIG_STATUS_CHANNEL_LOCKED)
@@ -141,7 +155,7 @@ static void ezconfig_send_notification_thread(void *parameter)
     //recv_data = rt_malloc(BUFSZ);
     uint32_t ip_addr=hexstr_ip_to_hex_ip(ip_hexstr);
     rt_kprintf("======clinet ip_addr:%d.%d.%d.%d\r\n",ip_hexstr[0],ip_hexstr[1],ip_hexstr[2],ip_hexstr[3]);
-    
+
     g_stUDPBCAddr.sin_family = AF_INET;
     g_stUDPBCAddr.sin_port = htons(10000);
     //g_stUDPBCAddr.sin_addr.s_addr = htonl(ip_addr);
@@ -152,7 +166,7 @@ static void ezconfig_send_notification_thread(void *parameter)
     {
         /* 连接失败 */
         rt_kprintf("Connect fail!\n");
-        goto _exit; 
+        goto _exit;
     }
     /* 发送数据到sock连接 */
     ret = send(sock, net_state, strlen(net_state), 0);
@@ -232,7 +246,7 @@ static void ezconfig_thread_entry(void *parameter)
     }
     channel_model=0;
     g_current_channel =1;
-   
+
     rt_wlan_set_monitor_callback(g_wlan_device, bk_ezconfig_monitor_callback);
     rt_wlan_cfg_monitor(g_wlan_device, WIFI_MONITOR_START);
     // rt_wlan_set_channel(g_wlan_device, g_current_channel);
@@ -263,7 +277,7 @@ static void ezconfig_thread_entry(void *parameter)
                 goto _exit;
             }
 
-        }while (!get_wifi_status(g_wlan_device->parent.netif));
+        } while (!get_wifi_status(g_wlan_device->parent.netif));
 
         {
             rt_thread_t tid;
@@ -276,7 +290,7 @@ static void ezconfig_thread_entry(void *parameter)
                 rt_thread_startup(tid);
             }
         }
- 
+
     }
     else
     {
@@ -307,7 +321,7 @@ _exit:
 
 int ezconfig(void)
 {
-    
+
     int result = 0;
     rt_thread_t tid = RT_NULL;
 
@@ -335,8 +349,8 @@ int start_ezconfig(int argc, char *argv[])
         {
             rt_kprintf("ezconfig start\r\n");
 
-            rt_thread_delay(rt_tick_from_millisecond(1000));    
-            
+            rt_thread_delay(rt_tick_from_millisecond(1000));
+
             while(g_cfg_done_sem)
             {
                 uint32_t res;
@@ -348,8 +362,8 @@ int start_ezconfig(int argc, char *argv[])
                     rt_kprintf("---ssid:%s , key:%s---\r\n", ez_result->ssid,ez_result->passwd);
                     break;
                 }
-                
-                rt_thread_delay(rt_tick_from_millisecond(100)); 
+
+                rt_thread_delay(rt_tick_from_millisecond(100));
             }
         }
         else

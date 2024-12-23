@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "test_config.h"
 #include <string.h>
 #include <stdlib.h>
@@ -16,7 +30,7 @@ static int flash_protect(int argc, char **argv)
     if(argc == 2)
     {
         protect_val = atoi(argv[1]);
-        
+
         if((uint32_t)protect_val > FLASH_UNPROTECT_LAST_BLOCK)
         {
             protect_val = 0;
@@ -158,41 +172,41 @@ static int rbl_header_copy(int argc, char **argv)
     {
         uint8_t data[96];
         int len = 96;
-        
+
         read(fd, data, 96);
-#if defined (PRINT_RBL_INFO)
-		int i;
-		for(i = 0;i<96;i++)
-		{
-			rt_kprintf("%02x ",data[i]);
-			if((i+1)%16 == 0)
-				rt_kprintf("\r\n");
-		}
-#endif
-        
+        #if defined (PRINT_RBL_INFO)
+        int i;
+        for(i = 0; i<96; i++)
+        {
+            rt_kprintf("%02x ",data[i]);
+            if((i+1)%16 == 0)
+                rt_kprintf("\r\n");
+        }
+        #endif
+
         bk_flash_enable_security(/*FLASH_PROTECT_HALF*/FLASH_PROTECT_NONE); // half or custom
-        
+
         rt_kprintf("flash_erase %d 0x%08X\n", address, address);
         flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);
         flash_write(data, len, address);
-		
-#if defined (PRINT_RBL_INFO)		
-		memset(data,0,len);
-		flash_read(data, len, address);
-		for(i = 0;i<96;i++)
-		{
-			rt_kprintf("%02x ",data[i]);
-			if((i+1)%16 == 0)
-				rt_kprintf("\r\n");
-		}
-#endif
+
+        #if defined (PRINT_RBL_INFO)
+        memset(data,0,len);
+        flash_read(data, len, address);
+        for(i = 0; i<96; i++)
+        {
+            rt_kprintf("%02x ",data[i]);
+            if((i+1)%16 == 0)
+                rt_kprintf("\r\n");
+        }
+        #endif
 
         close(fd);
     }
-	else
-	{
-		 rt_kprintf("[%s] fd:%d\n",__func__,fd);
-	}
+    else
+    {
+        rt_kprintf("[%s] fd:%d\n",__func__,fd);
+    }
 
     return 0;
 }
