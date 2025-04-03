@@ -26,5 +26,11 @@ do
 done
 
 rm -rf out
+rm -rf link.lds
+rm -rf rtconfig.h
+rm -rf config/sys_config.h
+rm -rf libbeken_*.a
+rm -rf config.json
+rm -rf .platform
 
 echo "clean build done."

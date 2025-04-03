@@ -366,6 +366,8 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
+//0:ble controller only 1:ble full stack
+#define CFG_BLE_HOST_RW                            1
 #define CFG_BLE_ADV_NUM                            1
 #define CFG_BLE_SCAN_NUM                           1
 #define CFG_BLE_USE_DYN_RAM                        1
@@ -440,7 +442,9 @@
 #define CFG_USE_SPI                                0
 #define CFG_USE_SPI_MASTER                         0
 #define CFG_USE_SPI_SLAVE                          0
-#define CFG_USE_SPI_DMA                            0
+#define CFG_USE_SPI_DMA_MASTER                     0
+#define CFG_USE_SPI_DMA_SLAVE                      0
+#define CFG_USE_SPI_MST_FLASH                      0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST                        0
@@ -492,5 +496,11 @@
 #endif // (AT_SERVICE_CFG)
 
 #define CFG_DEFAULT_ADC_HIGH_BITS                  0x84
+
+#if CFG_OS_FREERTOS
+#define CFG_MEM_CHECK_ENABLE                       1
+#else
+#define CFG_MEM_CHECK_ENABLE                       0
+#endif
 
 #endif // _SYS_CONFIG_H_

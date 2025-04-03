@@ -29,6 +29,7 @@
 #include "mem_pub.h"
 #include "general_dma_pub.h"
 #include "video_transfer.h"
+#include "common_reg_rw.h"
 
 #ifndef BIT
 #define BIT(i) (1<<(i))
@@ -88,7 +89,7 @@ static void jpeg_soft_reset_enable(UINT8 enable)
     {
         reg_val &= ~JPEG_SOFT_RESET;
     }
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_QSPI_RST(reg_addr, reg_val);
 }
 
 static void jpeg_gpio_config(void)
@@ -148,7 +149,7 @@ static UINT32 jpeg_get_interrupt_status(void)
 
 static void jpeg_clear_interrupt_status(UINT32 int_sta)
 {
-    REG_WRITE(JPEG_REG0X6_ADDR, int_sta);
+    REG_WRITE_PROTECT(JPEG_REG0X6_ADDR, int_sta);
 }
 
 static void jpeg_reset_config_to_default(void)
@@ -156,8 +157,8 @@ static void jpeg_reset_config_to_default(void)
     /* 1.reset REG_0x0
     * 2.clear int_status(REG_0x6)
     */
-    REG_WRITE(JPEG_REG0XC_ADDR, 0);
-    REG_WRITE(JPEG_REG0X6_ADDR, REG_READ(JPEG_REG0X6_ADDR));
+    REG_WRITE_PROTECT(JPEG_REG0XC_ADDR, 0);
+    REG_WRITE_PROTECT(JPEG_REG0X6_ADDR, REG_READ(JPEG_REG0X6_ADDR));
 }
 
 static void jpeg_int_config(void)
@@ -176,7 +177,7 @@ static void jpeg_int_config(void)
     }
 
     reg |= (JPEG_ERR_INT_EN | JPEG_HEAD_INT_EN | JPEG_LCLEAR_DIR);
-    REG_WRITE(JPEG_REG0XC_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0XC_ADDR, reg);
 }
 
 static void jpeg_set_pixel(UINT32 x, UINT32 y)
@@ -185,11 +186,11 @@ static void jpeg_set_pixel(UINT32 x, UINT32 y)
     reg = REG_READ(JPEG_REG0XD_ADDR);
     reg &= ~(JPEG_X_PIXEL_MASK << JPEG_X_PIXEL_POSI);
     reg |= (x << JPEG_X_PIXEL_POSI);
-    REG_WRITE(JPEG_REG0XD_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0XD_ADDR, reg);
 
     reg &= ~(JPEG_Y_PIXEL_MASK << JPEG_Y_PIXEL_POSI);
     reg |= (y << JPEG_Y_PIXEL_POSI);
-    REG_WRITE(JPEG_REG0XD_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0XD_ADDR, reg);
 }
 
 static void jpeg_set_pixel_partial(UINT32 x_l, UINT32 x_r, UINT32 y_l, UINT32 y_r)
@@ -198,16 +199,16 @@ static void jpeg_set_pixel_partial(UINT32 x_l, UINT32 x_r, UINT32 y_l, UINT32 y_
 
     reg = REG_READ(JPEG_REG0X8_ADDR);
     reg |= ((x_l) + (x_r << 12));
-    REG_WRITE(JPEG_REG0X8_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0X8_ADDR, reg);
 
     reg = REG_READ(JPEG_REG0X9_ADDR);
     reg |= ((y_l) + (y_r << 12));
-    REG_WRITE(JPEG_REG0X9_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0X9_ADDR, reg);
 
     // bit reg8 24 to 0
     reg = REG_READ(JPEG_REG0X8_ADDR);
     reg &= ~(0x1 << 24);
-    REG_WRITE(JPEG_REG0X8_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0X8_ADDR, reg);
 }
 
 static void ejpeg_init_quant_table(void)
@@ -218,7 +219,7 @@ static void ejpeg_init_quant_table(void)
     for (i = 0; i < JPEG_QUANT_TAB_LEN; i++)
     {
         reg_addr = JPEG_REG20_QUANT_TAB + i * 4;
-        REG_WRITE(reg_addr, (UINT32)jpeg_quant_table[i]);
+        REG_WRITE_PROTECT(reg_addr, (UINT32)jpeg_quant_table[i]);
     }
 }
 
@@ -228,21 +229,21 @@ static void jpeg_enc_config(void)
     UINT32 reg;
     reg = REG_READ(JPEG_REG0X2_CLK_CTRL_ADDR);
     reg |= 0x2;
-    REG_WRITE(JPEG_REG0X2_CLK_CTRL_ADDR, reg);
+    REG_WRITE_QSPI_RST(JPEG_REG0X2_CLK_CTRL_ADDR, reg);
     // eof offset
     reg = REG_READ(JPEG_REG0X4_ADDR);
     reg = (20 << 16);
-    REG_WRITE(JPEG_REG0X4_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0X4_ADDR, reg);
 
     //rev data
     reg = REG_READ(JPEG_REG0XD_ADDR);
     reg |= 0x2;
-    REG_WRITE(JPEG_REG0XD_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0XD_ADDR, reg);
 
     //mclk div
     reg = REG_READ(JPEG_REG0XC_ADDR);
     reg |= (0x2 << 4);
-    REG_WRITE(JPEG_REG0XC_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0XC_ADDR, reg);
 }
 
 static void jpeg_enc_enable(uint32_t enable)
@@ -253,12 +254,12 @@ static void jpeg_enc_enable(uint32_t enable)
     if (enable)
     {
         reg |= JPEG_JPEG_ENC_EN;
-        REG_WRITE(JPEG_REG0XD_ADDR, reg);
+        REG_WRITE_PROTECT(JPEG_REG0XD_ADDR, reg);
     }
     else
     {
         reg &= ~(JPEG_JPEG_ENC_EN);
-        REG_WRITE(JPEG_REG0XD_ADDR, reg);
+        REG_WRITE_PROTECT(JPEG_REG0XD_ADDR, reg);
     }
 }
 
@@ -296,7 +297,7 @@ static void jpeg_enable_enc_size(UINT32 enable)
     {
         reg_val &= ~JPEG_JPEG_ENC_SIZE;
     }
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 __maybe_unused static void jpeg_set_video_byte_reverse(UINT32 reverse)
@@ -312,7 +313,7 @@ __maybe_unused static void jpeg_set_video_byte_reverse(UINT32 reverse)
     {
         reg_val &= ~JPEG_JPEG_WORD_REVERSE;
     }
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void jpeg_set_bitrate_step(UINT32 step)
@@ -322,7 +323,7 @@ static void jpeg_set_bitrate_step(UINT32 step)
 
     reg_val = (reg_val & ~(JPEG_BITRATE_STEP_MASK << JPEG_BITRATE_STEP_POSI))
               | ((step & JPEG_BITRATE_STEP_MASK) << JPEG_BITRATE_STEP_POSI);
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 __maybe_unused static void jpeg_enable_bitrate_ctrl(UINT32 enable)
@@ -338,17 +339,17 @@ __maybe_unused static void jpeg_enable_bitrate_ctrl(UINT32 enable)
     {
         reg_val &= ~JPEG_BITRATE_CTRL;
     }
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 void jpeg_set_target_high_byte(UINT32 high)
 {
-    REG_WRITE(JPEG_REG0XE_TARGET_BYTE_H_ADDR, high & TARGET_BYTE_H_MASK);
+    REG_WRITE_PROTECT(JPEG_REG0XE_TARGET_BYTE_H_ADDR, high & TARGET_BYTE_H_MASK);
 }
 
 void jpeg_set_target_low_byte(UINT32 low)
 {
-    REG_WRITE(JPEG_REG0XF_TARGET_BYTE_L_ADDR, low & TARGET_BYTE_L_MASK);
+    REG_WRITE_PROTECT(JPEG_REG0XF_TARGET_BYTE_L_ADDR, low & TARGET_BYTE_L_MASK);
 }
 
 #if CFG_GENERAL_DMA
@@ -528,7 +529,7 @@ void camera_power_on(void)
     //mclk div
     reg = REG_READ(JPEG_REG0XC_ADDR);
     reg |= (0x2 << 4);
-    REG_WRITE(JPEG_REG0XC_ADDR, reg);
+    REG_WRITE_PROTECT(JPEG_REG0XC_ADDR, reg);
 
     jpeg_gpio_config();
 }

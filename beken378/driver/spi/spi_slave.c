@@ -29,6 +29,7 @@
 #include "error.h"
 #include "rtos_pub.h"
 
+#if ((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
 #if ((CFG_USE_SPI_SLAVE) && (CFG_USE_SPI))
 
 #define SPI_SLAVE_RX_FIFO_LEN      (512)
@@ -678,4 +679,5 @@ FINSH_FUNCTION_EXPORT_ALIAS(spi_slave_samples, __cmd_spi_slave_samples, spi slav
 
 
 #endif  // CFG_USE_SPI_MASTER
+#endif  // ((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
 

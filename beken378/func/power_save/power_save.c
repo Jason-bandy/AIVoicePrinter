@@ -38,6 +38,7 @@
 
 #if CFG_SUPPORT_BLE
 #include "ble_pub.h"
+#include "ble.h"
 #endif
 #include "reg_rc.h"
 #include "low_voltage_ps.h"
@@ -66,6 +67,7 @@ static STA_PS_INFO bk_ps_info = {
     .ps_dtim_period = 1,
     .ps_dtim_multi = 1,
     .listen_int = PS_DTIM_COUNT,
+    .keep_alive_per = PS_KEEP_ALIVE_PERIOD,
     .waited_beacon = STA_GET_INIT,
     .sleep_first = 1,
     .ps_can_sleep = 0,
@@ -244,9 +246,15 @@ bool power_save_sleep(void)
     #if (1 == CFG_LOW_VOLTAGE_PS)
     if (LV_PS_ENABLED)
     {
-        /* disable radio controller */
-        lv_ps_rf_pre_pwr_down = 1;
-        rc_cntl_stat_set(0x00); //7011
+        //Cannot disable rf if ble  busy
+        #if (CFG_BLE_VERSION > BLE_VERSION_5_1)
+        if (!ble_thread_is_busy())
+        #endif
+        {
+             /* disable radio controller */
+            lv_ps_rf_pre_pwr_down = 1;
+            rc_cntl_stat_set(0x00); //7011
+        }
         #if (1 == CFG_LOW_VOLTAGE_PS_TEST)
         lv_ps_info_rf_sleep(1);
         #endif
@@ -1130,6 +1138,21 @@ void power_save_set_listen_int(UINT16 listen_int)
 UINT8 power_save_get_listen_int(void)
 {
     return bk_ps_info.listen_int;
+}
+
+void power_save_set_keep_alive_per(UINT16 period_s)
+{
+    if (period_s == 0)
+        bk_ps_info.keep_alive_per = PS_KEEP_ALIVE_PERIOD;
+    else
+        bk_ps_info.keep_alive_per = period_s;
+
+    os_printf("set keep alive period: %ds\r\n", bk_ps_info.keep_alive_per);
+}
+
+UINT8 power_save_get_keep_alive_per(void)
+{
+    return bk_ps_info.keep_alive_per;
 }
 
 void power_save_delay_sleep_check(void)

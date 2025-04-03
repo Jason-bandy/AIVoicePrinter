@@ -439,7 +439,7 @@ void timer3_isr ( UINT8 param )
 void mcu_init_timer3 ( void )
 {
     timer_param_t param;
-    param.channel = 3;
+    param.channel = BKTIMER3;
     param.div = 1;
     param.period = 50 * 32;
     param.t_Int_Handler = timer3_isr;

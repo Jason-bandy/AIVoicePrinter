@@ -79,6 +79,10 @@ static rt_err_t audio_adc_init(rt_device_t dev)
 
 static rt_err_t audio_adc_open(rt_device_t dev, rt_uint16_t oflag)
 {
+    void audio_hardware_init(void);
+    audio_hardware_init();
+    audio_adc_init(dev);
+
     struct audio_mic_device *audio_adc = RT_NULL;
 
     audio_adc = (struct audio_mic_device *)dev;
@@ -217,8 +221,9 @@ static rt_err_t audio_adc_close(rt_device_t dev)
     {
         audio_adc_set_enable_bit(0);
         audio_adc_set_int_enable_bit(0);
-        // comment this for open again may have noise
-        //audio_adc_close_analog_regs();
+
+        // if call this, open again may have noise
+        audio_adc_close_analog_regs();
 
         audio_adc->n_channel = 1;
 
@@ -229,6 +234,11 @@ static rt_err_t audio_adc_close(rt_device_t dev)
         #endif
         rt_device_close(&audio_adc->record_pipe.parent);
         stat &= ~(ADC_DMA_IRQ_ENABLE | ADC_IRQ_ENABLE | ADC_IS_OPENED);
+
+        rt_ringbuffer_reset(&audio_adc->record_pipe.ringbuffer);
+        void *os_memset(void *b, int c, UINT32 len);
+        os_memset(audio_adc->recv_fifo,0,audio_adc->recv_fifo_len);
+        audio_adc->cur_ptr = audio_adc->recv_fifo;
     }
 
     audio_adc->stat = stat;

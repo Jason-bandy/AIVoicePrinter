@@ -22,6 +22,7 @@
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
 
+// can't set to 0, otherwise dma pause no work
 #define RWP_SAFE_INTERVAL           (4)
 
 #define RB_DMA_RD_MEMCPY                   os_memcpy
@@ -100,6 +101,8 @@ UINT32 rb_write_dma_read(RB_DMA_RD_PTR rb, UINT8 *buffer, UINT32 size, UINT32 co
                 RB_DMA_RD_MEMCPY(&rb->address[rb->wp], buffer, write_bytes);
                 RB_DMA_RD_INT_DISABLE();
                 rb->wp += write_bytes;
+                if(rb->wp >= rb->capacity)
+                    rb->wp = 0;
                 RB_DMA_RD_INT_RESTORE();
             }
             else
@@ -107,6 +110,8 @@ UINT32 rb_write_dma_read(RB_DMA_RD_PTR rb, UINT8 *buffer, UINT32 size, UINT32 co
                 RB_DMA_RD_MEMCPY(&rb->address[rb->wp], buffer, remain_bytes);
                 RB_DMA_RD_INT_DISABLE();
                 rb->wp = write_bytes - remain_bytes;
+                if(rb->wp >= rb->capacity)
+                    rb->wp = 0;
                 RB_DMA_RD_INT_RESTORE();
                 RB_DMA_RD_MEMCPY(&rb->address[0], &buffer[remain_bytes], rb->wp);
             }
@@ -125,19 +130,14 @@ UINT32 rb_write_dma_read(RB_DMA_RD_PTR rb, UINT8 *buffer, UINT32 size, UINT32 co
             RB_DMA_RD_MEMCPY(&rb->address[rb->wp], buffer, write_bytes);
             RB_DMA_RD_INT_DISABLE();
             rb->wp += write_bytes;
+            if(rb->wp >= rb->capacity)
+                rb->wp = 0;
             RB_DMA_RD_INT_RESTORE();
         }
         else
         {
             return 0;
         }
-    }
-
-    if(rb->wp >= rb->capacity && rb->rp)
-    {
-        RB_DMA_RD_INT_DISABLE();
-        rb->wp = 0;
-        RB_DMA_RD_INT_RESTORE();
     }
 
     en_cfg.channel = rb->dma_ch;

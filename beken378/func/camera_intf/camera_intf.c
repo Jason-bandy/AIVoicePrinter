@@ -44,7 +44,7 @@
 extern void delay100us(INT32 num);
 
 #define EJPEG_DMA_CHNAL             GDMA_CHANNEL_5
-#define EJPEG_DELAY_HTIMER_CHNAL    5
+#define EJPEG_DELAY_HTIMER_CHNAL    (BKTIMER5)
 #define EJPEG_DELAY_HTIMER_VAL      (2)  // 2ms
 #define USE_JTAG_FOR_DEBUG          0
 #define I2C_WIRTE_TIMEOUT_COUNT     20

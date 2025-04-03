@@ -43,7 +43,6 @@
 
 #define APP_CONN_IND_DELT_TIME             (3)
 
-#define APP_INIT_REUSE_ACTV_IDX            1
 #define APP_INIT_SET_STOP_CONN_TIMER       1
 #define APP_INIT_STOP_CONN_TIMER_EVENT     1
 
@@ -62,9 +61,7 @@ typedef struct app_ble_initing_env_tag
 
 extern int app_ble_master_appm_disconnect(uint8_t conidx);
 extern void app_ble_initing_init(void);
-#if APP_INIT_REUSE_ACTV_IDX
-extern void appm_set_initing_actv_idx(unsigned char conidx,unsigned char actv_idx,unsigned char state);
-#endif
+
 #endif  ////BLE_CENTRAL
 
 extern ble_err_t appm_start_connecting(uint8_t con_idx);

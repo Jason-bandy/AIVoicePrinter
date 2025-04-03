@@ -656,7 +656,7 @@ int net_configure_address(struct ipv4_config *addr, void *intrfc_handle)
                                       wm_netif_status_static_callback);
         }
         netifapi_netif_set_up(&if_handle->netif);
-        net_configure_dns((struct wlan_ip_config *)addr);
+        //net_configure_dns((struct wlan_ip_config *)addr);
         break;
 
     case ADDR_TYPE_DHCP:

@@ -45,6 +45,17 @@ int bk_wlan_set_listen_int(struct rt_wlan_device *device, int intv)
     return result;
 }
 
+int bk_wlan_set_keep_alive_per(struct rt_wlan_device *device, int peri)
+{
+    int result = 0;
+
+    if (device == RT_NULL) return -RT_EIO;
+
+    result = rt_device_control(RT_DEVICE(device), WIFI_SET_KEEP_ALIVE_PER, (void *)&peri);
+
+    return result;
+}
+
 int bk_wlan_set_gpio_wakeup(struct rt_wlan_device *device, int gpio_id, int gpio_type)
 {
     int result = 0;
@@ -59,7 +70,7 @@ int bk_wlan_set_gpio_wakeup(struct rt_wlan_device *device, int gpio_id, int gpio
 
 static int pm_level(int argc, char **argv)
 {
-    int level, intv;
+    int level, intv, peri = 0;
 
     if (argc < 2)
     {
@@ -81,6 +92,9 @@ static int pm_level(int argc, char **argv)
         return -1;
     }
 
+    if (argc == 4)
+        peri = atoi(argv[3]);
+
     {
         struct rt_wlan_device *sta_device = (struct rt_wlan_device *)rt_device_find(WIFI_DEVICE_STA_NAME);
         if (NULL != sta_device)
@@ -90,6 +104,7 @@ static int pm_level(int argc, char **argv)
                 bk_wlan_set_listen_int(sta_device, intv);
                 rt_kprintf("bk_wlan_set_listen_int to %d\n", intv);
             }
+            bk_wlan_set_keep_alive_per(sta_device, peri);
             bk_wlan_enter_powersave(sta_device, level);
             rt_kprintf("bk_wlan_enter_powersave switch to %d\n", level);
         }

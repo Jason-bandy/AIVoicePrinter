@@ -54,7 +54,9 @@
 
 #define MCU_SLEEP_DURATION_MIN     (4)  /* ms*/
 
-#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#define MCU_WAKEUP_OFFSET          (60)  /* VALUE/32 ms, related to flash_on_delay configuration*/
+#elif (CFG_SOC_NAME == SOC_BK7238)
 #define MCU_WAKEUP_OFFSET          (48)  /* VALUE/32 ms, related to flash_on_delay configuration*/
 #elif (CFG_SOC_NAME == SOC_BK7231N)
 #define MCU_WAKEUP_OFFSET          (16)  /* VALUE/32 ms, related to flash_on_delay configuration*/

@@ -553,7 +553,7 @@ void fclk_init(void)
     #if (CFG_SOC_NAME == SOC_BK7231)
     fclk_timer_hw_init(BK_PWM_TIMER_ID0);
     #else
-    fclk_timer_hw_init(BK_TIMER_ID3);
+    fclk_timer_hw_init(BKTIMER3);
     #endif
 
     #if CFG_USE_TICK_CAL

@@ -396,7 +396,7 @@ void app_ble_send_conn_param_update_cfm(uint8_t con_idx,bool accept);
 ble_err_t app_ble_set_pref_slave_evt_dur(uint8_t con_idx, uint8_t duration);
 ble_err_t app_ble_set_channels(bk_ble_channels_t *channels);
 ble_err_t app_ble_get_bonded_device_num(uint8_t *dev_num);
-ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, device_addr_t *dev_list);
+ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, bond_device_addr_t *dev_list);
 ble_err_t app_ble_get_sendable_packets_num(uint16_t *pkt_total);
 ble_err_t app_ble_get_cur_sendable_packets_num(uint16_t *pkt_curr);
 ble_err_t app_ble_clear_per_adv_list_cmd(void);

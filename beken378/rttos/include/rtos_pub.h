@@ -580,6 +580,7 @@ void rtos_deinit_free_beken_timer(rt_timer_t t);
 
 extern void rtos_lock_scheduling(void);
 extern void rtos_unlock_scheduling(void);
+uint64_t rtos_get_time_us(void);
 
 
 /**

@@ -85,7 +85,7 @@ enum
 #define GPIO_CAPACITY_MASK              (0x3)
 #define GPIO_CAPACITY_POSI              (8)
 
-#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238) && (CFG_SOC_NAME != SOC_BK7252N)
+#if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238)
 typedef enum
 {
     GPIO0 = 0,
@@ -323,6 +323,18 @@ __inline static void bk_gpio_output_reverse(GPIO_INDEX id)
 
     ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_OUTPUT_REVERSE, &param);
     ASSERT(GPIO_SUCCESS == ret);
+}
+
+__inline static void bk_gpio_config_mode(GPIO_INDEX id, UINT8 mode)
+{
+    UINT32 ret;
+    UINT32 param;
+
+    param = GPIO_CFG_PARAM(id, mode);
+    ret = sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+
+    if(ret !=0 )
+        os_printf("gpio config mode fail\r\n");
 }
 
 #if ((SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7221U == CFG_SOC_NAME))

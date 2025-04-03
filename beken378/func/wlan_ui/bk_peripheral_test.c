@@ -34,7 +34,15 @@
 #include "drv_model_pub.h"
 #include "BkDriverGpio.h"
 
+#if CFG_USE_SPI_MST_FLASH
+#include "spi_flash.h"
+#endif
+
 #if CFG_PERIPHERAL_TEST
+#include "bk_err.h"
+#include "bk_log.h"
+
+#define TAG			 	"perit"
 
 #define CFG_LOG_LEVEL			BK_LOG_DEBUG
 
@@ -45,13 +53,12 @@
 INT32 os_strcmp(const char *s1, const char *s2);
 
 
-#define I2C_TEST_LEGNTH					32
+#define I2C_TEST_LEGNTH				32
 #define I2C_TEST_EEPROM_LEGNTH			8
 
 #if CFG_USE_I2C1
 static void i2c1_test_eeprom(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-
     int i;
     DD_HANDLE i2c_hdl;
     unsigned int status;
@@ -182,52 +189,119 @@ exit:
 }
 #endif
 
-#if CFG_SUPPORT_SPI_TEST
-#define SPI_BAUDRATE       (26 * 1000 * 1000)
-#define SPI_BAUDRATE_5M    (5* 1000 * 1000)
+#if (CFG_SUPPORT_SPI_TEST && CFG_USE_SPI_MST_FLASH)
+#define SPI_BAUDRATE_26M       (26 * 1000 * 1000)
+#define SPI_BAUDRATE           (2 * 1000 * 1000)
+#define SPI_BAUDRATE_5M        (5* 1000 * 1000)
 
-#define SPI_TX_BUF_LEN     (1024)
-#define SPI_RX_BUF_LEN     (1024)
+#define SPI_TX_BUF_LEN         (1024)
+#define SPI_RX_BUF_LEN         (1024)
+
+#define CMD_READ_STATUS_S7_0      0x05
+#define CMD_READ_STATUS_S15_8     0x35
+#define FLASH_STATUS_WIP_BIT      (1 << 0)
+#define FLASH_STATUS_WEL_BIT      (1 << 1)
+#define FLASH_STATUS_PRETECT_MASK (0x3F << 2)
+#define CMD_WRITE_STATUS          0x01
+#define ERASE_MODE_ALL            0x01
+#define ERASE_MODE_BLOCK_64K      0x02
+#define ERASE_MODE_BLOCK_32K      0x03
+#define ERASE_MODE_SECTOR         0x04
+
+#define CMD_ERASE_ALL             0xc7  // 0x60
+#define CMD_ERASE_BLK_64K         0xD8
+#define CMD_ERASE_BLK_32K         0x52
+#define CMD_ERASE_SECTOR          0x20
+#define CMD_READ_DATA             0x03
+#define CMD_PAGE_PROG             0x02
+#define CMD_WRITE_ENABLE          0x06
 
 #if (CFG_SOC_NAME == SOC_BK7271)
 int spi_channel;
 #endif
 
+
+beken_thread_t  test_spi_handle = NULL;
+void test_spi_main( beken_thread_arg_t arg )
+{
+    bk_printf("test_spi_main\r\n");
+    int ret = spi_flash_init(0);
+    if(ret == 0) {
+        uint32_t id = spi_flash_read_id();
+        bk_printf("spi_flash_init %dhz ok, flash_id:0x%x\r\n", 0, id);
+    } else {
+        bk_printf("spi_flash_init %dhz failed!\r\n", 0);
+    }
+    while (1)
+    {
+        rtos_delay_milliseconds(1000);
+    }
+    test_spi_handle = NULL;
+    rtos_delete_thread(NULL);
+}
+
+void test_spi_thread(void)
+{
+    OSStatus ret;
+    if(test_spi_handle == NULL)
+    {
+        ret = rtos_create_thread(&test_spi_handle,
+                            2,
+                            "test_spi",
+                            (beken_thread_function_t)test_spi_main,
+                            4096,
+                            NULL);
+        bk_printf("test_spi %d\r\n", ret);
+    }
+}
+
+
 void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     struct spi_message  msg;
     UINT32 max_hz;
-    UINT32 mode;
+    UINT32 mode = 0;
+
+    SPI_CFG_ST cfg;
+    cfg.u.value = 0;
+    mode = mode;
 
     #if (CFG_SOC_NAME == SOC_BK7271)
     spi_channel = 2;
     #endif
 
-    /* SPI Interface with Clock Speeds Up to 30 MHz */
-    if (argc == 5)
-    {
-        max_hz = SPI_BAUDRATE ;//atoi(argv[3]);
-    } else
-    {
-        max_hz = SPI_BAUDRATE; //master/slave
-    }
-
     if (os_strcmp(argv[1], "master") == 0)
     {
-        mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
+        cfg.u.slave = 0;
+    
+        if (argc < 2)
+            max_hz = SPI_BAUDRATE;
+        else
+            max_hz = atoi(argv[2]);
 
-        //bk_spi_master_init (cfg->max_hz, cfg->mode);
-    } else if (os_strcmp(argv[1], "slave") == 0)
-    {
-        mode = SPI_MODE_0 | SPI_MSB | SPI_SLAVE;
-
-        bk_spi_slave_init(max_hz, mode);
+        #if (CFG_USE_SPI_MASTER) 
+        bk_spi_master_init(max_hz, cfg.u.value);
+        #endif
     }
-    #if CFG_USE_SPI_DMA
+    else if (os_strcmp(argv[1], "slave") == 0)
+    {
+        cfg.u.slave = 1;
+        max_hz = SPI_BAUDRATE;
+
+        #if (CFG_USE_SPI_SLAVE) 
+        bk_spi_slave_init(max_hz, cfg.u.value);
+        #endif
+    }
+    #if CFG_USE_SPI_DMA_SLAVE
     else if (os_strcmp(argv[1], "slave_dma_rx") == 0)
     {
         UINT8 *buf;
         int rx_len, ret;
+
+        max_hz = SPI_BAUDRATE;
+        cfg.u.slave = 1;
+        cfg.u.dma = 1;
+        bk_spi_slave_dma_init(max_hz, cfg.u.value);
 
         if (argc < 2)
             rx_len = SPI_RX_BUF_LEN;
@@ -249,13 +323,8 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         msg.recv_buf = buf;
         msg.recv_len = rx_len;
 
-        mode = SPI_MODE_0 | SPI_MSB | SPI_SLAVE;
-        max_hz = atoi(argv[3]);
-
-        bk_spi_dma_init(mode, max_hz, &msg);
-
-        ret = bk_spi_dma_transfer(mode, &msg);
-        if (ret)
+        ret = bk_spi_slave_dma_xfer(&msg);
+        if (ret < 0)
             bk_printf("spi dma recv error%d\r\n", ret);
         else {
             for (int i = 0; i < rx_len; i++) {
@@ -266,7 +335,9 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
             bk_printf("\r\n");
             os_free(buf);
         }
-    } else if ((os_strcmp(argv[1], "slave_dma_tx") == 0))
+        bk_spi_slave_dma_deinit();
+    }
+    else if ((os_strcmp(argv[1], "slave_dma_tx") == 0))
     {
         UINT8 *buf;
         int tx_len, ret;
@@ -276,7 +347,12 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         else
             tx_len = atoi(argv[2]);
 
-        bk_printf("spi dma tx: tx_len:%d,%d\n", tx_len, max_hz);
+        max_hz = SPI_BAUDRATE;
+        cfg.u.slave = 1;
+        cfg.u.dma = 1;
+        bk_spi_slave_dma_init(max_hz, cfg.u.value);
+
+        bk_printf("spi dma tx: tx_len:%d\n", tx_len);
 
         buf = os_malloc(tx_len * sizeof(UINT8));
         if (!buf) {
@@ -294,13 +370,8 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         msg.recv_buf = NULL;
         msg.recv_len = 0;
 
-        mode = SPI_MODE_0 | SPI_MSB | SPI_SLAVE;
-        max_hz = atoi(argv[3]);
-
-        bk_spi_dma_init(mode, max_hz, &msg);
-
-        ret = bk_spi_dma_transfer(mode, &msg);
-        if (ret)
+        ret = bk_spi_slave_dma_xfer(&msg);
+        if (ret < 0)
             bk_printf("spi dma send error%d\r\n", ret);
         else {
             for (int i = 0; i < tx_len; i++) {
@@ -311,7 +382,11 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
             bk_printf("\r\n");
             os_free(buf);
         }
-    } else if ((os_strcmp(argv[1], "master_dma_tx") == 0))
+        bk_spi_slave_dma_deinit(); 
+    }
+    #endif
+    #if CFG_USE_SPI_DMA_MASTER
+    else if ((os_strcmp(argv[1], "master_dma_tx") == 0))
     {
         UINT8 *buf;
         int tx_len, ret;
@@ -324,12 +399,7 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         max_hz = atoi(argv[3]);//SPI_BAUDRATE;
 
         bk_printf("spi master  dma tx: tx_len:%d max_hz:%d\r\n", tx_len, max_hz);
-        #if (SPI_LINE_MODE == SPI_USE_3_LINE)
-        BkGpioInitialize(15, OUTPUT_NORMAL);
-        BkGpioInitialize(6, OUTPUT_NORMAL);
-        BkGpioOutputLow(15);
-        BkGpioOutputLow(6);
-        #endif
+
         buf = os_malloc(tx_len * sizeof(UINT8));
         if (!buf) {
             bk_printf("spi test malloc buf fail\r\n");
@@ -337,7 +407,6 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         }
 
         os_memset(buf, 0, tx_len);
-
         for (int i = 0; i < tx_len; i++)
             buf[i] = i & 0xFF;
 
@@ -346,18 +415,14 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         msg.recv_buf = NULL;
         msg.recv_len = 0;
 
-        mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
+        cfg.u.slave = 0;
+        cfg.u.dma = 1;
+        bk_spi_master_dma_init(max_hz, cfg.u.value);
 
-        bk_spi_dma_init(mode, max_hz, &msg);
-
-        ret = bk_spi_dma_transfer(mode,&msg);
-        if (ret)
+        ret = bk_spi_master_dma_xfer(&msg, 0);
+        if (ret < 0)
             bk_printf("spi dma send error%d\r\n", ret);
         else {
-            #if (SPI_LINE_MODE == SPI_USE_3_LINE)
-            BkGpioOutputHigh(15);
-            BkGpioOutputHigh(6);
-            #endif
             for (int i = 0; i < tx_len; i++) {
                 bk_printf("%02x,", buf[i]);
                 if ((i + 1) % 32 == 0)
@@ -366,7 +431,9 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
             bk_printf("\r\n");
             os_free(buf);
         }
-    } else if ((os_strcmp(argv[1], "master_dma_rx") == 0))
+        bk_spi_master_dma_deinit(0);
+    }
+    else if ((os_strcmp(argv[1], "master_dma_rx") == 0))
     {
         UINT8 *buf;
         int rx_len, ret;
@@ -393,15 +460,15 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
         msg.recv_buf = buf;
         msg.recv_len = rx_len;
 
-        mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
+        cfg.u.slave = 0;
+        cfg.u.dma = 1;
+        bk_spi_master_dma_init(max_hz, cfg.u.value);
 
-        bk_spi_dma_init(mode, max_hz, &msg);
-
-        ret = bk_spi_dma_transfer(mode,&msg);
-        if (ret)
+        ret = bk_spi_master_dma_xfer(&msg, BK_SPI_M_DMA_DEF_WAIT_TIME);
+        if (ret < 0)
             bk_printf("spi dma recv error%d\r\n", ret);
         else {
-            for (int i = 1; i < rx_len; i++) {
+            for (int i = 0; i < rx_len; i++) {
                 bk_printf("%02x,", buf[i]);
                 if ((i + 1) % 32 == 0)
                     bk_printf("\r\n");
@@ -409,126 +476,24 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
             bk_printf("\r\n");
             os_free(buf);
         }
-
-    } else if ((os_strcmp(argv[1], "master_tx_loop") == 0))
-    {
-        UINT8 *buf;
-        int tx_len, ret;
-        UINT32 cnt = 0;
-
-        if (argc < 2)
-            tx_len = SPI_RX_BUF_LEN;
-        else
-            tx_len = atoi(argv[2]);
-
-        max_hz = atoi(argv[3]); //SPI_BAUDRATE;
-
-        bk_printf("spi master  dma tx: tx_len:%d max_hz:%d\r\n", tx_len, max_hz);
-
-        buf = os_malloc(tx_len * sizeof(UINT8));
-        if (!buf) {
-            bk_printf("buf malloc fail\r\n");
-            return;
-        }
-
-        os_memset(buf, 0, tx_len);
-
-        for (int i = 0; i < tx_len; i++)
-            buf[i] = i + 0x60;
-
-        msg.send_buf = buf;
-        msg.send_len = tx_len;
-        msg.recv_buf = NULL;
-        msg.recv_len = 0;
-
-        mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
-
-        bk_spi_dma_init(mode, max_hz, &msg);
-
-        while (1) {
-            if (cnt >= 0x1000)
-                break;
-
-            ret = bk_spi_dma_transfer(mode,&msg);
-            if (ret)
-                bk_printf("spi dma send error%d\r\n", ret);
-
-            else
-                bk_printf("%d\r\n", cnt++);
-            rtos_delay_milliseconds(80);
-        }
-    } else if ((os_strcmp(argv[1], "master_dma_tx_loop") == 0))
-    {
-        // gspi_test master_dma_tx_loop buf_len  rate  repeat_cnt
-        // this command send buf_len with repeat_cnt continueously
-        // buf_len need align with 4 byte
-        // repeat_cnt  0 & 1, means send 1 time.
-        UINT8 *buf;
-        int tx_len;
-
-        if (argc < 2)
-            tx_len = SPI_RX_BUF_LEN;
-        else
-            tx_len = atoi(argv[2]);
-
-        if(tx_len & 0x3)
-        {
-            // 4 byte alian
-            tx_len = (tx_len / 4 + 1) * 4;
-            bk_printf("spi master dma tx loop: need len with 4 byte align\r\n");
-        }
-
-        max_hz = atoi(argv[3]); //SPI_BAUDRATE;
-
-        buf = os_malloc(tx_len * sizeof(UINT8));
-        if (!buf) {
-            bk_printf("buf malloc fail\r\n");
-            return;
-        }
-
-        os_memset(buf, 0, tx_len);
-
-        for (int i = 0; i < tx_len; i++)
-            buf[i] = i + 0x60;
-
-        msg.send_buf = buf;
-        msg.send_len = tx_len;
-        msg.recv_buf = NULL;
-        msg.recv_len = 0;
-        msg.repeat_cnt = atoi(argv[4]);
-
-        bk_printf("spi master  dma tx: tx_len:%d max_hz:%d,repeat:%d\r\n", tx_len, max_hz, msg.repeat_cnt);
-
-        mode = SPI_MODE_0 | SPI_MSB | SPI_MASTER;
-
-        bk_spi_master_dma_tx_loop_init(mode, max_hz, &msg);
-
-        bk_spi_master_dma_send_loop(&msg);
-
-        bk_spi_master_dma_tx_loop_deinit();
-
-        bk_printf("spi master  dma tx loop test end\r\n");
+        bk_spi_master_dma_deinit(0);
     }
     #endif
-    else
-        bk_printf("gspi_test master/slave	 tx/rx	rate  len\r\n");
 
-    //CLI_LOGI("cfg:%d, 0x%02x, %d\r\n", cfg->data_width, cfg->mode, cfg->max_hz);
-
-    if (os_strcmp(argv[2], "tx") == 0)
+    if (os_strcmp(argv[1], "stx") == 0)
     {
+        #if (CFG_USE_SPI_SLAVE) 
         UINT8 *buf;
         int tx_len;
 
-        if (argc < 4)
+        if (argc < 3)
             tx_len = SPI_TX_BUF_LEN;
         else
-            tx_len = atoi(argv[4]);
+            tx_len = atoi(argv[2]);
 
         bk_printf("spi init tx_len:%d\n", tx_len);
 
         buf = os_malloc(tx_len * sizeof(UINT8));
-
         if (buf) {
             os_memset(buf, 0, tx_len);
             for (int i = 0; i < tx_len; i++)
@@ -539,7 +504,6 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
             msg.recv_len = 0;
 
             bk_spi_slave_xfer(&msg);
-
             for (int i = 0; i < tx_len; i++) {
                 bk_printf("%02x,", buf[i]);
                 if ((i + 1) % 32 == 0)
@@ -549,15 +513,18 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 
             os_free(buf);
         }
-    } else if (os_strcmp(argv[2], "rx") == 0)
+        #endif
+    }
+    #if (CFG_USE_SPI_SLAVE) 
+    else if (os_strcmp(argv[1], "srx") == 0)
     {
         UINT8 *buf;
         int rx_len;
 
-        if (argc < 4)
+        if (argc < 3)
             rx_len = SPI_RX_BUF_LEN;
         else
-            rx_len = atoi(argv[4]);
+            rx_len = atoi(argv[2]);
 
         bk_printf("SPI_RX: rx_len:%d\n", rx_len);
 
@@ -584,15 +551,181 @@ void gspi_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 
             os_free(buf);
         }
-    } else
+    }
+    #endif
+
+    #if (CFG_USE_SPI_MASTER) 
+    else if (os_strcmp(argv[1], "mtx") == 0)
     {
-        //CLI_LOGI("gspi_test master/slave tx/rx rate len\r\n");
+        UINT8 *buf;
+        int tx_len;
+
+        if (argc < 3)
+            tx_len = SPI_TX_BUF_LEN;
+        else
+            tx_len = atoi(argv[2]);
+
+        bk_printf("spi init tx_len:%d\n", tx_len);
+
+        buf = os_malloc(tx_len * sizeof(UINT8));
+        if (buf) {
+            os_memset(buf, 0, tx_len);
+            for (int i = 0; i < tx_len; i++)
+                buf[i] = i & 0xff;
+            msg.send_buf = buf;
+            msg.send_len = tx_len;
+            msg.recv_buf = NULL;
+            msg.recv_len = 0;
+
+            bk_spi_master_xfer(&msg);
+
+            for (int i = 0; i < tx_len; i++) {
+                bk_printf("%02x,", buf[i]);
+                if ((i + 1) % 32 == 0)
+                    bk_printf("\r\n");
+            }
+            bk_printf("\r\n");
+
+            os_free(buf);
+        }
+    }
+    else if (os_strcmp(argv[1], "mrx") == 0)
+    {
+        UINT8 *buf;
+        int rx_len;
+
+        if (argc < 3)
+            rx_len = SPI_RX_BUF_LEN;
+        else
+            rx_len = atoi(argv[2]);
+        rx_len += 1;
+
+        bk_printf("SPI_RX: rx_len:%d\n", rx_len);
+
+        buf = os_malloc(rx_len * sizeof(UINT8));
+        if (buf) {
+            os_memset(buf, 0, rx_len);
+
+            msg.send_buf = NULL;
+            msg.send_len = 0;
+            msg.recv_buf = buf;
+            msg.recv_len = rx_len;
+
+            //CLI_LOGI("buf:%d\r\n", buf);
+            rx_len = bk_spi_master_xfer(&msg);
+            bk_printf("rx_len:%d\r\n", rx_len);
+
+            for (int i = 0; i < rx_len; i++) {
+                bk_printf("%02x,", buf[i]);
+                if ((i + 1) % 32 == 0)
+                    bk_printf("\r\n");
+            }
+            bk_printf("\r\n");
+
+            os_free(buf);
+        }
+    }
+    #endif
+
+    #if CFG_USE_SPI_MST_FLASH 
+    else if(os_strcmp(argv[1], "flash_init") == 0) 
+    {
+        if (argc < 3)
+            max_hz = SPI_DEF_CLK_HZ;
+        else
+            max_hz = atoi(argv[2]);//SPI_BAUDRATE;
+
+        int ret = spi_flash_init(max_hz);
+        if(ret == 0) {
+            uint32_t id = spi_flash_read_id();
+            bk_printf("spi_flash_init %dhz ok, flash_id:0x%x\r\n", max_hz, id);
+        } else {
+            bk_printf("spi_flash_init %dhz failed!\r\n", max_hz);
+        }
+    }
+    else if(os_strcmp(argv[1], "flash_rd_id") == 0)
+    {
+        uint32_t id = spi_flash_read_id();
+        bk_printf("flash_id:0x%x\r\n", id);
+    }
+    else if(os_strcmp(argv[1], "flash_rd_sr") == 0)
+    {
+        uint16_t status = spi_flash_read_status();
+        bk_printf("flash_rd_sr:0x%04x\r\n", status);
+    }
+    else if(os_strcmp(argv[1], "flash_unprotect") == 0)
+    {
+        spi_flash_unprotect();
+    }
+    else if(os_strcmp(argv[1], "flash_protect") == 0)
+    {
+        spi_flash_protect();
+    }
+    else if(os_strcmp(argv[1], "flash_block_erase") == 0)
+    {
+        spi_flash_unprotect();
+        spi_flash_erase(0, 64 * 1024);
+    }
+    else if(os_strcmp(argv[1], "flash_wr") == 0)
+    {
+        int i;
+        uint8_t *buf;
+        uint32_t wr_len = 256;
+
+        buf = (uint8_t *)os_zalloc(wr_len);
+        if(NULL == buf) {
+            bk_printf("flash_wr malloc faile\r\n");
+        }
+
+        for(i = 0; i < wr_len; i ++) {
+            buf[i] = 0x60 + i;
+        }
+        bk_printf("flash_wr xfering\r\n");
+        spi_flash_write(0, wr_len, buf);
+        bk_printf("flash_wr xfer done\r\n");
+
+        for(i = 0; i < wr_len; i ++) {
+            bk_printf("[%d]:0x%02x \r\n", i, buf[i]);
+        }
+        if(buf) {
+            os_free(buf);
+            buf = NULL;
+        }
+    }
+    else if(os_strcmp(argv[1], "flash_rd") == 0)
+    {
+        int i;
+        uint8_t *buf;
+        uint32_t rd_len = 256;
+
+        buf = (uint8_t *)os_zalloc(rd_len);
+        if(NULL == buf) {
+            bk_printf("flash_rd malloc faile\r\n");
+        }
+
+        bk_printf("flash_rd xfering\r\n");
+        spi_flash_read(0, rd_len, buf);
+        bk_printf("flash_rd xfer done\r\n");
+
+        for(i = 0; i < rd_len; i ++) {
+            bk_printf("[%d]:0x%02x \r\n", i, buf[i]);
+        }
+        if(buf) {
+            os_free(buf);
+            buf = NULL;
+        }
+    }
+    else if(os_strcmp(argv[1], "flash_abc") == 0)
+    {
+        test_spi_thread();
+    }
+    #endif
+    else
+    {
+        bk_printf("master trx:gspi_test mtx/mrx	len\r\n");
+        bk_printf("slave trx:gspi_test stx/srx	len\r\n");
     }
 }
-
-
-
-
 
 uint32 spi_dma_slave_rx_thread_main(void);
 uint32 spi_dma_master_tx_thread_main(void);
@@ -601,22 +734,18 @@ uint32 spi_dma_slave_rx_loop_stop(void);
 
 void spi_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-
     #if (CFG_SOC_NAME == SOC_BK7271)
     spi_channel = 2;
     #endif
 
-    if (os_strcmp(argv[1], "slave_rx_loop") == 0)
-    {
+    if (os_strcmp(argv[1], "slave_rx_loop") == 0) {
         bk_printf("spi dma rx loop test\r\n");
         spi_dma_slave_rx_thread_main();
-    }
-    else if (os_strcmp(argv[1], "master_tx_loop") == 0) {
+    } else if (os_strcmp(argv[1], "master_tx_loop") == 0) {
 
         bk_printf("spi dma tx loop test\r\n");
         spi_dma_master_tx_thread_main();
-    }
-    else if (os_strcmp(argv[1], "master_tx_stop") == 0) {
+    } else if (os_strcmp(argv[1], "master_tx_stop") == 0) {
 
         bk_printf("spi dma tx stop loop\r\n");
         spi_dma_master_tx_loop_stop();
@@ -626,14 +755,12 @@ void spi_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
         spi_dma_slave_rx_loop_stop();
     }
 }
-
-
 #endif
 
 static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     UINT8 channel1;
-    UINT32 duty_cycle1, cycle, cap_value;
+    UINT32 duty_cycle1, cycle;
     #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7236) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
     UINT8 channel2;
     UINT32 duty_cycle2;
@@ -676,7 +803,9 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
             PERI_LOGW(TAG, "start err\r\n");
             return;
         }
-    } else if (os_strcmp(argv[1], "stop") == 0) {
+    }
+    else if (os_strcmp(argv[1], "stop") == 0)
+    {
         ret = bk_pwm_stop(channel1);
         if(ret != kNoErr)
         {
@@ -699,7 +828,8 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
             PERI_LOGW(TAG, "updata err\r\n");
             return;
         }
-    } else if (os_strcmp(argv[1], "cap") == 0)
+    }
+    else if (os_strcmp(argv[1], "cap") == 0)
     {
         uint8_t cap_mode = duty_cycle1;
 
@@ -724,11 +854,15 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
             return;
         }
         #endif
-    } else if (os_strcmp(argv[1], "capvalue") == 0)
+    }
+    else if (os_strcmp(argv[1], "capvalue") == 0)
     {
-        cap_value = bk_pwm_get_capvalue(channel1);
+        UINT32 cap_value = bk_pwm_get_capvalue(channel1);
         PERI_LOGI(TAG, "pwm : %d cap_value=%x \r\n", channel1, cap_value);
-    } else if (os_strcmp(argv[1], "cap_stop") == 0)
+
+        (void)cap_value;
+    }
+    else if (os_strcmp(argv[1], "cap_stop") == 0)
     {
         ret = bk_pwm_capture_stop(channel1);
         if(ret != kNoErr)
@@ -806,14 +940,10 @@ static void pwm_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
     #endif
 }
 
-
-
 const struct cli_command peripheral_clis[] = {
-
-    #if CFG_SUPPORT_SPI_TEST
+    #if (CFG_SUPPORT_SPI_TEST && CFG_USE_SPI_MST_FLASH)
     {"gspi_test", "general spi", gspi_test},
-
-    {"spi_test", "spi dma rx loop", spi_Command},
+    //{"spi_test", "spi dma rx loop", spi_Command},
     #endif
 
     #if CFG_USE_I2C1
@@ -825,9 +955,7 @@ const struct cli_command peripheral_clis[] = {
     #endif
 
     {"pwm_test", "pwm single/update/cw ", pwm_Command},
-
 };
-
 
 void bk_peripheral_cli_init(void)
 {
@@ -838,5 +966,6 @@ void bk_peripheral_cli_init(void)
     if (ret)
         os_printf("ret: %d peripheral commands fail.\r\n",ret);
 }
-
 #endif
+// eof
+

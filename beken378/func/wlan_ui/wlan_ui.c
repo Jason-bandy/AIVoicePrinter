@@ -72,6 +72,7 @@
 #include "bk7011_cal_pub.h"
 #include "target_util_pub.h"
 #include "wlan_ui_pub.h"
+#include "temp_detect_pub.h"
 #if CFG_WIFI_P2P
 #include "video_demo_pub.h"
 #include "rw_ieee80211.h"
@@ -2069,7 +2070,10 @@ OSStatus bk_wlan_get_ip_status(IPStatusTypedef *outNetpara, WiFi_Interface inInt
         os_strcpy(outNetpara->ip, inet_ntoa(addr.ipv4.address));
         os_strcpy(outNetpara->mask, inet_ntoa(addr.ipv4.netmask));
         os_strcpy(outNetpara->gate, inet_ntoa(addr.ipv4.gw));
-        os_strcpy(outNetpara->dns, inet_ntoa(addr.ipv4.dns1));
+        if(inInterface == BK_SOFT_AP)
+            os_strcpy(outNetpara->dns, inet_ntoa(addr.ipv4.gw));
+        else if(inInterface == BK_STATION)
+            os_strcpy(outNetpara->dns, inet_ntoa(addr.ipv4.dns1));
     }
 
     return ret;
@@ -2624,6 +2628,7 @@ static uint32_t rf_ps_enabled = 0;
 int bk_wlan_dtim_rf_ps_mode_enable(void )
 {
     rf_ps_enabled = 1;
+    temp_detect_enter_ps();
     bmsg_ps_sender(PS_BMSG_IOCTL_RF_ENABLE);
     return 0;
 }
@@ -2650,6 +2655,7 @@ int bk_wlan_dtim_rf_ps_disable_send_msg(void)
 int bk_wlan_dtim_rf_ps_mode_disable(void)
 {
     rf_ps_enabled = 0;
+    temp_detect_exit_ps();
     if (bk_wlan_dtim_rf_ps_disable_send_msg())
         return 1;
 
@@ -2706,7 +2712,7 @@ int bk_wlan_mcu_suppress_and_sleep(UINT32 sleep_ticks )
         if(sleep_ms > MCU_SLEEP_DURATION_MIN)
             lv_ps_sleep_check( sleep_ticks );
 
-        #if ((CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N))
+        #if (((CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)) && (CFG_SUPPORT_BLE && CFG_USE_BLE_PS))
         uint32_t int_enable_reg_save = 0;
         extern uint8_t rwip_driver_ext_wakeup_get(void);
         if (rwip_driver_ext_wakeup_get()) {
@@ -2936,7 +2942,7 @@ int http_ota_download(const char *uri)
     #endif
     os_memset(&httpclient, 0, sizeof(httpclient_t));
     os_memset(&httpclient_data, 0, sizeof(httpclient_data));
-    os_memset(&http_content, 0, sizeof(HTTP_RESP_CONTENT_LEN));
+    os_memset(&http_content, 0, HTTP_RESP_CONTENT_LEN);
     httpclient.header = "Accept: text/xml,text/html,\r\n";
     httpclient_data.response_buf = http_content;
     httpclient_data.response_buf_len = HTTP_RESP_CONTENT_LEN;

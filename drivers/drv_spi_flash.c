@@ -26,27 +26,29 @@
 #error "spi flash need 'CFG_USE_SPI_MST_FLASH ENABLE' "
 #endif
 
-#include "beken378\driver\spi\spi_flash.h"
+#include "spi_flash.h"
 #include "drv_spi_flash.h"
 
 ////////////////////////////////////////////////////////
 static rt_err_t rt_spi_flash_init(rt_device_t dev)
 {
-    UINT32 uid;
-    if(spi_flash_init())
-    {
-        rt_kprintf("spi_flash_init failed\r\n");
-        return RT_ERROR;
-    }
-
-    uid = spi_flash_read_id();
-    rt_kprintf("uid = 0x%06x\r\n", uid);
-
     return RT_EOK;
 }
 
 static rt_err_t rt_spi_flash_open(rt_device_t dev, rt_uint16_t oflag)
 {
+    UINT32 uid, rate;
+
+    rate = oflag;
+    rate *= 1000000; // change to HZ
+    if(spi_flash_init(rate))
+    {
+        rt_kprintf("rt_spi_flash_open failed\r\n");
+        return RT_ERROR;
+    }
+
+    uid = spi_flash_read_id();
+    rt_kprintf("uid = 0x%06x\r\n", uid);
     return RT_EOK;
 }
 

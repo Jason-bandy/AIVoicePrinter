@@ -341,6 +341,15 @@
 
 #define SCTRL_ANALOG_CTRL3                    (SCTRL_BASE + 25 * 4)
 #if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+#define IBIAS_CTRL_MASK                          (0x3)
+#define IBIAS_CTRL_POS                           (28)
+#define VOSEL_MASK                               (0x1F)
+#define VOSEL_POS                                (20)
+#if (CFG_SOC_NAME == SOC_BK7252N)
+#define ANABUF_SEL_TX_BIT                        (1 << 10)
+#define ANABUF_SEL_TX_MASK                       (0x1)
+#define ANABUF_SEL_TX_POS                        (10)
+#endif
 #define MANU_EN_32K                              (1 << 7)
 #define ANALOG_BUF_SEL_RX_BIT                    (1 << 10)
 #define AMPBIAS_OUTEN_BIT                        (1 << 11)

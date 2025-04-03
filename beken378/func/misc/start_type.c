@@ -125,6 +125,11 @@ RESET_SOURCE_STATUS bk_misc_init_start_type(void)
             case (RESET_SOURCE_FORCE_ATE & SW_RETENTION_VAL_MASK):
                 start_type = RESET_SOURCE_FORCE_ATE;
                 break;
+            #if CFG_MEM_CHECK_ENABLE
+            case (RESET_SOURCE_MEM_CHECK & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_MEM_CHECK;
+                break;
+            #endif
             default:
                 start_type = RESET_SOURCE_WATCHDOG;
                 break;

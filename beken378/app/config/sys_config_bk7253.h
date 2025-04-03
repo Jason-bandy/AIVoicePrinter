@@ -447,7 +447,8 @@
 #define CFG_USE_SPI                                1
 #define CFG_USE_SPI_MASTER                         1
 #define CFG_USE_SPI_SLAVE                          1
-#define CFG_USE_SPI_DMA                            1
+#define CFG_USE_SPI_DMA_MASTER                     0
+#define CFG_USE_SPI_DMA_SLAVE                      0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST                        0

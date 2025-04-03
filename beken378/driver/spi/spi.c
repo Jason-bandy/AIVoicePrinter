@@ -25,6 +25,7 @@
 #include "gpio_pub.h"
 #include "uart_pub.h"
 
+#if ((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
 #if CFG_USE_SPI
 
 #define SPI_PERI_CLK_26M		(26 * 1000 * 1000)
@@ -651,4 +652,4 @@ void spi_isr(void)
 // eof
 
 #endif // CFG_USE_SPI
-
+#endif // ((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))

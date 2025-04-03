@@ -27,6 +27,7 @@
 #include "ring_buffer.h"
 #include "ring_buffer_dma_read.h"
 #include "co_list.h"
+#include "common_reg_rw.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -143,7 +144,7 @@ static void audio_dac_set_enable_bit(UINT32 enable)
         reg_val |= DAC_ENABLE;
     else
         reg_val &= ~DAC_ENABLE;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 #if AUD_USE_EXT_PA
@@ -167,7 +168,7 @@ static void audio_dac_set_int_enable_bit(UINT32 enable)
         reg_val |= (DAC_R_INT_EN | DAC_L_INT_EN);
     else
         reg_val &= ~(DAC_R_INT_EN | DAC_L_INT_EN);
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_dac_set_read_thred_bit(UINT32 thred)
@@ -181,7 +182,7 @@ static void audio_dac_set_read_thred_bit(UINT32 thred)
     reg_val |= ((thred & DAC_R_RD_THRED_MASK) << DAC_R_RD_THRED_POSI);
     reg_val |= ((thred & DAC_L_RD_THRED_MASK) << DAC_L_RD_THRED_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_dac_set_hpf1_bit(UINT32 enable)
@@ -193,7 +194,7 @@ static void audio_dac_set_hpf1_bit(UINT32 enable)
         reg_val |= DAC_HPF1_BYPASS;
     else
         reg_val &= ~DAC_HPF1_BYPASS;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_dac_set_hpf2_bit(UINT32 enable)
@@ -205,7 +206,7 @@ static void audio_dac_set_hpf2_bit(UINT32 enable)
         reg_val |= DAC_HPF2_BYPASS;
     else
         reg_val &= ~DAC_HPF2_BYPASS;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_dac_set_gain(UINT32 gain)
@@ -219,7 +220,7 @@ static void audio_dac_set_gain(UINT32 gain)
     reg_val &= ~(DAC_SET_GAIN_MASK << DAC_SET_GAIN_POSI);
     reg_val |= ((gain & DAC_SET_GAIN_MASK)  << DAC_SET_GAIN_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_dac_set_sample(INT16 left, INT16 right)
@@ -230,7 +231,7 @@ static void audio_dac_set_sample(INT16 left, INT16 right)
     reg_val = ((left & AD_DAC_L_FIFO_MASK) << AD_DAC_L_FIFO_POSI)
               | ((right & AD_DAC_R_FIFO_MASK) << AD_DAC_R_FIFO_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_dac_set_sample_rate(UINT32 sample_rate)
@@ -240,96 +241,96 @@ static void audio_dac_set_sample_rate(UINT32 sample_rate)
     /* disable dac handset bit again, to make sure this bit unset */
     reg = REG_READ(AUD_EXTEND_CFG);
     reg &= ~(DAC_FRACMOD_MANUAL);
-    REG_WRITE(AUD_EXTEND_CFG, reg);
+    REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
 
     switch (sample_rate)
     {
     case 11025:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= DAC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_441K << 2);
-        REG_WRITE(AUD_DAC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_DAC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 22050:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= DAC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_441K << 1);
-        REG_WRITE(AUD_DAC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_DAC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 44100:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 12000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= DAC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_48K << 2);
-        REG_WRITE(AUD_DAC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_DAC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 24000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= DAC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_48K << 1);
-        REG_WRITE(AUD_DAC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_DAC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 48000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 8000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_8K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 16000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_16K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 32000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= DAC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_16K >> 1);
-        REG_WRITE(AUD_DAC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_DAC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_DAC_MASK << SAMPLE_RATE_DAC_POSI);
         reg |= ((SAMPLE_RATE_16K & SAMPLE_RATE_DAC_MASK) << SAMPLE_RATE_DAC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     default:
@@ -548,7 +549,7 @@ static UINT32 audio_dac_open(UINT32 op_flag)
     aud_dac.freq= cfg->freq;
     aud_dac.dma_mode = cfg->dma_mode;
 
-    printf("%s: sample_rate %u, channels %u, buf_len %u\n",
+    AUD_PRT("%s: sample_rate %u, channels %u, buf_len %u\n",
            __func__,
            aud_dac.freq, aud_dac.channels, aud_dac.buf_len);
 
@@ -581,7 +582,7 @@ static UINT32 audio_dac_open(UINT32 op_flag)
         aud_dac.need_write_callback = cfg->buf_finish_cb;
         aud_dac.usr_data = cfg->usr_data;
 
-        printf("%s: init dma\n", __func__);
+        AUD_PRT("%s: init dma\n", __func__);
         rb_init_dma_read(&aud_dac.u.rb_dma_rd, aud_dac.buf, aud_dac.buf_len, AUD_DAC_DEF_DMA_CHANNEL);
         #endif
     }
@@ -596,7 +597,7 @@ static UINT32 audio_dac_open(UINT32 op_flag)
     aud_dac.status = AUD_DAC_STA_OPENED;
     #endif
 
-    printf("%s: dac open succ\n", __func__);
+    AUD_PRT("%s: dac open succ\n", __func__);
     return AUD_SUCCESS;
 }
 
@@ -631,7 +632,7 @@ static UINT32 audio_dac_close(void)
     os_memset(&aud_dac, 0, sizeof(AUD_DAC_DESC_ST));
     aud_dac.status = AUD_DAC_STA_CLOSED;
 
-    printf("%s: dac close succ\n", __func__);
+    AUD_PRT("%s: dac close succ\n", __func__);
     return AUD_SUCCESS;
 }
 
@@ -651,8 +652,8 @@ static UINT32 audio_dac_write(char *user_buf, UINT32 count, UINT32 op_flag)
         free_size = rb_get_free_size_dma_read(rb);
 
         //os_printf("0:%d-%d-%d\r\n",free_size, aud_dac.need_write_len, count);
-        if(free_size >= aud_dac.buf_len - 4)
-            os_printf("0:%d-%d-%d\r\n",free_size, aud_dac.need_write_len, count);
+        //if(free_size >= aud_dac.buf_len - 4)
+        //    AUD_PRT("0:%d-%d-%d\r\n",free_size, aud_dac.need_write_len, count);
 
         if(free_size < (int)count)
         {
@@ -755,9 +756,47 @@ static void audio_dac_play(void)
     aud_dac.status = AUD_DAC_STA_PLAYING;
 }
 
+static void audio_dac_set_info(UINT32 param)
+{
+    AUD_DAC_CFG_PTR cfg = (AUD_DAC_CFG_PTR)param;
+
+    if((aud_dac.freq == cfg->freq) && (aud_dac.channels == cfg->channels)) {
+        return;
+    }
+
+    if (aud_dac.status == AUD_DAC_STA_PLAYING) {
+        audio_dac_set_enable_bit(0);
+    }
+
+    if (aud_dac.freq != cfg->freq) {
+        aud_dac.freq = cfg->freq;
+        audio_dac_set_sample_rate(cfg->freq);
+    }
+
+    if(aud_dac.channels != cfg->channels) {
+        aud_dac.channels = cfg->channels;
+        if(aud_dac.dma_mode) {
+            #if CFG_GENERAL_DMA
+            if (aud_dac.status == AUD_DAC_STA_PLAYING) {
+                audio_dac_set_dma(0);
+            }
+            audio_dac_config_dma();
+            if (aud_dac.status == AUD_DAC_STA_PLAYING) {
+                audio_dac_set_dma(1);
+            }
+            #endif
+        }
+    }
+
+    if (aud_dac.status == AUD_DAC_STA_PLAYING) {
+        audio_dac_set_enable_bit(1);
+    }
+}
+
 static UINT32 audio_dac_ctrl(UINT32 cmd, void *param)
 {
     UINT32 ret = AUD_SUCCESS;
+    GLOBAL_INT_DECLARATION();
 
     switch(cmd)
     {
@@ -766,11 +805,15 @@ static UINT32 audio_dac_ctrl(UINT32 cmd, void *param)
         break;
 
     case AUD_DAC_CMD_PLAY:
+        GLOBAL_INT_DISABLE();
         audio_dac_play();
+        GLOBAL_INT_RESTORE();
         break;
 
     case AUD_DAC_CMD_PAUSE:
+        GLOBAL_INT_DISABLE();
         audio_dac_pause();
+        GLOBAL_INT_RESTORE();
         break;
 
     case AUD_DAC_CMD_SET_SAMPLE_RATE:
@@ -786,7 +829,32 @@ static UINT32 audio_dac_ctrl(UINT32 cmd, void *param)
 
     case AUD_DAC_CMD_SET_VOLUME:
         ASSERT(param);
+        GLOBAL_INT_DISABLE();
         audio_dac_set_volume(*((UINT32 *)param));
+        GLOBAL_INT_RESTORE();
+        break;
+
+    case AUD_DAC_CMD_CHANGE_CFG:
+        ASSERT(param);
+        GLOBAL_INT_DISABLE();
+        audio_dac_set_info(*((UINT32 *)param));
+        GLOBAL_INT_RESTORE();
+        break;
+
+    case AUD_DAC_CMD_MUTE:
+        #if AUD_USE_EXT_PA
+        GLOBAL_INT_DISABLE();
+        audio_dac_eable_mute(1);
+        GLOBAL_INT_RESTORE();
+        #endif
+        break;
+
+    case AUD_DAC_CMD_UNMUTE:
+        #if AUD_USE_EXT_PA
+        GLOBAL_INT_DISABLE();
+        audio_dac_eable_mute(0);
+        GLOBAL_INT_RESTORE();
+        #endif
         break;
 
     default:

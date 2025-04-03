@@ -464,7 +464,9 @@
 #define CFG_USE_SPI                                0
 #define CFG_USE_SPI_MASTER                         0
 #define CFG_USE_SPI_SLAVE                          0
-#define CFG_USE_SPI_DMA                            0
+#define CFG_USE_SPI_DMA_MASTER                     0
+#define CFG_USE_SPI_DMA_SLAVE                      0
+#define CFG_USE_SPI_MST_FLASH                      0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST                        0
@@ -478,4 +480,10 @@
 #define CFG_BK_NX_GET_WIFI_SNR                     0
 
 #define CFG_WRAP_LIBC                              1
+
+#if CFG_OS_FREERTOS
+#define CFG_MEM_CHECK_ENABLE                       1
+#else
+#define CFG_MEM_CHECK_ENABLE                       0
+#endif
 #endif // _SYS_CONFIG_H_

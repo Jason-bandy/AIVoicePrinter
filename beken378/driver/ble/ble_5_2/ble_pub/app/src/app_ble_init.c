@@ -37,48 +37,6 @@
 extern struct app_env_tag app_ble_env;
 extern const struct appm_create_conn_param default_init_par;
 
-#if APP_INIT_REUSE_ACTV_IDX
-app_ble_initing_env_t app_ble_initing_env = {0};
-
-void app_ble_initing_init(void)
-{
-    int i;
-
-    for(i=0; i<BLE_CONNECTION_MAX; i++) {
-        appm_set_initing_actv_idx(i,UNKNOW_CONN_HDL,BLE_INIT_IDX_NONE);
-    }
-}
-
-void appm_set_initing_actv_idx(unsigned char conidx,unsigned char actv_idx,unsigned char state)
-{
-    if(conidx >= BLE_CONNECTION_MAX) {
-        bk_printf("[%s]conidx:%d error\r\n",__FUNCTION__,conidx);
-        return;
-    }
-    #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-    bk_printf("[%s]conidx:%d actv_idx:%d,state:%d\r\n",__FUNCTION__,conidx,actv_idx,state);
-    #endif
-    app_ble_initing_env.init_idx[conidx].actv_idx = actv_idx;
-    app_ble_initing_env.init_idx[conidx].state = state;
-}
-
-unsigned char appm_get_stop_init_actv_idx(void)
-{
-    int i;
-
-    for(i = 0; i < BLE_CONNECTION_MAX; i++) {
-        if(app_ble_initing_env.init_idx[i].actv_idx != UNKNOW_CONN_HDL) {
-            if(app_ble_initing_env.init_idx[i].state == BLE_INIT_IDX_STOPED) {
-                app_ble_initing_env.init_idx[i].state = BLE_INIT_IDX_USED;
-                return app_ble_initing_env.init_idx[i].actv_idx;
-            }
-        }
-    }
-
-    return UNKNOW_CONN_HDL;
-}
-#endif
-
 int appm_set_connect_dev_addr(unsigned char connidx,struct bd_addr *bdaddr,unsigned char addr_type)
 {
     APP_BLE_INIT_CHECK_CONN_IDX(connidx);
@@ -130,38 +88,21 @@ ble_err_t appm_create_initing(uint8_t con_idx)
     bk_printf("[%s]con_idx:%d init_state:%d\r\n",__func__,con_idx,BLE_APP_MASTER_GET_IDX_STATE(con_idx));
     #endif
 
-    if (BLE_APP_MASTER_GET_IDX_STATE(con_idx) == APP_INIT_STATE_IDLE)
-    {
-        // And the next expected operation code for the command completed event
-        app_ble_env.connections[con_idx].conhdl = USED_CONN_HDL;
-        app_ble_env.connections[con_idx].conn_op_mask = 1 << BLE_OP_CREATE_INIT_POS;
-        app_ble_env.connections[con_idx].conn_op_cb = NULL;
-        #if APP_INIT_REUSE_ACTV_IDX
-        unsigned char unused_init_actv = appm_get_stop_init_actv_idx();
-        #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
-        bk_printf("unused_init_actv:%x\r\n", unused_init_actv);
-        #endif
-        if(unused_init_actv == UNKNOW_CONN_HDL) {
-            app_ble_create_initing(con_idx);
-        } else {
-            app_ble_env.connections[con_idx].gap_actv_idx = unused_init_actv;
-            struct app_task_event_ind *p_cmd = KERNEL_MSG_ALLOC(APP_INIT_INIT_EVENT,
-                                               KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(con_idx)),
-                                               KERNEL_BUILD_ID(TASK_BLE_APP,BLE_APP_INITING_INDEX(con_idx)),
-                                               app_task_event_ind);
-            p_cmd->type = 0;
-            kernel_msg_send(p_cmd);
-        }
-        #else
-        app_ble_create_initing(con_idx);
-        #endif
-        return ERR_SUCCESS;
-    }
-    else
-    {
-        bk_printf("connections[%d] is not idle\r\n", con_idx);
-        return ERR_INIT_STATE;
-    }
+	if (BLE_APP_MASTER_GET_IDX_STATE(con_idx) == APP_INIT_STATE_IDLE)
+	{
+		// And the next expected operation code for the command completed event
+		app_ble_env.connections[con_idx].conhdl = USED_CONN_HDL;
+		app_ble_env.connections[con_idx].conn_op_mask = 1 << BLE_OP_CREATE_INIT_POS;
+		app_ble_env.connections[con_idx].conn_op_cb = NULL;
+
+		app_ble_create_initing(con_idx);
+		return ERR_SUCCESS;
+	}
+	else
+	{
+		bk_printf("connections[%d] is not idle\r\n", con_idx);
+		return ERR_INIT_STATE;
+	}
 }
 
 static void appm_ble_set_init_param(uint8_t phy_type, struct gapm_conn_param *conn_par, struct gapm_scan_wd_op_param *scan_par)

@@ -592,7 +592,7 @@ ble_err_t app_ble_update_param(uint8_t conn_idx, struct gapc_conn_param *conn_pa
 		// Prepare the GAPC_PARAM_UPDATE_CMD message
 		struct gapc_param_update_cmd *cmd = KERNEL_MSG_ALLOC(GAPC_PARAM_UPDATE_CMD,
 									 KERNEL_BUILD_ID(TASK_BLE_GAPC, conhdl),
-									 KERNEL_BUILD_ID(TASK_BLE_APP, BLE_APP_INITING_INDEX(conn_idx)),
+									 KERNEL_BUILD_ID(TASK_BLE_APP, conn_idx),
 									 gapc_param_update_cmd);
 
 		if (cmd) {
@@ -631,7 +631,7 @@ ble_err_t app_ble_disconnect(uint8_t conn_idx, uint8_t reason)
 	if ((conhdl != UNKNOW_CONN_HDL) && (conhdl != USED_CONN_HDL)){
 		struct gapc_disconnect_cmd *cmd = KERNEL_MSG_ALLOC(GAPC_DISCONNECT_CMD,
 									KERNEL_BUILD_ID(TASK_BLE_GAPC, conhdl),
-									KERNEL_BUILD_ID(TASK_BLE_APP, BLE_APP_INITING_INDEX(conn_idx)),
+									KERNEL_BUILD_ID(TASK_BLE_APP, conn_idx),
 									gapc_disconnect_cmd);
 
 		if (cmd) {
@@ -1074,7 +1074,7 @@ ble_err_t app_ble_get_peer_feature(uint8_t conn_idx)
 	if ((conhdl != UNKNOW_CONN_HDL) && (conhdl != USED_CONN_HDL)) {
 		struct gapc_get_info_cmd *cmd = KERNEL_MSG_ALLOC(GAPC_GET_INFO_CMD,
 									KERNEL_BUILD_ID(TASK_BLE_GAPC, conhdl),
-									KERNEL_BUILD_ID(TASK_BLE_APP, BLE_APP_INITING_INDEX(conn_idx)),
+									KERNEL_BUILD_ID(TASK_BLE_APP, conn_idx),
 									gapc_get_info_cmd);
 
 		if (cmd) {
@@ -1126,7 +1126,7 @@ ble_err_t app_ble_set_pref_mtu(uint8_t conn_idx,uint16_t mtu)
 	} else {
 		if (BLE_APP_CONHDL_IS_VALID(conhdl)) {
 			struct gatt_set_pref_mtu_cmd *p_cmd = KERNEL_MSG_ALLOC(GATT_CMD,TASK_BLE_GATT,
-																	TASK_BLE_APP,
+																	KERNEL_BUILD_ID(TASK_BLE_APP, conn_idx),
 																	gatt_set_pref_mtu_cmd);
 			if (p_cmd) {
 				p_cmd->cmd_code = GATT_SET_PREF_MTU;
@@ -1259,7 +1259,7 @@ ble_err_t app_ble_get_bonded_device_num(uint8_t *dev_num)
     return ERR_SUCCESS;
 }
 
-ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, device_addr_t *dev_list)
+ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, bond_device_addr_t *dev_list)
 {
     ble_err_t ret = ERR_SUCCESS;
     uint8_t exp_num = *dev_num;
@@ -1272,6 +1272,7 @@ ble_err_t app_ble_get_bonded_device_list(uint8_t *dev_num, device_addr_t *dev_li
             if (act_num++ < exp_num) {
                 memcpy(dev_list->addr, app_sec_env.bond_info[i].peer_irk.addr.addr, GAP_BD_ADDR_LEN);
                 dev_list->addr_type = app_sec_env.bond_info[i].peer_irk.addr.addr_type;
+                dev_list->bond_idx = i;
                 dev_list++;
             } else {
                 ret = ERR_NO_MEM;

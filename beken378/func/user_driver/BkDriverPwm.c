@@ -292,25 +292,25 @@ OSStatus bk_pwm_cw_initialize(bk_pwm_t pwm1, bk_pwm_t pwm2, uint32_t frequency, 
     if(group < PWM_GROUP_NUM)
         param.group = group;
     else
-        param.group = (pwm1 << 4) | pwm2;
+        param.group = GET_GROUP_IDXS_BY_PORT(pwm1, pwm2);
     param.p_t4 = frequency;
 
-    // pwm2
-    param.p0_t1 = duty_cycle2;
+    // pwm1
+    param.p0_t1 = duty_cycle1;
     param.p0_init_level = 1;  // if duty cycle not 0, high level pwm pin first
-    if(duty_cycle2 == 0)
+    if(duty_cycle1 == 0)
     {
         param.p0_init_level = 0;
     }
 
-    // pwm1
-    if(duty_cycle1 == 0)
+    // pwm2
+    if(duty_cycle2 == 0)
     {
         param.p1_t1 = 0;
         param.p1_t2 = 0;
         param.p1_init_level = 0;
     }
-    else if(duty_cycle1 == frequency)
+    else if(duty_cycle2 == frequency)
     {
         param.p1_t1 = 0;
         param.p1_t2 = 0;
@@ -318,7 +318,7 @@ OSStatus bk_pwm_cw_initialize(bk_pwm_t pwm1, bk_pwm_t pwm2, uint32_t frequency, 
     }
     else
     {
-        param.p1_t1 = frequency - duty_cycle1 - dead_band;
+        param.p1_t1 = frequency - duty_cycle2 - dead_band;
         param.p1_t2 = frequency - dead_band;
         param.p1_init_level = 0;
     }
@@ -395,26 +395,26 @@ OSStatus bk_pwm_cw_update_param(bk_pwm_t pwm1, bk_pwm_t pwm2, uint32_t frequency
     if(group < PWM_GROUP_NUM)
         param.group = group;
     else
-        param.group = (pwm1 << 4) | pwm2;
+        param.group = GET_GROUP_IDXS_BY_PORT(pwm1, pwm2);
 
     param.p_t4 = frequency;
 
-    // pwm2
-    param.p0_t1 = duty_cycle2;
+    // pwm1
+    param.p0_t1 = duty_cycle1;
     param.p0_init_level = 1;  // if duty cycle not 0, high level pwm pin first
-    if(duty_cycle2 == 0)
+    if(duty_cycle1 == 0)
     {
         param.p0_init_level = 0;
     }
 
     // pwm1
-    if(duty_cycle1 == 0)
+    if(duty_cycle2 == 0)
     {
         param.p1_t1 = 0;
         param.p1_t2 = 0;
         param.p1_init_level = 0;
     }
-    else if(duty_cycle1 == frequency)
+    else if(duty_cycle2 == frequency)
     {
         param.p1_t1 = 0;
         param.p1_t2 = 0;
@@ -422,7 +422,7 @@ OSStatus bk_pwm_cw_update_param(bk_pwm_t pwm1, bk_pwm_t pwm2, uint32_t frequency
     }
     else
     {
-        param.p1_t1 = frequency - duty_cycle1 - dead_band;
+        param.p1_t1 = frequency - duty_cycle2 - dead_band;
         param.p1_t2 = frequency - dead_band;
         param.p1_init_level = 0;
     }

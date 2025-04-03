@@ -801,6 +801,8 @@ void uart1_init(void)
     #if UART1_USE_FIFO_REC
     ret = uart_sw_init(UART1_PORT);
     ASSERT(UART_SUCCESS == ret);
+    #else
+    (void) ret;
     #endif
 
     ddev_register_dev(UART1_DEV_NAME, &uart1_op);

@@ -61,8 +61,6 @@
 
 #define RX_FIFO_DOUT                  (IRDA_BASE + 3 * 4)
 
-#define IRDA_KEY_HTIMER_CHNAL 4 /*timer channle*/
-
 #define TRNG_BASE                     (0x00802480)
 
 #define TRNG_CTRL                     (TRNG_BASE + 0 * 4)

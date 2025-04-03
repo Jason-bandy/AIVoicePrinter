@@ -41,14 +41,17 @@ static const flash_config_t flash_config[] =
     {0xC84015, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x101, 9, 1, 0xA0, 0x01}, //gd_25q16c
     {0xC84016, 1, 0x400000, 2,  0, 2, 0x1F, 0x1F, 0x00, 0x0E, 0x00E, 0, 0, 0xA0, 0x01}, //gd_25q32c
     {0xC86515, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x101, 9, 1, 0xA0, 0x01}, //gd_25w16e
+    {0xC86516, 2, 0x400000, 4, 14, 2, 0x1F, 0x1F, 0x00, 0x0E, 0x101, 9, 1, 0xA0, 0x02}, //gd_25wq32e
     {0xEF4016, 2, 0x400000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x00, 0x101, 9, 1, 0xA0, 0x01}, //w_25q32(bfj)
     {0x204016, 2, 0x400000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0E, 0x101, 9, 1, 0xA0, 0x01}, //xmc_25qh32b
     {0xC22315, 1, 0x200000, 2,  0, 2, 0x0F, 0x0F, 0x00, 0x0A, 0x00E, 6, 1, 0xA5, 0x01}, //mx_25v16b
     {0xEB6015, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x101, 9, 1, 0xA0, 0x01}, //zg_th25q16b
     {0xCD6014, 2, 0x100000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0C, 0x101, 9, 1, 0xA0, 0x01}, //zg_th25q80HB
+    {0xCD7115, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x101, 9, 1, 0xA0, 0x01}, //zg_th25q16uc
     {0x854215, 1, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0C, 0x101, 9, 1, 0xA0, 0x01}, //py_p25q16
     {0x856015, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x101, 9, 1, 0xA0, 0x01}, //py_p25q16SH(2022)
     {0x852015, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x101, 9, 1, 0xA0, 0x01}, //py_p25q16HB
+    {0x852016, 2, 0x400000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0E, 0x101, 9, 1, 0xA0, 0x01}, //py_p25q32HB
     {0xC46015, 2, 0x200000, 2, 14, 2, 0x1F, 0x1F, 0x00, 0x0D, 0x011, 9, 1, 0x20, 0x01}, //gt_25q16B
     {0x000000, 2, 0x400000, 2,  0, 2, 0x1F, 0x00, 0x00, 0x00, 0x000, 0, 0, 0x00, 0x01}, //default
 };
@@ -396,13 +399,7 @@ void flash_set_line_mode(UINT8 mode)
         value |= (flash_current_config->m_value<< M_VALUE_POST);
 
         REG_WRITE(REG_FLASH_SR_DATA_CRC_CNT, value);
-
         value = REG_READ(REG_FLASH_SR_DATA_CRC_CNT);
-
-        if(1 == flash_current_config->qe_bit)
-        {
-            flash_set_qe();
-        }
 
         flash_set_qwfr();
     }
@@ -440,7 +437,7 @@ UINT32 flash_is_xtx_type(void)
         return 1;
     }
     // puya flash
-    else if((0x854215 == flash_id) || (0x856015 == flash_id) || (0x852015 == flash_id))
+    else if((0x854215 == flash_id) || (0x856015 == flash_id) || (0x852015 == flash_id) || (0x852016 == flash_id))
     {
         return 1;
     }
@@ -921,32 +918,36 @@ void flash_protection_op(UINT8 mode, PROTECT_TYPE type)
 
 void flash_init(void)
 {
-    UINT32 id;
+        UINT32 id;
 
-    while(REG_READ(REG_FLASH_OPERATE_SW) & BUSY_SW);
+        while(REG_READ(REG_FLASH_OPERATE_SW) & BUSY_SW);
 
-    id = flash_get_id();
-    FLASH_PRT("[Flash]id:0x%x\r\n", id);
-    flash_get_current_flash_config();
+        id = flash_get_id();
+        FLASH_PRT("[Flash]id:0x%x\r\n", id);
+        flash_get_current_flash_config();
 
-    set_flash_protect(FLASH_UNPROTECT_LAST_BLOCK, false);
+        set_flash_protect(FLASH_UNPROTECT_LAST_BLOCK, false);
 
-    #if (0 == CFG_JTAG_ENABLE)
-    flash_disable_cpu_data_wr();
-    #endif
+#if (0 == CFG_JTAG_ENABLE)
+        flash_disable_cpu_data_wr();
+#endif
 
-    flash_set_line_mode(flash_current_config->line_mode);
-    flash_enable_crc();
+        flash_set_line_mode(flash_current_config->line_mode);
+        if(1 == flash_current_config->qe_bit)
+        {
+                flash_set_qe();
+        }
+        flash_enable_crc();
 
-    #if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
-    flash_set_clk(9);  // dco/2=60M
-    #else
-    flash_set_clk(5);  // 60M
-    #endif
+#if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+        flash_set_clk(9);  // dco/2=60M
+#else
+        flash_set_clk(5);  // 60M
+#endif
 
-    ddev_register_dev(FLASH_DEV_NAME, &flash_op);
+        ddev_register_dev(FLASH_DEV_NAME, &flash_op);
 
-    os_printf("[Flash]init over\r\n");
+        os_printf("[Flash]init over\r\n");
 }
 
 void flash_exit(void)

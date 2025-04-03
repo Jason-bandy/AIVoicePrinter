@@ -930,11 +930,16 @@ ble_err_t bk_ble_get_bond_device_num(uint8_t *dev_num)
     return app_ble_get_bonded_device_num(dev_num);
 }
 
-ble_err_t bk_ble_get_bonded_device_list(uint8_t *dev_num, device_addr_t *dev_list)
+ble_err_t bk_ble_get_bonded_device_list(uint8_t *dev_num, bond_device_addr_t *dev_list)
 {
     ble_err_t ret = ERR_SUCCESS;
     ret = app_ble_get_bonded_device_list(dev_num, dev_list);
     return ret;
+}
+
+sec_err_t bk_ble_remove_bond_device(uint8_t idx, bool disconnect)
+{
+    return app_sec_remove_bond(idx, disconnect);
 }
 
 sec_err_t bk_ble_gap_set_security_param(struct app_pairing_cfg *param, sec_notice_cb_t func)
@@ -942,41 +947,29 @@ sec_err_t bk_ble_gap_set_security_param(struct app_pairing_cfg *param, sec_notic
     return app_sec_config(param, func);
 }
 
-sec_err_t bk_ble_gap_security_rsp(uint8_t conn_idx, bool accept)
+sec_err_t bk_ble_security_req(uint8_t conn_idx)
 {
-    sec_err_t ret = APP_SEC_ERROR_NO_ERROR;
-
-    if (accept) {
-        ret = app_sec_send_pairing_req(conn_idx);
-    }
-    return ret;
+    return app_sec_send_security_req(conn_idx);
 }
 
-sec_err_t bk_ble_gap_pairing_rsp(uint8_t conn_idx, bool accept)
+sec_err_t bk_ble_security_start(uint8_t conn_idx)
 {
-    sec_err_t ret = APP_SEC_ERROR_NO_ERROR;
+    return app_sec_master_security_start(conn_idx);
+}
 
-    if (accept) {
-        ret = app_sec_send_pairing_rsp(conn_idx);
-    }
-    return ret;
+sec_err_t bk_ble_pairing_rsp(uint8_t conn_idx, bool accept)
+{
+    return app_sec_send_pairing_rsp(conn_idx, accept);
 }
 
 sec_err_t bk_ble_passkey_reply(uint8_t conn_idx, bool accept, uint32_t passkey)
 {
-    sec_err_t ret = APP_SEC_ERROR_NO_ERROR;
-
-    if (accept) {
-        ret = app_sec_tk_exchange_cfm(conn_idx, passkey);
-    }
-    return ret;
+    return app_sec_tk_exchange_cfm(conn_idx, passkey, accept);
 }
 
 sec_err_t bk_ble_confirm_reply(uint8_t conn_idx, bool accept)
 {
-    sec_err_t ret = APP_SEC_ERROR_NO_ERROR;
-    ret = app_sec_nc_exchange_cfm(conn_idx, accept);
-    return ret;
+    return app_sec_nc_exchange_cfm(conn_idx, accept);
 }
 #endif
 

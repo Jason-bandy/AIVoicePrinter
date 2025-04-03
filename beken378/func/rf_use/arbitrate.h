@@ -22,7 +22,7 @@
 #define RF_MSG_QUEUE_COUNT          (20)
 #define THD_RF_PRIORITY             (1)
 #define RF_STACK_SIZE               (2 * 1024)
-#define RF_TIMER_ID                 (1)
+#define RF_TIMER_ID                 (BKTIMER1)
 
 /*
 Rf message

@@ -122,6 +122,7 @@ typedef struct ps_sta {
     UINT8 ps_can_sleep;
     UINT8 listen_int;
     PS_LISTEN_MODE listen_mode;
+    UINT8 keep_alive_per;
     UINT8 ps_dtim_period;
     UINT8 ps_dtim_count;
     UINT8 ps_dtim_multi;

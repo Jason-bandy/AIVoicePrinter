@@ -505,9 +505,9 @@ extern void rwn_set_tx_low_rate_once(void);
 void lv_ps_send_arp(void)
 {
     #if !(CFG_SOC_NAME == SOC_BK7252N)
-    if(cal_get_time_us() - lv_ps_arp_send_time > LOW_VOL_ARP_SEND_INTERVAL * 1000000)
+    if(cal_get_time_us() - lv_ps_arp_send_time > power_save_get_keep_alive_per() * 1000000)
     #else
-    if(rtc_reg_get_time_us() - lv_ps_arp_send_time > LOW_VOL_ARP_SEND_INTERVAL * 1000000)
+    if(rtc_reg_get_time_us() - lv_ps_arp_send_time > power_save_get_keep_alive_per() * 1000000)
     #endif
     {
         bmsg_ps_sender(PS_BMSG_IOCTL_ARP_TX);
@@ -580,12 +580,15 @@ bool lv_ps_sleep_check( UINT32 sleep_tick)
     }
     #if CFG_SUPPORT_BLE
     else if (!ble_thread_is_up() && (!bk_wlan_has_role(VIF_STA))) {
-    #else
-    else if (!bk_wlan_has_role(VIF_STA))
-    #endif
         /*keep lv sleep mode util wakeup by gpio*/
         lv_ps_target_time = -1;
     }
+    #else
+    else if (!bk_wlan_has_role(VIF_STA)) {
+        /*keep lv sleep mode util wakeup by gpio*/
+        lv_ps_target_time = -1;
+    }
+    #endif
     else {
         debug_print_flag = 4;
         goto check_exit;

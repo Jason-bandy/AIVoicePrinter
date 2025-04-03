@@ -55,8 +55,6 @@ const UINT8 pwm_ch_to_group[PWM_GROUP_NUM * PWM_CHAN_IN_GROUP] = {0, 0, 1, 1, 2,
 
 #define PWM_CHAN_TO_GROUP_NUM(ch)       (pwm_ch_to_group[(ch)])
 #define PWM_CHAN_TO_CHAN_IN_GROUP(ch)   ((ch) % 2)
-#define GET_P0_IDX_FROM_IDXS(idxs)      ((idxs) & 0xf)
-#define GET_P1_IDX_FROM_IDXS(idxs)      (((idxs) >> 4) & 0xf)
 
 // PWM MODE
 #define PWM_NOT_USED                    0
@@ -296,25 +294,25 @@ UINT8 pwm_check_is_used(UINT8 chan)
     #endif // DRV_USED_PWM_CW_GROUP
 
     #if DRV_USED_PWM_CW
-        if(cw_param_ptr->is_active)
-        {
-            return PWM_USED_CW;
-        } else
+    if(cw_param_ptr->is_active)
+    {
+        return PWM_USED_CW;
+    } else
     #endif // DRV_USED_PWM_CW
 
-        #if DRV_USED_PWM
-            if(pwm_param_ptr->is_active)
-            {
-                return PWM_USED_PWM;
-            } else
-        #endif // DRV_USED_PWM
+    #if DRV_USED_PWM
+    if(pwm_param_ptr->is_active)
+    {
+        return PWM_USED_PWM;
+    } else
+    #endif // DRV_USED_PWM
 
-            #if DRV_USED_PWM_CAP
-                if(pwm_cap_param_ptr->is_active)
-                {
-                    return PWM_USED_PWM_CAP;
-                }
-            #endif // DRV_USED_PWM_CAP
+    #if DRV_USED_PWM_CAP
+    if(pwm_cap_param_ptr->is_active)
+    {
+        return PWM_USED_PWM_CAP;
+    }
+    #endif // DRV_USED_PWM_CAP
 
     group = group; // fix warning
 

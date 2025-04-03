@@ -26,6 +26,7 @@
 #include "bk_timer_pub.h"
 #include "rtos_pub.h"
 
+#define IRDA_KEY_HTIMER_CHNAL       (BKTIMER4) /*timer channle*/
 struct IR_KEY_ST
 {
     beken_queue_t IRkey_mq;

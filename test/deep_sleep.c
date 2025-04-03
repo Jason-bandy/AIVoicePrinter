@@ -93,3 +93,71 @@ static void enter_deep_sleep_test(int argc,char *argv[])
 MSH_CMD_EXPORT(enter_deep_sleep_test,test sleep mode);
 
 #endif
+
+
+#ifdef FORCE_LV_SLEEP_TEST
+#if (1 == CFG_USE_FORCE_LOWVOL_PS)
+#include "force_ps_pub.h"
+#include "str_pub.h"
+extern UINT32 bk_wlan_instant_lowvol_sleep( PS_DEEP_CTRL_PARAM *lowvol_param );
+extern int bk_get_lv_sleep_wakeup_gpio_status(void);
+extern int bk_misc_wakeup_get_gpio_num(void);
+void lowvol_sleep_test(int argc,char *argv[])
+{
+    PS_DEEP_CTRL_PARAM sleep_param;
+
+    sleep_param.gpio_index_map = os_strtoul(argv[1], NULL, 16);
+    sleep_param.gpio_edge_map = os_strtoul(argv[2], NULL, 16);
+    sleep_param.gpio_last_index_map = 0;
+    sleep_param.gpio_last_edge_map = 0;
+    sleep_param.sleep_time = os_strtoul(argv[3], NULL, 16);
+    sleep_param.wake_up_way = os_strtoul(argv[4], NULL, 16);
+    sleep_param.sleep_mode = os_strtoul(argv[5], NULL, 16);
+
+    if(argc == 6)
+    {
+        if (MCU_NORMAL_SLEEP == sleep_param.sleep_mode)
+        {
+            os_printf("---normal sleep test param : 0x%0X 0x%0X %d s  %x\r\n",
+                      sleep_param.gpio_index_map,
+                      sleep_param.gpio_edge_map,
+                      sleep_param.sleep_time,
+                      sleep_param.wake_up_way);
+
+            // use return value to indicate wakeup source
+            os_printf("wakeup by %x\r\n", bk_wlan_instant_lowvol_sleep(&sleep_param));
+        }
+        else if (MCU_LOW_VOLTAGE_SLEEP == sleep_param.sleep_mode)
+        {
+            os_printf("---lowvol sleep test param : 0x%0X 0x%0X %d s  %d\r\n",
+                      sleep_param.gpio_index_map,
+                      sleep_param.gpio_edge_map,
+                      sleep_param.sleep_time,
+                      sleep_param.wake_up_way);
+
+            bk_wlan_instant_lowvol_sleep(&sleep_param);
+
+            if(PS_DEEP_WAKEUP_RTC == sleep_param.wake_up_way)
+            {
+                os_printf("wakeup by RTC %ds\r\n",sleep_param.sleep_time);
+            }
+            else if(PS_DEEP_WAKEUP_GPIO == sleep_param.wake_up_way)
+            {
+                bk_get_lv_sleep_wakeup_gpio_status();
+                os_printf("wakeup by GPIO%d\r\n",bk_misc_wakeup_get_gpio_num());
+            }
+        }
+        else
+        {
+            os_printf("---unsupported sleep mode:%d! \r\n", sleep_param.sleep_mode);
+            return;
+        }
+    }
+    else
+    {
+        os_printf("---argc error: %d!!! \r\n", argc);
+    }
+}
+MSH_CMD_EXPORT(lowvol_sleep_test, force_lowvol_sleep_test);
+#endif // CFG_USE_FORCE_LOWVOL_PS
+#endif // FORCE_LV_SLEEP_TEST

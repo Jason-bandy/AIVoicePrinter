@@ -49,6 +49,7 @@
 #define RT_USING_MEMHEAP
 #define RT_USING_MEMHEAP_AS_HEAP
 #define RT_USING_HEAP
+#define RT_USING_QSPI_PSRAM_HEAP
 
 /* Kernel Device Object */
 
@@ -247,6 +248,8 @@
 #define FAL_DEBUG_CONFIG
 #define FAL_DEBUG 1
 #define PKG_USING_FAL_LATEST_VERSION
+/* 0xF000 not error with sizeof(bootloader.bin) <= 60K/34*32 */
+/* but 0x11000 will be better. */
 #define FAL_PART_TABLE_END_OFFSET (60 * 1024UL) //speed up if need change to 64k
 #define FAL_PART_TABLE_FLASH_DEV_NAME "beken_onchip_crc"
 
@@ -302,7 +305,6 @@
 //#define BEKEN_USING_SPI_FLASH
 //#define BEKEN_USING_SPI_PSRAM
 //#define BEKEN_USING_SPI_HSLAVE
-//#define BEKEN_USING_QSPI_PSRAM_HEAP
 #define RT_USING_BLE
 
 /* Player Config */
@@ -313,24 +315,21 @@
 #define PLAYER_DEVICE "sound"
 #define PLAYER_DEFAULT_VOLUME 65
 
-/* PLAYER 内部支持 CODEC */
-#define PLAYER_ENABLE_CODEC_PCM             /* PCM编码 */
-#define PLAYER_ENABLE_CODEC_WAV             /* WAV编码 */
-// #define PLAYER_ENABLE_FORMAT_TS          /* MPEG-TS容器 */
+#define PLAYER_ENABLE_CODEC_PCM
+#define PLAYER_ENABLE_CODEC_WAV
+// #define PLAYER_ENABLE_FORMAT_TS
 
-/* PLAYER 网络流 */
-#define PLAYER_ENABLE_NET_STREAM            /* 网络流音频播放支持 */
-#define PLAYER_ENABLE_HTTP_STREAM           /* HTTP流音频播放支持 */
-#define PLAYER_ENABLE_HTTPS_STREAM          /* HTTPS流音频播放支持 */
-#define PLAYER_ENABLE_TTS_STREAM            /* TTS流音频播放支持 */
-// #define PLAYER_ENABLE_HLS_STREAM         /* HLS流音频播放支持 */
-// #define PLAYER_ENABLE_HLS_ACCELERATE     /* HLS TLS加速 */
-// #define PLAYER_ENABLE_PLS_STREAM         /* PLS流音频播放支持 */
+#define PLAYER_ENABLE_NET_STREAM
+#define PLAYER_ENABLE_HTTP_STREAM
+#define PLAYER_ENABLE_HTTPS_STREAM
+#define PLAYER_ENABLE_TTS_STREAM
+// #define PLAYER_ENABLE_HLS_STREAM
+// #define PLAYER_ENABLE_HLS_ACCELERATE
+// #define PLAYER_ENABLE_PLS_STREAM
 
-#define PLAYER_USING_NETSTREAM_BUFSZ 96     /* 网络缓存 */
+#define PLAYER_USING_NETSTREAM_BUFSZ 96
 
-/* PLAYER 日志 */
-#define PLAYER_USING_DEBUG 0                /* 0:发布版本, 1:调试版本 */
+#define PLAYER_USING_DEBUG 0
 
 /* PLAYER Example */
 #define PLAYER_USING_EXAMPLE00
@@ -342,7 +341,7 @@
 
 /* Test samples */
 
-//#define PKG_USING_RT_OTA
+#define PKG_USING_RT_OTA
 
 #define RT_USING_PTHREADS
 

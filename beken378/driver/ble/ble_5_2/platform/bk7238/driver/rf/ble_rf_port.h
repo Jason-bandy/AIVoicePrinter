@@ -17,5 +17,7 @@
 
 void ble_release_rf_by_isr(void);
 void ble_request_rf_by_isr(void);
+void bk_ble_request_rf(void);
+void bk_ble_release_rf(void);
 
 #endif

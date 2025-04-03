@@ -157,6 +157,11 @@ beken_timer_t audio_dac_fill_timer;
 
 __maybe_unused static void audio_intf_dac_timer_handler(void *data);
 
+static void audio_intf_adc_rx_callback(UINT32 fill_size)
+{
+    //AUD_INTF_PRT("adc_rx :%d\r\n", fill_size);
+}
+
 static void audio_intf_dac_timer_poll(void)
 {
     #if 0
@@ -404,6 +409,8 @@ static void audio_intf_main( beken_thread_arg_t data )
     #if CFG_USE_AUD_ADC
     aud_adc_cfg.buf = &audio_adc_buf[0];
     aud_adc_cfg.buf_len = AUD_ADC_BUF_LEN;
+    aud_adc_cfg.inter_thre = AUD_ADC_BUF_LEN/2;
+    aud_adc_cfg.rx_cb = audio_intf_adc_rx_callback;
     aud_adc_cfg.freq = audio_sample_rate;
     aud_adc_cfg.channels = 2;
 

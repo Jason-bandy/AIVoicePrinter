@@ -148,6 +148,6 @@ char *os_strrchr(const char *s, int c)
 
 char *os_strstr(const char *haystack, const char *needle)
 {
-    return NULL;
+    return strstr(haystack, needle);
 }
 // EOF

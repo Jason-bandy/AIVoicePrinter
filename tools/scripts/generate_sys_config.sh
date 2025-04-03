@@ -63,22 +63,39 @@ else
 	exit 1
 fi
 
+if [ -f $new_rt_config ]; then
+	rt_config_new_hash=`md5sum $new_rt_config | cut -d' ' -f 1`
+else
+	echo "$new_rt_config not exist!"
+	exit 1
+fi
+
 if [ -f $old_sys_config ]; then
 	old_hash=`md5sum $old_sys_config | cut -d' ' -f 1`
 else
 	old_hash=""
 fi
 
+if [ -f $old_rtconfig ]; then
+	rt_config_old_hash=`md5sum $old_rtconfig | cut -d' ' -f 1`
+else
+	rt_config_old_hash=""
+fi
+
 #echo "hash($new_sys_config)=$new_hash"
 #echo "hash($old_sys_config)=$old_hash"
+#echo "hash($new_rt_config)=$rt_config_new_hash"
+#echo "hash($old_rtconfig)=$rt_config_old_hash"
 
-if [ "$new_hash" != "$old_hash" ]; then
+if [ "$new_hash" != "$old_hash" ] || [ "$rt_config_new_hash" != "$rt_config_old_hash" ]; then
 	cp -f $new_sys_config $old_sys_config
 	cp -f $new_rt_config $old_rtconfig
-#	echo "update $old_sys_config with $new_sys_config"
+	#echo "update $old_sys_config with $new_sys_config"
+	#echo "update $old_rtconfig with $new_rt_config"
 fi
 
 ${ARM_GCC_TOOLCHAIN}/arm-none-eabi-gcc -E -x c -P $new_linkscript -o link.lds
+${ARM_GCC_TOOLCHAIN}/arm-none-eabi-gcc -E -x c -P ./beken378/func/user_driver/BkFlashPartition.h -o ./tools/beken_packager/flash_partition.o -I ./config
 #cp -f $new_linkscript link.lds
 
 rm -f .platform

@@ -164,7 +164,10 @@ $(NAME)_SOURCES +=  driver/spi/spi.c \
 endif
 ifeq ($(CFG_SOC_NAME), 5)
 $(NAME)_SOURCES +=  driver/spi/spi_bk7231n.c \
+					driver/spi/spi_flash.c \
 					driver/spi/spi_master_bk7231n.c \
+					driver/spi/spi_master_dma_bk7231n.c \
+					driver/spi/spi_slave_dma_bk7231n.c \
 					driver/spi/spi_slave_bk7231n.c
 endif
 ifeq ($(CFG_SOC_NAME), 8)

@@ -42,7 +42,9 @@
 //#define RT_USING_AIRKISS
 
 /*http ota sample */
-//#define SAMPLE_USING_OTA_HTTP
+#ifdef PKG_USING_RT_OTA
+#define SAMPLE_USING_OTA_HTTP
+#endif
 
 /* web net sample */
 //#define WEBNET_SAMPLE

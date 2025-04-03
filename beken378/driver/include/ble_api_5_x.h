@@ -246,6 +246,7 @@ typedef enum  {
     BLE_INIT_DELETE,
     BLE_INIT_START_CONN,
     BLE_INIT_STOP_CONN,
+    BLE_CONN_ENABLE_ENC, //0x17
 
     //PERIODIC SYNC
     BLE_CREATE_PERIODIC_SYNC,
@@ -281,13 +282,16 @@ typedef enum  {
 } ble_notice_t;
 
 typedef enum {
+    APP_SEC_BONDLIST_COMPARISON_CMP_IND,
+    APP_SEC_ATT_ERR_INSUFF_AUTHEN,
     APP_SEC_SECURITY_REQ_IND,
     APP_SEC_PAIRING_REQ_IND,
     APP_SEC_PASSKEY_REPLY,
     APP_SEC_CONFIRM_REPLY,
     APP_SEC_PAIRING_SUCCEED,
-    APP_SEC_PAIRING_FAILED,
+    APP_SEC_PAIRING_FAIL,
     APP_SEC_ENCRYPT_SUCCEED,
+    APP_SEC_ENCRYPT_FAIL,
     APP_SEC_MAX,
 } sec_notice_t;
 
@@ -395,6 +399,8 @@ typedef struct
     uint8_t *value;
     uint16_t size;
     uint16_t length;
+    uint16_t offset;
+    uint16_t max_length;
     uint16_t hdl;
     uint16_t token;
 } read_req_t;
@@ -441,7 +447,9 @@ typedef struct
     uint8_t  addr[GAP_BD_ADDR_LEN];
     /// Address type of the device 0=public/1=private random
     uint8_t addr_type;
-} device_addr_t;
+    /// The index of bond information
+    uint8_t bond_idx;
+} bond_device_addr_t;
 
 typedef struct
 {
@@ -558,6 +566,28 @@ typedef struct
 } bk_attm_desc_t;
 
 #elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
+
+typedef struct
+{
+    uint32_t msg_id;
+    uint8_t type;
+    uint16_t len;
+    void *data;
+} BLE_TO_HOST_MSG_T;
+
+/**
+ * @brief hci type enum
+ */
+typedef enum
+{
+    BK_BLE_HCI_TYPE_CMD = 1,
+    BK_BLE_HCI_TYPE_ACL = 2,
+    BK_BLE_HCI_TYPE_SCO = 3,
+    BK_BLE_HCI_TYPE_EVT = 4,
+} BK_BLE_HCI_TYPE;
+
+typedef ble_err_t (*ble_hci_to_host_cb)(uint8_t *buf, uint16_t len);
+
 typedef struct
 {
     /// Attribute UUID (LSB First)
@@ -877,15 +907,6 @@ ble_err_t bk_ble_delete_periodic_sync(uint8_t actv_idx, ble_cmd_cb_t callback);
 #if (CFG_BLE_PER_ADV) | (CFG_BLE_PER_SYNC)
 ble_err_t bk_ble_periodic_adv_sync_transf(uint8_t actv_idx, uint16_t service_data);
 #endif
-#if (BLE_APP_SEC)
-ble_err_t bk_ble_get_bond_device_num(uint8_t *dev_num);
-ble_err_t bk_ble_get_bonded_device_list(uint8_t *dev_num, device_addr_t *dev_list);
-sec_err_t bk_ble_gap_set_security_param(struct app_pairing_cfg *param, sec_notice_cb_t func);
-sec_err_t bk_ble_gap_security_rsp(uint8_t conn_idx, bool accept);
-sec_err_t bk_ble_gap_pairing_rsp(uint8_t conn_idx, bool accept);
-sec_err_t bk_ble_passkey_reply(uint8_t conn_idx, bool accept, uint32_t passkey);
-sec_err_t bk_ble_confirm_reply(uint8_t conn_idx, bool accept);
-#endif
 ble_err_t bk_ble_gap_get_whitelist_size(uint8_t *wl_size);
 ble_err_t bk_ble_gap_clear_whitelist(void);
 ble_err_t bk_ble_gap_update_whitelist(uint8_t add_remove, struct bd_addr *addr, uint8_t addr_type);
@@ -893,7 +914,23 @@ ble_err_t bk_ble_gap_update_per_adv_list(uint8_t add_remove, struct bd_addr *add
 ble_err_t bk_ble_gap_clear_per_adv_list(void);
 ble_err_t bk_ble_get_sendable_packets_num(uint16_t *pkt_total);
 ble_err_t bk_ble_get_cur_sendable_packets_num(uint16_t *pkt_curr);
+ble_err_t bk_ble_reg_hci_recv_callback(ble_hci_to_host_cb evt_cb, ble_hci_to_host_cb acl_cb);
+ble_err_t bk_ble_hci_acl_to_controller(uint8_t *buf, uint16_t len);
+ble_err_t bk_ble_hci_cmd_to_controller(uint8_t *buf, uint16_t len);
+ble_err_t bk_ble_hci_to_controller(uint8_t type, uint8_t *buf, uint16_t len);
 #endif // (CFG_BLE_VERSION == BLE_VERSION_5_2)
+
+#if (BLE_APP_SEC)
+ble_err_t bk_ble_get_bond_device_num(uint8_t *dev_num);
+ble_err_t bk_ble_get_bonded_device_list(uint8_t *dev_num, bond_device_addr_t *dev_list);
+sec_err_t bk_ble_remove_bond_device(uint8_t idx, bool disconnect);
+sec_err_t bk_ble_gap_set_security_param(struct app_pairing_cfg *param, sec_notice_cb_t func);
+sec_err_t bk_ble_security_req(uint8_t conn_idx);
+sec_err_t bk_ble_security_start(uint8_t conn_idx);
+sec_err_t bk_ble_pairing_rsp(uint8_t conn_idx, bool accept);
+sec_err_t bk_ble_passkey_reply(uint8_t conn_idx, bool accept, uint32_t passkey);
+sec_err_t bk_ble_confirm_reply(uint8_t conn_idx, bool accept);
+#endif
 
 extern void ble_ps_enable_set(void);
 extern void ble_ps_enable_clear(void);

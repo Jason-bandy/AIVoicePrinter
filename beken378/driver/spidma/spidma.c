@@ -30,6 +30,7 @@
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
 #endif
+#include "common_reg_rw.h"
 
 #define USE_SPI_DMA_GPIO_14_17      (0)
 #define USE_SPI_DMA_GPIO_30_33      (1)
@@ -54,7 +55,7 @@ static void spidma_config_sck_invert(UINT32 negedge)
         reg |= SPIDMA_REG0_SCK_INV;
     else
         reg &= ~(SPIDMA_REG0_SCK_INV);
-    REG_WRITE(SPI_DMA_REG0, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 }
 
 static void spidma_config_LSB_first_transfer(UINT32 ture)
@@ -65,7 +66,7 @@ static void spidma_config_LSB_first_transfer(UINT32 ture)
         reg |= SPIDMA_REG0_LSB_FIRST;
     else
         reg &= ~(SPIDMA_REG0_LSB_FIRST);
-    REG_WRITE(SPI_DMA_REG0, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 }
 
 static void spidma_config_3wire_mode(UINT32 ture)
@@ -76,7 +77,7 @@ static void spidma_config_3wire_mode(UINT32 ture)
         reg |= SPIDMA_REG0_WIRE3_EN;
     else
         reg &= ~(SPIDMA_REG0_WIRE3_EN);
-    REG_WRITE(SPI_DMA_REG0, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 }
 
 static void spidma_config_tx_finish_inten(UINT32 ture)
@@ -87,18 +88,18 @@ static void spidma_config_tx_finish_inten(UINT32 ture)
         reg |= SPIDMA_REG0_TX_FINISH_INTEN;
     else
         reg &= ~(SPIDMA_REG0_TX_FINISH_INTEN);
-    REG_WRITE(SPI_DMA_REG0, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 }
 
 static void spidma_config_rxdata_timeout_val(UINT32 timeout)
 {
-    REG_WRITE(SPI_DMA_REG1, timeout & SPIDMA_REG1_TIMEOUT_MASK);
+    REG_WRITE_PROTECT(SPI_DMA_REG1, timeout & SPIDMA_REG1_TIMEOUT_MASK);
 }
 
 #if (CFG_SOC_NAME == SOC_BK7231)
 static void spidma_config_rxbuf_start_addr(UINT8 *rxbufptr)
 {
-    REG_WRITE(SPI_DMA_REG2_RXBUF_ADDR, (UINT32)rxbufptr);
+    REG_WRITE_PROTECT(SPI_DMA_REG2_RXBUF_ADDR, (UINT32)rxbufptr);
 }
 
 #ifdef SPIDMA_GET_RX_BUF_ADDR
@@ -139,12 +140,12 @@ static void spidma_config_rxbuf_length(UINT32 rxbuflen)
         break;
     }
 
-    REG_WRITE(SPI_DMA_REG3_RXBUF_LEN, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG3_RXBUF_LEN, reg);
 }
 
 static void spidma_config_rx_threshold_int(UINT32 threshold)
 {
-    REG_WRITE(SPI_DMA_REG4_RXBUF_THRE, (threshold - 1)&SPIDMA_REG4_RXBUF_THRE_MASK);
+    REG_WRITE_PROTECT(SPI_DMA_REG4_RXBUF_THRE, (threshold - 1)&SPIDMA_REG4_RXBUF_THRE_MASK);
 }
 
 static UINT32 spidma_get_rx_threshold_val(void)
@@ -159,7 +160,7 @@ static UINT32 spidma_config_get_rxbuf_readptr(void)
 
 static void spidma_config_set_rxbuf_readptr(UINT32 rdptr)
 {
-    REG_WRITE(SPI_DMA_REG5_RXBUF_RDPTR, rdptr & SPIDMA_REG5_RXBUF_RDPTR_MASK);
+    REG_WRITE_PROTECT(SPI_DMA_REG5_RXBUF_RDPTR, rdptr & SPIDMA_REG5_RXBUF_RDPTR_MASK);
 }
 
 static UINT32 spidma_get_rxbuf_writeptr(void)
@@ -169,20 +170,20 @@ static UINT32 spidma_get_rxbuf_writeptr(void)
 
 static void spidma_config_txbuf_start_addr(UINT8 *txbufptr)
 {
-    REG_WRITE(SPI_DMA_REG7_TXBUF_ADDR, (UINT32)txbufptr);
+    REG_WRITE_PROTECT(SPI_DMA_REG7_TXBUF_ADDR, (UINT32)txbufptr);
 }
 
 static void spidma_config_txbuf_length(UINT32 txbuflen)
 {
-    REG_WRITE(SPI_DMA_REG8_TXBUF_LEN, txbuflen);
+    REG_WRITE_PROTECT(SPI_DMA_REG8_TXBUF_LEN, txbuflen);
 }
 
 static void spidma_set_txbuf_valid(UINT32 ture)
 {
     if(ture)
-        REG_WRITE(SPI_DMA_REG9_TXBUF_VALID, 0x1);
+        REG_WRITE_PROTECT(SPI_DMA_REG9_TXBUF_VALID, 0x1);
     else
-        REG_WRITE(SPI_DMA_REG9_TXBUF_VALID, 0x0);
+        REG_WRITE_PROTECT(SPI_DMA_REG9_TXBUF_VALID, 0x0);
 }
 
 static UINT32 spidma_set_rxbuf_valid_datalen(void)
@@ -377,7 +378,7 @@ __maybe_unused static void spidma_hardware_init(void)
     intc_service_register(FIQ_SPI_DMA, PRI_FIQ_SPI_DMA, spidma_isr);
 
     /* config spidma register0 to 0 */
-    REG_WRITE(SPI_DMA_REG0, 0);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, 0);
 
     /* config spidma registers, rx first */
     spidma_config_rxdata_timeout_val(SPIDMA_DEF_RXDATA_TIMEOUT_VAL);
@@ -395,13 +396,13 @@ __maybe_unused static void spidma_hardware_init(void)
 
     /* reset int status */
     reg = REG_READ(SPI_DMA_REG10_INT_STATUS);
-    REG_WRITE(SPI_DMA_REG10_INT_STATUS, reg);
-    REG_WRITE(SPI_DMA_REG11, 0);
+    REG_WRITE_PROTECT(SPI_DMA_REG10_INT_STATUS, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG11, 0);
     #else
 
     /* reset int status */
     reg = REG_READ(SPI_DMA_REG5_STA);
-    REG_WRITE(SPI_DMA_REG5_STA, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG5_STA, reg);
     #endif // (CFG_SOC_NAME == SOC_BK7231)
 
     /* config gpio for spidam  */
@@ -477,7 +478,7 @@ static UINT32 spidma_open(UINT32 op_flag)
           | SPIDMA_REG0_RXEN;
     #endif // (CFG_SOC_NAME == SOC_BK7231)
 
-    REG_WRITE(SPI_DMA_REG0, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
     spidma_enable_interrupt();
 
     return SPIDMA_SUCCESS;
@@ -515,7 +516,7 @@ static UINT32 spidma_close(void)
              //| SPIDMA_REG0_TX_FINISH_INTEN
              | SPIDMA_REG0_RXEN);
     #endif // (CFG_SOC_NAME == SOC_BK7231)
-    REG_WRITE(SPI_DMA_REG0, reg);
+    REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 
     return SPIDMA_SUCCESS;
 }
@@ -548,14 +549,14 @@ static void spidma_rx_handler(UINT32 timeout)
     spidma_config_set_rxbuf_readptr(cur_posi);
 
     if(timeout) {
-        REG_WRITE(SPI_DMA_REG10_INT_STATUS, SPIDMA_INTSTA_RX_TIMEOUT);
+        REG_WRITE_PROTECT(SPI_DMA_REG10_INT_STATUS, SPIDMA_INTSTA_RX_TIMEOUT);
         if(p_spidma_desc->rx_timeout != NULL)
         {
             p_spidma_desc->rx_timeout();
         }
     }
     else {
-        REG_WRITE(SPI_DMA_REG10_INT_STATUS, SPIDMA_INTSTA_RXBUF_THRE);
+        REG_WRITE_PROTECT(SPI_DMA_REG10_INT_STATUS, SPIDMA_INTSTA_RXBUF_THRE);
     }
 
     //REG_WRITE((0x00802800+(29*4)), 0x00);
@@ -568,7 +569,7 @@ static void spidma_rx_handler()
         p_spidma_desc->end_frame_handler();
     }
 
-    REG_WRITE(SPI_DMA_REG5_STA, SPIDMA_INTSTA_RX_TIMEOUT);
+    REG_WRITE_PROTECT(SPI_DMA_REG5_STA, SPIDMA_INTSTA_RX_TIMEOUT);
 }
 #endif // (CFG_SOC_NAME == SOC_BK7231)
 
@@ -616,7 +617,7 @@ static void spidma_isr(void)
         if(spidma_sta & SPIDMA_INTSTA_RX_TIMEOUT)
         {
             //os_printf("rx\r\n");
-            REG_WRITE(SPI_DMA_REG5_STA, SPIDMA_INTSTA_RX_TIMEOUT);
+            REG_WRITE_PROTECT(SPI_DMA_REG5_STA, SPIDMA_INTSTA_RX_TIMEOUT);
         }
 
         en_cfg.channel = p_spidma_desc->dma_tx_channel;
@@ -625,11 +626,11 @@ static void spidma_isr(void)
 
         reg = REG_READ(SPI_DMA_REG0);
         reg &= ~(SPIDMA_REG0_SPI_EN);
-        REG_WRITE(SPI_DMA_REG0, reg);
+        REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 
         reg = REG_READ(SPI_DMA_REG0);
         reg |= (SPIDMA_REG0_SPI_EN);
-        REG_WRITE(SPI_DMA_REG0, reg);
+        REG_WRITE_PROTECT(SPI_DMA_REG0, reg);
 
         en_cfg.param = 1;
         sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);

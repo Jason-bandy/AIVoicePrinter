@@ -33,17 +33,24 @@ typedef enum
     HIGH_LEVEL        = 1,
     POSEDGE           = 2,
     NEGEDGE           = 3,
+    WAKEUP_GPIO_TYPE_INVALID
 } WAKEUP_GPIO_TYPE;
 
+typedef struct
+{
+    UINT8 wakeup_gpio_index;
+    WAKEUP_GPIO_TYPE wakeup_gpio_type;
+} WAKEUP_GPIO_NODE;
 
 typedef struct  sctrl_mcu_ps {
     UINT8 hw_sleep ;
     UINT8 first_sleep ;
     UINT8 mcu_use_dco;
-    UINT8 wakeup_gpio_index;
-    WAKEUP_GPIO_TYPE wakeup_gpio_type;
     UINT32 gpio_config_backup;
 } SCTRL_MCU_PS_INFO;
+
+#define     WAKEUP_GPIO_NUM                  4
+#define     WAKEUP_GPIO_INDEX_INVALID        0xFF // UINT8
 
 #define     MCU_PS_CONNECT                   CO_BIT(0)
 #define     MCU_PS_ADD_KEY                   CO_BIT(1)

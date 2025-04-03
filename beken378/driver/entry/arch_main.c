@@ -142,6 +142,11 @@ void entry_main(void)
     uart_fast_init();
     #endif
 
+    #if CFG_MEM_CHECK_ENABLE
+    extern int cmd_do_memcheck(void);
+    cmd_do_memcheck();
+    #endif
+
     arm9_enable_alignfault();
     #if CFG_SUPPORT_LITEOS
     LOS_KernelInit();

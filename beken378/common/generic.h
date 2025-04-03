@@ -94,6 +94,10 @@ extern void bk_printf(const char *fmt, ...);
         while(1);                                   \
     }                                               \
 }
+
+#ifdef ASSERT
+#undef ASSERT
+#endif
 #define ASSERT(exp)                                 \
 {                                                   \
     if ( !(exp) )                                   \
@@ -124,7 +128,9 @@ extern void bk_printf(const char *fmt, ...);
 #define NULLPTR                  ((void *)0)
 #endif
 
+#ifndef BIT
 #define BIT(i)                   (1UL << (i))
+#endif
 
 static inline unsigned short __bswap16_bk( unsigned short _x)
 {

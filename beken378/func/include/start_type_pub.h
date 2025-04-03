@@ -59,6 +59,9 @@ typedef enum {
     RESET_SOURCE_DEEPPS_USB = 0xa,
     RESET_SOURCE_FORCE_ATE = 0xb,
 
+    #if CFG_MEM_CHECK_ENABLE
+    RESET_SOURCE_MEM_CHECK = 0xd,
+    #endif
 } RESET_SOURCE_STATUS;
 
 RESET_SOURCE_STATUS bk_misc_get_start_type();

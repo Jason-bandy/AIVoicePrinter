@@ -24,6 +24,9 @@
 #include "app_task.h"
 #include "gapc_int.h"
 #include "common_math.h"
+#if BLE_APP_SEC
+#include "app_sec.h"
+#endif
 
 struct sdp_env_tag sdp_env[BLE_CONNECTION_MAX];
 extern sdp_notice_cb_t sdp_event_notice;
@@ -246,6 +249,13 @@ static void sdp_read_cmp_cb(uint8_t conidx, uint8_t user_lid, uint16_t dummy, ui
     if (sdp_event_notice) {
         sdp_event_notice(SDP_CHARAC_READ_DONE,&sdp_event);
     }
+
+    #if BLE_APP_SEC
+    if (((status == ATT_ERR_INSUFF_AUTHEN) || (status == ATT_ERR_INSUFF_ENC))
+        && app_sec_env.sec_notice_cb) {
+        app_sec_env.sec_notice_cb(APP_SEC_ATT_ERR_INSUFF_AUTHEN, &conidx);
+    }
+    #endif
 }
 
 static void sdp_write_cmp_cb(uint8_t conidx, uint8_t user_lid, uint16_t dummy, uint16_t status)
@@ -258,6 +268,13 @@ static void sdp_write_cmp_cb(uint8_t conidx, uint8_t user_lid, uint16_t dummy, u
     if (sdp_event_notice) {
         sdp_event_notice(SDP_CHARAC_WRITE_DONE,&sdp_event);
     }
+
+    #if BLE_APP_SEC
+    if (((status == ATT_ERR_INSUFF_AUTHEN) || (status == ATT_ERR_INSUFF_ENC))
+        && app_sec_env.sec_notice_cb) {
+        app_sec_env.sec_notice_cb(APP_SEC_ATT_ERR_INSUFF_AUTHEN, &conidx);
+    }
+    #endif
 }
 
 static void sdp_att_val_get_cb(uint8_t conidx, uint8_t user_lid, uint16_t token, uint16_t dummy,
@@ -500,15 +517,18 @@ static int sdp_gatt_cmp_evt_handler(kernel_msg_id_t const msgid,
                                     kernel_task_id_t const dest_id,
                                     kernel_task_id_t const src_id)
 {
+    uint8_t conn_idx = app_ble_find_conn_idx_handle(param->conidx);
+
     if (param->cmd_code == GATT_CLI_MTU_UPDATE) {
         if (ble_event_notice) {
             ble_cmd_cmp_evt_t event;
-            event.conn_idx = app_ble_find_conn_idx_handle(param->conidx);
+            event.conn_idx = conn_idx;
             event.status = param->status;
             event.cmd = BLE_CONN_UPDATE_MTU;
             ble_event_notice(BLE_5_GAP_CMD_CMP_EVENT, &event);
         }
     }
+
     return (KERNEL_MSG_CONSUMED);
 }
 

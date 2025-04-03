@@ -28,7 +28,10 @@ else:
 
 if os.getenv('RTT_EXEC_PATH'):
     EXEC_PATH = os.getenv('RTT_EXEC_PATH')
-    rtt_toolchain = subprocess.check_output(EXEC_PATH+"arm-none-eabi-gcc -dumpversion", shell=True).strip()
+    rtt_toolchain = subprocess.check_output(EXEC_PATH + "/arm-none-eabi-gcc -dumpversion", shell=True).strip()
+
+if isinstance(rtt_toolchain, bytes):
+    rtt_toolchain = rtt_toolchain.decode()
 
 if rtt_toolchain != SDK_TOOLCHAIN:
     print('Please make sure your toolchains version is %s!' % SDK_TOOLCHAIN)

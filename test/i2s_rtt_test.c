@@ -22,6 +22,7 @@
 #include "typedef.h"
 #include "i2s_pub.h"
 #include "test_config.h"
+#include "gpio_pub.h"
 
 #ifdef I2S_RTT_TEST
 
@@ -232,6 +233,15 @@ static int i2s_test_rtt(int argc, char *argv[])
     {
         master = 1;
         rt_kprintf("%s master mode, will recieve data\r\n", __FUNCTION__);
+    }
+    else if ('o' == argv[1][0])
+    {
+        // cli_cmd: i2s_test_rtt o
+        // output 26M clk at GPIO22
+        uint32_t val = GFUNC_MODE_CLK26M;
+        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &val);
+        rt_kprintf("%s 26M clk output, will get 26M clk at GPIO22\r\n", __FUNCTION__);
+        return 0;
     }
     else
     {

@@ -17,6 +17,7 @@
 #if 0
 /*adc test*/
 #define ADC_TEST
+#define FORCE_LV_SLEEP_TEST
 
 /*deep sleep test*/
 #define DEEP_SLEEP_TEST

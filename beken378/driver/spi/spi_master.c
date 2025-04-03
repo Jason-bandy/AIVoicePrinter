@@ -29,6 +29,7 @@
 #include "error.h"
 #include "rtos_pub.h"
 
+#if ((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
 #if ((CFG_USE_SPI_MASTER) && (CFG_USE_SPI))
 struct bk_spi_dev
 {
@@ -420,4 +421,5 @@ int bk_spi_master_deinit(void)
 }
 
 #endif  // CFG_USE_SPI_MASTER
+#endif  // ((CFG_SOC_NAME == SOC_BK7231U) || (CFG_SOC_NAME == SOC_BK7221U))
 

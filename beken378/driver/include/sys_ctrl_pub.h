@@ -435,8 +435,10 @@ extern RESET_SOURCE_STATUS sctrl_get_deep_sleep_wake_soure(void);
 extern UINT8 sctrl_if_mcu_can_sleep(void);
 extern int bk_misc_wakeup_get_gpio_num(void);
 #if ((SOC_BK7221U == CFG_SOC_NAME) || (SOC_BK7231U == CFG_SOC_NAME) || (SOC_BK7252N == CFG_SOC_NAME))
+void sctrl_set_deep_sleep_gpio_floating_map(UINT64 gpio_last_floating_map);
 UINT64 sctrl_get_deep_sleep_gpio_floating_map(void);
 #else
+void sctrl_set_deep_sleep_gpio_floating_map(UINT32 gpio_last_floating_map);
 UINT32 sctrl_get_deep_sleep_gpio_floating_map(void);
 #endif
 extern void sctrl_reboot_with_deep_sleep(UINT32 sleep_ms);
@@ -444,7 +446,11 @@ extern int bk_init_deep_wakeup_gpio_status(void);
 extern uint32_t bk_save_deep_get_wakeup_gpio_status(void);
 extern void bk_save_deep_set_wakeup_gpio_status(uint32_t wakeup_gpio_num);
 extern bool sctrl_set_gpio_wakeup_index(UINT8 gpio_index, WAKEUP_GPIO_TYPE gpio_type);
+extern bool sctrl_add_gpio_wakeup(UINT8 gpio_index, WAKEUP_GPIO_TYPE gpio_type);
+extern void sctrl_remove_gpio_wakeup(UINT8 gpio_index);
+extern void sctrl_clear_gpio_wakeup(void);
 extern void saradc_config_vddram_voltage(UINT32 vol);
+extern void saradc_disable_vddram_voltage(void);
 #if CFG_USE_FORCE_LOWVOL_PS
 extern int bk_get_lv_sleep_wakeup_gpio_status(void);
 #endif

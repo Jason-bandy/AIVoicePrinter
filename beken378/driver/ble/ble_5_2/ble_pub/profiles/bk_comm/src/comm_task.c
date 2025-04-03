@@ -24,6 +24,10 @@
 #include "kernel_msg.h"
 #include "prf.h"
 #include "app_ble.h"
+#if BLE_APP_SEC
+#include "app_sec.h"
+#endif
+
 
 static uint8_t bk_ble_ntf_val(struct prf_data *prf_data,struct bk_ble_ntf_upd_req const *param)
 {
@@ -125,6 +129,14 @@ static int bk_gatt_cmp_evt_handler(kernel_msg_id_t const msgid,
     uint8_t conn_idx = app_ble_find_conn_idx_handle(param->conidx);
     bk_printf("bk_gatt_cmp_evt_handler conn_idx:%d,cmd_code:%d,dummy:%d,user_lid:%d,status:0x%x\r\n",
               conn_idx,param->cmd_code,param->dummy,param->user_lid,param->status);
+
+    #if BLE_APP_SEC
+    if (((param->status == ATT_ERR_INSUFF_AUTHEN) || (param->status == ATT_ERR_INSUFF_ENC))
+        && app_sec_env.sec_notice_cb) {
+        app_sec_env.sec_notice_cb(APP_SEC_ATT_ERR_INSUFF_AUTHEN, &conn_idx);
+    }
+    #endif
+
     return KERNEL_MSG_CONSUMED;
 }
 

@@ -37,9 +37,15 @@
 void gspi_flash_test(int argc, char** argv)
 {
     struct rt_device *flash;
+    rt_uint16_t rate = 0;  // Mhz
 
     /*find device*/
     flash = rt_device_find("spi_flash");
+    if(argc > 1)
+    {
+        /* set with X Mhz*/
+        rate = atoi(argv[1]);
+    }
     if (flash == NULL)
     {
         rt_kprintf("psram not found \n");
@@ -51,7 +57,7 @@ void gspi_flash_test(int argc, char** argv)
         return;
     }
     /*open device*/
-    if (rt_device_open(flash, 0) != RT_EOK)
+    if (rt_device_open(flash, rate) != RT_EOK)
     {
         return;
     }
@@ -59,7 +65,7 @@ void gspi_flash_test(int argc, char** argv)
     uint8_t buffer[FTEST_BUF_SIZE], *ptr;
     int i;
 
-    rt_kprintf("[SPIFLASH]: SPIFLASH test begin\n");
+    rt_kprintf("[SPIFLASH]: SPIFLASH test begin, rate:%d\n", rate);
     rt_memset(buffer, 0, FTEST_BUF_SIZE);
 
     /*read device*/

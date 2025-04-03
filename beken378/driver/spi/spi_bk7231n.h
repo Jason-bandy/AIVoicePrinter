@@ -50,6 +50,8 @@
 #define MSTEN								(0x01UL << 22)
 #define SPIEN								(0x01UL << 23)
 
+#define BYTE_INTERVAL_POSI						24
+#define BYTE_INTERVAL_MASK						(0x3FUL << 24)
 
 #define SPI_CONFIG							(SPI_BASE + 0x1 * 4)
 #define SPI_TX_EN							(0x01UL << 0)

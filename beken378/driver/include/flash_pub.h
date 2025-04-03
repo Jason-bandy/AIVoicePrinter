@@ -92,5 +92,6 @@ extern UINT32 flash_register_bypass_cb(FUNC_2PARAM_CB cb);
 extern void flash_set_line_mode(UINT8);
 extern UINT32 flash_read(char *user_buf, UINT32 count, UINT32 address);
 extern UINT32 flash_write(char *user_buf, UINT32 count, UINT32 address);
+extern UINT32 flash_ctrl(UINT32 cmd, void *parm);
 #endif //_FLASH_PUB_H
 

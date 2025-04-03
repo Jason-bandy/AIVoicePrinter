@@ -28,33 +28,16 @@
 #include "mem_pub.h"
 #include "error.h"
 #include "rtos_pub.h"
+#include "spi_struct.h"
 #include "general_dma_pub.h"
 #include "general_dma.h"
 
 #if ((CFG_USE_SPI_SLAVE) && (CFG_USE_SPI))
 #define SPI_SLAVE_RX_FIFO_LEN      (512)
 
-struct spi_rx_fifo {
-    UINT8 *buffer;
-    UINT16 put_index;
-    UINT16 get_index;
-    UINT32 is_full;
-};
-
-struct bk_spi_slave_dev {
-    UINT32 flag;
-
-    beken_semaphore_t tx_sem;
-    UINT8 *tx_ptr;
-    UINT32 tx_len;
-
-    beken_semaphore_t rx_sem;
-    struct spi_rx_fifo *rx_fifo;
-
-    beken_mutex_t mutex;
-};
-
-static struct bk_spi_slave_dev *spi_slave_dev;
+struct spi_sdev *spi_slave_dev;
+void spi_txfifo_clr(void);
+void spi_rxfifo_clr(void);
 
 UINT32 bk_spi_slave_get_rx_fifo(void)
 {
@@ -74,7 +57,7 @@ UINT32 bk_spi_slave_get_rx_fifo(void)
     return rx_length;
 }
 
-static void bk_spi_slave_spi_rx_callback(int is_rx_end, void *param)
+void spi_slave_rx_callback(int is_rx_end, void *param)
 {
     UINT8 ch;
     struct spi_rx_fifo *rx_fifo;
@@ -82,10 +65,15 @@ static void bk_spi_slave_spi_rx_callback(int is_rx_end, void *param)
     rx_fifo = (struct spi_rx_fifo *)spi_slave_dev->rx_fifo;
     ASSERT(rx_fifo != NULL);
 
-    os_printf("rx callback:rx_end:%d\r\n ", is_rx_end);
+    if(is_rx_end) {
+        os_printf("rx callback:rx_end:%d\r\n ", is_rx_end);
+    }
+
     while (1) {
-        if (spi_read_rxfifo(&ch) == 0)
+        if (spi_read_rxfifo(&ch) == 0) {
             break;
+        } else {
+        }
 
         rx_fifo->buffer[rx_fifo->put_index] = ch;
         rx_fifo->put_index += 1;
@@ -154,7 +142,7 @@ static int bk_spi_slave_get_rx_data(UINT8 *rx_buf, int len)
     return (len - size);
 }
 
-static void bk_spi_slave_tx_needwrite_callback(int port, void *param)
+void spi_slave_tx_need_write_callback(int port, void *param)
 {
     UINT8 *tx_ptr = spi_slave_dev->tx_ptr;
     UINT32 tx_len = spi_slave_dev->tx_len;
@@ -169,7 +157,7 @@ static void bk_spi_slave_tx_needwrite_callback(int port, void *param)
             tx_ptr ++;
             if (tx_len == 0) {
                 UINT32 enable = 0;
-                sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&enable);
+                spi_ctrl(CMD_SPI_TXINT_EN, (void *)&enable);
                 break;
             }
             data = *tx_ptr;
@@ -183,7 +171,7 @@ static void bk_spi_slave_tx_needwrite_callback(int port, void *param)
             if (tx_len == 0) {
                 os_printf("close tx\r\n");
                 UINT32 enable = 0;
-                sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&enable);
+                spi_ctrl(CMD_SPI_TXINT_EN, (void *)&enable);
                 break;
             }
         }
@@ -196,7 +184,7 @@ static void bk_spi_slave_tx_needwrite_callback(int port, void *param)
 
 }
 
-static void bk_spi_slave_tx_finish_callback(int port, void *param)
+static void spi_slave_tx_finish_callback(int port, void *param)
 {
     if ((spi_slave_dev->tx_len == 0) && (spi_slave_dev->tx_ptr)) {
         if ((spi_slave_dev->flag & TX_FINISH_FLAG) == 0) {
@@ -206,97 +194,108 @@ static void bk_spi_slave_tx_finish_callback(int port, void *param)
     }
 }
 
-static void bk_spi_slave_configure(UINT32 rate, UINT32 mode)
+static void bk_spi_slave_rx_finish_callback(int port, void *param)
+{
+    rtos_set_semaphore(&spi_slave_dev->rx_sem);
+}
+
+void bk_spi_slave_configure(UINT32 rate)
 {
     UINT32 param;
     struct spi_callback_des spi_dev_cb;
 
     /* data bit width */
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_BITWIDTH, (void *)&param);
+    if(spi_slave_dev->cfg.u.wdth)
+        param = 1;
+    else
+        param = 0;
+    spi_ctrl(CMD_SPI_SET_BITWIDTH, (void *)&param);
 
     /* baudrate */
     BK_SPI_PRT("max_hz = %d \n", rate);
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_CKR, (void *)&rate);
+    spi_ctrl(CMD_SPI_SET_CKR, (void *)&rate);
 
     /* mode */
-    if (mode & BK_SPI_CPOL)
+    if (spi_slave_dev->cfg.u.cpol) {
         param = 1;
-    else
+    } else {
         param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_CKPOL, (void *)&param);
+    }
+    spi_ctrl(CMD_SPI_SET_CKPOL, (void *)&param);
 
     /* CPHA */
-    if (mode & BK_SPI_CPHA)
+    if (spi_slave_dev->cfg.u.cpha) {
         param = 1;
-    else
+    } else {
         param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_CKPHA, (void *)&param);
+    }
+    spi_ctrl(CMD_SPI_SET_CKPHA, (void *)&param);
 
     /* slave */
     param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_MSTEN, (void *)&param);
+    spi_ctrl(CMD_SPI_SET_MSTEN, (void *)&param);
 
     // 4line :7231N nssms is 0
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_NSSMD, (void *)&param);
+    if (spi_slave_dev->cfg.u.line) {
+        param = 1;
+    } else {
+        param = 0;
+    }
+    spi_ctrl(CMD_SPI_SET_LINE_MODE, (void *)&param);
+
+    if (spi_slave_dev->cfg.u.lsb) {
+        param = 1;
+    } else {
+        param = 0;
+    }
+    spi_ctrl(CMD_SPI_LSB_EN, (void *)&param);
 
     param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_INIT_MSTEN, (void *)&param);
-
+    spi_ctrl(CMD_SPI_INIT_MSTEN, (void *)&param);
 
     /* set call back func */
-    spi_dev_cb.callback = bk_spi_slave_spi_rx_callback;
+    spi_dev_cb.callback = spi_slave_rx_callback;
     spi_dev_cb.param = NULL;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_RX_CALLBACK, (void *)&spi_dev_cb);
+    spi_ctrl(CMD_SPI_SET_RX_CALLBACK, (void *)&spi_dev_cb);
 
-    spi_dev_cb.callback = bk_spi_slave_tx_needwrite_callback;
+    spi_dev_cb.callback = spi_slave_tx_need_write_callback;
     spi_dev_cb.param = NULL;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_TX_NEED_WRITE_CALLBACK, (void *)&spi_dev_cb);
+    spi_ctrl(CMD_SPI_SET_TX_NEED_WRITE_CALLBACK, (void *)&spi_dev_cb);
 
-    spi_dev_cb.callback = bk_spi_slave_tx_finish_callback;
+    spi_dev_cb.callback = spi_slave_tx_finish_callback;
     spi_dev_cb.param = NULL;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_SET_TX_FINISH_CALLBACK, (void *)&spi_dev_cb);
+    spi_ctrl(CMD_SPI_SET_TX_FINISH_INT_CALLBACK, (void *)&spi_dev_cb);
 
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_LSB_EN, (void *)&param);
+    spi_dev_cb.callback = bk_spi_slave_rx_finish_callback;
+    spi_dev_cb.param = NULL;
+    spi_ctrl(CMD_SPI_SET_RX_FINISH_INT_CALLBACK, (void *)&spi_dev_cb);
 
     //enable rx/tx finish enable bit
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_TXFINISH_EN, (void *)&param);
 
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RXFINISH_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_RXFINISH_EN, (void *)&param);
 
-    #ifdef SPI_DMA_TRANS
-    //disable rx int bit
-    param = 0;
-    #else
-    //disable rx int bit
     param = 1;
-    #endif
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RXINT_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_RXINT_EN, (void *)&param);
 
     /* enable spi */
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_UNIT_ENABLE, (void *)&param);
-
-    //BK_SPI_PRT("spi_slave [CTRL]:0x%08x \n", REG_READ(SPI_CTRL));
-    //BK_SPI_PRT("spi_slave [CONFIG]:0x%08x \n", REG_READ(SPI_CONFIG));
-
-
+    spi_ctrl(CMD_SPI_UNIT_ENABLE, (void *)&param);
 }
 
 static void bk_spi_slave_unconfigure(void)
 {
-    sddev_control(SPI_DEV_NAME, CMD_SPI_DEINIT_MSTEN, NULL);
+    spi_ctrl(CMD_SPI_DEINIT_MSTEN, NULL);
 }
 
 int bk_spi_slave_xfer(struct spi_message *msg)
 {
     UINT8 *recv_ptr = NULL;
     const UINT8 *send_ptr = NULL;
-    UINT32 param, send_len, recv_len;
+    UINT32 param, unit_en_flag;
+    UINT32 send_len, recv_len;
     GLOBAL_INT_DECLARATION();
 
     ASSERT(spi_slave_dev != NULL);
@@ -309,23 +308,31 @@ int bk_spi_slave_xfer(struct spi_message *msg)
     send_ptr = msg->send_buf;
     send_len = msg->send_len;
 
+    /* if spi unit bit(reg0x0 bit23) is 0, the other register cannot set, for instance:reg0x01
+     */
+    unit_en_flag = 1;
+    spi_ctrl(CMD_SPI_UNIT_ENABLE, (void *)&unit_en_flag);
+
     //new spi hardware bug
     param = send_len - 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TXTRANS_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_TXTRANS_EN, (void *)&param);
 
     param = recv_len;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RXTRANS_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_RXTRANS_EN, (void *)&param);
+
+    /*spi data port has a default data, hardware issue*/
+    spi_txfifo_clr();
+    spi_rxfifo_clr();
 
     //enbale rx/tx enable bit
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TX_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_TX_EN, (void *)&param);
 
     param = 1;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RX_EN, (void *)&param);
+    spi_ctrl(CMD_SPI_RX_EN, (void *)&param);
 
     BK_SPI_PRT("spi_slave [CTRL]:0x%08x \n", REG_READ(SPI_CTRL));
     BK_SPI_PRT("spi_slave [CONFIG]:0x%08x \n", REG_READ(SPI_CONFIG));
-
 
     if ((send_ptr) && send_len) {
         GLOBAL_INT_DISABLE();
@@ -335,13 +342,12 @@ int bk_spi_slave_xfer(struct spi_message *msg)
         GLOBAL_INT_RESTORE();
 
         param = 1;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&param);
+        spi_ctrl(CMD_SPI_TXINT_EN, (void *)&param);
 
-        //BK_SPI_PRT("0 %p-%d\r\n", send_ptr, send_len);
         rtos_get_semaphore(&spi_slave_dev->tx_sem, BEKEN_NEVER_TIMEOUT);
 
         param = 0;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&param);
+        spi_ctrl(CMD_SPI_TXINT_EN, (void *)&param);
 
         GLOBAL_INT_DISABLE();
         spi_slave_dev->tx_ptr = NULL;
@@ -349,7 +355,6 @@ int bk_spi_slave_xfer(struct spi_message *msg)
         spi_slave_dev->flag |= TX_FINISH_FLAG;
         GLOBAL_INT_RESTORE();
 
-        //BK_SPI_PRT("1 %p-%d\r\n", send_ptr, send_len);
         param = send_len;
     } else if ((recv_ptr) && recv_len) {
         OSStatus err;
@@ -361,7 +366,7 @@ int bk_spi_slave_xfer(struct spi_message *msg)
         GLOBAL_INT_RESTORE();
 
         param = 1;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&param);
+        spi_ctrl(CMD_SPI_TXINT_EN, (void *)&param);
 
         do {
             len = bk_spi_slave_get_rx_data(recv_ptr, recv_len);
@@ -373,9 +378,9 @@ int bk_spi_slave_xfer(struct spi_message *msg)
         } while (len == 0);
 
         param = 0;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&param);
+        spi_ctrl(CMD_SPI_TXINT_EN, (void *)&param);
 
-        // clear all rx semp for this time
+        // clear all rx semaphore for this time
         do {
             err = rtos_get_semaphore(&spi_slave_dev->rx_sem, 0);
         } while (err == kNoErr);
@@ -383,25 +388,32 @@ int bk_spi_slave_xfer(struct spi_message *msg)
         param = len;
     }
 
+    /* if spi unit does not be disable, the second rx of spi slave will recieve a unexpected slave-release-interrupt
+     * and then spi slave cannot recieve any data.
+     */
+    unit_en_flag = 0;
+    spi_ctrl(CMD_SPI_UNIT_ENABLE, (void *)&unit_en_flag);
+
     rtos_unlock_mutex(&spi_slave_dev->mutex);
 
     return param;
 }
 
-int bk_spi_slave_init(UINT32 rate,  UINT32 mode)
+int bk_spi_slave_init(UINT32 rate, UINT32 mode)
 {
     OSStatus result = 0;
+    SPI_CFG_ST cfg;
+    cfg.u.value = mode;
 
     if (spi_slave_dev)
         bk_spi_slave_deinit();
 
-    spi_slave_dev = os_malloc(sizeof(struct bk_spi_slave_dev));
+    spi_slave_dev = os_zalloc(sizeof(struct spi_sdev));
     if (!spi_slave_dev) {
         BK_SPI_PRT("[spi]:malloc memory for spi_dev failed\n");
         result = -1;
         goto _exit;
     }
-    os_memset(spi_slave_dev, 0, sizeof(struct bk_spi_slave_dev));
 
     result = rtos_init_semaphore(&spi_slave_dev->tx_sem, 1);
     if (result != kNoErr) {
@@ -423,7 +435,7 @@ int bk_spi_slave_init(UINT32 rate,  UINT32 mode)
 
     struct spi_rx_fifo *rx_fifo;
 
-    rx_fifo = (struct spi_rx_fifo *)os_malloc(sizeof(struct spi_rx_fifo) +
+    rx_fifo = (struct spi_rx_fifo *)os_zalloc(sizeof(struct spi_rx_fifo) +
               SPI_SLAVE_RX_FIFO_LEN);
     if (!rx_fifo) {
         BK_SPI_PRT("[spi]: spi rx fifo malloc failed\n");
@@ -431,18 +443,21 @@ int bk_spi_slave_init(UINT32 rate,  UINT32 mode)
     }
 
     rx_fifo->buffer = (uint8_t *)(rx_fifo + 1);
-    os_memset(rx_fifo->buffer, 0, SPI_SLAVE_RX_FIFO_LEN);
     rx_fifo->put_index = 0;
     rx_fifo->get_index = 0;
     rx_fifo->is_full = 0;
 
-    spi_slave_dev->rx_fifo = rx_fifo;
+    cfg.u.slave = 1;
+    cfg.u.wdth = 0;
+    cfg.u.line = 0;
+    spi_slave_dev->cfg = cfg;
 
+    spi_slave_dev->rx_fifo = rx_fifo;
     spi_slave_dev->tx_ptr = NULL;
     spi_slave_dev->tx_len = 0;
     spi_slave_dev->flag |= TX_FINISH_FLAG;
 
-    bk_spi_slave_configure(rate, mode);
+    bk_spi_slave_configure(rate);
 
     return 0;
 
@@ -497,547 +512,7 @@ int bk_spi_slave_deinit(void)
 
     return 0;
 }
-
-#if CFG_USE_SPI_DMA
-volatile int dma_trans_flag = 0;
-
-#define SPI_TEST_POART1		0
-#define SPI_TEST_POART2		1
-#define SPI_TX_BUFFER_SIZE		1024
-#define SPI_RX_BUFFER_SIZE		1024*2
-#define SPI_RX_DMA_CHANNEL     GDMA_CHANNEL_1
-#define SPI_TX_DMA_CHANNEL     GDMA_CHANNEL_3
-
-void spi_dma_tx_enable(UINT8 enable);
-
-void spi_dma_tx_half_handler(UINT32 param)
-{
-    BK_SPI_PRT("spi_dma half handler\r\n");
-}
-
-void spi_dma_tx_finish_handler(UINT32 param)
-{
-    if ((spi_slave_dev->flag & TX_FINISH_FLAG) == 0)
-    {
-        spi_slave_dev->flag |= TX_FINISH_FLAG;
-        rtos_set_semaphore(&spi_slave_dev->tx_sem);
-    }
-
-    BK_SPI_PRT("spi_dma finish handler\r\n");
-}
-
-static void spi_slave_tx_finish_callback(int port, void *param)
-{
-    if ((spi_slave_dev->flag & TX_FINISH_FLAG) == 0)
-    {
-        spi_slave_dev->flag |= TX_FINISH_FLAG;
-        rtos_set_semaphore(&spi_slave_dev->tx_sem);
-    }
-
-    BK_SPI_PRT("spi_dma finish handler\r\n");
-}
-
-
-void spi_dma_rx_half_handler(UINT32 param)
-{
-    BK_SPI_PRT("spi_dma rx half hander\r\n");
-}
-
-void spi_dma_rx_finish_handler(UINT32 param)
-{
-    rtos_set_semaphore(&spi_slave_dev->rx_sem);
-    BK_SPI_PRT("spi_dma rx finish hander\r\n");
-}
-
-void spi_debug_prt(UINT32 dma_channel)
-{
-    int reg_addr = 0;
-
-    // wf debug
-    bk_printf("dma channel:0x%x\r\n", dma_channel);
-
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x00 + 8*dma_channel) * 4));
-    bk_printf("reg00:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x01 + 8*dma_channel) * 4));
-    bk_printf("reg01:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x02 + 8*dma_channel) * 4));
-    bk_printf("reg02:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x03 + 8*dma_channel) * 4));
-    bk_printf("reg03:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x04 + 8*dma_channel) * 4));
-    bk_printf("reg04:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x05 + 8*dma_channel) * 4));
-    bk_printf("reg05:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x06 + 8*dma_channel) * 4));
-    bk_printf("reg06:0x%lx\r\n", reg_addr);
-    reg_addr = REG_READ(GENER_DMA0_REG0_CONF + ((0x07 + 8*dma_channel) * 4));
-    bk_printf("reg07:0x%lx\r\n", reg_addr);
-}
-
-void spi_dma_tx_init(struct spi_message *spi_msg)
-{
-    GDMACFG_TPYES_ST init_cfg;
-    GDMA_CFG_ST en_cfg;
-    struct spi_callback_des spi_dev_cb;
-
-    os_memset(&init_cfg, 0, sizeof(GDMACFG_TPYES_ST));
-    os_memset(&en_cfg, 0, sizeof(GDMA_CFG_ST));
-
-    init_cfg.dstdat_width = 8;
-    init_cfg.srcdat_width = 32;
-    init_cfg.dstptr_incr =  0;
-    init_cfg.srcptr_incr =  1;
-
-    init_cfg.src_start_addr = spi_msg->send_buf;
-    init_cfg.dst_start_addr = (void *)SPI_DAT;
-
-    init_cfg.channel = SPI_TX_DMA_CHANNEL ;
-    init_cfg.prio = 0;
-    init_cfg.u.type4.src_loop_start_addr = spi_msg->send_buf;
-    init_cfg.u.type4.src_loop_end_addr = spi_msg->send_buf + spi_msg->send_len;
-
-    init_cfg.half_fin_handler = spi_dma_tx_half_handler;
-
-    //change spi_slave tx callback
-    if (spi_msg->send_len < SPI_TX_LENGTH_MAX) {
-        spi_dev_cb.callback = spi_slave_tx_finish_callback;
-        spi_dev_cb.param = NULL;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_SET_TX_FINISH_INT_CALLBACK, (void *)&spi_dev_cb);
-
-        //enable tx finish int
-        UINT32 param = 1;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
-    } else {
-        init_cfg.fin_handler = (DMA_ISR_FUNC)spi_dma_tx_finish_handler;
-
-        //disable tx finish int
-        UINT32 param = 0;
-        sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
-    }
-
-    init_cfg.src_module = GDMA_X_SRC_DTCM_RD_REQ;
-    init_cfg.dst_module = GDMA_X_DST_GSPI_TX_REQ;
-
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE4, (void *)&init_cfg);
-
-    en_cfg.channel = SPI_TX_DMA_CHANNEL;
-
-    en_cfg.param = spi_msg->send_len ;			// dma translen
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
-
-    en_cfg.channel = SPI_TX_DMA_CHANNEL;
-
-    en_cfg.param = 0;					// 0:not repeat 1:repeat
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_WORK_MODE, (void *)&en_cfg);
-
-    en_cfg.param = 0;					// src no loop:important
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_SRCADDR_LOOP, &en_cfg);
-
-}
-
-void spi_dma_rx_init(struct spi_message *spi_msg)
-{
-    GDMACFG_TPYES_ST init_cfg;
-    GDMA_CFG_ST en_cfg;
-
-    os_memset(&init_cfg, 0, sizeof(GDMACFG_TPYES_ST));
-    os_memset(&en_cfg, 0, sizeof(GDMA_CFG_ST));
-
-    init_cfg.dstdat_width = 32;
-    init_cfg.srcdat_width = 8;
-    init_cfg.dstptr_incr =  1;
-    init_cfg.srcptr_incr =  0;
-
-    init_cfg.src_start_addr = (void *)SPI_DAT;
-    init_cfg.dst_start_addr = spi_msg->recv_buf;
-
-    init_cfg.channel = SPI_RX_DMA_CHANNEL;
-    init_cfg.prio = 0;
-    init_cfg.u.type5.dst_loop_start_addr = spi_msg->recv_buf;
-    init_cfg.u.type5.dst_loop_end_addr = spi_msg->recv_buf + spi_msg->recv_len;
-
-    init_cfg.half_fin_handler = (DMA_ISR_FUNC)spi_dma_rx_half_handler;
-    init_cfg.fin_handler = (DMA_ISR_FUNC)spi_dma_rx_finish_handler;
-
-    init_cfg.src_module = GDMA_X_SRC_GSPI_RX_REQ;
-    init_cfg.dst_module = GDMA_X_DST_DTCM_WR_REQ;
-
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE5, (void *)&init_cfg);
-
-    en_cfg.channel = SPI_RX_DMA_CHANNEL;
-    en_cfg.param   = spi_msg->recv_len;			// dma translen
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, (void *)&en_cfg);
-
-
-    en_cfg.channel = SPI_RX_DMA_CHANNEL;
-    en_cfg.param = 1;							// 0:not repeat 1:repeat
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_WORK_MODE, (void *)&en_cfg);
-
-    en_cfg.param = 0;					// src no loop:important
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_DSTADDR_LOOP, &en_cfg);
-}
-
-void spi_dma_tx_enable(UINT8 enable)
-{
-    int param;
-    GDMA_CFG_ST en_cfg;
-
-    en_cfg.channel = SPI_TX_DMA_CHANNEL;
-
-    if (enable)
-        en_cfg.param = 1;
-    else
-        en_cfg.param = 0;
-
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
-
-    //enable tx
-    param = enable;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TX_EN, (void *)&param);
-}
-
-
-
-
-void spi_dma_rx_enable(UINT8 enable)
-{
-    int param ;
-    GDMA_CFG_ST en_cfg;
-
-    en_cfg.channel = SPI_RX_DMA_CHANNEL;
-
-    if (enable)
-        en_cfg.param = 1;
-    else
-        en_cfg.param = 0;
-
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_DMA_ENABLE, &en_cfg);
-
-    //enable rx
-    param = enable;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RX_EN, (void *)&param);
-}
-
-
-
-void bk_spi_slave_dma_config(UINT32 mode, UINT32 rate)
-{
-    UINT32 param;
-
-    bk_spi_slave_configure(rate, mode);
-
-    //disable tx/rx int disable
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TXINT_EN, (void *)&param);
-
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RXINT_EN, (void *)&param);
-
-    //disable rx/tx finish enable bit
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TXFINISH_EN, (void *)&param);
-
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RXFINISH_EN, (void *)&param);
-
-    //disable rx/tx over
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_RXOVR_EN, (void *)&param);
-
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TXOVR_EN, (void *)&param);
-
-    //disable CSN intterrupt
-    param = 0;
-    sddev_control(SPI_DEV_NAME, CMD_SPI_CS_EN, (void *)&param);
-
-    BK_SPI_PRT("spi_slave [CTRL]:0x%08x \n", REG_READ(SPI_CTRL));
-    BK_SPI_PRT("spi_slave [CONFIG]:0x%08x \n", REG_READ(SPI_CONFIG));
-}
-
-int bk_spi_slave_dma_rx_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg)
-{
-    OSStatus result = 0;
-    //UINT32 recv_len= spi_msg->recv_len;
-
-    if (spi_slave_dev)
-        bk_spi_slave_deinit();
-
-    spi_slave_dev = os_malloc(sizeof(struct bk_spi_slave_dev));
-    if (!spi_slave_dev) {
-        BK_SPI_WPRT("[spi]:malloc memory for spi_dev failed\n");
-        result = -1;
-        goto _exit;
-    }
-    os_memset(spi_slave_dev, 0, sizeof(struct bk_spi_slave_dev));
-
-    result = rtos_init_semaphore(&spi_slave_dev->rx_sem, 1);
-    if (result != kNoErr) {
-        BK_SPI_WPRT("[spi]: spi rx semp init failed\n");
-        goto _exit;
-    }
-
-    bk_spi_slave_dma_config(mode, rate);
-    spi_dma_rx_init(spi_msg);
-
-    //sddev_control(SPI_DEV_NAME, CMD_SPI_RXTRANS_EN, (void *)&recv_len);
-
-    return result;
-
-_exit:
-
-    if (spi_slave_dev->rx_sem)
-        rtos_deinit_semaphore(&spi_slave_dev->rx_sem);
-
-    if (spi_slave_dev) {
-        os_free(spi_slave_dev);
-        spi_slave_dev = NULL;
-    }
-
-    return result;
-}
-
-int bk_spi_slave_dma_tx_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg)
-{
-    OSStatus result = 0;
-
-    UINT32 send_len= spi_msg->send_len;
-
-    if (spi_slave_dev)
-        bk_spi_slave_deinit();
-
-    spi_slave_dev = os_malloc(sizeof(struct bk_spi_slave_dev));
-    if (!spi_slave_dev) {
-        BK_SPI_WPRT("[spi]:malloc memory for spi_dev failed\n");
-        result = -1;
-        goto _exit;
-    }
-    os_memset(spi_slave_dev, 0, sizeof(struct bk_spi_slave_dev));
-
-    result = rtos_init_semaphore(&spi_slave_dev->tx_sem, 1);
-    if (result != kNoErr) {
-        BK_SPI_WPRT("[spi]: spi tx semp init failed\n");
-        goto _exit;
-    }
-
-    bk_spi_slave_dma_config(mode, rate);
-    spi_dma_tx_init(spi_msg);
-
-    sddev_control(SPI_DEV_NAME, CMD_SPI_TXTRANS_EN, (void *)&send_len);
-
-    return result;
-
-_exit:
-
-    if (spi_slave_dev->tx_sem)
-        rtos_deinit_semaphore(&spi_slave_dev->tx_sem);
-
-    if (spi_slave_dev) {
-        os_free(spi_slave_dev);
-        spi_slave_dev = NULL;
-    }
-
-    return result;
-}
-
-
-int bk_spi_slave_dma_send(struct spi_message *spi_msg)
-{
-    UINT32 ret;
-
-    GLOBAL_INT_DECLARATION();
-    ASSERT(spi_msg != NULL);
-
-    GLOBAL_INT_DISABLE();
-    spi_slave_dev->flag &= ~(TX_FINISH_FLAG);
-    GLOBAL_INT_RESTORE();
-
-    spi_dma_tx_enable(ENABLE);
-
-    ret = rtos_get_semaphore(&spi_slave_dev->tx_sem, BEKEN_NEVER_TIMEOUT);
-    if (ret)
-        BK_SPI_WPRT("spi_dma tx error:wait tx_sem\r\n");
-
-    spi_dma_tx_enable(DISABLE);
-
-    return ret;
-}
-
-
-int bk_spi_slave_dma_recv(struct spi_message *spi_msg)
-{
-    UINT32 ret;
-    GLOBAL_INT_DECLARATION();
-    ASSERT(spi_msg != NULL);
-
-    GLOBAL_INT_DISABLE();
-    spi_dma_rx_enable(ENABLE);
-    GLOBAL_INT_RESTORE();
-
-    ret = rtos_get_semaphore(&spi_slave_dev->rx_sem, BEKEN_WAIT_FOREVER);
-    if (ret)
-        BK_SPI_WPRT("spi_dma rx error:wait rx_sem\r\n");
-
-    spi_dma_rx_enable(DISABLE);
-
-    return ret;
-}
-
-int bk_spi_slave_dma_init(UINT32 mode, UINT32 rate, struct spi_message *spi_msg)
-{
-    UINT32 ret = 0;
-
-    if (spi_msg->send_buf)
-    {
-        ret = bk_spi_slave_dma_tx_init( mode, rate, spi_msg);
-        if (ret)
-            BK_SPI_WPRT("master:spi dma int error:%d\r\n", ret);
-    }
-
-    if (spi_msg->recv_buf)
-    {
-        ret = bk_spi_slave_dma_rx_init( mode, rate, spi_msg);
-        if (ret)
-            BK_SPI_WPRT("master:spi dma init error:%d\r\n", ret);
-    }
-
-    return ret;
-}
-
-
-
-int bk_spi_slave_dma_transfer(struct spi_message *spi_msg)
-{
-    UINT32 ret = 0;
-
-    if (spi_msg->send_buf)
-    {
-        ret = bk_spi_slave_dma_send(spi_msg);
-        if (ret)
-            BK_SPI_WPRT("spi dma send error:%d\r\n", ret);
-    }
-
-    if (spi_msg->recv_buf)
-    {
-        ret = bk_spi_slave_dma_recv(spi_msg);
-        if (ret)
-            BK_SPI_WPRT("spi dma recv error:%d\r\n", ret);
-    }
-
-    return ret;
-}
-
-
-
-
-#define SPI_DMA_RX_LOOP_TEST_LEN    2000
-
-void spi_rx_loop_test(void *arg)
-{
-    struct spi_message	msg;
-
-    UINT8 *buf, *tx_buff;
-    int rx_len, ret, i;
-    int cnt = 0;
-    int err_cnt;
-
-    rx_len = SPI_DMA_RX_LOOP_TEST_LEN;
-
-    BK_SPI_PRT("spi dma rx: rx_len:%d\n", rx_len);
-
-    tx_buff = os_malloc(rx_len * sizeof(UINT8));
-    for (i = 0 ; i < rx_len; i++)
-        tx_buff[i] = 0x60 + i ;
-
-    buf = os_malloc(rx_len * sizeof(UINT8));
-
-    if (!buf)
-        BK_SPI_WPRT("spi dma buff malloc error\r\n");
-
-    os_memset(buf, 0, rx_len);
-
-    msg.send_buf = NULL;
-    msg.send_len = 0;
-    msg.recv_buf = buf;
-    msg.recv_len = rx_len;
-
-    UINT8 mode = SPI_MODE_0 | SPI_MSB | SPI_SLAVE;
-    UINT32 max_hz = 8 * 1000 * 1000;
-
-    bk_spi_slave_dma_rx_init(mode, max_hz, &msg);
-
-    while (1) {
-        err_cnt = 0;
-        ret = bk_spi_slave_dma_recv(&msg);
-        if (ret == 0) {
-            for (i = 0; i < SPI_DMA_RX_LOOP_TEST_LEN; i++) {
-                if (buf[i] != tx_buff[i]) {
-                    if (err_cnt > 4)
-                        break;
-
-                    BK_SPI_PRT("tx_buff[%d]=0x%x,  buff[%d]=0x%x, \r\n", i, tx_buff[i], i, buf[i]);
-                    err_cnt ++;
-                }
-            }
-        }
-
-        if(cnt%100 == 0) {
-            bk_printf("rx success cnt :%d\r\n", cnt);
-        }
-        cnt ++;
-        os_memset(buf, 0x55, rx_len);
-    }
-}
-
-#if CFG_SUPPORT_SPI_TEST
-
-beken_thread_t spi_dma_slave_rx_thread_handle = NULL;
-uint32 spi_dma_slave_rx_thread_main(void)
-{
-    int ret;
-
-    ret = rtos_create_thread(&spi_dma_slave_rx_thread_handle,
-                             BEKEN_DEFAULT_WORKER_PRIORITY,
-                             "spidma",
-                             (beken_thread_function_t)spi_rx_loop_test,
-                             4096,
-                             (beken_thread_arg_t)0);
-    if (ret != kNoErr) {
-        bk_printf("Error: airkiss_start_process: %d\r\n", ret);
-        goto init_err;
-    }
-
-    return kNoErr;
-
-init_err:
-    return kGeneralErr;
-}
-
-uint32 spi_dma_slave_rx_loop_stop(void)
-{
-    int ret;
-
-    ret = rtos_get_semaphore(&spi_slave_dev->rx_sem, BEKEN_WAIT_FOREVER);
-    if (ret)
-        BK_SPI_WPRT("spi_dma rx error:wait rx_sem\r\n");
-
-    spi_dma_rx_enable(DISABLE);
-
-    spi_dma_slave_rx_thread_handle = NULL;
-
-    ret = rtos_delete_thread(&spi_dma_slave_rx_thread_handle);
-    if (ret != kNoErr) {
-        bk_printf("Error: spi dma slave rx stop: %d\r\n", ret);
-    }
-
-    bk_spi_slave_deinit();
-
-    return kNoErr;
-}
-
-#endif
-#endif	 //CFG_USE_SPI_DMA
 #endif	 // CFG_USE_SPI_SLAVE
 #endif   //(CFG_SOC_NAME == SOC_BK7231N)
-
+// eof
 

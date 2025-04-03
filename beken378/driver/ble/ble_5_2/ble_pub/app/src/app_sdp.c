@@ -24,6 +24,10 @@
 #include "prf_types.h"
 #include "common.h"
 
+#if BLE_APP_SIGN_WRITE
+#include "app_sec.h"
+#endif
+
 app_sdp_env_tag app_sdp_env;
 sdp_notice_cb_t sdp_event_notice = NULL;
 sdp_discovery_cb_t sdp_discovery_notice = NULL;
@@ -89,6 +93,10 @@ uint8_t sdp_svc_write_characteristic(uint8_t con_idx,uint16_t handle,uint16_t da
             write_type = GATT_WRITE;
         } else if (chars->prop & PROP(WC)) {
             write_type = GATT_WRITE_NO_RESP;
+        #if BLE_APP_SIGN_WRITE
+        } else if ((chars->prop & PROP(WS)) && app_sec_env.sec_info[con_idx].local_csrk_present) {
+            write_type = GATT_WRITE_SIGNED;
+        #endif
         } else {
             return COMMON_BUF_ERR_INVALID_PARAM;
         }

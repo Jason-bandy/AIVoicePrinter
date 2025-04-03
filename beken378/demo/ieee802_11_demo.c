@@ -397,10 +397,24 @@ void demo_ip_app_init(void)
     os_memset(&ipStatus, 0x0, sizeof(IPStatusTypedef));
     bk_wlan_get_ip_status(&ipStatus, BK_STATION);
 
-    bk_printf("dhcp=%d ip=%s gate=%s mask=%s mac=" MACSTR "\r\n",
-              ipStatus.dhcp, ipStatus.ip, ipStatus.gate,
-              ipStatus.mask, MAC2STR((unsigned char*)ipStatus.mac));
+    bk_printf("dhcp=%d ip=%s gate=%s mask=%s dns=%s mac=" MACSTR "\r\n",
+                ipStatus.dhcp, ipStatus.ip, ipStatus.gate,
+                ipStatus.mask, ipStatus.dns, MAC2STR((unsigned char*)ipStatus.mac));
 }
+
+#if (CFG_SOC_NAME == SOC_BK7252N)
+void ate_ip_app_init(void)
+{
+    IPStatusTypedef ipStatus;
+
+    os_memset(&ipStatus, 0x0, sizeof(IPStatusTypedef));
+    bk_wlan_get_ip_status(&ipStatus, BK_STATION);
+
+    bk_printf("netif(sta) ip4=%s gate=%s mask=%s dns=%s mac=" MACSTR "\r\n",
+                ipStatus.ip, ipStatus.gate,
+                ipStatus.mask, ipStatus.dns, MAC2STR((unsigned char*)ipStatus.mac));
+}
+#endif
 
 void bk_demo_monitor_cb(uint8_t *data, int len, wifi_link_info_t *info)
 {

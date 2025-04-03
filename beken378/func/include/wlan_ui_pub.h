@@ -561,6 +561,7 @@ int bk_wlan_dtim_rf_ps_mode_disable(void);
  */
 int power_save_dtim_rf_ps_disable_send_msg(void);
 
+extern int bk_wlan_dtim_rf_ps_get_enable_flag(void);
 extern int bk_wlan_dtim_rf_ps_timer_start(void);
 extern int bk_wlan_dtim_rf_ps_timer_pause(void);
 

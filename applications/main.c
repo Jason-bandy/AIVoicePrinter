@@ -70,7 +70,7 @@ int main(int argc, char **argv)
     }
 #endif
 
-#if defined(BEKEN_USING_QSPI_PSRAM_HEAP)
+#if defined(RT_USING_QSPI_PSRAM_HEAP)
     rt_psram_heap_init();
 #endif
 

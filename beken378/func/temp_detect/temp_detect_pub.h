@@ -53,6 +53,7 @@
 
 #if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
 #define ADC_TMEP_DETECT_INTVAL                      (1)   // 1s   how many second
+#define ADC_TMEP_DETECT_INTVAL_PS                   (15)  // 15s  how many second
 #else
 #define ADC_TMEP_DETECT_INTVAL                      (15)  // 15s  how many second
 #endif
@@ -101,6 +102,9 @@ UINT32 temp_get_detect_time(void);
 UINT32 temp_detect_is_opened_saradc(void) ;
 UINT32 temp_detect_is_init(void);
 #endif
+
+void temp_detect_enter_ps(void);
+void temp_detect_exit_ps(void);
 
 UINT32 temp_single_get_current_temperature(UINT32 *temp_value);
 UINT32 volt_single_get_current_voltage(UINT32 *volt_value);

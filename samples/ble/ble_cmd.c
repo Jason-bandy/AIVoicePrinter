@@ -21,6 +21,19 @@
 #if ((CFG_SUPPORT_BLE) && (CFG_BLE_USE_CLI))
 #include "ble.h"
 
+#if (CFG_BLE_VERSION == BLE_VERSION_5_2) && (CFG_BLE_HOST_RW == 0)
+
+static void ble(int argc, char **argv)
+{
+    if(os_strcmp(argv[1], "dut") == 0) {
+        char *const txevm_exit[3] = {"txevm", "-e", "0"};
+        do_evm(NULL, 0, 3, txevm_exit);
+        ble_dut_start();
+    }
+}
+
+MSH_CMD_EXPORT(ble, ble command);
+#else
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
 #include "application.h"
 #include "ble_api.h"
@@ -436,6 +449,84 @@ enum
     TEST_IDX_NB,
 };
 
+#if BLE_APP_SEC
+// Create a service demo with access requirement for test:
+// service GAP_LK_UNAUTH(GAP_SEC_NO_AUTH), WRITE/INDICATE ATT GAP_LK_AUTH(GATT_SEC_AUTH), NOTIFY ATT GAP_LK_UNAUTH(GAP_SEC_NO_AUTH)
+#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+bk_attm_desc_t test_att_db_sec[TEST_IDX_NB] =
+{
+    //  Service Declaration
+    [TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, PROP(RD), 0},
+
+    //  Level Characteristic Declaration
+    [TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    PROP(WR) | SEC_LVL(WP, AUTH), 128|OPT(NO_OFFSET)},
+
+    [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I) | SEC_LVL(NIP, AUTH), 128|OPT(NO_OFFSET)},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR),OPT(NO_OFFSET)},
+
+    [TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       PROP(N) | SEC_LVL(NIP, NO_AUTH), 128|OPT(NO_OFFSET)},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR), OPT(NO_OFFSET)},
+};
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_1)
+bk_attm_desc_t test_att_db_sec[TEST_IDX_NB] =
+{
+    //  Service Declaration
+    [TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, BK_PERM_SET(RD, ENABLE), 0, 0},
+
+    //  Level Characteristic Declaration
+    [TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    BK_PERM_SET(WRITE_REQ, ENABLE) | BK_PERM_SET(WP, AUTH), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+
+    [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE) | BK_PERM_SET(IP, AUTH), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+
+    [TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       BK_PERM_SET(NTF, ENABLE) | BK_PERM_SET(NP, UNAUTH), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+};
+#endif//(CFG_BLE_VERSION == BLE_VERSION_5_1)
+
+ble_err_t bk_ble_init_sec(void)
+{
+    ble_err_t status = ERR_SUCCESS;
+
+    struct bk_ble_db_cfg ble_db_cfg;
+
+    ble_db_cfg.att_db = test_att_db_sec;
+    ble_db_cfg.att_db_nb = TEST_IDX_NB;
+    ble_db_cfg.prf_task_id = 0;
+    ble_db_cfg.start_hdl = 0;
+    ble_db_cfg.svc_perm = BK_PERM_SET(SVC_UUID_LEN, UUID_16) | BK_PERM_SET(SVC_AUTH, UNAUTH);
+    memcpy(&(ble_db_cfg.uuid[0]), &test_svc_uuid[0], 16);
+
+    status = bk_ble_create_db(&ble_db_cfg);
+
+    return status;
+}
+#endif
+
 #if (CFG_BLE_VERSION == BLE_VERSION_5_1)
 bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 {
@@ -449,7 +540,11 @@ bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 
     [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
     //  Level Characteristic Value
+    #if BLE_APP_SIGN_WRITE
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE) | BK_PERM_SET(WRITE_SIGNED, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    #else
     [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    #endif
 
     //  Level Characteristic - Client Characteristic Configuration Descriptor
 
@@ -476,7 +571,11 @@ bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 
     [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
     //  Level Characteristic Value
+    #if BLE_APP_SIGN_WRITE
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I) | PROP(WS), 128|OPT(NO_OFFSET)},
+    #else
     [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I), 128|OPT(NO_OFFSET)},
+    #endif
 
     //  Level Characteristic - Client Characteristic Configuration Descriptor
 
@@ -530,28 +629,51 @@ void ble_notice_cb(ble_notice_t notice, void *param)
     case BLE_5_READ_EVENT:
     {
         read_req_t *r_req = (read_req_t *)param;
-        bk_printf("read_cb:conn_idx:%d, prf_id:%d, add_id:%d\r\n",
-                  r_req->conn_idx, r_req->prf_id, r_req->att_idx);
+        bk_printf("read_cb:conn_idx:%d, prf_id:%d, add_id:%d  offset:%d\r\n",
+                  r_req->conn_idx, r_req->prf_id, r_req->att_idx, r_req->offset);
 
         #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-        uint16_t length = 3;
-        r_req->value = kernel_malloc(length, KERNEL_MEM_KERNEL_MSG);
-        r_req->value[0] = 0x12;
-        r_req->value[1] = 0x34;
-        r_req->value[2] = 0x56;
+        /* Supports long packet reading. If the attribute value exists in the database, the response (RSP) is generated directly from the stored value.
+           Otherwise, a custom response is used, and the custom value is stored in the database for future retrieval.
+           For long packet reading, the appropriate data segment is retrieved based on the offset.*/
 
         app_gatts_rsp_t rsp;
+
         rsp.token = r_req->token;
         rsp.con_idx = r_req->conn_idx;
         rsp.attr_handle = r_req->hdl;
-        rsp.status = GAP_ERR_NO_ERROR;
-        rsp.att_length = length;
-        rsp.value_length = length;
-        rsp.value = r_req->value;
 
-        app_ble_gatts_set_attr_value(rsp.attr_handle, rsp.value_length, rsp.value);
-        bk_ble_gatts_read_response(&rsp);
-        kernel_free(r_req->value);
+        bk_ble_gatts_get_attr_value(r_req->hdl, &r_req->length, &r_req->value);
+
+        if (r_req->value) {
+            if (r_req->length > r_req->offset) {
+                uint16_t send_length = ((r_req->length - r_req->offset) > r_req->max_length) ? r_req->max_length : (r_req->length - r_req->offset);
+
+                rsp.status = GAP_ERR_NO_ERROR;
+                rsp.att_length = send_length;
+                rsp.value_length = send_length;
+                rsp.value = &(r_req->value[r_req->offset]);
+            } else {
+                rsp.status = ATT_ERR_INVALID_ATTRIBUTE_VAL_LEN;
+            }
+
+            bk_ble_gatts_read_response(&rsp);
+        } else {
+            uint16_t length = 3;
+            r_req->value = kernel_malloc(length, KERNEL_MEM_KERNEL_MSG);
+            r_req->value[0] = 0x12;
+            r_req->value[1] = 0x34;
+            r_req->value[2] = 0x56;
+
+            rsp.status = GAP_ERR_NO_ERROR;
+            rsp.att_length = length;
+            rsp.value_length = length;
+            rsp.value = r_req->value;
+
+            bk_ble_gatts_set_attr_value(rsp.attr_handle, rsp.value_length, rsp.value);
+            bk_ble_gatts_read_response(&rsp);
+            kernel_free(r_req->value);
+        }
         #else
         r_req->value[0] = 0x12;
         r_req->value[1] = 0x34;
@@ -560,6 +682,7 @@ void ble_notice_cb(ble_notice_t notice, void *param)
         #endif
 
         break;
+
     }
     case BLE_5_REPORT_ADV:
     {
@@ -738,7 +861,8 @@ void sdp_event_cb(sdp_notice_t notice, void *param)
     break;
     case SDP_CHARAC_WRITE_DONE:
     {
-        bk_printf("[SDP_CHARAC_WRITE_DONE]\r\n");
+        sdp_event_t *g_sdp = (sdp_event_t *)param;
+        bk_printf("[SDP_CHARAC_WRITE_DONE]con_idx:%d,status:0x%x\r\n", g_sdp->con_idx, g_sdp->status);
     }
     break;
     default:
@@ -792,55 +916,70 @@ void profile_notice_cb(ble_notice_t notice, void *param)
 void security_notice_cb(sec_notice_t notice, void *param)
 {
     switch (notice) {
-        #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-    case APP_SEC_SECURITY_REQ_IND:
-    {
-        uint8_t *conn_idx = (uint8_t *)param;
-        bk_ble_gap_security_rsp(*conn_idx, true);
-    }
-    break;
-    case APP_SEC_PAIRING_REQ_IND:
-    {
-        uint8_t *conn_idx = (uint8_t *)param;
-        bk_ble_gap_pairing_rsp(*conn_idx, true);
-    }
-    break;
-    case APP_SEC_PASSKEY_REPLY:
-    {
-        uint8_t *conn_idx = (uint8_t *)param;
-        uint32_t tk = 123456;
-        bk_ble_passkey_reply(*conn_idx, true, tk);
-        bk_printf("tk: %d\r\n", tk);
-    }
-    break;
-    case APP_SEC_CONFIRM_REPLY:
-    {
-        numeric_cmp_t *num_par = (numeric_cmp_t *)param;
-        bk_printf("Exchange of Numeric Value: %d", num_par->num_value);
-        bk_ble_confirm_reply(num_par->conn_idx, true);
-    }
-    break;
-    #endif
-    case APP_SEC_PAIRING_SUCCEED:
-    {
-        bk_printf("BLE PAIRING SUCCEED, bonded status = 0x%x\r\n", app_sec_env.bonded);
-    }
-    break;
-    case APP_SEC_PAIRING_FAILED:
-    {
-        bk_printf("[WARNING]BLE PAIRING FAILED, bonded status = 0x%x\r\n", app_sec_env.bonded);
-    }
-    break;
-    case APP_SEC_ENCRYPT_SUCCEED:
-    {
-        bk_printf("BLE ENCRYPTION SUCCEED\r\n");
-    }
-    break;
-    default:
-        break;
+        case APP_SEC_BONDLIST_COMPARISON_CMP_IND:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_printf("peer_idx=%d\r\n", app_sec_env.sec_info[*conn_idx].matched_peer_idx);
+        } break;
+        case APP_SEC_ATT_ERR_INSUFF_AUTHEN:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            uint8_t role = app_ble_env.connections[*conn_idx].role;
+            bk_printf("conn_idx:%d, role:%d\r\n", *conn_idx, role);
+
+            if (role == APP_BLE_SLAVE_ROLE) {
+                bk_ble_security_req(*conn_idx);
+            } else if (role == APP_BLE_MASTER_ROLE) {
+                bk_ble_security_start(*conn_idx);
+            }
+        } break;
+        case APP_SEC_SECURITY_REQ_IND:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_ble_security_start(*conn_idx);
+        } break;
+        case APP_SEC_PAIRING_REQ_IND:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_ble_pairing_rsp(*conn_idx, true);
+        } break;
+        case APP_SEC_PASSKEY_REPLY:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            uint32_t tk = 123456;
+            bk_ble_passkey_reply(*conn_idx, true, tk);
+            bk_printf("tk: %d\r\n", tk);
+        } break;
+        case APP_SEC_CONFIRM_REPLY:
+        {
+            numeric_cmp_t *num_par = (numeric_cmp_t *)param;
+            bk_printf("Exchange of Numeric Value: %d", num_par->num_value);
+            bk_ble_confirm_reply(num_par->conn_idx, true);
+        } break;
+        case APP_SEC_PAIRING_SUCCEED:
+        {
+            bk_printf("BLE PAIRING SUCCEED, bonded status = 0x%x\r\n", app_sec_env.bonded);
+        } break;
+        case APP_SEC_PAIRING_FAIL:
+        {
+            bk_printf("[WARNING]BLE PAIRING FAILED, bonded status = 0x%x\r\n", app_sec_env.bonded);
+        } break;
+        case APP_SEC_ENCRYPT_SUCCEED:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_printf("BLE ENCRYPTION SUCCEED, conidx = %d\r\n", *conn_idx);
+        } break;
+        case APP_SEC_ENCRYPT_FAIL:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_printf("BLE ENCRYPTION FAIL, conidx = %d\r\n", *conn_idx);
+        } break;
+        default:
+            break;
     }
 }
 #endif
+
 
 static void ble(int argc, char **argv)
 {
@@ -921,7 +1060,15 @@ static void ble(int argc, char **argv)
     if (os_strcmp(argv[1], "active") == 0) {
         ble_set_notice_cb(ble_notice_cb);
         ble_entry();
-        bk_ble_init();
+
+        #if BLE_APP_SEC
+        if (os_strcmp(argv[2], "sec") == 0) {
+            bk_ble_init_sec();
+        } else
+        #endif
+        {
+            bk_ble_init();
+        }
     }
 
     #if (BLE_BATT_SERVER) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
@@ -1703,61 +1850,84 @@ static void ble(int argc, char **argv)
         }
         bk_ble_scan_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
     }
+
     #if BLE_APP_SEC
     if (os_strcmp(argv[1], "get_bond_status") == 0) {
         bk_printf("bond status: 0x%x\r\n", app_sec_get_bond_status());
     }
     if (os_strcmp(argv[1], "smp_init") == 0) {
         struct app_pairing_cfg par;
-        par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
 
-        if (argc < 3) {
+        par.ikey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_IDKEY;
+        par.rkey_dist = GAP_KDIST_ENCKEY;
+
+        #if BLE_APP_SIGN_WRITE
+        par.sec_req   = GAP_SEC2_NOAUTH_DATA_SGN;
+        par.ikey_dist |= GAP_KDIST_SIGNKEY;
+        par.rkey_dist |= GAP_KDIST_SIGNKEY;
+        #else
+        par.sec_req   = GAP_SEC1_NOAUTH_PAIR_ENC;
+        #endif
+
+        if (argc < 4) {
             bk_printf("\nThe number of param is wrong!\n");
             return;
         }
 
         if (os_strtoul(argv[2], NULL, 10) == 0) {
+            // 0: PK, 1: JW
+            uint8_t pk_meth = os_strtoul(argv[3], NULL, 10);
+
             bk_printf("BLE use Legacy Pairing\r\n");
-            par.sec_req   = GAP_SEC1_AUTH_PAIR_ENC;
-            par.auth      = GAP_AUTH_REQ_MITM_BOND;
-            par.ikey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_LINKKEY | GAP_KDIST_IDKEY;
-            par.rkey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_LINKKEY;
-            #if BLE_APP_SEC_CON
+
+            // core5.2 p1663: MITM shall only be set if the slave's IO capabilities would allow Passkey entry or OOB
+            par.auth = GAP_AUTH_REQ_NO_MITM_BOND;
+
+            if (pk_meth == 0) {
+                par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
+            } else if (pk_meth == 1) {
+                par.iocap = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
+            }
+        #if BLE_APP_SEC_CON
         } else if (os_strtoul(argv[2], NULL, 10) == 1) {
             // 0: PK, 1: NC, 2: JW
             uint8_t pk_meth = os_strtoul(argv[3], NULL, 10);
 
             bk_printf("BLE use Secure Connection Pairiing\r\n");
-            par.sec_req   = GAP_SEC1_SEC_CON_PAIR_ENC;
-            par.auth      = GAP_AUTH_REQ_SEC_CON_BOND;
-            par.ikey_dist = GAP_KDIST_IDKEY;
-            par.rkey_dist = GAP_KDIST_NONE;
+            par.auth = GAP_AUTH_REQ_SEC_CON_NO_MITM_BOND;
 
-            if (pk_meth == 1) {
+            if (pk_meth == 0) {
+                par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
+            } else if (pk_meth == 1) {
                 par.iocap = GAP_IO_CAP_DISPLAY_YES_NO;
             } else if (pk_meth == 2) {
                 par.iocap   = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
-                par.sec_req = GAP_SEC1_NOAUTH_PAIR_ENC;
             }
-            #endif
+        #endif
         }
-        app_sec_config(&par, security_notice_cb);
+        bk_ble_gap_set_security_param(&par, security_notice_cb);
     }
     if (os_strcmp(argv[1], "sec_req") == 0) {
-        if (argc < 3) {
+        if (argc < 3){
             bk_printf("\nThe number of param is wrong!\n");
             return;
         }
-        app_sec_send_security_req(os_strtoul(argv[2], NULL, 10));
+        bk_ble_security_req(os_strtoul(argv[2], NULL, 10));
     }
     if (os_strcmp(argv[1], "remove_bond")==0) {
-        if (argc < 3) {
+        if (argc < 3){
             bk_printf("\nThe number of param is wrong!\n");
             return;
         }
-        app_sec_remove_bond(os_strtoul(argv[2], NULL, 10));
+        bk_ble_remove_bond_device(os_strtoul(argv[2], NULL, 10), true);
     }
-    #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if (os_strcmp(argv[1], "start_enc")==0) {
+        if (argc < 3){
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_security_start(os_strtoul(argv[2], NULL, 10));
+    }
     if (os_strcmp(argv[1], "get_bond_dev_num")==0) {
         uint8_t num;
         bk_ble_get_bond_device_num(&num);
@@ -1776,21 +1946,20 @@ static void ble(int argc, char **argv)
         }
 
         dev_num = exp_num;
-        device_addr_t dev_list[exp_num];
+        bond_device_addr_t dev_list[exp_num];
         bk_ble_get_bonded_device_list(&dev_num, dev_list);
 
         if (dev_num != exp_num) {
             bk_printf("[WARNING] exp_num = %d, act_num = %d\r\n", exp_num, dev_num);
         }
         for (int i = 0; i < dev_num; i++) {
-            bk_printf("[%d] addr_type:%d, addr", i, dev_list[i].addr_type);
+            bk_printf("[%d] addr_type:%d, addr", dev_list[i].bond_idx, dev_list[i].addr_type);
             for (int j = 0; j <6; j++) {
                 bk_printf(":%x", dev_list[i].addr[j]);
             }
             bk_printf("\r\n");
         }
     }
-    #endif // (CFG_BLE_VERSION == BLE_VERSION_5_2)
     #endif // if BLE_APP_SEC
 
     #if ((CFG_BLE_VERSION == BLE_VERSION_5_2) && BLE_GATT_CLI)
@@ -2054,4 +2223,5 @@ static void ble(int argc, char **argv)
 MSH_CMD_EXPORT(ble, ble command);
 #endif //#if (CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_5_2)
 #endif //((CFG_SUPPORT_BLE) && (CFG_BLE_USE_CLI))
+#endif //(CFG_BLE_HOST_RW)
 

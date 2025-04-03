@@ -12,8 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef _SPI_H_
-#define _SPI_H_
+#pragma once
 
 #define SPI_DEBUG
 
@@ -73,4 +72,5 @@
 * Function Declarations
 *******************************************************************************/
 UINT32 spi_ctrl(UINT32 cmd, void *param);
-#endif //_SPI_H_
+// eof
+

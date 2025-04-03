@@ -23,6 +23,9 @@
 #include "common_utils.h"
 #include "app_sdp.h"
 #include "app_ble.h"
+#if BLE_APP_SEC
+#include "app_sec.h"
+#endif
 
 extern struct app_env_tag app_ble_env;
 /**
@@ -208,7 +211,7 @@ static int sdp_write_ntf_cfg_req_handler(kernel_msg_id_t const msgid,
 {
     int msg_status = KERNEL_MSG_CONSUMED;
     uint8_t conidx = param->conidx;
-    uint8_t char_idx;
+    uint8_t desc_idx;
 
     // put value in air format
     #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
@@ -217,10 +220,10 @@ static int sdp_write_ntf_cfg_req_handler(kernel_msg_id_t const msgid,
     struct sdp_env_tag *sdp_env =(struct sdp_env_tag *) prf_env_get_from_handle(conidx,param->handle + 1);
     if(sdp_env != NULL)
     {
-        char_idx = sdp_env->prf_db_env->sdp_cont->char_idx;
-        ///uint16_t uuid = co_read16p(sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[char_idx].uuid);
-        uint16_t uuid = sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[char_idx].uuid[0] |
-                        (sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[char_idx].uuid[1] << 8);
+        desc_idx = sdp_env->prf_db_env->sdp_cont->desc_idx;
+
+        uint16_t uuid = sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[desc_idx].uuid[0] |
+                        (sdp_env->prf_db_env->sdp_cont->chars_descs_inf.descs_inf[desc_idx].uuid[1] << 8);
         #if BLE_APP_SDP_DBG_CHECK(BLE_APP_SDP_WARN)
         bk_printf("ntf handle = 0x%x\r\n",param->handle + 1);
         #endif
@@ -261,10 +264,13 @@ static int sdp_write_value_info_req_handler(kernel_msg_id_t const msgid,
 {
     int msg_status = KERNEL_MSG_CONSUMED;
     uint8_t conidx = param->conidx;
+    #if BLE_APP_SIGN_WRITE
+    uint8_t conn_idx = app_ble_find_conn_idx_handle(conidx);
+    #endif
     uint8_t char_idx;
     struct sdp_env_tag *sdp_env =(struct sdp_env_tag *) prf_env_get_from_handle(conidx,param->handle);
 
-    if(sdp_env != NULL)
+    if((sdp_env != NULL) && (sdp_env->prf_db_env->sdp_cont->char_idx != 0xFF))
     {
         char_idx = sdp_env->prf_db_env->sdp_cont->char_idx;
         uint16_t handle = sdp_env->prf_db_env->sdp_cont->chars_descs_inf.chars_inf[char_idx].val_hdl;
@@ -273,16 +279,21 @@ static int sdp_write_value_info_req_handler(kernel_msg_id_t const msgid,
         uint8_t *buf = (uint8_t *)(&param->data[0]);
         uint8_t operation = GATTC_WRITE_NO_RESPONSE;
 
-        //	UART_PRINTF("handle = 0x%x\r\n",handle);
         if((val_prop & ATT_CHAR_PROP_WR_NO_RESP) == ATT_CHAR_PROP_WR_NO_RESP)
         {
             operation = GATTC_WRITE_NO_RESPONSE;
         }
-        //else if(((val_prop & ATT_CHAR_PROP_WR) == ATT_CHAR_PROP_WR)&& (operation == GATTC_WRITE)) // ATT_CHAR_PROP_WR
         else if((val_prop & ATT_CHAR_PROP_WR) == ATT_CHAR_PROP_WR)
         {
             operation = GATTC_WRITE;
         }
+        #if BLE_APP_SIGN_WRITE
+        // att supports signed write and local csrk present
+        else if (((val_prop & ATT_CHAR_PROP_AUTH) == ATT_CHAR_PROP_AUTH) && app_sec_env.sec_info[conn_idx].local_csrk_present)
+        {
+            operation = GATTC_WRITE_SIGNED;
+        }
+        #endif
         else
         {
             uint8_t con_idx = BLE_APP_INITING_GET_INDEX(KERNEL_IDX_GET(src_id));
@@ -329,19 +340,25 @@ static int sdp_task_gattc_cmp_evt_handler(kernel_msg_id_t const msgid,
     bk_printf("[%s]SDP dest_id = %x,conidx:%d,conhdl:%d\r\n",__func__,dest_id,conidx,conhdl);
     bk_printf("sdp operation = 0x%x,status = 0x%x,seq_num = 0x%x\r\n",param->operation,param->status,param->seq_num);
     #endif
-    if( conidx < BLE_CONNECTION_MAX )
-    {
-        struct gattc_cmp_evt *cmp_evt  = KERNEL_MSG_ALLOC(GATTC_CMP_EVT,
-                                         KERNEL_BUILD_ID(TASK_BLE_APP, BLE_APP_INITING_INDEX(conidx)),
-                                         dest_id,
-                                         gattc_cmp_evt);
-        cmp_evt->operation	= param->operation;
-        cmp_evt->status = param->status;
-        cmp_evt->seq_num = param->seq_num;
+    if( conidx < BLE_CONNECTION_MAX ) {
+        if (param->status == ATT_ERR_NO_ERROR) {
+            struct gattc_cmp_evt *cmp_evt  = KERNEL_MSG_ALLOC(GATTC_CMP_EVT,
+                                             KERNEL_BUILD_ID(TASK_BLE_APP, BLE_APP_INITING_INDEX(conidx)),
+                                             dest_id,
+                                             gattc_cmp_evt);
+            cmp_evt->operation = param->operation;
+            cmp_evt->status = param->status;
+            cmp_evt->seq_num = param->seq_num;
 
-        kernel_msg_send(cmp_evt);
-    } else
-    {
+            kernel_msg_send(cmp_evt);
+        } else if ((param->status == ATT_ERR_INSUFF_AUTHEN) || (param->status == ATT_ERR_INSUFF_ENC)) {
+            #if BLE_APP_SEC
+            if (app_sec_env.sec_notice_cb) {
+                app_sec_env.sec_notice_cb(APP_SEC_ATT_ERR_INSUFF_AUTHEN, &conidx);
+            }
+            #endif
+        }
+    } else {
         bk_printf("[%s]!!!SDP dest_id:%x,src_id:%x,operation:%x,conidx:%d,conhdl:%d,seq_num:%d,status:%x\r\n",__func__,
                   dest_id,src_id,param->operation,conidx,conhdl,param->seq_num,param->status);
     }

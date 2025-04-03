@@ -367,9 +367,6 @@
 /*section 19-----for SDCARD HOST*/
 #define CFG_USE_SDCARD_HOST                        1
 
-/*section 20 ----- support mp3 decoder*/
-#define CONFIG_APP_MP3PLAYER                       0
-
 /*section 21 ----- support ota*/
 #if( ( CFG_SUPPORT_ALIOS ) || ( CFG_SUPPORT_RTT ) || (CFG_SUPPORT_MATTER == 1))
 #define CFG_SUPPORT_OTA_HTTP                       0
@@ -407,7 +404,6 @@
 #if ((0 == CFG_SUPPORT_BLE) && (CFG_USE_BLE_PS))
 #error "check the ble macro, thx!"
 #endif
-
 #define BLE_VERSION_4_2                            1
 #define BLE_VERSION_5_1                            2
 #define BLE_VERSION_5_2                            3
@@ -419,6 +415,8 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
+//0:ble controller only 1:ble full stack
+#define CFG_BLE_HOST_RW                            1
 #define CFG_BLE_ADV_NUM                            1
 #define CFG_BLE_SCAN_NUM                           1
 #define CFG_BLE_USE_DYN_RAM                        1
@@ -485,7 +483,9 @@
 #define CFG_USE_SPI                                1
 #define CFG_USE_SPI_MASTER                         1
 #define CFG_USE_SPI_SLAVE                          1
-#define CFG_USE_SPI_DMA                            1
+#define CFG_USE_SPI_DMA_MASTER                     1
+#define CFG_USE_SPI_DMA_SLAVE                      1
+#define CFG_USE_SPI_MST_FLASH                      1
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST                        0
@@ -533,6 +533,16 @@
 #define CFG_USE_SOFT_RTC                           1
 #endif // (AT_SERVICE_CFG)
 
+#define CFG_DEFAULT_ADC_HIGH_BITS                  0x84
+
 #define CFG_USE_CHARGE_DEV                         0
+
+#define CFG_USE_PATCH_FOR_QSPI_REG_WRITE           1
+
+/* bk_player detail configure in bk_player_config.h  */
+#define CFG_USE_BK_PLAYER                          1
+#define CFG_USE_BK_PLAYER_TEST                     1
+#define CFG_USE_WEBCLIENT                          1
+#define CFG_USE_CODEC_HELIX_MP3                    1
 
 #endif // _SYS_CONFIG_H_

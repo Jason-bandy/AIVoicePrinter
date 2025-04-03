@@ -38,6 +38,7 @@
 #include "mm_bcn.h"
 #include "wpa_ctrl.h"
 #include "bk_err.h"
+#include "errno.h"
 
 #if CFG_ROLE_LAUNCH
 #include "role_launch.h"

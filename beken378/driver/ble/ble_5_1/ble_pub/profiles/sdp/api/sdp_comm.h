@@ -70,6 +70,7 @@ struct sdp_content
     unsigned char char_idx;
     /// Descriptor handles:
     unsigned char descs_nb;
+    unsigned char desc_idx;
 
     struct sdp_chars_descs_inf chars_descs_inf;
 };

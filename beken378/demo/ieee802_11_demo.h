@@ -29,6 +29,9 @@ void demo_sta_adv_app_init(char *oob_ssid,char *connect_key);
 void demo_wlan_app_init(VIF_ADDCFG_PTR cfg);
 void demo_state_app_init(void);
 void demo_ip_app_init(void);
+#if (CFG_SOC_NAME == SOC_BK7252N)
+void ate_ip_app_init(void);
+#endif
 
 //static const char *crypto_str[];
 #endif

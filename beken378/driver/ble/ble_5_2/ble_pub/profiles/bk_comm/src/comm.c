@@ -39,47 +39,27 @@ static void comm_cb_att_read_get(uint8_t conidx,uint8_t user_lid,uint16_t token,
 {
     struct bk_ble_env_tag *ble_env = NULL;
     read_req_t read_req;
-    uint16_t status = GAP_ERR_NO_ERROR;
-    common_buf_t *p_buf = NULL;
-    uint16_t length = 0;
-    uint8_t *value;
-    uint16_t send_length = 0;
 
     // retrieve handle information
     prf_data_t *prf_data = prf_data_get_by_prf_handler(hdl);
-    app_ble_gatts_get_attr_value(hdl, &length, &value);
 
     if (prf_data) {
-        if (value && (length > offset)) {
-            send_length = ((length - offset) > max_length) ? max_length : (length - offset);
-            status = common_buf_alloc(&p_buf, GATT_BUFFER_HEADER_LEN, send_length, GATT_BUFFER_TAIL_LEN);
+        // retrieve handle information
+        ble_env = (struct bk_ble_env_tag*)(prf_data->p_env);
 
-            if (status == GAP_ERR_NO_ERROR) {
-                common_buf_copy_data_from_mem(p_buf, &(value[offset]), send_length);
-            } else {
-                status = ATT_ERR_INSUFF_RESOURCE;
-            }
+        read_req.conn_idx = app_ble_find_conn_idx_handle(conidx);
+        read_req.value = NULL;
+        read_req.size = 0;
+        read_req.att_idx = hdl - ble_env->start_hdl;
+        read_req.prf_id = ble_env->id;
+        read_req.hdl = hdl;
+        read_req.token = token;
+        read_req.length = 0;
+        read_req.offset = offset;
+        read_req.max_length = max_length;
 
-            if (p_buf) {
-                gatt_srv_att_read_get_cfm(conidx, user_lid, token, status, p_buf->data_len, p_buf);
-                common_buf_release(p_buf);
-            }
-
-        } else {
-            // retrieve handle information
-            ble_env = (struct bk_ble_env_tag*)(prf_data->p_env);
-
-            read_req.conn_idx = app_ble_find_conn_idx_handle(conidx);
-            read_req.value = NULL;
-            read_req.size = 0;
-            read_req.att_idx = hdl - ble_env->start_hdl;
-            read_req.prf_id = ble_env->id;
-            read_req.hdl = hdl;
-            read_req.token = token;
-
-            if (ble_event_notice)
-                ble_event_notice(BLE_5_READ_EVENT, &read_req);
-        }
+        if (ble_event_notice)
+             ble_event_notice(BLE_5_READ_EVENT, &read_req);
     }
 
 }

@@ -55,6 +55,7 @@ enum
     TMPD_PAUSE_TIMER          = 0,
     TMPD_RESTART_TIMER,
     TMPD_CHANGE_PARAM,
+    TMPD_CHANGE_PARAM_PS,
     TMPD_TIMER_POLL,
     TMPD_INT_POLL,
     VOLT_TIMER_POLL,
@@ -533,6 +534,14 @@ static void temp_detect_main( beken_thread_arg_t data )
                                                  g_temp_detect_config.detect_thre, ADC_TMEP_DIST_INTIAL_VAL);
             }
             break;
+            case TMPD_CHANGE_PARAM_PS:
+            {
+                #if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+                temp_detect_change_configuration(ADC_TMEP_DETECT_INTVAL_PS,
+                                                 g_temp_detect_config.detect_thre, ADC_TMEP_DIST_INTIAL_VAL);
+                #endif
+            }
+            break;
             #if CFG_USE_TEMPERATURE_DETECT
             case TMPD_TIMER_POLL:
             {
@@ -852,6 +861,20 @@ UINT32 temp_single_get_current_temperature(UINT32 *temp_value)
     }
 
     return ret;
+}
+
+void temp_detect_enter_ps(void)
+{
+#if CFG_USE_TEMPERATURE_DETECT || CFG_USE_VOLTAGE_DETECT
+    temp_detect_send_msg(TMPD_CHANGE_PARAM_PS);
+#endif
+}
+
+void temp_detect_exit_ps(void)
+{
+#if CFG_USE_TEMPERATURE_DETECT || CFG_USE_VOLTAGE_DETECT
+    temp_detect_send_msg(TMPD_CHANGE_PARAM);
+#endif
 }
 
 #if (CFG_SOC_NAME == SOC_BK7231N)

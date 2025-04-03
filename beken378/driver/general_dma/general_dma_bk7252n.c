@@ -897,6 +897,9 @@ UINT32 gdma_ctrl(UINT32 cmd, void *param)
     case CMD_GDMA_GET_DST_WRITE_ADDR:
         ret = gdma_get_dest_write_addr(dma_cfg->channel);
         break;
+    case CMD_GDMA_GET_ENABLE:
+        ret = gdma_get_dma_en(dma_cfg->channel);
+        break;
     default:
         break;
     }

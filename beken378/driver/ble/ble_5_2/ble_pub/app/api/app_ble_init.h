@@ -38,7 +38,6 @@
 #define APP_CONN_CE_LEN_MIN                (10)
 #define APP_CONN_CE_LEN_MAX                (20)
 
-#define APP_INIT_REUSE_ACTV_IDX            0
 #define APP_INIT_SET_STOP_CONN_TIMER       1
 #define APP_INIT_STOP_CONN_TIMER_EVENT     1
 
@@ -57,9 +56,6 @@ typedef struct app_ble_initing_env_tag
 
 extern int app_ble_master_appm_disconnect(uint8_t conidx);
 extern void app_ble_initing_init(void);
-#if APP_INIT_REUSE_ACTV_IDX
-extern void appm_set_initing_actv_idx(unsigned char conidx,unsigned char actv_idx,unsigned char state);
-#endif
 #endif  ////BLE_CENTRAL
 
 extern void appm_set_gap_prefer_ext_connect_params(ext_conn_param_t *pref_par);

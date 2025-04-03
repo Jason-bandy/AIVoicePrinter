@@ -1093,6 +1093,17 @@ static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
         break;
     }
 
+    case WIFI_SET_KEEP_ALIVE_PER:
+    {
+        int period;
+
+        if (args == RT_NULL)
+            return -RT_EIO;
+        period = *(int *)args;
+        power_save_set_keep_alive_per(period);
+        break;
+    }
+
 #if (1 == CFG_LOW_VOLTAGE_PS)
     case WIFI_SET_GPIO_WAKEUP_CONFIG:
     {

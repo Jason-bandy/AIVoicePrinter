@@ -25,6 +25,7 @@
 #include "drv_model_pub.h"
 #include "mem_pub.h"
 #include "ring_buffer.h"
+#include "common_reg_rw.h"
 
 #if ((CFG_USE_AUDIO) && ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7252N)))
 void audio_power_up(void)
@@ -71,7 +72,7 @@ static void audio_isr(void)
         audio_dac_isr();
         #endif
 
-        REG_WRITE(AUD_AD_FIFO_STATUS,
+        REG_WRITE_PROTECT(AUD_AD_FIFO_STATUS,
                   DAC_R_NEAR_FULL | DAC_L_NEAR_FULL
                   | DAC_R_NEAR_EMPTY | DAC_L_NEAR_EMPTY
                   | DAC_R_FIFO_FULL | DAC_L_FIFO_FULL
@@ -85,14 +86,14 @@ static void audio_isr(void)
         audio_adc_isr();
         #endif
 
-        REG_WRITE(AUD_AD_FIFO_STATUS,
+        REG_WRITE_PROTECT(AUD_AD_FIFO_STATUS,
                   ADC_NEAR_FULL | ADC_NEAR_EMPTY | ADC_FIFO_FULL
                   | ADC_FIFO_EMPTY | ADC_INT_FLAG);
     }
     if (status & DTMF_INT_FLAG)
     {
         //audio_dtmf_isr(status);
-        REG_WRITE(AUD_AD_FIFO_STATUS,
+        REG_WRITE_PROTECT(AUD_AD_FIFO_STATUS,
                   DTMF_NEAR_FULL | DTMF_NEAR_EMPTY | DTMF_FIFO_FULL
                   | DTMF_FIFO_EMPTY | DTMF_INT_FLAG);
     }
@@ -105,29 +106,29 @@ void audio_hardware_init(void)
     /* register interrupt */
     intc_service_register(IRQ_AUDIO, PRI_IRQ_AUDIO, audio_isr);
 
-    REG_WRITE(AUDIO_CONFIG, 0);
+    REG_WRITE_PROTECT(AUDIO_CONFIG, 0);
 
-    REG_WRITE(AUD_DTMF_CONFIG_0, 0);
-    REG_WRITE(AUD_DTMF_CONFIG_1, 0);
-    REG_WRITE(AUD_DTMF_CONFIG_2, 0);
+    REG_WRITE_PROTECT(AUD_DTMF_CONFIG_0, 0);
+    REG_WRITE_QSPI_RST(AUD_DTMF_CONFIG_1, 0);
+    REG_WRITE_PROTECT(AUD_DTMF_CONFIG_2, 0);
 
-    REG_WRITE(AUD_ADC_CONFIG_0, 0x00e93A22);
-    REG_WRITE(AUD_ADC_CONFIG_1, 0x8BBF3A22);
-    REG_WRITE(AUD_ADC_CONFIG_2, 0xC9E6751C);
-    REG_WRITE(AUD_AGC_CONFIG_0, 0x4A019465);
-    REG_WRITE(AUD_AGC_CONFIG_1, 0x02016C01);
-    REG_WRITE(AUD_AGC_CONFIG_2, 0x0F020940);
+    REG_WRITE_PROTECT(AUD_ADC_CONFIG_0, 0x00e93A22);
+    REG_WRITE_PROTECT(AUD_ADC_CONFIG_1, 0x8BBF3A22);
+    REG_WRITE_PROTECT(AUD_ADC_CONFIG_2, 0xC9E6751C);
+    REG_WRITE_PROTECT(AUD_AGC_CONFIG_0, 0x4A019465);
+    REG_WRITE_PROTECT(AUD_AGC_CONFIG_1, 0x02016C01);
+    REG_WRITE_PROTECT(AUD_AGC_CONFIG_2, 0x0F020940);
 
-    REG_WRITE(AUD_DAC_CONFIG_0, 0);
-    REG_WRITE(AUD_DAC_CONFIG_1, 0);
-    REG_WRITE(AUD_DAC_CONFIG_2, 0);
+    REG_WRITE_PROTECT(AUD_DAC_CONFIG_0, 0);
+    REG_WRITE_PROTECT(AUD_DAC_CONFIG_1, 0);
+    REG_WRITE_PROTECT(AUD_DAC_CONFIG_2, 0);
 
     // it's very import to config dac interrupt thred(not all zero)
-    REG_WRITE(AUD_FIFO_CONFIG, 0x210);
+    REG_WRITE_PROTECT(AUD_FIFO_CONFIG, 0x210);
 
     /* reset int status */
     val = REG_READ(AUD_AD_FIFO_STATUS);
-    REG_WRITE(AUD_AD_FIFO_STATUS, val);
+    REG_WRITE_PROTECT(AUD_AD_FIFO_STATUS, val);
 
     #if(CFG_AUD_DAC_USE_PORT_SET == CFG_AUD_DAC_SINGLE_PORT)
     audio_dac_volume_use_single_port();
@@ -154,25 +155,25 @@ void audio_exit(void)
 {
     UINT32 val;
 
-    REG_WRITE(AUDIO_CONFIG, 0);
+    REG_WRITE_PROTECT(AUDIO_CONFIG, 0);
 
-    REG_WRITE(AUD_DTMF_CONFIG_0, 0);
-    REG_WRITE(AUD_DTMF_CONFIG_1, 0);
-    REG_WRITE(AUD_DTMF_CONFIG_2, 0);
+    REG_WRITE_PROTECT(AUD_DTMF_CONFIG_0, 0);
+    REG_WRITE_QSPI_RST(AUD_DTMF_CONFIG_1, 0);
+    REG_WRITE_PROTECT(AUD_DTMF_CONFIG_2, 0);
 
-    REG_WRITE(AUD_ADC_CONFIG_0, 0);
-    REG_WRITE(AUD_ADC_CONFIG_1, 0);
-    REG_WRITE(AUD_ADC_CONFIG_2, 0);
+    REG_WRITE_PROTECT(AUD_ADC_CONFIG_0, 0);
+    REG_WRITE_PROTECT(AUD_ADC_CONFIG_1, 0);
+    REG_WRITE_PROTECT(AUD_ADC_CONFIG_2, 0);
 
-    REG_WRITE(AUD_DAC_CONFIG_0, 0);
-    REG_WRITE(AUD_DAC_CONFIG_1, 0);
-    REG_WRITE(AUD_DAC_CONFIG_2, 0);
+    REG_WRITE_PROTECT(AUD_DAC_CONFIG_0, 0);
+    REG_WRITE_PROTECT(AUD_DAC_CONFIG_1, 0);
+    REG_WRITE_PROTECT(AUD_DAC_CONFIG_2, 0);
 
-    REG_WRITE(AUD_FIFO_CONFIG, 0);
+    REG_WRITE_PROTECT(AUD_FIFO_CONFIG, 0);
 
     /* reset int status */
     val = REG_READ(AUD_AD_FIFO_STATUS);
-    REG_WRITE(AUD_AD_FIFO_STATUS, val);
+    REG_WRITE_PROTECT(AUD_AD_FIFO_STATUS, val);
 
     #if CFG_USE_AUD_DAC
     ddev_unregister_dev(AUD_DAC_DEV_NAME);

@@ -50,6 +50,7 @@ typedef enum
     WIFI_GET_RSSI,          /* get sensitivity (dBm) */
     WIFI_ENTER_POWERSAVE,
     WIFI_SET_LISTEN_INT,    /* set listen interval */
+    WIFI_SET_KEEP_ALIVE_PER,/* set keep alive period*/
     WIFI_SET_GPIO_WAKEUP_CONFIG,
     WIFI_CFG_MONITOR,       /* start/stop minitor */
     WIFI_SET_CHANNEL,

@@ -200,7 +200,7 @@ UINT32 func_init_basic(void)
     #endif
     hal_flash_init();
 
-    #if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7238)) || (CFG_SOC_NAME == SOC_BK7252N)
+    #if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7238))
     flash_bypass_operate_sr_init();
     #endif
 

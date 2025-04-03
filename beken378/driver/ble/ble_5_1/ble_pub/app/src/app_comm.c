@@ -32,6 +32,9 @@
 #include "attm.h"
 #include "kernel_timer.h"
 #include "ble_ui.h"
+#if BLE_APP_SEC
+#include "app_sec.h"
+#endif
 
 static uint8_t bk_ble_get_prf_by_id(uint16_t id, struct prf_task_env **env)
 {
@@ -257,6 +260,13 @@ static int bk_ble_gattc_cmp_evt_handler(kernel_msg_id_t const msgid,  struct bk_
     }
     if( status ) {
         bk_printf("[%s]conn_idx %d status:%d,param->status:%x\r\n",__FUNCTION__,conn_idx,status,param->status);
+        #if BLE_APP_SEC
+        if (((param->status == ATT_ERR_INSUFF_AUTHEN) || (param->status == ATT_ERR_INSUFF_ENC))
+            && app_sec_env.sec_notice_cb) {
+            // sec todo: conidx incorrect
+            app_sec_env.sec_notice_cb(APP_SEC_ATT_ERR_INSUFF_AUTHEN, &conn_idx);
+        }
+        #endif
     }
     return KERNEL_MSG_CONSUMED;
 }

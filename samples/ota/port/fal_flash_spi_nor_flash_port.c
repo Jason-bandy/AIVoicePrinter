@@ -36,7 +36,7 @@
 static int init(void)
 {
     LOG_D("****init");
-    return spi_flash_init();
+    return spi_flash_init(0);
 }
 
 static int erase(long offset, size_t size)

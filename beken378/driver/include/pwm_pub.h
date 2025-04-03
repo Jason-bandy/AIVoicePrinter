@@ -167,6 +167,10 @@ typedef struct
 
 #define PWM_GROUP_NUM			3
 #define PWM_CHAN_IN_GROUP		2
+#define GET_GROUP_IDXS_BY_PORT(p0, p1)  (((p1 & 0xf) << 4) | (p0 & 0xf))
+#define GET_P0_IDX_FROM_IDXS(idxs)      ((idxs) & 0xf)
+#define GET_P1_IDX_FROM_IDXS(idxs)      (((idxs) >> 4) & 0xf)
+
 typedef struct
 {
     UINT32 is_active;

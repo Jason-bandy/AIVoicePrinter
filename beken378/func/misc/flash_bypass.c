@@ -241,6 +241,13 @@ int flash_bypass_op_read(uint8_t *tx_buf, uint32_t tx_len, uint8_t *rx_buf, uint
     uint32_t gpio14_15_cfg, gpio16_17_cfg;
     int exceptional_flag = 0, use_less = 0, k = 0, wait = 0;
 
+    reg_config = REG_READ(SPI_CONFIG);
+    reg_ctrl = REG_READ(SPI_CTRL);
+    if ((reg_ctrl & SPIEN) && (reg_config & (SPI_TX_EN|SPI_RX_EN)))
+    {
+        return -3;
+    }
+
     /*step 0, disable interrupt*/
     intc_enable_reg = REG_READ(ICU_GLOBAL_INT_EN);
     reg = intc_enable_reg & (~(GINTR_FIQ_EN | GINTR_IRQ_EN));
@@ -494,6 +501,13 @@ int flash_bypass_op_write(uint8_t *op_code, uint8_t *tx_buf, uint32_t tx_len)
     uint32_t gpio14_status, gpio15_status, gpio16_status, gpio17_status;
     uint32_t gpio14_15_cfg, gpio16_17_cfg;
     int exceptional_flag = 0;
+
+    reg_config = REG_READ(SPI_CONFIG);
+    reg_ctrl = REG_READ(SPI_CTRL);
+    if ((reg_ctrl & SPIEN) && (reg_config & (SPI_TX_EN|SPI_RX_EN)))
+    {
+        return -3;
+    }
 
     /*step 0, disable interrupt*/
     intc_enable_reg = REG_READ(ICU_GLOBAL_INT_EN);
@@ -1174,7 +1188,7 @@ exit:
 #endif
 #endif
 
-#if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N) || (CFG_SOC_NAME == SOC_BK7231N))
+#if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7231N))
 uint32_t flash_bypass_operate_sr_init(void)
 {
     flash_register_bypass_cb(flash_bypass_wr_sr_cb);

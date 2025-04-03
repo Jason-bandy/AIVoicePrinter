@@ -23,6 +23,7 @@
 
 #define SD_CARD_READ_BUFFER_SIZE 512
 
+#if (CFG_ENABLE_SDIO_DEV)
 #if CONFIG_SDCARD
 /*
 sdtest I 0 --
@@ -144,5 +145,6 @@ int cli_sd_init(void)
     return 0;
 }
 #endif
+#endif // (CFG_ENABLE_SDIO_DEV)
 // eof
 

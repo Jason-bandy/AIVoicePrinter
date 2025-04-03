@@ -26,6 +26,7 @@
 #include "ring_buffer.h"
 #include "ring_buffer_dma_write.h"
 #include "gpio_pub.h"
+#include "common_reg_rw.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -45,10 +46,12 @@ typedef struct aud_adc_desc
 {
     UINT8 *buf;
     UINT16 buf_len;
+    UINT16 inter_thre;
     UINT16 freq;
-    UINT16 channels;
-    UINT16 mode;
+    UINT8 channels;
+    UINT8 mode;
     UINT32 linein_detect_pin;
+    adc_rx_callback rx_cb;
 
     UINT32 status;
     union {
@@ -83,7 +86,7 @@ static void audio_adc_set_enable_bit(UINT32 enable)
         reg_val |= (ADC_ENABLE | LINEIN_ENABLE);
     else
         reg_val &= ~(ADC_ENABLE | LINEIN_ENABLE);
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_adc_set_int_enable_bit(UINT32 enable)
@@ -95,7 +98,7 @@ static void audio_adc_set_int_enable_bit(UINT32 enable)
         reg_val |= ADC_INT_EN;
     else
         reg_val &= ~ADC_INT_EN;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_adc_get_l_sample(INT16 *left)
@@ -126,7 +129,7 @@ static void audio_adc_set_hpf2_bypass_bit(UINT32 enable)
         reg_val |= ADC_HPF2_BYPASS;
     else
         reg_val &= ~ADC_HPF2_BYPASS;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_adc_set_gain(UINT32 gain)
@@ -140,7 +143,7 @@ static void audio_adc_set_gain(UINT32 gain)
     reg_val &= ~(ADC_SET_GAIN_MASK << ADC_SET_GAIN_POSI);
     reg_val |= ((gain & ADC_SET_GAIN_MASK)  << ADC_SET_GAIN_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_adc_set_write_thred_bit(UINT32 thred)
@@ -156,7 +159,7 @@ static void audio_adc_set_write_thred_bit(UINT32 thred)
     reg_val |= ((thred & ADC_WR_THRED_MASK) << ADC_WR_THRED_POSI);
     reg_val |= ((thred & DTMF_WR_THRED_MASK) << DTMF_WR_THRED_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 static void audio_adc_set_sample_rate(UINT32 sample_rate)
@@ -166,96 +169,96 @@ static void audio_adc_set_sample_rate(UINT32 sample_rate)
     /* disable adc handset bit again, to make sure this bit unset */
     reg = REG_READ(AUD_EXTEND_CFG);
     reg &= ~(ADC_FRACMOD_MANUAL);
-    REG_WRITE(AUD_EXTEND_CFG, reg);
+    REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
 
     switch (sample_rate)
     {
     case 11025:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_441K);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 22050: //
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_441K >> 1);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 44100:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 12000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_48K);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 24000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_48K >> 1);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 48000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 8000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_8K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 16000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_16K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 32000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_32K);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     default:
@@ -265,9 +268,14 @@ static void audio_adc_set_sample_rate(UINT32 sample_rate)
 }
 
 #if CFG_GENERAL_DMA
-void audio_adc_dma_handler(UINT32 param)
+void audio_adc_dma_fin_handler(UINT32 param)
 {
-    //AUD_PRT("audio_dac_dma_handler:%d\r\n", param);
+    if((aud_adc.rx_cb) && (aud_adc.inter_thre)) {
+        UINT32 fill_size = rb_get_fill_size_dma_write(&aud_adc.u.rb_dma_wr);
+        if(fill_size >= aud_adc.inter_thre) {
+            aud_adc.rx_cb(fill_size);
+        }
+    }
 }
 
 static void audio_adc_config_dma(void)
@@ -298,16 +306,27 @@ static void audio_adc_config_dma(void)
     cfg.u.type5.dst_loop_end_addr = aud_adc.buf + aud_adc.buf_len;
 
     //cfg.fin_handler = audio_dac_dma_handler;
-    cfg.fin_handler = NULL;
+    if((aud_adc.rx_cb) && (aud_adc.inter_thre)) {
+        cfg.fin_handler = audio_adc_dma_fin_handler;
+    }
+    else {
+        cfg.fin_handler = NULL;
+    }
 
     cfg.src_module = GDMA_X_SRC_AUDIO_RX_REQ;
     cfg.dst_module = GDMA_X_DST_DTCM_WR_REQ;
 
     sddev_control(GDMA_DEV_NAME, CMD_GDMA_CFG_TYPE5, &cfg);
 
-    en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
-    en_cfg.param = aud_adc.buf_len; // dma translen
-    sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, &en_cfg);
+    if((aud_adc.rx_cb) && (aud_adc.inter_thre)) {
+        en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
+        en_cfg.param = aud_adc.inter_thre; // dma translen
+        sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, &en_cfg);
+    } else {
+        en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
+        en_cfg.param = aud_adc.buf_len; // dma translen
+        sddev_control(GDMA_DEV_NAME, CMD_GDMA_SET_TRANS_LENGTH, &en_cfg);
+    }
 
     en_cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
     en_cfg.param = (UINT32)(aud_adc.buf);
@@ -424,6 +443,8 @@ static UINT32 audio_adc_open(UINT32 op_flag)
     aud_adc.freq= cfg->freq;
     aud_adc.mode = cfg->mode;
     aud_adc.linein_detect_pin = cfg->linein_detect_pin;
+    aud_adc.inter_thre = cfg->inter_thre;
+    aud_adc.rx_cb = cfg->rx_cb;
 
     audio_adc_set_enable_bit(0);
     audio_adc_set_sample_rate(aud_adc.freq);
@@ -449,7 +470,7 @@ static UINT32 audio_adc_open(UINT32 op_flag)
         #endif
     }
     #else
-    REG_WRITE(AUD_FIFO_CONFIG, (REG_READ(AUD_FIFO_CONFIG) | LOOP_ADC2DAC));
+    REG_WRITE_PROTECT(AUD_FIFO_CONFIG, (REG_READ(AUD_FIFO_CONFIG) | LOOP_ADC2DAC));
     #endif
 
     audio_adc_open_analog_regs();
@@ -599,9 +620,18 @@ static void audio_adc_set_volume(UINT32 volume)
     reg_val &= ~(MANUAL_PGA_VAL_MASK << MANUAL_PGA_VAL_POSI);
     reg_val |= ((act_vol & MANUAL_PGA_VAL_MASK) << MANUAL_PGA_VAL_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 
     AUD_PRT("set adc vol: %d - %d\r\n", volume, act_vol);
+}
+
+static void audio_adc_set_rx_call_back(UINT32 *cb)
+{
+    struct audio_adc_rx_cb_des *des = (struct audio_adc_rx_cb_des *)cb;
+    if(des) {
+        aud_adc.inter_thre = des->inter_thre;
+        aud_adc.rx_cb = des->rx_cb;
+    }
 }
 
 static UINT32 audio_adc_ctrl(UINT32 cmd, void *param)
@@ -642,6 +672,11 @@ static UINT32 audio_adc_ctrl(UINT32 cmd, void *param)
         audio_adc_set_volume(*((UINT32 *)param));
         break;
 
+    case AUD_ADC_CMD_SET_RX_CB:
+        ASSERT(param);
+        audio_adc_set_rx_call_back(param);
+    break;
+
     default:
         break;
     }
@@ -675,6 +710,12 @@ void audio_adc_isr(void)
                 {
                     audio_adc_get_l_and_r_samples(&sample[0], &sample[1]);
                     ret = rb_write(rb, (UINT8*)&sample[0], sizeof(int16), 2);
+                    if((aud_adc.rx_cb) && (aud_adc.inter_thre)) {
+                        UINT32 fill_size =  rb_get_fill_size(rb);
+                        if(fill_size >= aud_adc.inter_thre) {
+                            aud_adc.rx_cb(fill_size);
+                        }
+                    }
                     //AUD_PRT("%d\r\n", ret);
                     if(!ret)
                         break;
@@ -685,6 +726,11 @@ void audio_adc_isr(void)
                 {
                     audio_adc_get_l_sample(&sample[0]);
                     ret = rb_write(rb, (UINT8*)&sample[0], sizeof(int16), 1);
+                    if((aud_adc.rx_cb) && (aud_adc.inter_thre)) {
+                         UINT32 fill_size =  rb_get_fill_size(rb);
+                         if(fill_size >= aud_adc.inter_thre)
+                            aud_adc.rx_cb(fill_size);
+                    }
                     //AUD_PRT("%d\r\n", ret);
                     if(!ret)
                         break;

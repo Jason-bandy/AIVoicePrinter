@@ -188,6 +188,7 @@ static UINT32 qspi_open(UINT32 op_flag)
 
     param = REG_READ(REG_QSPI_SPI_CFG);
     param |= (QSPI_IO2_IO3_MODE | QSPI_SPI_EN);
+    param |= (0x1 << QSPI_DAHB_TRANS_TYPE_POSI); // add by huangliang
     REG_WRITE(REG_QSPI_SPI_CFG, param);
 
     REG_WRITE(REG_QSPI_GLB_CTRL, QSPI_SOFT_RESET);

@@ -845,6 +845,17 @@ uint32_t rtos_get_time(void)
     return rt_tick_get();
 }
 
+extern uint64_t rtc_reg_get_time_us(void);
+extern uint64_t cal_get_time_us(void);
+uint64_t rtos_get_time_us(void)
+{
+    #if !(CFG_SOC_NAME == SOC_BK7252N)
+    return (uint64_t)cal_get_time_us();
+    #else
+    return (uint64_t)rtc_reg_get_time_us();
+    #endif
+}
+
 uint32_t rtos_get_free_mem() {
     #ifdef RT_USING_HEAP
     uint32_t total;

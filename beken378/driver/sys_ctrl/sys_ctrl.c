@@ -93,10 +93,18 @@ UINT8  calib_charger[3] = {
     0x15,   //icp
     0x1b    //vcv
 };
+#elif (CFG_SOC_NAME == SOC_BK7252N)
+#define DCO_CLK_SELECT          DCO_CALIB_180M
+#define USE_DCO_CLK_POWON       0 //BK7231N could not using DCO as main clock when boot since DCO_AMSEL_BIT should be disable during calibration
 #else
 #define DCO_CLK_SELECT          DCO_CALIB_120M
 #define USE_DCO_CLK_POWON       0 //BK7231N could not using DCO as main clock when boot since DCO_AMSEL_BIT should be disable during calibration
 #endif
+
+#define DEFAULT_WAKEUP_GPIO_NODE {\
+    .wakeup_gpio_index = GPIO16,\
+    .wakeup_gpio_type = POSEDGE,\
+}
 
 static SCTRL_PS_SAVE_VALUES ps_saves[2];
 
@@ -118,16 +126,9 @@ static UINT32 gpio_32_39_status = 0;
 static UINT32 sys_wakeup_status = 0;
 #endif
 
-static SCTRL_MCU_PS_INFO sctrl_mcu_ps_info =
-{
-    .hw_sleep = 0,
-    .mcu_use_dco = 0,
-    .first_sleep = 1,
-    .wakeup_gpio_index = GPIO16,
-    .wakeup_gpio_type = POSEDGE,
-};
+static SCTRL_MCU_PS_INFO sctrl_mcu_ps_info;
 
-
+static WAKEUP_GPIO_NODE wakeup_gpio_nodes[WAKEUP_GPIO_NUM];
 
 static SDD_OPERATIONS sctrl_op =
 {
@@ -446,7 +447,11 @@ void sctrl_dco_cali(UINT32 speed)
     case DCO_CALIB_180M:
         reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL1);
         reg_val &= ~((DCO_CNTI_MASK << DCO_CNTI_POSI) | (DCO_DIV_MASK << DCO_DIV_POSI));
+        #if (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+        reg_val |= ((0x1BA & DCO_CNTI_MASK) << DCO_CNTI_POSI);
+        #else
         reg_val |= ((0xDD & DCO_CNTI_MASK) << DCO_CNTI_POSI);
+        #endif
         #if (CFG_SOC_NAME != SOC_BK7231N) && (CFG_SOC_NAME != SOC_BK7238) && (CFG_SOC_NAME != SOC_BK7252N)
         reg_val |= DIV_BYPASS_BIT;
         #endif
@@ -1201,6 +1206,16 @@ void sctrl_enable_rosc_timer(UINT32 rosc_period)
 #if (1 == CFG_LOW_VOLTAGE_PS)
 void sctrl_enable_gpio_wakeup(void);
 void sctrl_restore_gpio_wakeup(void);
+static void sctrl_dump_gpio_wakeup(void);
+
+static bool sctrl_gpio_wakeup_check(UINT32 index)
+{
+    for (int i=0; i<WAKEUP_GPIO_NUM; i++)
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index == index)
+            return 1;
+
+    return 0;
+}
 
 void sctrl_gpio_enter_lowvol()
 {
@@ -1208,7 +1223,7 @@ void sctrl_gpio_enter_lowvol()
 
     for (i=0; i < GPIONUM; i++)
     {
-        if (i == 0 || i == 1 || i == 10 || i == 11 || i == sctrl_mcu_ps_info.wakeup_gpio_index)
+        if (i == 0 || i == 1 || i == 10 || i == 11 || sctrl_gpio_wakeup_check(i))
             continue;
         sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG_BACKUP, &i);
 
@@ -1226,7 +1241,7 @@ void sctrl_gpio_exit_lowvol()
 
     for (i=0; i < GPIONUM; i++)
     {
-        if (i == 0 || i == 1 || i == 10 || i == 11 || i == sctrl_mcu_ps_info.wakeup_gpio_index)
+        if (i == 0 || i == 1 || i == 10 || i == 11 || sctrl_gpio_wakeup_check(i))
             continue;
         sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG_RESTORE, &i);
     }
@@ -1247,104 +1262,219 @@ bool sctrl_set_gpio_wakeup_index(UINT8 gpio_index, WAKEUP_GPIO_TYPE gpio_type)
         os_printf("gpiowakeup type %d must be less than or equal to %d!\r\n",gpio_type,NEGEDGE);
         return false;
     }
-    sctrl_mcu_ps_info.wakeup_gpio_index = gpio_index;
-    sctrl_mcu_ps_info.wakeup_gpio_type = gpio_type;
+
+    if (WAKEUP_GPIO_NUM)
+    {
+        wakeup_gpio_nodes[0].wakeup_gpio_index = gpio_index;
+        wakeup_gpio_nodes[0].wakeup_gpio_type = gpio_type;
+    }
     return true;
+}
+
+bool sctrl_add_gpio_wakeup(UINT8 gpio_index, WAKEUP_GPIO_TYPE gpio_type)
+{
+    if( gpio_index >= GPIONUM )
+    {
+        os_printf("gpio%d must be less than %d!\r\n",gpio_index,GPIONUM);
+        return false;
+    }
+
+    if( gpio_type > NEGEDGE )
+    {
+        os_printf("gpiowakeup type %d must be less than or equal to %d!\r\n",gpio_type,NEGEDGE);
+        return false;
+    }
+
+    for (int i=0;i<WAKEUP_GPIO_NUM;i++)
+    {
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index == gpio_index)
+        {
+            os_printf("gpio %d type %d -> %d\r\n", gpio_index, wakeup_gpio_nodes[i].wakeup_gpio_type, gpio_type);
+            wakeup_gpio_nodes[i].wakeup_gpio_type = gpio_type;
+            return true;
+        }
+
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index == WAKEUP_GPIO_INDEX_INVALID)
+        {
+            wakeup_gpio_nodes[i].wakeup_gpio_index = gpio_index;
+            wakeup_gpio_nodes[i].wakeup_gpio_type = gpio_type;
+            return true;
+        }
+    }
+
+    sctrl_dump_gpio_wakeup();
+
+    os_printf("gpio wakeup add fail\r\n");
+    return false;
+}
+
+void sctrl_remove_gpio_wakeup(UINT8 gpio_index)
+{
+    if( gpio_index >= GPIONUM )
+    {
+        os_printf("gpio%d must be less than %d!\r\n",gpio_index,GPIONUM);
+        return;
+    }
+
+    for (int i=0; i<WAKEUP_GPIO_NUM; i++)
+    {
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index == gpio_index)
+        {
+            wakeup_gpio_nodes[i].wakeup_gpio_index = WAKEUP_GPIO_INDEX_INVALID;
+            wakeup_gpio_nodes[i].wakeup_gpio_type = WAKEUP_GPIO_TYPE_INVALID;
+            break;
+        }
+    }
+}
+
+void sctrl_clear_gpio_wakeup(void)
+{
+    for (int i=0; i<WAKEUP_GPIO_NUM; i++)
+    {
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index != WAKEUP_GPIO_INDEX_INVALID)
+        {
+            wakeup_gpio_nodes[i].wakeup_gpio_index = WAKEUP_GPIO_INDEX_INVALID;
+            wakeup_gpio_nodes[i].wakeup_gpio_type = WAKEUP_GPIO_TYPE_INVALID;
+        }
+    }
+}
+
+static void sctrl_dump_gpio_wakeup(void)
+{
+    os_printf("%s start\r\n", __func__);
+    os_printf("ind g_id g_t\r\n", __func__);
+    for (int i=0; i<WAKEUP_GPIO_NUM; i++)
+    {
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index != WAKEUP_GPIO_INDEX_INVALID)
+        {
+            os_printf("%3d %3d %3d\r\n", i, wakeup_gpio_nodes[i].wakeup_gpio_index,
+                                        wakeup_gpio_nodes[i].wakeup_gpio_type);
+        }
+    }
+    os_printf("%s end\r\n", __func__);
 }
 
 void sctrl_enable_gpio_wakeup(void)
 {
-    UINT32 param;
-    UINT32 gpio_wakeup_index = sctrl_mcu_ps_info.wakeup_gpio_index;
-    UINT32 gpio_wakeup_type = sctrl_mcu_ps_info.wakeup_gpio_type;
-
     #if !(CFG_SOC_NAME == SOC_BK7252N)
-    UINT32 gpio_index_map = (1 << gpio_wakeup_index);
+    UINT32 gpio_index_map = 0, gpio_type_map = 0, gpio_type_sel_map = 0;
+    UINT32 gpio_index, gpio_type, param;
 
-    if(gpio_wakeup_type == LOW_LEVEL)
+    for (int i=0; i<WAKEUP_GPIO_NUM; i++)
     {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, 0);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, 0);
-    }
-    else if(gpio_wakeup_type == HIGH_LEVEL)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, 0xFFFFFFFF);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, 0);
-    }
-    else if(gpio_wakeup_type == POSEDGE)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, 0);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, 0xFFFFFFFF);
-    }
-    else if(gpio_wakeup_type == NEGEDGE)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE,0xFFFFFFFF);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, 0xFFFFFFFF);
-    }
-    #else
-    UINT32 gpio_index_map = 0, gpio_last_index_map = 0;
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index != WAKEUP_GPIO_INDEX_INVALID)
+        {
+            gpio_index = wakeup_gpio_nodes[i].wakeup_gpio_index;
+            gpio_type = wakeup_gpio_nodes[i].wakeup_gpio_type;
 
-    if (gpio_wakeup_index < BITS_INT) {
-        gpio_index_map = (1 << gpio_wakeup_index);
-    } else {
-        gpio_last_index_map = (1 << (gpio_wakeup_index - BITS_INT));
-    }
+            // only uart will be suspend
+            if (gpio_index == GPIO10)
+            {
+                sctrl_mcu_ps_info.gpio_config_backup = REG_READ(GPIO_BASE_ADDR + gpio_index * 4);
+                gpio_wakeup_pin_suspend_second_function(gpio_index);
+            }
 
-    REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS, 0xFFFFFFFF);
-    REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS1, 0xFF);
+            gpio_index_map |= BIT(gpio_index);
 
-    if(gpio_wakeup_type == LOW_LEVEL)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_L, 0);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_M, 0);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_H, 0);
-    }
-    else if(gpio_wakeup_type == HIGH_LEVEL)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_L, 0x55555555);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_M, 0x55555555);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_H, 0x5555);
-    }
-    else if(gpio_wakeup_type == POSEDGE)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_L, 0xAAAAAAAA);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_M, 0xAAAAAAAA);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_H, 0xAAAA);
-    }
-    else if(gpio_wakeup_type == NEGEDGE)
-    {
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_L, 0xFFFFFFFF);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_M, 0xFFFFFFFF);
-        REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_H, 0xFFFF);
-    }
-    #endif
+            if (gpio_type == LOW_LEVEL)
+            {
+                param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT_PULLUP);
+            }
+            else if (gpio_type == HIGH_LEVEL)
+            {
+                gpio_type_map |= BIT(gpio_index);
+                param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT_PULLDOWN);
+            }
+            else if (gpio_type == POSEDGE)
+            {
+                gpio_type_sel_map |= BIT(gpio_index);
+                param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT_PULLDOWN);
+            }
+            else if (gpio_type == NEGEDGE)
+            {
+                gpio_type_map |= BIT(gpio_index);
+                gpio_type_sel_map |= BIT(gpio_index);
+                param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT_PULLUP);
+            }
 
-    // if(sctrl_mcu_ps_info.first_sleep == 1)
-    {
-        // uart_wait_tx_over();
-        sctrl_mcu_ps_info.gpio_config_backup = REG_READ(GPIO_BASE_ADDR + gpio_wakeup_index * 4);
-        gpio_wakeup_pin_suspend_second_function(gpio_wakeup_index);
+            if (sctrl_get_deep_sleep_gpio_floating_map() & (0x01ULL << gpio_index))
+            {
+                param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT);
+            }
+            sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+        }
     }
 
-    if((gpio_wakeup_type == HIGH_LEVEL) || (gpio_wakeup_type == POSEDGE))
-    {
-        param = GPIO_CFG_PARAM(gpio_wakeup_index, GMODE_INPUT_PULLDOWN);
-    }
-    else
-    {
-        param = GPIO_CFG_PARAM(gpio_wakeup_index, GMODE_INPUT_PULLUP);
-    }
+    REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE, gpio_type_map);
+    REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_SELECT, gpio_type_sel_map);
 
-    sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
-
-    #if !(CFG_SOC_NAME == SOC_BK7252N)
     REG_WRITE(SCTRL_GPIO_WAKEUP_EN, 0x0);
     REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS, 0xFFFFFFFF);
 
     REG_WRITE(SCTRL_GPIO_WAKEUP_EN, gpio_index_map);
     #else
-    REG_WRITE(SCTRL_GPIO_WAKEUP_EN, gpio_index_map);
-    REG_WRITE(SCTRL_GPIO_WAKEUP_EN1, gpio_last_index_map);
+    UINT32 gpio_index_map_l = 0, gpio_index_map_h = 0;
+    UINT32 gpio_type_map_l = 0, gpio_type_map_m = 0, gpio_type_map_h = 0;
+    UINT32 gpio_index, gpio_type, param;
+
+    for (int i = 0; i < WAKEUP_GPIO_NUM; i++)
+    {
+        if (wakeup_gpio_nodes[i].wakeup_gpio_index != WAKEUP_GPIO_INDEX_INVALID)
+        {
+            gpio_index = wakeup_gpio_nodes[i].wakeup_gpio_index;
+            gpio_type = wakeup_gpio_nodes[i].wakeup_gpio_type;
+
+            // only uart will be suspend
+            if (gpio_index == GPIO10)
+            {
+                sctrl_mcu_ps_info.gpio_config_backup = REG_READ(GPIO_BASE_ADDR + gpio_index * 4);
+                gpio_wakeup_pin_suspend_second_function(gpio_index);
+            }
+
+            if (gpio_index < BITS_INT)
+            {
+                gpio_index_map_l |= BIT(gpio_index);
+
+                if (gpio_index < BITS_INT/2) {
+                    gpio_type_map_l |= gpio_type << (gpio_index * 2);
+                } else {
+                    gpio_type_map_m |= gpio_type << ((gpio_index - BITS_INT/2) * 2);
+                }
+            }
+            else
+            {
+                gpio_index_map_h |= BIT(gpio_index - BITS_INT);
+
+                if (gpio_index < BITS_INT/2*3) {
+                    gpio_type_map_h |= gpio_type << ((gpio_index - BITS_INT/2*3) * 2);
+                } else {
+                    ;// not supportted yet
+                }
+            }
+
+            if (sctrl_get_deep_sleep_gpio_floating_map() & (0x01ULL << gpio_index))
+            {
+                param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT);
+            } else {
+                if (gpio_type == LOW_LEVEL || gpio_type == NEGEDGE) {
+                    param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT_PULLUP);
+                } else if (gpio_type == HIGH_LEVEL || gpio_type == POSEDGE) {
+                    param = GPIO_CFG_PARAM(gpio_index, GMODE_INPUT_PULLDOWN);
+                }
+            }
+            sddev_control(GPIO_DEV_NAME, CMD_GPIO_CFG, &param);
+        }
+    }
+
+    REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS, 0xFFFFFFFF);
+    REG_WRITE(SCTRL_GPIO_WAKEUP_INT_STATUS1, 0xFF);
+
+    REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_L, gpio_type_map_l);
+    REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_M, gpio_type_map_m);
+    REG_WRITE(SCTRL_GPIO_WAKEUP_TYPE_H, gpio_type_map_h);
+
+    REG_WRITE(SCTRL_GPIO_WAKEUP_EN, gpio_index_map_l);
+    REG_WRITE(SCTRL_GPIO_WAKEUP_EN1, gpio_index_map_h);
 
     UINT32 reg = REG_READ(SCTRL_SYS_WKUP);
     reg |= SYS_WKUP_EN_GPIO_BIT;
@@ -1357,12 +1487,19 @@ void sctrl_enable_gpio_wakeup(void)
 
 void sctrl_restore_gpio_wakeup(void)
 {
-    /* restore uart for all wake source */
-    REG_WRITE(GPIO_BASE_ADDR + sctrl_mcu_ps_info.wakeup_gpio_index * 4,sctrl_mcu_ps_info.gpio_config_backup);
-    gpio_wakeup_pin_recover_second_function(sctrl_mcu_ps_info.wakeup_gpio_index);
+    UINT32 gpio_index;
+    for (int i = 0; i < WAKEUP_GPIO_NUM; i++)
+    {
+        gpio_index = wakeup_gpio_nodes[i].wakeup_gpio_index;
+        if (gpio_index == GPIO10)
+        {
+            REG_WRITE(GPIO_BASE_ADDR + gpio_index * 4, sctrl_mcu_ps_info.gpio_config_backup);
+            gpio_wakeup_pin_recover_second_function(gpio_index);
+        }
+    }
 
     /* only when wake source is gpio will we exit ps */
-#if !(CFG_SOC_NAME == SOC_BK7252N)
+    #if !(CFG_SOC_NAME == SOC_BK7252N)
     if (REG_READ(SCTRL_GPIO_WAKEUP_INT_STATUS))
     {
         REG_WRITE(SCTRL_GPIO_WAKEUP_EN, 0x0);
@@ -1757,7 +1894,7 @@ void sctrl_hw_wakeup(void)
         // sctrl_modem_clock_enable();
         // sctrl_ctrl(CMD_SCTRL_MODEM_POWERUP, NULL);
 
-        if (bk_wlan_has_role(VIF_STA) && lv_ps_mac_pwd_en)
+        if (lv_ps_mac_need_restore)
         {
             sctrl_mac_clock_enable();
             sctrl_ctrl(CMD_SCTRL_MAC_POWERUP, NULL);
@@ -2143,11 +2280,23 @@ void sctrl_mcu_sleep(UINT32 peri_clk)
 
 static void sctrl_mcu_ps_info_init(void)
 {
+    WAKEUP_GPIO_NODE node = DEFAULT_WAKEUP_GPIO_NODE;
+
+    for (int i = 0; i < WAKEUP_GPIO_NUM; i++)
+    {
+        wakeup_gpio_nodes[i].wakeup_gpio_index = node.wakeup_gpio_index;
+        wakeup_gpio_nodes[i].wakeup_gpio_type = node.wakeup_gpio_type;
+
+        if (i == 0)
+        {
+            node.wakeup_gpio_index = WAKEUP_GPIO_INDEX_INVALID;
+            node.wakeup_gpio_type = WAKEUP_GPIO_TYPE_INVALID;
+        }
+    }
+
     sctrl_mcu_ps_info.hw_sleep = 0;
     sctrl_mcu_ps_info.mcu_use_dco = 0;
     sctrl_mcu_ps_info.first_sleep = 1;
-    sctrl_mcu_ps_info.wakeup_gpio_index = GPIO16;
-    sctrl_mcu_ps_info.wakeup_gpio_type = POSEDGE;
 }
 
 UINT32 sctrl_mcu_wakeup(void)
@@ -4831,8 +4980,13 @@ UINT32 sctrl_ctrl(UINT32 cmd, void *param)
 
     case CMD_SCTRL_CLOSE_ADC_MIC_ANALOG:
         reg = sctrl_analog_get(SCTRL_ANALOG_CTRL8);
-        reg &= ~(AUD_MIC_MODE_EN);
+        reg &= ~(AUD_BIAS_EN | AUD_ADC_BIAS_EN | AUD_MIC_BIAS_EN);
         sctrl_analog_set(SCTRL_ANALOG_CTRL8, reg);
+
+        reg = sctrl_analog_get(SCTRL_ANALOG_CTRL9);
+        reg &= ~(AUD_MIC_MODE_EN);
+        sctrl_analog_set(SCTRL_ANALOG_CTRL9, reg);
+
         break;
 
     case CMD_SCTRL_ENALBLE_ADC_LINE_IN:

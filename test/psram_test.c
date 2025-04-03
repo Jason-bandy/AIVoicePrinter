@@ -44,7 +44,7 @@ static void psram_mem_rw_test(uint32_t start_address, uint32_t size)
     {
         if (*p_uint8_t != (uint8_t)i)
         {
-            printf("rd:%x,wd:%x\r\n",(uint8_t)*p_uint8_t, (uint8_t)i);
+            printf("err i=%d, rd:%x,wd:%x\r\n", i, (uint8_t)*p_uint8_t, (uint8_t)i);
             break;
         }
         p_uint8_t++;
@@ -69,7 +69,7 @@ static void psram_mem_api_test(int argc, char * argv [])
 
     if(bpsram_init == 0)
     {
-        psram_init(0,2);//NOTE:should set according to the actual situation! here default set as 1 line;3.3v
+        psram_init(1,2);//NOTE:should set according to the actual situation! here default set as 1 line;3.3v
         bpsram_init = 1;
     }
 

@@ -697,6 +697,13 @@ void *rt_malloc(rt_size_t size)
             if (heap == &_heap)
                 continue;
 
+            #if defined(RT_USING_QSPI_PSRAM_HEAP)
+            /* not allocate in the qspi psram heap */
+            extern struct rt_memheap _psram_heap;
+            if (heap == &_psram_heap)
+                continue;
+            #endif
+
             ptr = rt_memheap_alloc(heap, size);
             if (ptr != RT_NULL)
                 break;

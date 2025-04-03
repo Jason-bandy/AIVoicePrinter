@@ -28,8 +28,8 @@
 
 #if CFG_USE_SPI_MST_PSRAM
 
-#if !CFG_USE_SPI_MASTER
-#error "SPI PSRAM NEED CFG_USE_SPI_MASTER ENABLE!!!"
+#if ((!CFG_USE_SPI) || (!CFG_USE_SPI_MASTER))
+#error "SPI PSRAM NEED CFG_USE_SPI and (CFG_USE_SPI_MASTER or CFG_USE_SPI_DMA_MASTER) ENABLE!!!"
 #endif
 
 #define PSRAM_CMD_SET_BURST               0xC0
@@ -92,7 +92,14 @@ int32_t spi_psram_init(void)
     spi_psram_enable_voltage();
     spi_psram_init_extral_gpio();
 
-    return bk_spi_master_init(SPI_DEF_CLK_HZ, SPI_DEF_MODE);
+    SPI_CFG_ST cfg;
+    cfg.u.value = 0;
+    cfg.u.cpha = 0;
+    cfg.u.cpol = 0;
+    cfg.u.lsb = 0;
+
+    cfg.u.slave = 0;
+    return bk_spi_master_init(SPI_DEF_CLK_HZ, cfg);
 }
 
 int32_t spi_psram_burst_set(uint32_t burst_size)

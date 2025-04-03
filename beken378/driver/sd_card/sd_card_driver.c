@@ -24,6 +24,8 @@
 #include "sys_ctrl_pub.h"
 #include "rtos_pub.h"
 #include "sdio_reg.h"
+
+#if(CFG_ENABLE_SDIO_DEV)
 #if CONFIG_SDIO_V2P0
 //TODO:These private API should move to private header file.
 extern void bk_sdio_host_reset_sd_state(void);
@@ -1928,4 +1930,5 @@ void sdcard_exit(void)
 {
     bk_sd_card_deinit();
 }
+#endif // CFG_ENABLE_SDIO_DEV
 // eof

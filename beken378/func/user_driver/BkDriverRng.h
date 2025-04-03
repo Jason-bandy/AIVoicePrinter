@@ -59,6 +59,7 @@
  */
 OSStatus BkRandomNumberRead( void *inBuffer, int inByteCount );
 
+int bk_rand(void);
 /** @} */
 /** @} */
 

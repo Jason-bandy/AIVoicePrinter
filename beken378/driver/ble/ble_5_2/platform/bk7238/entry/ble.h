@@ -35,6 +35,7 @@ enum
     BLE_DUT_EXIT,
     BLE_MSG_SLEEP,
     BLE_MSG_NULL,
+    BLE_MSG_TO_HOST_HCI,
     BLE_THREAD_EXIT,
 };
 
@@ -54,6 +55,8 @@ void ble_switch_rf_to_wifi(void);
 void ble_entry(void);
 void ble_thread_exit(void);
 bool ble_thread_is_up(void);
+bool ble_thread_is_busy(void);
+bool ble_stack_is_ready(void);
 void ble_set_ext_wkup(uint8_t enable);
 void ble_coex_set_pta(bool enable);
 bool ble_coex_pta_is_on(void);

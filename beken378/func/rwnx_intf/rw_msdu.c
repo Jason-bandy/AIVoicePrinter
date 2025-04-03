@@ -36,6 +36,7 @@
 #include "lwip/prot/udp.h"
 #include "lwip/prot/dhcp.h"
 #endif
+#include "lwip/sockets.h"
 
 #include "arm_arch.h"
 #if CFG_GENERAL_DMA
@@ -1470,7 +1471,6 @@ u8 rwn_mgmt_is_only_sta_role_add(void)
     return 0;
 }
 
-#include "lwip/sockets.h"
 extern uint8_t* dhcp_lookup_mac(uint8_t *chaddr);
 
 void rwn_mgmt_show_vif_peer_sta_list(UINT8 role)
