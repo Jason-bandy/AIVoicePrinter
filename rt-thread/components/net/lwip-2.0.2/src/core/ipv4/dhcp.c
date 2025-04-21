@@ -167,6 +167,12 @@ static u8_t dhcp_discover_request_options[] = {
 static u32_t xid;
 static u8_t xid_initialised;
 #endif /* DHCP_GLOBAL_XID */
+
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+static u8_t is_fast_dhcp =0;
+ip4_addr_t fast_dhcp_ipaddr = {.addr = 0};
+#endif
+
 static beken2_timer_t dhcp_tmr = {0};
 
 #define dhcp_option_given(dhcp, idx)          (dhcp_rx_options_given[idx] != 0)
@@ -214,6 +220,13 @@ static void dhcp_option_hostname(struct dhcp *dhcp, struct netif *netif);
 #endif /* LWIP_NETIF_HOSTNAME */
 /* always add the DHCP options trailer to end and pad */
 static void dhcp_option_trailer(struct dhcp *dhcp);
+
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+void dhcp_set_fast_dhcp_ip_address(ip4_addr_t ip)
+{
+    fast_dhcp_ipaddr = ip;
+}
+#endif
 
 /** Ensure DHCP PCB is allocated and bound */
 static err_t
@@ -375,8 +388,13 @@ dhcp_select(struct netif *netif)
     dhcp_option(dhcp, DHCP_OPTION_REQUESTED_IP, 4);
     dhcp_option_long(dhcp, lwip_ntohl(ip4_addr_get_u32(&dhcp->offered_ip_addr)));
 
-    dhcp_option(dhcp, DHCP_OPTION_SERVER_ID, 4);
-    dhcp_option_long(dhcp, lwip_ntohl(ip4_addr_get_u32(ip_2_ip4(&dhcp->server_ip_addr))));
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+    if (lwip_ntohl(ip4_addr_get_u32(ip_2_ip4(&dhcp->server_ip_addr))) != 0 )
+#endif
+    {
+      dhcp_option(dhcp, DHCP_OPTION_SERVER_ID, 4);
+      dhcp_option_long(dhcp, lwip_ntohl(ip4_addr_get_u32(ip_2_ip4(&dhcp->server_ip_addr))));
+    }
 
     dhcp_option(dhcp, DHCP_OPTION_PARAMETER_REQUEST_LIST, LWIP_ARRAYSIZE(dhcp_discover_request_options));
     for (i = 0; i < LWIP_ARRAYSIZE(dhcp_discover_request_options); i++) {
@@ -800,6 +818,10 @@ dhcp_start(struct netif *netif)
     return ERR_MEM;
   }
 
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+  is_fast_dhcp = 0;
+#endif
+
   /* no DHCP client attached yet? */
   if (dhcp == NULL) {
     LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_start(): starting new DHCP client\n"));
@@ -842,6 +864,16 @@ dhcp_start(struct netif *netif)
     return ERR_OK;
   }
 #endif /* LWIP_DHCP_CHECK_LINK_UP */
+
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+  dhcp->offered_ip_addr = fast_dhcp_ipaddr;
+  if (lwip_ntohl(ip4_addr_get_u32(&dhcp->offered_ip_addr)) != 0)
+  {
+    is_fast_dhcp = 1;
+    result = dhcp_reboot(netif);
+    return result;
+  }
+#endif
 
   /* (re)start the DHCP negotiation */
   result = dhcp_discover(netif);
@@ -1032,6 +1064,9 @@ dhcp_discover(struct netif *netif)
   u16_t msecs;
   u8_t i;
   LWIP_DEBUGF(DHCP_DEBUG | LWIP_DBG_TRACE, ("dhcp_discover()\n"));
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+  is_fast_dhcp = 0;
+#endif
   ip4_addr_set_any(&dhcp->offered_ip_addr);
   dhcp_set_state(dhcp, DHCP_STATE_SELECTING);
   /* create and initialize the DHCP message header */
@@ -1908,7 +1943,11 @@ dhcp_create_msg(struct netif *netif, struct dhcp *dhcp, u8_t message_type)
            (dhcp->p_out->len >= sizeof(struct dhcp_msg)));
 
   /* DHCP_REQUEST should reuse 'xid' from DHCPOFFER */
+#if CFG_WLAN_SUPPORT_FAST_DHCP
+  if ((is_fast_dhcp == 1) || (message_type != DHCP_REQUEST)) {
+#else
   if (message_type != DHCP_REQUEST) {
+#endif
     /* reuse transaction identifier in retransmissions */
     if (dhcp->tries == 0) {
 #if DHCP_CREATE_RAND_XID && defined(LWIP_RAND)

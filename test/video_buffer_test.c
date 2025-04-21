@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -16,11 +30,12 @@ void vbuf(int argc, char** argv)
     {
         video_buffer_open();
     }
-    else if(strcmp(argv[1], "read") == 0)
+    else if(strcmp(argv[1], "read") == 0)
     {
-        uint8_t *mybuf, i;
+        uint8_t *mybuf;
         uint32_t my_len;
-        
+        int get_ret = 0;
+
         my_len = atoi(argv[2]);
         mybuf = os_malloc(my_len);
 
@@ -30,7 +45,7 @@ void vbuf(int argc, char** argv)
             return;
         }
 
-        my_len = video_buffer_read_frame(mybuf, my_len);
+        my_len = video_buffer_read_frame(mybuf, my_len, &get_ret, RT_WAITING_FOREVER);
         rt_kprintf("frame_len: %d\r\n", my_len);
 
         if(0)
@@ -52,7 +67,7 @@ void vbuf(int argc, char** argv)
     else if(strcmp(argv[1], "setp") == 0)
     {
         uint32_t ppi, pfs;
-        
+
         ppi = atoi(argv[2]);
         pfs = atoi(argv[3]);
         video_transfer_set_video_param(ppi, pfs);
@@ -60,7 +75,7 @@ void vbuf(int argc, char** argv)
     else
     {
         rt_kprintf("vbuf open/read len/close/setp ppi pfs\r\n");
-    }    
+    }
 }
 MSH_CMD_EXPORT(vbuf, vbuf);
 
@@ -73,7 +88,7 @@ void sccb_read(int argc, char** argv)
     u8 data = 0;
 
     hexstr2bin(argv[1], &addr, 1);
-    
+
     camera_intf_sccb_read(addr, &data);
 
     rt_kprintf("r:0x%02x: 0x%02x\r\n", addr, data);
@@ -89,7 +104,7 @@ void sccb_write(int argc, char** argv)
     hexstr2bin(argv[2], &data, 1);
 
     rt_kprintf("w:0x%02x: 0x%02x\r\n", addr, data);
-    
+
     camera_intf_sccb_write(addr, data);
 }
 MSH_CMD_EXPORT(sccb_write, sccb_write);

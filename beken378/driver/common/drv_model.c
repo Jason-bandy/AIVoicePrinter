@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "arm_arch.h"
 
@@ -129,7 +143,7 @@ DD_HANDLE ddev_open(char *dev_name, UINT32 *status, UINT32 op_flag)
                 {
                     *status = (operation->open)(op_flag);
                 }
-                
+
                 GLOBAL_INT_DISABLE();
                 dev_ptr->state = DD_STATE_OPENED;
                 dev_ptr->use_cnt = 0;
@@ -180,7 +194,7 @@ UINT32 ddev_close(DD_HANDLE handle)
         }
 
         ASSERT(dev_ptr);
-        
+
         GLOBAL_INT_DISABLE();
         dev_ptr->state = DD_STATE_CLOSED;
         GLOBAL_INT_RESTORE();

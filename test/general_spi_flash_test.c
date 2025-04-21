@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -23,9 +37,15 @@
 void gspi_flash_test(int argc, char** argv)
 {
     struct rt_device *flash;
+    rt_uint16_t rate = 0;  // Mhz
 
     /*find device*/
     flash = rt_device_find("spi_flash");
+    if(argc > 1)
+    {
+        /* set with X Mhz*/
+        rate = atoi(argv[1]);
+    }
     if (flash == NULL)
     {
         rt_kprintf("psram not found \n");
@@ -37,7 +57,7 @@ void gspi_flash_test(int argc, char** argv)
         return;
     }
     /*open device*/
-    if (rt_device_open(flash, 0) != RT_EOK)
+    if (rt_device_open(flash, rate) != RT_EOK)
     {
         return;
     }
@@ -45,7 +65,7 @@ void gspi_flash_test(int argc, char** argv)
     uint8_t buffer[FTEST_BUF_SIZE], *ptr;
     int i;
 
-    rt_kprintf("[SPIFLASH]: SPIFLASH test begin\n");
+    rt_kprintf("[SPIFLASH]: SPIFLASH test begin, rate:%d\n", rate);
     rt_memset(buffer, 0, FTEST_BUF_SIZE);
 
     /*read device*/
@@ -72,7 +92,7 @@ void gspi_flash_test(int argc, char** argv)
         if((i+1)%16 == 0)
             rt_kprintf("\r\n");
     }
-    rt_kprintf("\r\n");      
+    rt_kprintf("\r\n");
 
     /*disable flash's protect bit */
     rt_device_control(flash, BK_SPI_FLASH_UNPROTECT_CMD, NULL);
@@ -100,7 +120,7 @@ void gspi_flash_test(int argc, char** argv)
     rt_kprintf("\r\n");
 
     /*earse flash */
-    rt_kprintf("earase\r\n");      
+    rt_kprintf("earase\r\n");
     BK_SPIFLASH_ERASE_ST erase_st;
     erase_st.addr = FTEST_ADDR;
     erase_st.size = 4 * 1024;

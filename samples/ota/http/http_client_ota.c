@@ -192,7 +192,7 @@ static int http_ota_fw_download(const char *uri)
                 log_i("OTA file raw size %d bytes.", raw_size); 
 
                 // Gets the describe partition name of the OTA file
-                rt_strncpy(desc_part_name, &buffer_read[12], 16);
+                rt_strncpy(desc_part_name, (const char *)&buffer_read[12], 16);
 
                 /* dump new firmware info. */
                 {

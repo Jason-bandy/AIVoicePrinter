@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -54,9 +68,9 @@ struct audio_codec_device
     rt_uint32_t stat;
     rt_uint32_t dma_irq_cnt;
     rt_uint32_t volume;
-	rt_uint32_t paused;
-	rt_uint32_t fill_pos;
-	rt_uint32_t fill_size;
+    rt_uint32_t paused;
+    rt_uint32_t fill_pos;
+    rt_uint32_t fill_size;
 };
 
 static struct audio_codec_device _g_audio_codec;
@@ -208,7 +222,7 @@ int rt_data_node_read(struct rt_data_node_list *node_list, void *buffer, rt_uint
             {
                 memcpy((char *)buffer + read_offset, node->data_ptr + data_offset, copy_size);
             }
-            
+
             read_offset += copy_size;
             data_offset += copy_size;
             node_list->data_offset = data_offset;
@@ -253,10 +267,10 @@ void rt_data_node_empty(struct rt_data_node_list *node_list)
     rt_base_t level;
 
     level = rt_hw_interrupt_disable();
-    
+
     while(rt_data_node_is_empty(node_list) == RT_FALSE)
     {
-        rt_data_node_read(node_list, RT_NULL, 1024); 
+        rt_data_node_read(node_list, RT_NULL, 1024);
     }
 
     rt_hw_interrupt_enable(level);
@@ -328,7 +342,7 @@ static rt_err_t audio_codec_init(rt_device_t dev)
     struct audio_codec_device *audio = RT_NULL;
 
     audio = (struct audio_codec_device *)dev;
-    
+
     /* DAC Init */
     audio_dac_set_enable_bit(0);
     audio_dac_set_sample_rate(AUDIO_DAC_DEF_SAMPLE_RATE);
@@ -337,10 +351,10 @@ static rt_err_t audio_codec_init(rt_device_t dev)
 
     audio->volume = AUDIO_DAC_DEF_VOLUME;
     audio_dac_set_volume(audio->volume);
-#if AUD_USE_EXT_PA
+    #if AUD_USE_EXT_PA
     audio_dac_init_mute_pin();
     audio_dac_eable_mute(1);
-#endif
+    #endif
 
     audio_dac_set_int_enable_bit(0);
     audio_dac_open_analog_regs();
@@ -358,29 +372,29 @@ static rt_err_t audio_codec_open(rt_device_t dev, rt_uint16_t oflag)
     audio = (struct audio_codec_device *)dev;
     if ((oflag & RT_DEVICE_OFLAG_WRONLY) && (!(audio->stat & DAC_IS_OPENED)))
     {
-#if AUD_USE_EXT_PA
+        #if AUD_USE_EXT_PA
         audio_dac_eable_mute(1);
-#endif
+        #endif
         _g_audio_codec.dma_irq_cnt = 0;
         dac_dma_addr_reset();
         dac_dma_enable(1);
-#if AVOID_POP_NOISE	
-long tick = rt_tick_get();
-	while(1)
-	{
-		if(rt_tick_get() - tick > 4)
-			break;
-	}
-#endif
+        #if AVOID_POP_NOISE
+        long tick = rt_tick_get();
+        while(1)
+        {
+            if(rt_tick_get() - tick > 4)
+                break;
+        }
+        #endif
         audio_dac_open_analog_regs();
         audio_dac_set_enable_bit(1);
         audio->stat |= (DAC_DMA_IRQ_ENABLE | DAC_IS_OPENED);
 
         audio_dac_set_analog_mute(0);
-#if AUD_USE_EXT_PA
+        #if AUD_USE_EXT_PA
         if(audio->volume != 0)
             audio_dac_eable_mute(0);
-#endif
+        #endif
         codec_printf("[icodec]:open sound device \n");
     }
 
@@ -392,28 +406,28 @@ static rt_size_t audio_codec_write(rt_device_t dev, rt_off_t pos,
 {
     int ret;
     struct audio_codec_device *audio = RT_NULL;
-	rt_uint32_t result;
+    rt_uint32_t result;
 
     audio = (struct audio_codec_device *)dev;
     ret = rt_data_node_write(audio->node_list, (void *)buffer, size);
 
-#ifdef PAUSE_EN
-	if (audio->paused)
-	{    
-	    result = rt_data_node_read(audio->node_list, (void*)audio->fill_pos, audio->fill_size);
+    #ifdef PAUSE_EN
+    if (audio->paused)
+    {
+        result = rt_data_node_read(audio->node_list, (void*)audio->fill_pos, audio->fill_size);
 
-		if (result == audio->fill_size)
-		{
-		    audio->paused = 0;
-			dac_dma_addr_reset();
-		}
-		else
-		{
-		    audio->fill_pos += result;
-			audio->fill_size -= result;
-		}
-	}
-#endif
+        if (result == audio->fill_size)
+        {
+            audio->paused = 0;
+            dac_dma_addr_reset();
+        }
+        else
+        {
+            audio->fill_pos += result;
+            audio->fill_size -= result;
+        }
+    }
+    #endif
     return ret;
 }
 
@@ -441,52 +455,52 @@ static rt_err_t audio_codec_control(rt_device_t dev, int cmd, void *args)
     case CODEC_CMD_SAMPLERATE:
     {
         rt_uint32_t freq = *(rt_uint32_t *)args;
-		static rt_uint32_t freq_back = AUDIO_DAC_DEF_SAMPLE_RATE;
-		if(freq != freq_back)
-		{
-			freq_back = freq;
-	#if !CONFIG_SOUND_MIXER
-	        #if AUD_USE_EXT_PA
-			rt_kprintf("\r\n\r\n===%s:%d===\r\n",__FUNCTION__,__LINE__);
-	        audio_dac_eable_mute(1);
-	        #endif
-	#endif
-	        if ((audio->stat & DAC_IS_OPENED))
-	        {
-	            audio_dac_set_enable_bit(0);
-	            dac_dma_enable(0);
-		    	
-	            audio_dac_set_sample_rate(freq);
-	            audio_dac_set_enable_bit(1);
-	            dac_dma_enable(1);
-	        }
-	        else 
-	        {
-	            audio_dac_set_sample_rate(freq);
-	        }
-	        rt_kprintf("set_dac_sample_rate %d \r\n", freq);
-	        
-	    #if AUD_USE_EXT_PA
-	        if ((audio->stat & DAC_IS_OPENED) && (audio->volume != 0))
-	        {
-	        	rt_kprintf("\r\n\r\n===%s:%d===\r\n",__FUNCTION__,__LINE__);
-			#if !CONFIG_SOUND_MIXER	
-	            audio_dac_eable_mute(0);
-			#endif
-	        }
-	    #endif
-		}
+        static rt_uint32_t freq_back = AUDIO_DAC_DEF_SAMPLE_RATE;
+        if(freq != freq_back)
+        {
+            freq_back = freq;
+            #if !CONFIG_SOUND_MIXER
+            #if AUD_USE_EXT_PA
+            rt_kprintf("\r\n\r\n===%s:%d===\r\n",__FUNCTION__,__LINE__);
+            audio_dac_eable_mute(1);
+            #endif
+            #endif
+            if ((audio->stat & DAC_IS_OPENED))
+            {
+                audio_dac_set_enable_bit(0);
+                dac_dma_enable(0);
+
+                audio_dac_set_sample_rate(freq);
+                audio_dac_set_enable_bit(1);
+                dac_dma_enable(1);
+            }
+            else
+            {
+                audio_dac_set_sample_rate(freq);
+            }
+            rt_kprintf("set_dac_sample_rate %d \r\n", freq);
+
+            #if AUD_USE_EXT_PA
+            if ((audio->stat & DAC_IS_OPENED) && (audio->volume != 0))
+            {
+                rt_kprintf("\r\n\r\n===%s:%d===\r\n",__FUNCTION__,__LINE__);
+                #if !CONFIG_SOUND_MIXER
+                audio_dac_eable_mute(0);
+                #endif
+            }
+            #endif
+        }
         break;
     }
 
-	case CODEC_CMD_RESET:
-	{
-		rt_data_node_empty(audio->node_list); 
-		break;       
-	}
+    case CODEC_CMD_RESET:
+    {
+        rt_data_node_empty(audio->node_list);
+        break;
+    }
 
     default:
-	break;
+        break;
     }
 
     return RT_EOK;
@@ -501,21 +515,21 @@ static rt_err_t audio_codec_close(rt_device_t dev)
     stat = audio->stat;
 
     /* DAC */
-    if (((stat & DAC_DMA_IRQ_ENABLE) || (stat & DAC_IRQ_ENABLE)) && 
-        (stat & DAC_IS_OPENED))
+    if (((stat & DAC_DMA_IRQ_ENABLE) || (stat & DAC_IRQ_ENABLE)) &&
+            (stat & DAC_IS_OPENED))
     {
-#if AUD_USE_EXT_PA
+        #if AUD_USE_EXT_PA
         audio_dac_eable_mute(1);
-#endif
+        #endif
 
         // wait_node_free(audio->node_list);
-		rt_data_node_empty(audio->node_list); 
+        rt_data_node_empty(audio->node_list);
 
         //dac_dma_enable(0);
         audio_dac_set_analog_mute(1);
-       //audio_dac_set_enable_bit(0);
-       //audio_dac_set_int_enable_bit(0);
-       //audio_dac_close_analog_regs();
+        //audio_dac_set_enable_bit(0);
+        //audio_dac_set_int_enable_bit(0);
+        //audio_dac_close_analog_regs();
         stat &= ~(DAC_DMA_IRQ_ENABLE | DAC_IRQ_ENABLE | DAC_IS_OPENED);
     }
 
@@ -547,13 +561,13 @@ void dac_dma_half_handler(UINT32 flag)
     result = rt_data_node_is_empty(audio->node_list);
     if (result)
     {
-    #ifdef PAUSE_EN
+        #ifdef PAUSE_EN
         dac_dma_pause_addr_set((UINT32)audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE -4));
-		audio->paused = 1;
-		audio->fill_pos = (UINT32)audio->send_fifo;
-		audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2;
-	#endif
-		
+        audio->paused = 1;
+        audio->fill_pos = (UINT32)audio->send_fifo;
+        audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2;
+        #endif
+
         //rt_kprintf("#1 ");
         if (print_cnt == 0)
         {
@@ -569,15 +583,15 @@ void dac_dma_half_handler(UINT32 flag)
         memset(audio->send_fifo, 0, AUDIO_SEND_BUFFER_SIZE / 2);
         result = rt_data_node_read(audio->node_list, audio->send_fifo, AUDIO_SEND_BUFFER_SIZE / 2);
 
-     #ifdef PAUSE_EN
-		if (result < (AUDIO_SEND_BUFFER_SIZE / 2))
-		{
-			dac_dma_pause_addr_set((UINT32)audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE -4));
-			audio->paused = 1;
-		    audio->fill_pos = (UINT32)audio->send_fifo + result;
-		    audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2 - result;
-		}
-	#endif
+        #ifdef PAUSE_EN
+        if (result < (AUDIO_SEND_BUFFER_SIZE / 2))
+        {
+            dac_dma_pause_addr_set((UINT32)audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE -4));
+            audio->paused = 1;
+            audio->fill_pos = (UINT32)audio->send_fifo + result;
+            audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2 - result;
+        }
+        #endif
     }
 }
 
@@ -591,12 +605,12 @@ void dac_dma_finish_handler(UINT32 flag)
     result = rt_data_node_is_empty(audio->node_list);
     if (result)
     {
-    #ifdef PAUSE_EN
+        #ifdef PAUSE_EN
         dac_dma_pause_addr_set((UINT32)audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE / 2 -4));
-		audio->paused = 1;
-		audio->fill_pos = (UINT32)audio->send_fifo + AUDIO_SEND_BUFFER_SIZE / 2;
-		audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2;
-	#endif
+        audio->paused = 1;
+        audio->fill_pos = (UINT32)audio->send_fifo + AUDIO_SEND_BUFFER_SIZE / 2;
+        audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2;
+        #endif
         //rt_kprintf("* ");
         memset(audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE / 2), 0, AUDIO_SEND_BUFFER_SIZE / 2);
     }
@@ -604,15 +618,15 @@ void dac_dma_finish_handler(UINT32 flag)
     {
         memset(audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE / 2), 0, AUDIO_SEND_BUFFER_SIZE / 2);
         result = rt_data_node_read(audio->node_list, audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE / 2), AUDIO_SEND_BUFFER_SIZE / 2);
-	#ifdef PAUSE_EN
-		if (result < (AUDIO_SEND_BUFFER_SIZE / 2))
-		{
-			dac_dma_pause_addr_set((UINT32)audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE / 2 -4));
-			audio->paused = 1;
-		    audio->fill_pos = (UINT32)audio->send_fifo + AUDIO_SEND_BUFFER_SIZE / 2 + result;
-		    audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2 - result;
-		}
-	#endif
+        #ifdef PAUSE_EN
+        if (result < (AUDIO_SEND_BUFFER_SIZE / 2))
+        {
+            dac_dma_pause_addr_set((UINT32)audio->send_fifo + (AUDIO_SEND_BUFFER_SIZE / 2 -4));
+            audio->paused = 1;
+            audio->fill_pos = (UINT32)audio->send_fifo + AUDIO_SEND_BUFFER_SIZE / 2 + result;
+            audio->fill_size = AUDIO_SEND_BUFFER_SIZE / 2 - result;
+        }
+        #endif
     }
 }
 
@@ -677,14 +691,13 @@ int rt_audio_codec_hw_init(void)
     }
 
     audio_init();
-	
-#if (USING_DEMO_BOARD == 1)
+
+    #if(CFG_AUD_DAC_USE_PORT_SET == CFG_AUD_DAC_SINGLE_PORT)
     audio_dac_volume_use_single_port();
-#else
+    #else
     audio_dac_volume_diff_port();
-#endif
-    //audio_dac_volume_use_single_port();
-    
+    #endif
+
     audio->send_fifo = sdram_malloc(AUDIO_SEND_BUFFER_SIZE);
     if ((UINT32)audio->send_fifo == RT_NULL)
     {
@@ -704,20 +717,20 @@ int rt_audio_codec_hw_init(void)
     audio->parent.tx_complete = RT_NULL;
     audio->parent.user_data   = RT_NULL;
 
-#ifdef RT_USING_DEVICE_OPS
+    #ifdef RT_USING_DEVICE_OPS
     device->ops = &audio_icodec_ops;
-#else
+    #else
     device->control = audio_codec_control;
     device->init    = audio_codec_init;
     device->open    = audio_codec_open;
     device->close   = audio_codec_close;
     device->read    = RT_NULL;
     device->write   = audio_codec_write;
-#endif /* RT_USING_DEVICE_OPS */
+    #endif /* RT_USING_DEVICE_OPS */
 
     /* register the device */
-    rt_device_register(&audio->parent, "sound", 
-        RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_WRONLY | RT_DEVICE_FLAG_DMA_TX);
+    rt_device_register(&audio->parent, "sound",
+                       RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_WRONLY | RT_DEVICE_FLAG_DMA_TX);
 
     rt_device_init(&audio->parent);
 

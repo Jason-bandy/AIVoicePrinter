@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef __AUDIO_PUB_H__
 #define __AUDIO_PUB_H__
 
@@ -10,8 +24,8 @@ enum CODEC_STATE
     ADC_DMA_IRQ_ENABLE = 0x02,
     DAC_IRQ_ENABLE     = 0x04,
     ADC_IRQ_ENABLE     = 0x08,
-    DAC_IS_OPENED      = 0x10,    
-    ADC_IS_OPENED      = 0x40,    
+    DAC_IS_OPENED      = 0x10,
+    ADC_IS_OPENED      = 0x40,
 };
 
 #define AUD_DAC_DEV_NAME             "aud_dac"
@@ -30,7 +44,7 @@ typedef struct aud_dac_cfg_st
     void (*buf_finish_cb)(UINT8 *buf, void *usr_data);
     void *usr_data;
     #endif
-    
+
 } AUD_DAC_CFG_ST, *AUD_DAC_CFG_PTR;
 
 enum
@@ -39,7 +53,7 @@ enum
     AUD_DAC_CMD_PLAY,
     AUD_DAC_CMD_PAUSE,
     AUD_DAC_CMD_SET_SAMPLE_RATE,
-    AUD_DAC_CMD_SET_VOLUME,    
+    AUD_DAC_CMD_SET_VOLUME,
 };
 
 #define AUD_DAC_VOL_TABLE_LEN       (17)

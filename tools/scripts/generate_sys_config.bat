@@ -114,6 +114,7 @@ if !new_hash! neq !old_hash! (
 )
 
 %ARM_GCC_TOOLCHAIN%arm-none-eabi-gcc -E -x c -P %new_linkscript% -o link.lds
+%ARM_GCC_TOOLCHAIN%arm-none-eabi-gcc -E -x c -P ./beken378/func/user_driver/BkFlashPartition.h -o ./tools/beken_packager/flash_partition.o -I ./config
 ::copy %new_linkscript% link.lds /Y
 
 echo "  %GREEN%GEN  .config%NC%"

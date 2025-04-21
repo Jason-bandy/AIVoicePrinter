@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "fake_clock_pub.h"
 #include "icu_pub.h"
@@ -35,7 +49,9 @@ void bk_misc_crash_xat0_reboot(void)
 #else
 void bk_misc_crash_xat0_reboot(void)
 {
-    UINT32 wdt_val = 5;
+    extern UINT32 wdt_ctrl(UINT32 cmd, void *param);
+
+    UINT32 wdt_val = 5, parameter;
 
     os_printf("xat0_reboot\r\n");
 
@@ -43,10 +59,11 @@ void bk_misc_crash_xat0_reboot(void)
 
     GLOBAL_INT_DISABLE();
 
-    sddev_control(WDT_DEV_NAME, WCMD_POWER_DOWN, NULL);
+    parameter = PWD_ARM_WATCHDOG_CLK_BIT;
+    icu_ctrl(CMD_CLK_PWR_DOWN, (void *)&parameter);
     delay_ms(100);
-    sddev_control(WDT_DEV_NAME, WCMD_SET_PERIOD, &wdt_val);
-    sddev_control(WDT_DEV_NAME, WCMD_POWER_UP, NULL);
+    wdt_ctrl(WCMD_SET_PERIOD, &wdt_val);
+    icu_ctrl(CMD_CLK_PWR_UP, (void *)&parameter);
     while(1);
     GLOBAL_INT_RESTORE();
 }
@@ -60,21 +77,21 @@ RESET_SOURCE_STATUS bk_misc_get_start_type(void)
 #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
 extern UINT32 sctrl_ctrl(UINT32 cmd, void *param);
 //only can be do once
- RESET_SOURCE_STATUS bk_misc_init_start_type(void)
+RESET_SOURCE_STATUS bk_misc_init_start_type(void)
 {
     uint32_t misc_value;
     sctrl_ctrl(CMD_GET_SCTRL_RETETION, &misc_value);
 
-#if CFG_USE_DEEP_PS
+    #if CFG_USE_DEEP_PS
     if((start_type = sctrl_get_deep_sleep_wake_soure()) == 0)
-#else
+    #else
     if(1)
-#endif
+    #endif
     {
         if(0 == (misc_value & SW_RETENTION_WDT_FLAG))
         {
             if((uint32_t)CRASH_XAT0_VALUE ==
-                *((volatile uint32_t *)(START_TYPE_DMEMORY_ADDR)))
+                    *((volatile uint32_t *)(START_TYPE_DMEMORY_ADDR)))
             {
                 start_type = RESET_SOURCE_CRASH_PER_XAT0;
             }
@@ -87,31 +104,36 @@ extern UINT32 sctrl_ctrl(UINT32 cmd, void *param);
         {
             switch(misc_value & SW_RETENTION_VAL_MASK)
             {
-                case (RESET_SOURCE_REBOOT & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_REBOOT;
-                    break;
-                case (CRASH_UNDEFINED_VALUE & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_CRASH_UNDEFINED;
-                    break;
-                case (CRASH_PREFETCH_ABORT_VALUE & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_CRASH_PREFETCH_ABORT;
-                    break;
-                case (CRASH_DATA_ABORT_VALUE & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_CRASH_DATA_ABORT;
-                    break;
-                case (CRASH_UNUSED_VALUE & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_CRASH_UNUSED;
-                    break;
-                case (CRASH_2ND_XAT0_VALUE & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_CRASH_XAT0;
-                    break;
-                case (RESET_SOURCE_WATCHDOG & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_WATCHDOG;
-                    break;
-                case (RESET_SOURCE_FORCE_ATE & SW_RETENTION_VAL_MASK):
-                    start_type = RESET_SOURCE_FORCE_ATE;
-                    break;
-                default:
+            case (RESET_SOURCE_REBOOT & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_REBOOT;
+                break;
+            case (CRASH_UNDEFINED_VALUE & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_CRASH_UNDEFINED;
+                break;
+            case (CRASH_PREFETCH_ABORT_VALUE & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_CRASH_PREFETCH_ABORT;
+                break;
+            case (CRASH_DATA_ABORT_VALUE & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_CRASH_DATA_ABORT;
+                break;
+            case (CRASH_UNUSED_VALUE & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_CRASH_UNUSED;
+                break;
+            case (CRASH_2ND_XAT0_VALUE & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_CRASH_XAT0;
+                break;
+            case (RESET_SOURCE_WATCHDOG & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_WATCHDOG;
+                break;
+            case (RESET_SOURCE_FORCE_ATE & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_FORCE_ATE;
+                break;
+            #if CFG_MEM_CHECK_ENABLE
+            case (RESET_SOURCE_MEM_CHECK & SW_RETENTION_VAL_MASK):
+                start_type = RESET_SOURCE_MEM_CHECK;
+                break;
+            #endif
+            default:
                 start_type = RESET_SOURCE_WATCHDOG;
                 break;
             }
@@ -143,16 +165,16 @@ void bk_misc_check_start_type(void)
         uint32_t misc_value = CRASH_2ND_XAT0_VALUE & SW_RETENTION_VAL_MASK;
         sctrl_ctrl(CMD_SET_SCTRL_RETETION, &misc_value);
 
-#if (0 == CFG_JTAG_ENABLE)
-            bk_misc_crash_xat0_reboot();
-#endif
+        #if (0 == CFG_JTAG_ENABLE)
+        bk_misc_crash_xat0_reboot();
+        #endif
     }
 }
 #else
 
 void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
 {
-#if((START_TYPE_ADDR == 0x0080a080) && (CFG_USE_CAMERA_INTF == 1))// jpeg_quant_table addr base
+    #if((START_TYPE_ADDR == 0x0080a080) && (CFG_USE_CAMERA_INTF == 1))// jpeg_quant_table addr base
     if(ejpeg_is_on())
     {
         if(type == RESET_SOURCE_WATCHDOG)
@@ -168,27 +190,27 @@ void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
             ejpeg_off();
         }
     }
-#endif
+    #endif
 
     *((volatile uint32_t *)(START_TYPE_ADDR)) = (uint32_t)type;
 }
 
 //only can be do once
- RESET_SOURCE_STATUS bk_misc_init_start_type(void)
+RESET_SOURCE_STATUS bk_misc_init_start_type(void)
 {
     uint32_t misc_value = *((volatile uint32_t *)(START_TYPE_ADDR));
 
-#if((START_TYPE_ADDR == 0x0080a080) && (CFG_USE_CAMERA_INTF == 1)) // jpeg_quant_table addr base
+    #if((START_TYPE_ADDR == 0x0080a080) && (CFG_USE_CAMERA_INTF == 1)) // jpeg_quant_table addr base
     if (misc_value == ejpeg_get_quant_base_value())
     {
         // it must happend in: before reset, jpeg was working, while watchdog cause reboot.
         misc_value = RESET_SOURCE_WATCHDOG;
     }
-#endif
+    #endif
 
     if((start_type = sctrl_get_deep_sleep_wake_soure()) == 0)
     {
-#if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231U))
+        #if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231U))
         if((misc_value & CRASH_DEEP_PS_REBOOT_MASK_H) == CRASH_DEEP_PS_REBOOT_VALUE_H)
         {
             uint32_t type = 0, wakeup_gpio_num = 0;
@@ -202,52 +224,52 @@ void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
             start_type = type;
         }
         else
-#endif
+        #endif
         {
             switch(misc_value)
             {
-                case RESET_SOURCE_REBOOT:
-                case RESET_SOURCE_FORCE_ATE:
-                    start_type = misc_value;
-                    break;
-                case CRASH_UNDEFINED_VALUE:
-                    start_type = RESET_SOURCE_CRASH_UNDEFINED;
-                    break;
-                case CRASH_PREFETCH_ABORT_VALUE:
-                    start_type = RESET_SOURCE_CRASH_PREFETCH_ABORT;
-                    break;
-                case CRASH_DATA_ABORT_VALUE:
-                    start_type = RESET_SOURCE_CRASH_DATA_ABORT;
-                    break;
-                case CRASH_UNUSED_VALUE:
-                    start_type = RESET_SOURCE_CRASH_UNUSED;
-                    break;
-                case CRASH_XAT0_VALUE:
-                    start_type = RESET_SOURCE_CRASH_PER_XAT0;
-                    break;
-                case CRASH_2ND_XAT0_VALUE:
-                    start_type = RESET_SOURCE_CRASH_XAT0;
-                    break;
-                case RESET_SOURCE_WATCHDOG:
-                    if((uint32_t)CRASH_XAT0_VALUE ==
+            case RESET_SOURCE_REBOOT:
+            case RESET_SOURCE_FORCE_ATE:
+                start_type = misc_value;
+                break;
+            case CRASH_UNDEFINED_VALUE:
+                start_type = RESET_SOURCE_CRASH_UNDEFINED;
+                break;
+            case CRASH_PREFETCH_ABORT_VALUE:
+                start_type = RESET_SOURCE_CRASH_PREFETCH_ABORT;
+                break;
+            case CRASH_DATA_ABORT_VALUE:
+                start_type = RESET_SOURCE_CRASH_DATA_ABORT;
+                break;
+            case CRASH_UNUSED_VALUE:
+                start_type = RESET_SOURCE_CRASH_UNUSED;
+                break;
+            case CRASH_XAT0_VALUE:
+                start_type = RESET_SOURCE_CRASH_PER_XAT0;
+                break;
+            case CRASH_2ND_XAT0_VALUE:
+                start_type = RESET_SOURCE_CRASH_XAT0;
+                break;
+            case RESET_SOURCE_WATCHDOG:
+                if((uint32_t)CRASH_XAT0_VALUE ==
                         *((volatile uint32_t *)(START_TYPE_DMEMORY_ADDR)))
-                    {
-                        start_type = RESET_SOURCE_CRASH_PER_XAT0;
-                    }
-                    else
-                    {
-                        start_type = misc_value;
-                    }
-                    break;
+                {
+                    start_type = RESET_SOURCE_CRASH_PER_XAT0;
+                }
+                else
+                {
+                    start_type = misc_value;
+                }
+                break;
 
-                default:
-                    start_type = RESET_SOURCE_POWERON;
-                    break;
+            default:
+                start_type = RESET_SOURCE_POWERON;
+                break;
             }
         }
     }
-#if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231U))
-    else 
+    #if ((CFG_SOC_NAME == SOC_BK7221U) || (CFG_SOC_NAME == SOC_BK7231U))
+    else
     {
         uint32_t value = 0, wakeup_gpio_num = 0;
         if(start_type == RESET_SOURCE_DEEPPS_GPIO)
@@ -258,7 +280,7 @@ void bk_misc_update_set_type(RESET_SOURCE_STATUS type)
         *((volatile uint32_t *)(START_TYPE_ADDR)) = (uint32_t)value;
         bk_misc_crash_xat0_reboot();
     }
-#endif
+    #endif
     *((volatile uint32_t *)(START_TYPE_DMEMORY_ADDR)) = (uint32_t)CRASH_XAT0_VALUE;
     bk_misc_update_set_type((RESET_SOURCE_STATUS)CRASH_XAT0_VALUE);
 

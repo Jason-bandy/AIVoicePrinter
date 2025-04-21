@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rthw.h>
 #include <rtthread.h>
 #include <rtdevice.h>
@@ -24,7 +38,7 @@
 
 static void iic_udelay(rt_uint32_t us)
 {
-	volatile rt_int32_t i = us;
+    volatile rt_int32_t i = us;
     while (i-- > 0) i = i;
 }
 
@@ -85,26 +99,26 @@ static rt_int32_t  iic_get_scl(void *data)
 }
 
 static const struct rt_i2c_bit_ops bit_ops = {
-	RT_NULL,
-	iic_set_sda,
-	iic_set_scl,
-	iic_get_sda,
-	iic_get_scl,
-	iic_udelay,
-	20,
-	50
+    RT_NULL,
+    iic_set_sda,
+    iic_set_scl,
+    iic_get_sda,
+    iic_get_scl,
+    iic_udelay,
+    20,
+    50
 };
 
 static struct rt_i2c_bus_device i2c_bus;
 
 int iic_bus_attach(void)
 {
-	iic_gpio_init();
-	rt_kprintf("---[wf]iic_bus_attach\r\n---");
+    iic_gpio_init();
+    rt_kprintf("---[wf]iic_bus_attach\r\n---");
 
-	i2c_bus.priv = (void *)&bit_ops;
-	rt_i2c_bit_add_bus(&i2c_bus, "i2c");
-	rt_kprintf(" iic_bus_attach\r\n");
+    i2c_bus.priv = (void *)&bit_ops;
+    rt_i2c_bit_add_bus(&i2c_bus, "i2c");
+    rt_kprintf(" iic_bus_attach\r\n");
 
     return RT_EOK;
 }

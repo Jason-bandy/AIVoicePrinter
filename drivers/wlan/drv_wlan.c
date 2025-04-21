@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 
 #include "lwip/opt.h"
@@ -31,6 +45,7 @@
 #include "rtos_pub.h"
 #include "param_config.h"
 #include "wlan_ui_pub.h"
+#include "power_save_pub.h"
 
 /* Define those to better describe your network interface. */
 #define IFNAME0 'e'
@@ -83,9 +98,9 @@ static void packet_dump(const char *msg, const struct pbuf *p)
 
     rt_kprintf("%s %d byte\n", msg, p->tot_len);
 
-#ifdef MINI_DUMP
+    #ifdef MINI_DUMP
     return;
-#endif
+    #endif
 
     i = 0;
     for (q = p; q != RT_NULL; q = q->next)
@@ -134,9 +149,9 @@ static err_t low_level_output(struct netif *netif, struct pbuf *p)
     err_t err = ERR_OK;
     uint8_t vif_idx = rwm_mgmt_get_netif2vif(netif);
 
-#ifdef ETH_TX_DUMP
+    #ifdef ETH_TX_DUMP
     packet_dump("TX dump", p);
-#endif /* ETH_TX_DUMP */
+    #endif /* ETH_TX_DUMP */
 
     if (!netif_is_link_up(netif))
     {
@@ -166,9 +181,9 @@ void ethernetif_input(int iface, struct pbuf *p)
     struct eth_hdr *ethhdr;
     struct netif *netif;
 
-#ifdef ETH_RX_DUMP
+    #ifdef ETH_RX_DUMP
     packet_dump("RX dump", p);
-#endif /* ETH_RX_DUMP */
+    #endif /* ETH_RX_DUMP */
 
     if (p->len <= SIZEOF_ETH_HDR)
     {
@@ -193,11 +208,11 @@ void ethernetif_input(int iface, struct pbuf *p)
     /* IP or ARP packet? */
     case ETHTYPE_IP:
     case ETHTYPE_ARP:
-#if PPPOE_SUPPORT
+        #if PPPOE_SUPPORT
     /* PPPoE packet? */
     case ETHTYPE_PPPOEDISC:
     case ETHTYPE_PPPOE:
-#endif /* PPPOE_SUPPORT */
+        #endif /* PPPOE_SUPPORT */
         /* full packet send to tcpip_thread to process */
         if (netif->input(p, netif) != ERR_OK)    // ethernet_input
         {
@@ -253,30 +268,30 @@ int end_connect_tick = 0;
 
 struct netif *wlan_get_sta_netif(void)
 {
-#ifdef RT_USING_WLAN_STA
+    #ifdef RT_USING_WLAN_STA
     return _g_sta_device.parent.netif;
-#else
+    #else
     return RT_NULL;
-#endif
+    #endif
 }
 
 struct netif *wlan_get_uap_netif(void)
 {
-#ifdef RT_USING_WLAN_AP
+    #ifdef RT_USING_WLAN_AP
     return _g_ap_device.parent.netif;
-#else
+    #else
     return RT_NULL;
-#endif
+    #endif
 }
 
 static void wlan_event_handle(void *ctx)
 {
-	rw_evt_type event = *((rw_evt_type*)ctx);
+    rw_evt_type event = *((rw_evt_type*)ctx);
     if ((event < 0) || (event > RW_EVT_MAX))
     {
         return;
     }
-rt_kprintf("===wlan_event_handle:%d===\r\n",event);
+    rt_kprintf("===wlan_event_handle:%d===\r\n",event);
     switch (event)
     {
     case RW_EVT_STA_CONNECTED:
@@ -294,14 +309,14 @@ rt_kprintf("===wlan_event_handle:%d===\r\n",event);
     case RW_EVT_STA_ASSOC_FAILED:
         if (_g_sta_info.mode == ADVANCED_MODE)
         {
-  //          wlan_fast_connect_info_erase();
+            //          wlan_fast_connect_info_erase();
             /* fast connected failed, switch to normal connect */
             _g_sta_info.mode = NORMAL_MODE;
         }
         rt_wlan_indicate_event_handle(&_g_sta_device, WIFI_EVT_STA_CONNECT_FAILED, RT_NULL);
         break;
 
-#ifdef RT_USING_WLAN_AP
+        #ifdef RT_USING_WLAN_AP
     case RW_EVT_AP_CONNECTED:
         rt_wlan_indicate_event_handle(&_g_ap_device, WIFI_EVT_AP_ASSOCIATED, RT_NULL);
         break;
@@ -313,7 +328,7 @@ rt_kprintf("===wlan_event_handle:%d===\r\n",event);
     case RW_EVT_AP_CONNECT_FAILED:
         rt_wlan_indicate_event_handle(&_g_ap_device, WIFI_EVT_AP_ASSOCIATE_FAILED, RT_NULL);
         break;
-#endif
+        #endif
 
     default:
         break;
@@ -356,7 +371,7 @@ static int rt_wlan_malloc_scan_result(struct rt_wlan_scan_result **scan_result, 
         if (_scan_result->ap_table[i].ssid == RT_NULL)
         {
             rt_kprintf("malloc memory for scan ssid failed \n");
-		goto _exit;
+            goto _exit;
         }
         rt_memset(_scan_result->ap_table[i].ssid, 0, RT_WLAN_SSID_MAX_LEN + 1);
     }
@@ -389,328 +404,328 @@ _exit:
 
 static int wlan_bk_security_to_rt_security(int bk_security)
 {
-	int rt_security = SECURITY_UNKNOWN;
+    int rt_security = SECURITY_UNKNOWN;
 
-	switch (bk_security) {
-	case BK_SECURITY_TYPE_NONE:
-		rt_security = SECURITY_OPEN;
-		break;
+    switch (bk_security) {
+    case BK_SECURITY_TYPE_NONE:
+        rt_security = SECURITY_OPEN;
+        break;
 
-	case BK_SECURITY_TYPE_WEP:
-		rt_security = SECURITY_WEP_PSK;
-		break;
+    case BK_SECURITY_TYPE_WEP:
+        rt_security = SECURITY_WEP_PSK;
+        break;
 
-	case BK_SECURITY_TYPE_WPA_TKIP:
-		rt_security = SECURITY_WPA_TKIP_PSK;
-		break;
+    case BK_SECURITY_TYPE_WPA_TKIP:
+        rt_security = SECURITY_WPA_TKIP_PSK;
+        break;
 
-	case BK_SECURITY_TYPE_WPA_AES:
-		rt_security = SECURITY_WPA_AES_PSK;
-		break;
+    case BK_SECURITY_TYPE_WPA_AES:
+        rt_security = SECURITY_WPA_AES_PSK;
+        break;
 
-	case BK_SECURITY_TYPE_WPA2_TKIP:
-		rt_security = SECURITY_WPA2_TKIP_PSK;
-		break;
+    case BK_SECURITY_TYPE_WPA2_TKIP:
+        rt_security = SECURITY_WPA2_TKIP_PSK;
+        break;
 
-	case BK_SECURITY_TYPE_WPA2_AES:
-		rt_security = SECURITY_WPA2_AES_PSK;
-		break;
+    case BK_SECURITY_TYPE_WPA2_AES:
+        rt_security = SECURITY_WPA2_AES_PSK;
+        break;
 
-	case BK_SECURITY_TYPE_WPA2_MIXED:
-		rt_security = SECURITY_WPA2_MIXED_PSK;
-		break;
+    case BK_SECURITY_TYPE_WPA2_MIXED:
+        rt_security = SECURITY_WPA2_MIXED_PSK;
+        break;
 
-	case BK_SECURITY_TYPE_AUTO:
-		rt_security = SECURITY_UNKNOWN;
-		break;
+    case BK_SECURITY_TYPE_AUTO:
+        rt_security = SECURITY_UNKNOWN;
+        break;
 
-	case BK_SECURITY_TYPE_WPA3_SAE:
-	case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
-	default:
-		rt_security = SECURITY_UNKNOWN;
-		break;
-	}
+    case BK_SECURITY_TYPE_WPA3_SAE:
+    case BK_SECURITY_TYPE_WPA3_WPA2_MIXED:
+    default:
+        rt_security = SECURITY_UNKNOWN;
+        break;
+    }
 
-	return rt_security;
+    return rt_security;
 }
 
 static void wlan_scan_display_one_ap(const char* ssid, int bk_security, int8_t rssi)
 {
 
-	static const char *wlan_sec_type_string[] = {
-		"None",
-		"WEP",
-		"WPA_TKIP",
-		"WPA_AES",
-		"WPA_MIXED",
-		"WPA2_TKIP",
-		"WPA2_AES",
-		"WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
-		"WPA3_SAE", 		/**< WPA3 SAE */
-		"WPA3_WPA2_MIXED",	/** WPA3 SAE or WPA2 AES */
-		"EAP",
-		"OWE",
-		"AUTO",
-	};
-	static const char *unknow_security_str = "unknow";
-	const char *security_str;
+    static const char *wlan_sec_type_string[] = {
+        "None",
+        "WEP",
+        "WPA_TKIP",
+        "WPA_AES",
+        "WPA_MIXED",
+        "WPA2_TKIP",
+        "WPA2_AES",
+        "WPA2_MIXED",		////BK_SECURITY_TYPE_WPA3_SAE
+        "WPA3_SAE", 		/**< WPA3 SAE */
+        "WPA3_WPA2_MIXED",	/** WPA3 SAE or WPA2 AES */
+        "EAP",
+        "OWE",
+        "AUTO",
+    };
+    static const char *unknow_security_str = "unknow";
+    const char *security_str;
 
-	if ((bk_security > BK_SECURITY_TYPE_AUTO) || (bk_security < 0)) {
-		security_str = unknow_security_str;
-	} else {
-		security_str = wlan_sec_type_string[bk_security];
-	}
+    if ((bk_security > BK_SECURITY_TYPE_AUTO) || (bk_security < 0)) {
+        security_str = unknow_security_str;
+    } else {
+        security_str = wlan_sec_type_string[bk_security];
+    }
 
-	rt_kprintf("\033[36;22m ssid: %-32.*s  security: %-s  rssi: %d\r\n", 32,
-		ssid, security_str, rssi);
+    rt_kprintf("\033[36;22m ssid: %-32.*s  security: %-s  rssi: %d\r\n", 32,
+               ssid, security_str, rssi);
 }
 
 static int wlan_scan_done_handler(struct rt_wlan_scan_result **ppscan_result)
 {
-#if CFG_WPA_CTRL_IFACE
-	int ret = RT_EOK;
-	ScanResult_adv ap_list;
-	struct rt_wlan_scan_result *pscan_result;
-	char scan_rst_ap_num = 0;
-	int i;
+    #if CFG_WPA_CTRL_IFACE
+    int ret = RT_EOK;
+    ScanResult_adv ap_list;
+    struct rt_wlan_scan_result *pscan_result;
+    char scan_rst_ap_num = 0;
+    int i;
 
-	ap_list.ApList = 0;
-	if (bk_wlan_ap_is_up() > 0 || hostapd_scan_started) {
-		if (wlan_ap_scan_result(&ap_list)) {
-			ret = -RT_ERROR;
-			rt_kprintf("failed to get scan result\r\n");
-			goto out;
-		}
-	} else {
-		if (wlan_sta_scan_result(&ap_list)) {
-			ret = -RT_ERROR;
-			rt_kprintf("failed to get scan result\r\n");
-			goto out;
-		}
-	}
+    ap_list.ApList = 0;
+    if (bk_wlan_ap_is_up() > 0 || hostapd_scan_started) {
+        if (wlan_ap_scan_result(&ap_list)) {
+            ret = -RT_ERROR;
+            rt_kprintf("failed to get scan result\r\n");
+            goto out;
+        }
+    } else {
+        if (wlan_sta_scan_result(&ap_list)) {
+            ret = -RT_ERROR;
+            rt_kprintf("failed to get scan result\r\n");
+            goto out;
+        }
+    }
 
-	scan_rst_ap_num = ap_list.ApNum;
-	if (scan_rst_ap_num == 0) {
-		rt_kprintf("scan finds 0 AP\r\n");
-		ret = -RT_ERROR;
-		goto out;
-	}
+    scan_rst_ap_num = ap_list.ApNum;
+    if (scan_rst_ap_num == 0) {
+        rt_kprintf("scan finds 0 AP\r\n");
+        ret = -RT_ERROR;
+        goto out;
+    }
 
-	if (rt_wlan_malloc_scan_result(ppscan_result, scan_rst_ap_num) != RT_EOK) {
-		rt_kprintf("malloc memory for scan failed\n");
-		ret = -RT_ENOMEM;
-		goto out;
-	}
-	pscan_result = *ppscan_result;
+    if (rt_wlan_malloc_scan_result(ppscan_result, scan_rst_ap_num) != RT_EOK) {
+        rt_kprintf("malloc memory for scan failed\n");
+        ret = -RT_ENOMEM;
+        goto out;
+    }
+    pscan_result = *ppscan_result;
 
-	for (i = 0; i < scan_rst_ap_num; i++) {
-		strncpy(pscan_result->ap_table[i].ssid, ap_list.ApList[i].ssid, RT_WLAN_SSID_MAX_LEN);
-		rt_memcpy(pscan_result->ap_table[i].bssid, ap_list.ApList[i].bssid, 6);
-		pscan_result->ap_table[i].channel = ap_list.ApList[i].channel;
-		pscan_result->ap_table[i].security =
-			wlan_bk_security_to_rt_security(ap_list.ApList[i].security);
-		pscan_result->ap_table[i].rssi = ap_list.ApList[i].ApPower;
+    for (i = 0; i < scan_rst_ap_num; i++) {
+        strncpy(pscan_result->ap_table[i].ssid, ap_list.ApList[i].ssid, RT_WLAN_SSID_MAX_LEN);
+        rt_memcpy(pscan_result->ap_table[i].bssid, ap_list.ApList[i].bssid, 6);
+        pscan_result->ap_table[i].channel = ap_list.ApList[i].channel;
+        pscan_result->ap_table[i].security =
+            wlan_bk_security_to_rt_security(ap_list.ApList[i].security);
+        pscan_result->ap_table[i].rssi = ap_list.ApList[i].ApPower;
 
-		wlan_scan_display_one_ap(ap_list.ApList[i].ssid, ap_list.ApList[i].security,
-			ap_list.ApList[i].ApPower);
-	}
-	rt_kprintf("\033[0m\r\n");
-
-out:
-	os_free(ap_list.ApList);
-	return ret;
-#else
-	struct rt_wlan_scan_result *pscan_result;
-	struct sta_scan_res *scan_rst_table;
-	char scan_rst_ap_num = 0;
-	int ret = RT_EOK;
-	int i;
-
-	scan_rst_ap_num = bk_wlan_get_scan_ap_result_numbers();
-	if (scan_rst_ap_num == 0) {
-		rt_kprintf("scan finds 0 AP\r\n");
-		return -RT_ERROR;
-	}
-
-	scan_rst_table = (struct sta_scan_res *)rt_malloc(sizeof(struct sta_scan_res) * scan_rst_ap_num);
-	if (scan_rst_table == RT_NULL) {
-		rt_kprintf("scan_rst_table malloc failed!\r\n");
-		return -RT_ENOMEM;
-	}
-
-	scan_rst_ap_num = bk_wlan_get_scan_ap_result(scan_rst_table, scan_rst_ap_num);
-
-	if (rt_wlan_malloc_scan_result(ppscan_result, scan_rst_ap_num) != RT_EOK) {
-		rt_kprintf("malloc memory for scan failed \n");
-		ret = -RT_ENOMEM;
-		goto out;
-	}
-	pscan_result = *ppscan_result;
-
-	rt_kprintf("\r\n");
-	for (i = 0; i < scan_rst_ap_num; i++) {
-		strncpy(pscan_result->ap_table[i].ssid, scan_rst_table[i].ssid, RT_WLAN_SSID_MAX_LEN);
-		rt_memcpy(pscan_result->ap_table[i].bssid, scan_rst_table[i].bssid, 6);
-		pscan_result->ap_table[i].channel = scan_rst_table[i].channel;
-		pscan_result->ap_table[i].security =
-			wlan_bk_security_to_rt_security(scan_rst_table[i].security);
-		pscan_result->ap_table[i].rssi = scan_rst_table[i].level;
-
-		wlan_scan_display_one_ap(scan_rst_table[i].ssid, scan_rst_table[i].security,
-				scan_rst_table[i].level);
-	}
-
-	rt_kprintf("\033[0m\r\n");
+        wlan_scan_display_one_ap(ap_list.ApList[i].ssid, ap_list.ApList[i].security,
+                                 ap_list.ApList[i].ApPower);
+    }
+    rt_kprintf("\033[0m\r\n");
 
 out:
-	if (scan_rst_table != NULL) {
-		os_free(scan_rst_table);
-		scan_rst_table = NULL;
-	}
-	return ret;
-#endif /* CFG_WPA_CTRL_IFACE */
+    os_free(ap_list.ApList);
+    return ret;
+    #else
+    struct rt_wlan_scan_result *pscan_result;
+    struct sta_scan_res *scan_rst_table;
+    char scan_rst_ap_num = 0;
+    int ret = RT_EOK;
+    int i;
+
+    scan_rst_ap_num = bk_wlan_get_scan_ap_result_numbers();
+    if (scan_rst_ap_num == 0) {
+        rt_kprintf("scan finds 0 AP\r\n");
+        return -RT_ERROR;
+    }
+
+    scan_rst_table = (struct sta_scan_res *)rt_malloc(sizeof(struct sta_scan_res) * scan_rst_ap_num);
+    if (scan_rst_table == RT_NULL) {
+        rt_kprintf("scan_rst_table malloc failed!\r\n");
+        return -RT_ENOMEM;
+    }
+
+    scan_rst_ap_num = bk_wlan_get_scan_ap_result(scan_rst_table, scan_rst_ap_num);
+
+    if (rt_wlan_malloc_scan_result(ppscan_result, scan_rst_ap_num) != RT_EOK) {
+        rt_kprintf("malloc memory for scan failed \n");
+        ret = -RT_ENOMEM;
+        goto out;
+    }
+    pscan_result = *ppscan_result;
+
+    rt_kprintf("\r\n");
+    for (i = 0; i < scan_rst_ap_num; i++) {
+        strncpy(pscan_result->ap_table[i].ssid, scan_rst_table[i].ssid, RT_WLAN_SSID_MAX_LEN);
+        rt_memcpy(pscan_result->ap_table[i].bssid, scan_rst_table[i].bssid, 6);
+        pscan_result->ap_table[i].channel = scan_rst_table[i].channel;
+        pscan_result->ap_table[i].security =
+            wlan_bk_security_to_rt_security(scan_rst_table[i].security);
+        pscan_result->ap_table[i].rssi = scan_rst_table[i].level;
+
+        wlan_scan_display_one_ap(scan_rst_table[i].ssid, scan_rst_table[i].security,
+                                 scan_rst_table[i].level);
+    }
+
+    rt_kprintf("\033[0m\r\n");
+
+out:
+    if (scan_rst_table != NULL) {
+        os_free(scan_rst_table);
+        scan_rst_table = NULL;
+    }
+    return ret;
+    #endif /* CFG_WPA_CTRL_IFACE */
 }
 
 static rt_err_t _wifi_easyjoin(rt_device_t dev, void *passwd)
 {
-	network_InitTypeDef_st wNetConfig;
-	struct rt_wlan_device *wlan = RT_NULL;
-	const char *ssid = RT_NULL;
-	const uint8_t *bssid = RT_NULL;
-	int len;
+    network_InitTypeDef_st wNetConfig;
+    struct rt_wlan_device *wlan = RT_NULL;
+    const char *ssid = RT_NULL;
+    const uint8_t *bssid = RT_NULL;
+    int len;
 
-	rt_kprintf("[wifi_connect]: normal connect \n");
-	_g_sta_info.mode = NORMAL_MODE;
-	_g_sta_info.state = CONNECT_DOING;
-	wlan = RT_WLAN_DEVICE(dev);
-	ssid = wlan->info->ssid;
-	bssid = wlan->info->bssid;
-	rt_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
+    rt_kprintf("[wifi_connect]: normal connect \n");
+    _g_sta_info.mode = NORMAL_MODE;
+    _g_sta_info.state = CONNECT_DOING;
+    wlan = RT_WLAN_DEVICE(dev);
+    ssid = wlan->info->ssid;
+    bssid = wlan->info->bssid;
+    rt_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
 
-	if ((ssid != NULL) && ('\0' != *ssid)) {
-		len = rt_strlen(ssid);
-		if (SSID_MAX_LEN < len) {
-			rt_kprintf("ssid name more than 32 Bytes\r\n");
-			return -RT_ERROR;
-		}
+    if ((ssid != NULL) && ('\0' != *ssid)) {
+        len = rt_strlen(ssid);
+        if (SSID_MAX_LEN < len) {
+            rt_kprintf("ssid name more than 32 Bytes\r\n");
+            return -RT_ERROR;
+        }
 
-		rt_strncpy((char *)wNetConfig.wifi_ssid, ssid, sizeof(wNetConfig.wifi_ssid));
-	}
-#if CFG_SUPPORT_BSSID_CONNECT
-	else if (!is_broadcast_ether_addr(bssid) && !is_zero_ether_addr(bssid))
-		rt_memcpy((void *)wNetConfig.wifi_bssid, bssid, sizeof(wNetConfig.wifi_bssid));
-#endif
-	else {
-		rt_kprintf("ssid is null or bssid is invalid/disabled\r\n");
-		return -RT_ERROR;
-	}
+        rt_strncpy((char *)wNetConfig.wifi_ssid, ssid, sizeof(wNetConfig.wifi_ssid));
+    }
+    #if CFG_SUPPORT_BSSID_CONNECT
+    else if (!is_broadcast_ether_addr(bssid) && !is_zero_ether_addr(bssid))
+        rt_memcpy((void *)wNetConfig.wifi_bssid, bssid, sizeof(wNetConfig.wifi_bssid));
+    #endif
+    else {
+        rt_kprintf("ssid is null or bssid is invalid/disabled\r\n");
+        return -RT_ERROR;
+    }
 
-	if (passwd == NULL)
-		rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
-	else {
-		if (STA_KEY_MAX_LEN < rt_strlen(passwd)) {
-			rt_kprintf("wifi key is more than buffer Bytes(107)\r\n");
-			return -RT_ERROR;
-		}
-		rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
-	}
+    if (passwd == NULL)
+        rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
+    else {
+        if (STA_KEY_MAX_LEN < rt_strlen(passwd)) {
+            rt_kprintf("wifi key is more than buffer Bytes(107)\r\n");
+            return -RT_ERROR;
+        }
+        rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
+    }
 
-	wNetConfig.wifi_mode = BK_STATION;
-	wNetConfig.dhcp_mode = DHCP_CLIENT;
-	wNetConfig.wifi_retry_interval = 100;
+    wNetConfig.wifi_mode = BK_STATION;
+    wNetConfig.dhcp_mode = DHCP_CLIENT;
+    wNetConfig.wifi_retry_interval = 100;
 
-	rt_kprintf("_wifi_easyjoin: ssid:%.*s bssid:%02x:%02x:%02x:%02x:%02x:%02x \r\n",
-			   sizeof(wNetConfig.wifi_ssid), wNetConfig.wifi_ssid,
-			   bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
-	rt_kprintf("key = %.*s\r\n",sizeof(wNetConfig.wifi_key), wNetConfig.wifi_key);	
-			   
-	bk_wlan_start(&wNetConfig);
+    rt_kprintf("_wifi_easyjoin: ssid:%.*s bssid:%02x:%02x:%02x:%02x:%02x:%02x \r\n",
+               sizeof(wNetConfig.wifi_ssid), wNetConfig.wifi_ssid,
+               bssid[0], bssid[1], bssid[2], bssid[3], bssid[4], bssid[5]);
+    rt_kprintf("key = %.*s\r\n",sizeof(wNetConfig.wifi_key), wNetConfig.wifi_key);
 
-	return RT_EOK;
+    bk_wlan_start(&wNetConfig);
+
+    return RT_EOK;
 }
 
 static rt_err_t _wifi_softap(rt_device_t dev, void *passwd)
 {
-	network_InitTypeDef_st wNetConfig;
-	struct rt_wlan_device *wlan = RT_NULL;
-	const char *ssid = RT_NULL;
-	uint16_t channel;
-	int len;
+    network_InitTypeDef_st wNetConfig;
+    struct rt_wlan_device *wlan = RT_NULL;
+    const char *ssid = RT_NULL;
+    uint16_t channel;
+    int len;
 
-	wlan = RT_WLAN_DEVICE(dev);
-	ssid = wlan->info->ssid;
-	channel = wlan->info->channel;
-	rt_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
+    wlan = RT_WLAN_DEVICE(dev);
+    ssid = wlan->info->ssid;
+    channel = wlan->info->channel;
+    rt_memset(&wNetConfig, 0x0, sizeof(network_InitTypeDef_st));
 
-	if (ssid == NULL) {
-		rt_kprintf("ssid is null\r\n");
-		return -RT_ERROR;
-	}
+    if (ssid == NULL) {
+        rt_kprintf("ssid is null\r\n");
+        return -RT_ERROR;
+    }
 
-	len = rt_strlen(ssid);
-	if (SSID_MAX_LEN < len) {
-		rt_kprintf("ssid name more than 32 Bytes\r\n");
-		/* continue to use 32 bytes ssid, do not return err */
-		len = SSID_MAX_LEN;
-	}
-	rt_strncpy((char *)wNetConfig.wifi_ssid, ssid, sizeof(wNetConfig.wifi_ssid));
+    len = rt_strlen(ssid);
+    if (SSID_MAX_LEN < len) {
+        rt_kprintf("ssid name more than 32 Bytes\r\n");
+        /* continue to use 32 bytes ssid, do not return err */
+        len = SSID_MAX_LEN;
+    }
+    rt_strncpy((char *)wNetConfig.wifi_ssid, ssid, sizeof(wNetConfig.wifi_ssid));
 
-	if (passwd == NULL)
-		rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
-	else {
-		if (AP_KEY_MAX_LEN < rt_strlen(passwd)) {
-			rt_kprintf("wifi key is more than 64 Bytes\r\n");
-			return -RT_ERROR;
-		}
-		rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
-	}
+    if (passwd == NULL)
+        rt_memset(wNetConfig.wifi_key, 0, sizeof(wNetConfig.wifi_key));
+    else {
+        if (AP_KEY_MAX_LEN < rt_strlen(passwd)) {
+            rt_kprintf("wifi key is more than 64 Bytes\r\n");
+            return -RT_ERROR;
+        }
+        rt_strncpy((char *)wNetConfig.wifi_key, passwd, sizeof(wNetConfig.wifi_key));
+    }
 
-	wNetConfig.wifi_mode = BK_SOFT_AP;
-	wNetConfig.dhcp_mode = DHCP_SERVER;
-	wNetConfig.wifi_retry_interval = 100;
-	wNetConfig.reserved[0] = channel & 0xff;
-	wNetConfig.reserved[1] = (channel >> 8) & 0xff;
+    wNetConfig.wifi_mode = BK_SOFT_AP;
+    wNetConfig.dhcp_mode = DHCP_SERVER;
+    wNetConfig.wifi_retry_interval = 100;
+    wNetConfig.reserved[0] = channel & 0xff;
+    wNetConfig.reserved[1] = (channel >> 8) & 0xff;
 
-	os_strcpy((char *)wNetConfig.local_ip_addr, DHCPD_SERVER_IP);
-	os_strcpy((char *)wNetConfig.net_mask, "255.255.255.0");
-	os_strcpy((char *)wNetConfig.gateway_ip_addr, DHCPD_SERVER_IP);
-	os_strcpy((char *)wNetConfig.dns_server_ip_addr, DHCPD_SERVER_IP);
+    os_strcpy((char *)wNetConfig.local_ip_addr, DHCPD_SERVER_IP);
+    os_strcpy((char *)wNetConfig.net_mask, "255.255.255.0");
+    os_strcpy((char *)wNetConfig.gateway_ip_addr, DHCPD_SERVER_IP);
+    os_strcpy((char *)wNetConfig.dns_server_ip_addr, DHCPD_SERVER_IP);
 
-	rt_kprintf("_wifi_softap: ssid:%.*s key:%.*s\r\n", sizeof(wNetConfig.wifi_ssid), wNetConfig.wifi_ssid, sizeof(wNetConfig.wifi_key), wNetConfig.wifi_key);
-	bk_wlan_start(&wNetConfig);
+    rt_kprintf("_wifi_softap: ssid:%.*s key:%.*s\r\n", sizeof(wNetConfig.wifi_ssid), wNetConfig.wifi_ssid, sizeof(wNetConfig.wifi_key), wNetConfig.wifi_key);
+    bk_wlan_start(&wNetConfig);
 
-	return RT_EOK;
+    return RT_EOK;
 }
 
 static int _wifi_disconnect(rt_device_t dev)
 {
     struct rt_wlan_device *wlan = RT_NULL;
     rt_wlan_mode_t mode;
-#if CFG_ROLE_LAUNCH
+    #if CFG_ROLE_LAUNCH
     LAUNCH_REQ param;
-#endif
+    #endif
 
     wlan = RT_WLAN_DEVICE(dev);
     mode = wlan->info->mode;
 
     if (mode == WIFI_STATION)
     {
-#if CFG_ROLE_LAUNCH
+        #if CFG_ROLE_LAUNCH
         param.req_type = LAUNCH_REQ_DELIF_STA;
         rl_sta_request_enter(&param, 0);
-#else
+        #else
         bk_wlan_stop(BK_STATION);
-#endif
+        #endif
     }
     else if (mode == WIFI_AP)
     {
-#if CFG_ROLE_LAUNCH
-		param.req_type = LAUNCH_REQ_DELIF_AP;
+        #if CFG_ROLE_LAUNCH
+        param.req_type = LAUNCH_REQ_DELIF_AP;
 
-		rl_ap_request_enter(&param, 0);
-#else
-		bk_wlan_stop(BK_SOFT_AP);
-#endif
+        rl_ap_request_enter(&param, 0);
+        #else
+        bk_wlan_stop(BK_SOFT_AP);
+        #endif
     }
 
     return RT_EOK;
@@ -749,7 +764,7 @@ extern int wpa_get_psk(char *psk);
 int _wifi_connect_done(void *ctx)
 {
 
-#if 0
+    #if 0
     LinkStatusTypeDef link_status;
     struct wlan_fast_connect ap_info;
 
@@ -767,7 +782,7 @@ int _wifi_connect_done(void *ctx)
             wlan_fast_connect_info_write(&ap_info);
         }
     }
-#endif
+    #endif
     _g_sta_info.state = CONNECT_DONE;
 
     return 0;
@@ -776,79 +791,79 @@ int _wifi_connect_done(void *ctx)
 #if 0
 static int _wifi_power_manager(int level)
 {
-	return 0;
+    return 0;
 }
 #else
 extern int bk_wlan_dtim_rf_ps_timer_start(void);
 extern int bk_wlan_dtim_rf_ps_timer_pause(void);
 static int _wifi_power_manager(int level)
 {
-	switch (level) {
-	case 0:
-	{
-		#if CFG_USE_MCU_PS
-		/* disable cpu sleep */
-		bk_wlan_mcu_ps_mode_disable();
-		#endif
-		#if CFG_USE_STA_PS
-		/* disable rf sleep */
-		bk_wlan_dtim_rf_ps_mode_disable();
-		/* pause rf timer */
-		bk_wlan_dtim_rf_ps_timer_pause();
-		#endif
-		break;
-	}
+    switch (level) {
+    case 0:
+    {
+        #if CFG_USE_MCU_PS
+        /* disable cpu sleep */
+        bk_wlan_mcu_ps_mode_disable();
+        #endif
+        #if CFG_USE_STA_PS
+        /* disable rf sleep */
+        bk_wlan_dtim_rf_ps_mode_disable();
+        /* pause rf timer */
+        bk_wlan_dtim_rf_ps_timer_pause();
+        #endif
+        break;
+    }
 
-	case 1:
-	{
-		#if CFG_USE_MCU_PS
-		/* enable cpu sleep */
-		bk_wlan_mcu_ps_mode_enable();
-		#endif
-		#if CFG_USE_STA_PS
-		/* disable rf sleep */
-		bk_wlan_dtim_rf_ps_mode_disable();
-		/* pause rf timer */
-		bk_wlan_dtim_rf_ps_timer_pause();
-		#endif
-		break;
-	}
+    case 1:
+    {
+        #if CFG_USE_MCU_PS
+        /* enable cpu sleep */
+        bk_wlan_mcu_ps_mode_enable();
+        #endif
+        #if CFG_USE_STA_PS
+        /* disable rf sleep */
+        bk_wlan_dtim_rf_ps_mode_disable();
+        /* pause rf timer */
+        bk_wlan_dtim_rf_ps_timer_pause();
+        #endif
+        break;
+    }
 
-	case 2:
-	{
-		#if CFG_USE_MCU_PS
-		/* disable cpu sleep */
-		bk_wlan_mcu_ps_mode_disable();
-		#endif
-		#if CFG_USE_STA_PS
-		/* enable rf sleep */
-		bk_wlan_dtim_rf_ps_mode_enable();
-		/* start rf timer */
-		bk_wlan_dtim_rf_ps_timer_start();
-		#endif
-		break;
-	}
+    case 2:
+    {
+        #if CFG_USE_MCU_PS
+        /* disable cpu sleep */
+        bk_wlan_mcu_ps_mode_disable();
+        #endif
+        #if CFG_USE_STA_PS
+        /* enable rf sleep */
+        bk_wlan_dtim_rf_ps_mode_enable();
+        /* start rf timer */
+        bk_wlan_dtim_rf_ps_timer_start();
+        #endif
+        break;
+    }
 
-	case 3:
-	{
-		#if CFG_USE_MCU_PS
-		/* enable cpu sleep */
-		bk_wlan_mcu_ps_mode_enable();
-		#endif
-		#if CFG_USE_STA_PS
-		/* enable rf sleep */
-		bk_wlan_dtim_rf_ps_mode_enable();
-		/* start rf timer */
-		bk_wlan_dtim_rf_ps_timer_start();
-		#endif
-		break;
-	}
+    case 3:
+    {
+        #if CFG_USE_MCU_PS
+        /* enable cpu sleep */
+        bk_wlan_mcu_ps_mode_enable();
+        #endif
+        #if CFG_USE_STA_PS
+        /* enable rf sleep */
+        bk_wlan_dtim_rf_ps_mode_enable();
+        /* start rf timer */
+        bk_wlan_dtim_rf_ps_timer_start();
+        #endif
+        break;
+    }
 
-	default:
-		return -RT_EINVAL;
-	}
+    default:
+        return -RT_EINVAL;
+    }
 
-	return RT_EOK;
+    return RT_EOK;
 }
 #endif
 
@@ -906,13 +921,13 @@ static rt_err_t beken_wlan_init(rt_device_t dev)
 {
     struct eth_device *eth = (struct eth_device *)dev;
 
-#if LWIP_IPV4 && LWIP_IGMP
+    #if LWIP_IPV4 && LWIP_IGMP
     netif_set_igmp_mac_filter(eth->netif, igmp_mac_filter);
-#endif /* LWIP_IPV4 && LWIP_IGMP */
+    #endif /* LWIP_IPV4 && LWIP_IGMP */
 
-#if LWIP_IPV6 && LWIP_IPV6_MLD
+    #if LWIP_IPV6 && LWIP_IPV6_MLD
     netif_set_mld_mac_filter(eth->netif, mld_mac_filter);
-#endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
+    #endif /* LWIP_IPV6 && LWIP_IPV6_MLD */
 
     /* Initialize semaphore for scan */
     if(_g_scan_done_sem == NULL)
@@ -946,35 +961,35 @@ static rt_size_t beken_wlan_write(rt_device_t dev, rt_off_t pos, const void *buf
 }
 
 static void beken_wlan_control_scan(struct rt_wlan_device *wlan_dev,
-			struct rt_wifi_scan_param *scan_param)
+                                    struct rt_wifi_scan_param *scan_param)
 {
-	struct rt_wlan_scan_result **scan_result = scan_param->scan_result;
-	struct rt_wlan_info *wifi_info = scan_param->wifi_info;
+    struct rt_wlan_scan_result **scan_result = scan_param->scan_result;
+    struct rt_wlan_info *wifi_info = scan_param->wifi_info;
 
-	bk_wlan_scan_ap_reg_cb(scan_ap_callback);
+    bk_wlan_scan_ap_reg_cb(scan_ap_callback);
 
-	if (wifi_info->ssid && (rt_strlen(wifi_info->ssid) > 0)) {
-		UINT8 *ssid_array[1];
-		ssid_array[0] = (UINT8*)wifi_info->ssid;
-		bk_wlan_start_assign_scan(ssid_array, 1);
-        } else {
-		bk_wlan_start_scan();
-        }
+    if (wifi_info->ssid && (rt_strlen(wifi_info->ssid) > 0)) {
+        UINT8 *ssid_array[1];
+        ssid_array[0] = (UINT8*)wifi_info->ssid;
+        bk_wlan_start_assign_scan(ssid_array, 1);
+    } else {
+        bk_wlan_start_scan();
+    }
 
-	int timeout_ms = rt_tick_from_millisecond(SCAN_WAIT_OUT_TIME);
+    int timeout_ms = rt_tick_from_millisecond(SCAN_WAIT_OUT_TIME);
 
-        if (rt_sem_take(_g_scan_done_sem, timeout_ms) != RT_EOK) {
-		DRV_WLAN_DBG("Wait scan_done semaphore timeout \n");
-        }
+    if (rt_sem_take(_g_scan_done_sem, timeout_ms) != RT_EOK) {
+        DRV_WLAN_DBG("Wait scan_done semaphore timeout \n");
+    }
 
-	wlan_scan_done_handler(scan_result);
-	rt_wlan_indicate_event_handle(wlan_dev, WIFI_EVT_SCAN_DONE, scan_result);
+    wlan_scan_done_handler(scan_result);
+    rt_wlan_indicate_event_handle(wlan_dev, WIFI_EVT_SCAN_DONE, scan_result);
 
-	#if CFG_ROLE_LAUNCH
-	if(mhdr_get_station_status() == RW_EVT_STA_GOT_IP) {
-		rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
-	}
-        #endif
+    #if CFG_ROLE_LAUNCH
+    if(mhdr_get_station_status() == RW_EVT_STA_GOT_IP) {
+        rl_pre_sta_set_status(RL_STATUS_STA_LAUNCHED);
+    }
+    #endif
 }
 
 static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
@@ -1019,7 +1034,7 @@ static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
     case WIFI_SCAN:
     {
         DRV_WLAN_DBG("%s L%d %s cmd: case WIFI_SCAN!\r\n", __FILE__, __LINE__, __FUNCTION__);
-	    beken_wlan_control_scan(wlan, (struct rt_wifi_scan_param*)args);
+        beken_wlan_control_scan(wlan, (struct rt_wifi_scan_param*)args);
         break;
     }
 
@@ -1067,10 +1082,57 @@ static rt_err_t beken_wlan_control(rt_device_t dev, int cmd, void *args)
         break;
     }
 
+    case WIFI_SET_LISTEN_INT:
+    {
+        int intval;
+
+        if (args == RT_NULL)
+            return -RT_EIO;
+        intval = *(int *)args;
+        power_save_set_listen_int(intval);
+        break;
+    }
+
+    case WIFI_SET_KEEP_ALIVE_PER:
+    {
+        int period;
+
+        if (args == RT_NULL)
+            return -RT_EIO;
+        period = *(int *)args;
+        power_save_set_keep_alive_per(period);
+        break;
+    }
+
+#if (1 == CFG_LOW_VOLTAGE_PS)
+    case WIFI_SET_GPIO_WAKEUP_CONFIG:
+    {
+        int *p;
+
+        if (args == RT_NULL)
+            return -RT_EIO;
+        p = (int *)args;
+        sctrl_set_gpio_wakeup_index(*p, *(p+1));
+        p = NULL;
+        break;
+    }
+#endif
+
     case WIFI_SET_MONITOR_CALLBACK:
     {
         DRV_WLAN_DBG("set monitor callback \n");
         bk_wlan_register_monitor_cb(args);
+        break;
+    }
+
+    case WIFI_GET_RSSI:
+    {
+        LinkStatusTypeDef stalinkstatus = {0};
+        bk_wlan_get_link_status(&stalinkstatus);
+        if(args)
+        {
+            *((int *)args) = stalinkstatus.wifi_strength;
+        }
         break;
     }
 
@@ -1121,16 +1183,16 @@ static rt_err_t rt_wlan_register(struct rt_wlan_device *device, const char *name
     eth = &(device->parent);
 
     /* initialize  ETH */
-#ifdef RT_USING_DEVICE_OPS
+    #ifdef RT_USING_DEVICE_OPS
     eth->parent.ops        = &wlan_ops;
-#else
+    #else
     eth->parent.init       = beken_wlan_init;
     eth->parent.open       = beken_wlan_open;
     eth->parent.close      = beken_wlan_close;
     eth->parent.read       = beken_wlan_read;
     eth->parent.write      = beken_wlan_write;
     eth->parent.control    = beken_wlan_control;
-#endif /* RT_USING_DEVICE_OPS */
+    #endif /* RT_USING_DEVICE_OPS */
 
     eth->parent.user_data  = RT_NULL;
 
@@ -1156,7 +1218,7 @@ int beken_wlan_hw_init(void)
     struct beken_wifi_info *wifi_info = RT_NULL;
     rt_err_t result = RT_EOK;
 
-#ifdef RT_USING_WLAN_STA
+    #ifdef RT_USING_WLAN_STA
     wlan = &_g_sta_device;
     wifi_info = &_g_sta_info;
     wifi_get_mac_address((char*)wifi_info->mac, CONFIG_ROLE_STA);
@@ -1167,9 +1229,9 @@ int beken_wlan_hw_init(void)
     }
     rt_kprintf("register station wlan device sucess! \n");
     rt_wlan_mgnt_attach(wlan, RT_NULL);
-#endif
+    #endif
 
-#ifdef RT_USING_WLAN_AP
+    #ifdef RT_USING_WLAN_AP
     wlan = &_g_ap_device;
     wifi_info = &_g_ap_info;
     wifi_get_mac_address((char*)wifi_info->mac, CONFIG_ROLE_AP);
@@ -1181,8 +1243,8 @@ int beken_wlan_hw_init(void)
     rt_kprintf("register soft-ap wlan device sucess! \n");
     rt_wlan_mgnt_attach(wlan, RT_NULL);
     bk_ap_no_password_connected_register_cb(app_demo_softap_rw_connected_event_func);
-#endif
-	bk_wlan_status_register_cb(wlan_event_handle);
+    #endif
+    bk_wlan_status_register_cb(wlan_event_handle);
     rt_kprintf("beken wlan hw init\r\n");
 
     return 0;

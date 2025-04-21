@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rthw.h>
 #include <rtthread.h>
 #include <rtdevice.h>
@@ -91,7 +105,7 @@ static int _gpio_read(struct rt_device *device, rt_base_t pin)
     return bk_gpio_input(pin);
 }
 
-static rt_err_t _gpio_attach_irq(struct rt_device *device, rt_int32_t pin, 
+static rt_err_t _gpio_attach_irq(struct rt_device *device, rt_int32_t pin,
                                  rt_uint32_t mode, void (*hdr)(void *args), void *args)
 {
     dbg_log(DBG_LOG, "attach irq pin:%d mode:%d\n", pin, mode);
@@ -109,15 +123,15 @@ static rt_err_t _gpio_attach_irq(struct rt_device *device, rt_int32_t pin,
     {
         gpio_dev.irq_desc[pin].mode = GPIO_INT_LEVEL_FALLING;
     }
-	else if (mode == PIN_IRQ_MODE_HIGH_LEVEL)
+    else if (mode == PIN_IRQ_MODE_HIGH_LEVEL)
     {
         gpio_dev.irq_desc[pin].mode = GPIO_INT_LEVEL_HIGH;
     }
-	else if (mode == PIN_IRQ_MODE_LOW_LEVEL)
+    else if (mode == PIN_IRQ_MODE_LOW_LEVEL)
     {
         gpio_dev.irq_desc[pin].mode = GPIO_INT_LEVEL_LOW;
     }
-	
+
     return RT_EOK;
 }
 

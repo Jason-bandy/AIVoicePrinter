@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 
 #include "error.h"
 #include "include.h"
@@ -26,9 +40,9 @@
 
 #define VBAT_COUNT_NUMBER                   (500)
 typedef struct _vbat_detect_ {
-int tmp_vol;
-int mean_vol;
-int detect_cnt;
+    int tmp_vol;
+    int mean_vol;
+    int detect_cnt;
 } VBAT_DETECT_ST;
 static ADC_OBJ vbat;
 static VBAT_DETECT_ST vbat_det_st;
@@ -39,33 +53,33 @@ extern int	Adctest_Flag ;
 static void vbat_adc_detect_callback(int new_mv, void *user_data)
 {
     VBAT_DETECT_ST *vbat = (VBAT_DETECT_ST *)user_data;
-	static int cnt = 0;
+    static int cnt = 0;
 
-	if(vbat_det_st.detect_cnt++ <= VBAT_COUNT_NUMBER)
-	{
-		return ;
-	}
-	new_mv = new_mv << 1;//for vbat channel,need to *2
+    if(vbat_det_st.detect_cnt++ <= VBAT_COUNT_NUMBER)
+    {
+        return ;
+    }
+    new_mv = new_mv << 1;//for vbat channel,need to *2
 
-	vbat_det_st.tmp_vol += new_mv;
-	
-	if(cnt ++ >=100)
-	{
-		vbat->mean_vol = vbat_det_st.tmp_vol/cnt;
-		cnt = 0;
-		vbat_det_st.detect_cnt = 0;
-		rt_kprintf("---vbat voltage:%d---\r\n",vbat->mean_vol);
-		vbat_det_st.tmp_vol = 0;
-	}
-	
-	
+    vbat_det_st.tmp_vol += new_mv;
+
+    if(cnt ++ >=100)
+    {
+        vbat->mean_vol = vbat_det_st.tmp_vol/cnt;
+        cnt = 0;
+        vbat_det_st.detect_cnt = 0;
+        rt_kprintf("---vbat voltage:%d---\r\n",vbat->mean_vol);
+        vbat_det_st.tmp_vol = 0;
+    }
+
+
 }
 
 static void vbat_detect_config(void)
 {
     vbat_det_st.tmp_vol = 0;
     vbat_det_st.mean_vol = 0;
-	vbat_det_st.detect_cnt = 0;
+    vbat_det_st.detect_cnt = 0;
 
     adc_obj_init(&vbat, vbat_adc_detect_callback,ADC_CHANNEL0_VBAT, &vbat_det_st);
     adc_obj_start(&vbat);
@@ -73,11 +87,11 @@ static void vbat_detect_config(void)
 
 int vbat_detect_test(void)
 {
-	Step_Flag = 1;
-	Adctest_Flag  = 1;
-	saradc_work_create();
-	vbat_detect_config();
-	return 0;
+    Step_Flag = 1;
+    Adctest_Flag  = 1;
+    saradc_work_create();
+    vbat_detect_config();
+    return 0;
 }
 //INIT_APP_EXPORT(vbat_detect_test);
 MSH_CMD_EXPORT(vbat_detect_test,vbat_detect_test);

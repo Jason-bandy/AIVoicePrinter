@@ -59,7 +59,10 @@ extern void os_clk_init(void);
 #error "RT_TICK_PER_SECOND of bk7221u can only be configured as 1000!!!"
 #endif 
 
-static struct rt_memheap tcm_heap; 
+static struct rt_memheap tcm_heap;
+#if((CFG_SOC_NAME == SOC_BK7252N))
+static struct rt_memheap itcm_heap;
+#endif
 
 void *tcm_malloc(unsigned long size)
 {
@@ -89,6 +92,18 @@ void *tcm_realloc(void *ptr, unsigned long size)
     return rt_memheap_realloc(&tcm_heap, ptr, size);
 }
 
+#if((CFG_SOC_NAME == SOC_BK7252N))
+void *itcm_malloc(unsigned long size)
+{
+    return rt_memheap_alloc(&itcm_heap, size);
+}
+
+void itcm_free(void *ptr)
+{
+    rt_memheap_free(ptr);
+}
+#endif
+
 void rt_hw_board_init(void)
 {
 #ifdef RT_USING_HEAP
@@ -98,6 +113,9 @@ void rt_hw_board_init(void)
 	rt_sdram_heap_init(); 
 #endif
     rt_memheap_init(&tcm_heap, "TCM", RT_HW_TCM_BEGIN, RT_HW_TCM_END-RT_HW_TCM_BEGIN); 
+#if((CFG_SOC_NAME == SOC_BK7252N))
+    rt_memheap_init(&itcm_heap, "ITCM", RT_HW_ITCM_BEGIN, RT_HW_ITCM_END-RT_HW_ITCM_BEGIN);
+#endif
 #endif
 
 #if CFG_USE_DEEP_PS

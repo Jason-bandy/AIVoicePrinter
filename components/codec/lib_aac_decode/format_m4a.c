@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -39,16 +53,16 @@ struct format_m4a
     int current_sample_rate;
     void *decoder;
 
-    float T1; 
+    float T1;
 };
 
-static int empty = 0; 
+static int empty = 0;
 
 static void calc_aac_time(struct format_m4a *format_m4a, int outputSamps)
 {
-    format_m4a->T1 += ((float)outputSamps / ((float)(4 * format_m4a->aac_decoder_sample_rate) / 1000)); 
+    format_m4a->T1 += ((float)outputSamps / ((float)(4 * format_m4a->aac_decoder_sample_rate) / 1000));
 
-    player_set_position((uint32_t)format_m4a->T1); 
+    player_set_position((uint32_t)format_m4a->T1);
 }
 
 static struct audio_stream *stream = 0;
@@ -87,7 +101,7 @@ static uint32_t http_data_fetch_aac(void *buffer, uint32_t size, uint32_t count,
 
     if(bytes_read == 0)
     {
-        empty = 1; 
+        empty = 1;
     }
 
     if (bytes_read != need_read)
@@ -109,16 +123,16 @@ struct audio_codec *format_m4a_create(struct audio_stream *stream)
 
     m4a->phase = M4A_PHASE_INIT;
     m4a->parent.seekable = 0;
-    m4a->T1 = 0.0f; 
-    m4a->decoder = RT_NULL; 
-    empty = 0; 
+    m4a->T1 = 0.0f;
+    m4a->decoder = RT_NULL;
+    empty = 0;
 
     return &(m4a->parent);
 }
 
 static int format_m4a_run(struct audio_codec *codec)
 {
-	extern long list_memheap(void);
+    extern long list_memheap(void);
     int result = 0;
     int err, event;
     struct format_m4a *m4a;
@@ -211,7 +225,7 @@ static int format_m4a_run(struct audio_codec *codec)
                 memcpy(buffer, m4a->aac_decoder_pcm_buffer, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t));
 
                 /* calc_aac_time */
-                calc_aac_time(m4a, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t)); 
+                calc_aac_time(m4a, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t));
 
                 audio_device_write(buffer, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t));
             }
@@ -234,7 +248,7 @@ static int format_m4a_run(struct audio_codec *codec)
                 }
 
                 /* calc_aac_time */
-                calc_aac_time(m4a, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t)); 
+                calc_aac_time(m4a, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t));
 
                 audio_device_write(buffer, m4a->aac_decoder_pcm_samples * 2 * sizeof(rt_uint16_t));
             }
@@ -310,7 +324,7 @@ static int format_m4a_destory(struct audio_codec *codec)
     }
 
     // when destory, stream set to NULL
-    // fixed the bug that the second time play m4a, stream is not NULL, 
+    // fixed the bug that the second time play m4a, stream is not NULL,
     // but stream->ops is NULL.  by jiewu
     stream = NULL;
 
@@ -319,17 +333,17 @@ static int format_m4a_destory(struct audio_codec *codec)
 
 static struct audio_codec_ops _m4a_ops =
 {
-    format_m4a_create, 
+    format_m4a_create,
     format_m4a_run,
     format_m4a_destory,
 };
 
 int player_codec_beken_aac_register(void)
 {
-    return audio_codec_register(CODEC_AAC, &_m4a_ops); 
+    return audio_codec_register(CODEC_AAC, &_m4a_ops);
 }
 
 int player_codec_beken_m4a_register(void)
 {
-    return audio_codec_register(FORMAT_M4A, &_m4a_ops); 
+    return audio_codec_register(FORMAT_M4A, &_m4a_ops);
 }

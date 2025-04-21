@@ -45,7 +45,11 @@ extern const struct fal_flash_dev beken_ext_flash_device;
 
 /* flash start addr */
 #define RT_FLASH_BEKEN_START_ADDR        0x00000000
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_4M)
 #define RT_FLASH_BEKEN_SIZE              (4 * 1024 * 1024)               // unit: bytes, total 2Mbytes
+#elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
+#define RT_FLASH_BEKEN_SIZE              (2 * 1024 * 1024)
+#endif
 
 #define RT_FLASH_BEKEN_SECTOR_SIZE       (4096)
 
@@ -56,20 +60,37 @@ extern const struct fal_flash_dev beken_ext_flash_device;
 
 #define RT_BK_APP_NAME                "app"
 #define RT_BK_APP_PART_ADDR           (RT_BK_BL_PART_ADDR + RT_BK_BL_PART_LEN) // 0x10000
-#define RT_BK_APP_PART_LEN            (1156 / 68 * 64 * 1024) 
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_4M)
+#define RT_BK_APP_PART_LEN            (2516 / 68 * 64 * 1024)
+#elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
+#define RT_BK_APP_PART_LEN            (1156 / 68 * 64 * 1024)
+#endif
 #define RT_BK_APP_PART_END_ADDR       (RT_BK_APP_PART_ADDR + RT_BK_APP_PART_LEN) 
 
 #define RT_BK_DL_PART_NAME            "download"
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_4M)
+#define RT_BK_DL_PART_ADDR            (0x286000)
+#define RT_BK_DL_PART_LEN             (1384 * 1024)
+#elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
 #define RT_BK_DL_PART_ADDR            (0x132000)
-#define RT_BK_DL_PART_LEN             (816 * 1024)      
+#define RT_BK_DL_PART_LEN             (696 * 1024)
+#endif
 #define RT_BK_DL_PART_END_ADDR        (RT_BK_DL_PART_ADDR + RT_BK_DL_PART_LEN)
 
 #define RT_BK_PARAM1_PART_NAME        "param1"
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_4M)
+#define RT_BK_PARAM1_PART_ADDR        0x3FE000
+#elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
 #define RT_BK_PARAM1_PART_ADDR        0x1FE000
+#endif
 #define RT_BK_PARAM1_PART_LEN         (4 * 1024)
 
 #define RT_BK_PARAM2_PART_NAME        "param2"
+#if (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_4M)
+#define RT_BK_PARAM2_PART_ADDR        0x3FF000
+#elif (CFG_FLASH_SELECTION_TYPE == FLASH_SELECTION_TYPE_2M)
 #define RT_BK_PARAM2_PART_ADDR        0x1FF000
+#endif
 #define RT_BK_PARAM2_PART_LEN         (4 * 1024)
 
 /* Preprocess */

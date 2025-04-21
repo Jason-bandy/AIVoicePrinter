@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _SYS_CONFIG_H_
 #define _SYS_CONFIG_H_
 
@@ -172,6 +186,7 @@
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             0
+#define CFG_FLASH_BYPASS_OTP                       0
 #define CFG_AP_SUPPORT_HT_IE                       0
 #define CFG_SUPPORT_BSSID_CONNECT                  0
 #if CFG_SUPPORT_BSSID_CONNECT
@@ -449,7 +464,9 @@
 #define CFG_USE_SPI                                0
 #define CFG_USE_SPI_MASTER                         0
 #define CFG_USE_SPI_SLAVE                          0
-#define CFG_USE_SPI_DMA                            0
+#define CFG_USE_SPI_DMA_MASTER                     0
+#define CFG_USE_SPI_DMA_SLAVE                      0
+#define CFG_USE_SPI_MST_FLASH                      0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST                        0
@@ -463,4 +480,10 @@
 #define CFG_BK_NX_GET_WIFI_SNR                     0
 
 #define CFG_WRAP_LIBC                              1
+
+#if CFG_OS_FREERTOS
+#define CFG_MEM_CHECK_ENABLE                       1
+#else
+#define CFG_MEM_CHECK_ENABLE                       0
+#endif
 #endif // _SYS_CONFIG_H_

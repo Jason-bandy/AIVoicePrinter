@@ -1,9 +1,23 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _VOICE_CHANGER_CORE_H_
 #define _VOICE_CHANGER_CORE_H_
 
 #include <rtthread.h>
 
-#if CONFIG_VOICE_CHANGER 
+#if CONFIG_VOICE_CHANGER
 
 
 #ifndef M_ZERO
@@ -50,24 +64,24 @@
 typedef enum {
     VC_STOP,
     VC_FIRST,
-    VC_START,         
+    VC_START,
 } VC_STA;
 
 typedef struct voice_changer_st {
     int32_t *fifo;  // extal 1 sample is used for xin0
     int16_t *linear;
     int16_t *last;
-    uint32_t fifo_size;    
+    uint32_t fifo_size;
     uint32_t linear_size;
     uint32_t last_size;
     int32_t in_len;
-    int32_t out_len;       
+    int32_t out_len;
     uint32_t audio_freq;
     uint32_t sample_t[VC_PARAM_DOWN +1+VC_PARAM_UP_NUM];
     uint32_t sample_len;
     uint32_t sample_idx;
     uint32_t change_flag;
-    VC_STA status;    
+    VC_STA status;
 } VCHANGER_ST, *VCHANGER_PTR;
 
 
@@ -79,5 +93,5 @@ void voice_changer_init_first_sample(VCHANGER_PTR p_vc);
 void voice_changer_set_sample_len(VCHANGER_PTR p_vc,uint32_t value);
 
 
-#endif  //#if CONFIG_VOICE_CHANGER 
+#endif  //#if CONFIG_VOICE_CHANGER
 #endif

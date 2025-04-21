@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rthw.h>
 #include <rtthread.h>
 #include <rtdevice.h>
@@ -42,16 +56,16 @@ int rt_hw_sys_ctrl_init(void)
     device->rx_indicate = RT_NULL;
     device->tx_complete = RT_NULL;
     /* Setting the driver interface */
-#ifdef RT_USING_DEVICE_OPS
+    #ifdef RT_USING_DEVICE_OPS
     device->ops         = &sys_ctrl_ops;
-#else
+    #else
     device->init        = RT_NULL;
     device->open        = RT_NULL;
     device->close       = RT_NULL;
     device->read        = RT_NULL;
     device->write       = RT_NULL;
     device->control     = rt_sys_ctrl_control;
-#endif /* RT_USING_DEVICE_OPS */
+    #endif /* RT_USING_DEVICE_OPS */
 
     /* Setting the user data */
     device->user_data   = RT_NULL;
@@ -63,6 +77,6 @@ INIT_DEVICE_EXPORT(rt_hw_sys_ctrl_init);
 
 int rt_hw_sys_ctrl_exit(void)
 {
-	/* unregister device */
-	return rt_device_unregister(&(sys_ctrl_dev.parent));
+    /* unregister device */
+    return rt_device_unregister(&(sys_ctrl_dev.parent));
 }

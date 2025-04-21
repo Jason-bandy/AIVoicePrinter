@@ -17,7 +17,7 @@
  *  This file is part of mbed TLS (https://tls.mbed.org)
  */
 
-#include "certs.h"
+#include "mbedtls/certs.h"
 
 #define ENTRUST_ROOT_CA                                                 \
 "-----BEGIN CERTIFICATE-----\r\n"                                       \
