@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _DIRECT_CONNECT_H_
 #define _DIRECT_CONNECT_H_
 
@@ -8,9 +22,9 @@ extern "C" {
 #define  direct_connect_debug  1
 
 #if(direct_connect_debug)
-	#define dir_link_prf  bk_printf
-#else 
-	#define dir_link_prf  os_null_printf
+#define dir_link_prf  bk_printf
+#else
+#define dir_link_prf  os_null_printf
 #endif
 
 
@@ -30,12 +44,12 @@ extern "C" {
 
 typedef struct
 {
-	uint8_t direct_ssid[33];
-	uint8_t direct_pwd[65];
-}direct_ap_info_t;
+    uint8_t direct_ssid[33];
+    uint8_t direct_pwd[65];
+} direct_ap_info_t;
 
 int direct_connect_init(void);
 
 
-#endif 
+#endif
 

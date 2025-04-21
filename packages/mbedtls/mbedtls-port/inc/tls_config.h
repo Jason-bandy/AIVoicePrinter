@@ -265,7 +265,7 @@
  * Uncomment a macro to enable alternate implementation of the corresponding
  * module.
  */
-#define MBEDTLS_AES_ALT
+//#define MBEDTLS_AES_ALT
 //#define MBEDTLS_ARC4_ALT
 //#define MBEDTLS_BLOWFISH_ALT
 //#define MBEDTLS_CAMELLIA_ALT
@@ -2717,7 +2717,7 @@
 #include MBEDTLS_USER_CONFIG_FILE
 #endif
 
-#include "check_config.h"
+#include "mbedtls/check_config.h"
 
 #define tls_malloc  rt_malloc
 #define tls_free    rt_free

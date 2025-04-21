@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -65,6 +79,10 @@ static rt_err_t audio_adc_init(rt_device_t dev)
 
 static rt_err_t audio_adc_open(rt_device_t dev, rt_uint16_t oflag)
 {
+    void audio_hardware_init(void);
+    audio_hardware_init();
+    audio_adc_init(dev);
+
     struct audio_mic_device *audio_adc = RT_NULL;
 
     audio_adc = (struct audio_mic_device *)dev;
@@ -72,18 +90,18 @@ static rt_err_t audio_adc_open(rt_device_t dev, rt_uint16_t oflag)
     if ((oflag & RT_DEVICE_OFLAG_RDONLY) && (!(audio_adc->stat & ADC_IS_OPENED)))
     {
         rt_device_open(&audio_adc->record_pipe.parent, RT_DEVICE_OFLAG_RDONLY);
-        
-    #ifdef BEKEN_AUDIO_ADC_DMA
+
+        #ifdef BEKEN_AUDIO_ADC_DMA
         adc_dma_init(audio_adc);
         audio_adc_set_dma(1);
         audio_adc->stat |= ADC_DMA_IRQ_ENABLE;
-    #else
+        #else
         /* For adc, use isr */
         audio_adc_set_write_thred_bit(AUDIO_ADC_DEF_WR_THRED);
         audio_adc_set_int_enable_bit(1);
         audio_enable_interrupt();
         audio_adc->stat |= ADC_IRQ_ENABLE;
-    #endif
+        #endif
         audio_adc_set_enable_bit(1);
         audio_adc_open_analog_regs();
 
@@ -121,23 +139,23 @@ static rt_err_t audio_adc_control(rt_device_t dev, int cmd, void *args)
             audio_adc_set_int_enable_bit(0);
 
             audio->n_channel = *(rt_uint32_t *)args;
-            
+
             adc_dma_init(audio);
 
             audio_adc_set_dma(1);
             audio_adc_set_enable_bit(1);
             audio_adc_set_int_enable_bit(1);
             #else
-            #error "please add isr set channel"
+#error "please add isr set channel"
             #endif
         }
-        else 
+        else
         {
             audio->n_channel = *(rt_uint32_t *)args;
         }
         rt_kprintf("set adc channel %d \n", audio->n_channel);
         break;
-        
+
     case CODEC_CMD_SET_VOLUME:
     {
         rt_uint32_t volume = *(rt_uint32_t *)args;
@@ -155,19 +173,19 @@ static rt_err_t audio_adc_control(rt_device_t dev, int cmd, void *args)
         {
             audio_adc_set_enable_bit(0);
             audio_adc_set_dma(0);
-            
+
             audio_adc_set_sample_rate(freq);
 
             audio_adc_set_dma(1);
             audio_adc_set_enable_bit(1);
         }
-        else 
+        else
         {
             audio_adc_set_sample_rate(freq);
         }
 
         rt_kprintf("set adc sample rate %d \n", freq);
-        
+
         break;
     }
 
@@ -198,59 +216,65 @@ static rt_err_t audio_adc_close(rt_device_t dev)
     audio_adc = (struct audio_mic_device *)dev;
     stat = audio_adc->stat;
 
-    if (((stat & ADC_DMA_IRQ_ENABLE) || (stat & ADC_IRQ_ENABLE)) && 
-        (stat & ADC_IS_OPENED))
+    if (((stat & ADC_DMA_IRQ_ENABLE) || (stat & ADC_IRQ_ENABLE)) &&
+            (stat & ADC_IS_OPENED))
     {
         audio_adc_set_enable_bit(0);
         audio_adc_set_int_enable_bit(0);
-        // comment this for open again may have noise 
-        //audio_adc_close_analog_regs();
+
+        // if call this, open again may have noise
+        audio_adc_close_analog_regs();
 
         audio_adc->n_channel = 1;
 
-    #ifdef BEKEN_AUDIO_ADC_DMA
+        #ifdef BEKEN_AUDIO_ADC_DMA
         audio_adc_set_dma(0);
-    #else
+        #else
 
-    #endif
+        #endif
         rt_device_close(&audio_adc->record_pipe.parent);
         stat &= ~(ADC_DMA_IRQ_ENABLE | ADC_IRQ_ENABLE | ADC_IS_OPENED);
+
+        rt_ringbuffer_reset(&audio_adc->record_pipe.ringbuffer);
+        void *os_memset(void *b, int c, UINT32 len);
+        os_memset(audio_adc->recv_fifo,0,audio_adc->recv_fifo_len);
+        audio_adc->cur_ptr = audio_adc->recv_fifo;
     }
 
     audio_adc->stat = stat;
     dbg_log(DBG_INFO, "close mic device");
-	return 0;
+    return 0;
 }
 
 void audio_adc_irq_handler(UINT32 arg)
 {
-	rt_uint32_t status, cnt;
-	struct audio_mic_device *audio_adc = RT_NULL;
-	INT16 *left = 0;
-	INT16 *right = 0;
+    rt_uint32_t status, cnt;
+    struct audio_mic_device *audio_adc = RT_NULL;
+    INT16 *left = 0;
+    INT16 *right = 0;
 
-	audio_adc = &_g_audio_mic;
+    audio_adc = &_g_audio_mic;
 
-	status = REG_READ(AUD_AD_FIFO_STATUS);
-	if (status & ADC_INT_FLAG) {
-		cnt = 0;
-		while (!(status & (ADC_FIFO_EMPTY))) {
+    status = REG_READ(AUD_AD_FIFO_STATUS);
+    if (status & ADC_INT_FLAG) {
+        cnt = 0;
+        while (!(status & (ADC_FIFO_EMPTY))) {
 
-			if (audio_adc->n_channel == 1) {
-				audio_adc_get_l_sample((INT16*)&audio_adc->recv_fifo[cnt++]);
-			} else {
-				left = (INT16*)&audio_adc->recv_fifo[cnt++];
-				right = (INT16*)&audio_adc->recv_fifo[cnt++];
-				audio_adc_get_l_and_r_samples(left, right);
-			}
+            if (audio_adc->n_channel == 1) {
+                audio_adc_get_l_sample((INT16*)&audio_adc->recv_fifo[cnt++]);
+            } else {
+                left = (INT16*)&audio_adc->recv_fifo[cnt++];
+                right = (INT16*)&audio_adc->recv_fifo[cnt++];
+                audio_adc_get_l_and_r_samples(left, right);
+            }
 
-			status = REG_READ(AUD_AD_FIFO_STATUS);
-		}
+            status = REG_READ(AUD_AD_FIFO_STATUS);
+        }
 
-		if (cnt > 0) {
-			rt_device_write(&audio_adc->record_pipe.parent, 0, audio_adc->recv_fifo, cnt << 1);
-		}
-	}
+        if (cnt > 0) {
+            rt_device_write(&audio_adc->record_pipe.parent, 0, audio_adc->recv_fifo, cnt << 1);
+        }
+    }
 }
 
 void adc_dma_half_handler(UINT32 flag)
@@ -304,8 +328,8 @@ void adc_dma_init(struct audio_mic_device *audio_adc)
 
     rt_kprintf("adc-buf:%p, adc-buf-len:%d, ch:%d\r\n", adc_buf_ptr, adc_buf_len, n_channel);
     if(!adc_buf_ptr)
-        return; 
-    
+        return;
+
     memset(&cfg, 0, sizeof(GDMACFG_TPYES_ST));
     memset(&en_cfg, 0, sizeof(GDMA_CFG_ST));
 
@@ -314,17 +338,17 @@ void adc_dma_init(struct audio_mic_device *audio_adc)
         cfg.srcdat_width = 16;
     else
         cfg.srcdat_width = 32;
-    
+
     cfg.dstptr_incr = 1;
     cfg.srcptr_incr = 0;
-    
+
     cfg.src_start_addr = (void*)AUD_ADC_FIFO_PORT;
     cfg.dst_start_addr = adc_buf_ptr;
 
     cfg.channel = AUD_ADC_DEF_DMA_CHANNEL;
     cfg.prio = 0;
     cfg.u.type5.dst_loop_start_addr = adc_buf_ptr;
-    cfg.u.type5.dst_loop_end_addr = adc_buf_ptr + adc_buf_len; 
+    cfg.u.type5.dst_loop_end_addr = adc_buf_ptr + adc_buf_len;
 
     cfg.half_fin_handler = NULL;//adc_dma_half_handler;
     cfg.fin_handler = adc_dma_finish_handler;
@@ -367,20 +391,20 @@ int rt_audio_adc_hw_init(void)
     audio_adc->parent.tx_complete = RT_NULL;
     audio_adc->parent.user_data   = RT_NULL;
 
-#ifdef RT_USING_DEVICE_OPS
+    #ifdef RT_USING_DEVICE_OPS
     device->ops = &audio_mic_ops;
-#else
+    #else
     audio_adc->parent.control = audio_adc_control;
     audio_adc->parent.init    = audio_adc_init;
     audio_adc->parent.open    = audio_adc_open;
     audio_adc->parent.close   = audio_adc_close;
     audio_adc->parent.read    = audio_adc_read;
     audio_adc->parent.write   = RT_NULL;
-#endif /* RT_USING_DEVICE_OPS */
+    #endif /* RT_USING_DEVICE_OPS */
 
     /* register the device */
-    rt_device_register(&audio_adc->parent, "mic", 
-        RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_RDONLY | RT_DEVICE_FLAG_DMA_RX);
+    rt_device_register(&audio_adc->parent, "mic",
+                       RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_RDONLY | RT_DEVICE_FLAG_DMA_RX);
 
     rt_device_init(&audio_adc->parent);
 
@@ -394,7 +418,7 @@ int rt_audio_adc_hw_init(void)
         }
 
         memset(buf, 0, size);
-        
+
         rt_audio_pipe_init(&audio_adc->record_pipe,
                            "voice",
                            RT_PIPE_FLAG_FORCE_WR | RT_PIPE_FLAG_BLOCK_RD,

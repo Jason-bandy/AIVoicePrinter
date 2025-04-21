@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rthw.h>
 #include <rtthread.h>
 
@@ -6,6 +20,7 @@
 #include "sys_rtos.h"
 #include "rtos_pub.h"
 #include "power_save_pub.h"
+#include "low_voltage_ps.h"
 
 extern void WFI(void);
 extern UINT32 mcu_power_save(UINT32 sleep_tick);
@@ -27,8 +42,8 @@ static void idle_hook(void)
 
     rt_enter_critical();
 
-	GLOBAL_INT_DECLARATION();
-	GLOBAL_INT_DISABLE();
+    GLOBAL_INT_DECLARATION();
+    GLOBAL_INT_DISABLE();
     /* get next os tick */
     timeout_tick = rt_timer_next_timeout_tick();
     if (timeout_tick != RT_TICK_MAX)
@@ -36,26 +51,38 @@ static void idle_hook(void)
         timeout_tick -= rt_tick_get();
     }
 
-#if CFG_USE_MCU_PS
-    /* sleep cpu */
-    delta_tick = mcu_power_save(timeout_tick);
-    if(log_print)
-        rt_kprintf("s:%d, d:%d\n", timeout_tick, delta_tick);
-#else
-        WFI();
-#endif
-
-    if (delta_tick)
+    #if (1 == CFG_LOW_VOLTAGE_PS)
+    if (LV_PS_ENABLED)
     {
-        /* adjust OS tick */
-        rt_tick_set(rt_tick_get() + delta_tick);
+        UINT32 sleep_ms = BK_TICKS_TO_MS ( timeout_tick );
+        if(sleep_ms > MCU_SLEEP_DURATION_MIN)
+            lv_ps_sleep_check( timeout_tick );
         GLOBAL_INT_RESTORE();
-        /* check system timer */
-        rt_timer_check();
     }
     else
+    #endif
     {
-        GLOBAL_INT_RESTORE();
+        #if CFG_USE_MCU_PS
+        /* sleep cpu */
+        delta_tick = mcu_power_save(timeout_tick);
+        if(log_print)
+            rt_kprintf("s:%d, d:%d\n", timeout_tick, delta_tick);
+        #else
+        WFI();
+        #endif
+
+        if (delta_tick)
+        {
+            /* adjust OS tick */
+            rt_tick_set(rt_tick_get() + delta_tick);
+            GLOBAL_INT_RESTORE();
+            /* check system timer */
+            rt_timer_check();
+        }
+        else
+        {
+            GLOBAL_INT_RESTORE();
+        }
     }
 
     rt_exit_critical();
@@ -73,17 +100,17 @@ static int drv_pm_init(void)
 
 int set_log(int argc, char *argv[])
 {
-	char val;
+    char val;
 
-	val = atoi(argv[1]);
+    val = atoi(argv[1]);
 
-	if(val == 1) {
-		log_print = 1;
-	} else {
-		log_print = 0;
-	}
+    if(val == 1) {
+        log_print = 1;
+    } else {
+        log_print = 0;
+    }
 
-	return 0;
+    return 0;
 }
 
 MSH_CMD_EXPORT(set_log, set_log on or off);

@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -18,8 +32,8 @@
 
 int spi_hs_test(int argc, char** argv)
 {
-	struct rt_device *spi_hs;
-    
+    struct rt_device *spi_hs;
+
     spi_hs = (struct rt_device *)rt_device_find("spi_hs");
     if (spi_hs == RT_NULL)
     {
@@ -50,20 +64,20 @@ int spi_hs_test(int argc, char** argv)
         if(buf)
         {
             rt_memset(buf, 0, tx_len);
-            for(int i=0; i<tx_len; i++) 
+            for(int i=0; i<tx_len; i++)
             {
                 buf[i] = i & 0xff;
             }
-            
+
             rt_device_write(spi_hs, 0, (const void *)buf, tx_len);
 
-            for(int i=0; i<tx_len; i++) 
+            for(int i=0; i<tx_len; i++)
             {
                 rt_kprintf("%02x,", buf[i]);
                 if((i+1)%32 == 0)
                     rt_kprintf("\r\n");
             }
-            rt_kprintf("\r\n"); 
+            rt_kprintf("\r\n");
 
             rt_free(buf);
         }
@@ -85,24 +99,24 @@ int spi_hs_test(int argc, char** argv)
         if(buf)
         {
             rt_memset(buf, 0, rx_len);
-            
+
             rx_len = rt_device_read(spi_hs, 0, buf, rx_len);
             rt_kprintf("rx ret:%d\r\n", rx_len);
-            
-            for(int i=0; i<rx_len; i++) 
+
+            for(int i=0; i<rx_len; i++)
             {
                 rt_kprintf("%02x,", buf[i]);
                 if((i+1)%32 == 0)
                     rt_kprintf("\r\n");
             }
-            rt_kprintf("\r\n"); 
+            rt_kprintf("\r\n");
 
             rt_free(buf);
         }
     }
-    else 
+    else
     {
-        rt_kprintf("spi_hs_test tx/rx len\r\n"); 
+        rt_kprintf("spi_hs_test tx/rx len\r\n");
     }
 
     rt_device_close(spi_hs);

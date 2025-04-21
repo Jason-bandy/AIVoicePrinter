@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rtdevice.h>
 #include "finsh.h"
@@ -8,6 +22,7 @@
 #include "typedef.h"
 #include "i2s_pub.h"
 #include "test_config.h"
+#include "gpio_pub.h"
 
 #ifdef I2S_RTT_TEST
 
@@ -23,7 +38,7 @@ rt_err_t i2s_test_rtt_tx_done(rt_device_t dev, void *buffer)
     {
         rt_sem_release(g_i2s_sync_sem);
     }
-	return 0;
+    return 0;
 }
 
 int i2s_test_loopback(int sample_rate, int bits_length)
@@ -98,7 +113,7 @@ int i2s_test_loopback(int sample_rate, int bits_length)
         rt_kprintf("rt_sem_create(g_i2s_sync_sem) failed!\r\n");
         goto exit;
     }
-    
+
     /* WRITE */
     {
         index = 0;
@@ -149,7 +164,7 @@ int i2s_test_loopback(int sample_rate, int bits_length)
             rt_kprintf("buffers[%d][%d] 0x%x vs 0x%x\r\n", index, buffer_index, buffers[index][buffer_index], buffers[0][buffer_index]);
         }
     }
-    
+
     rt_kprintf("\r\n ---write test over---\r\n");
 
 exit:
@@ -161,7 +176,7 @@ exit:
             buffers[index] = RT_NULL;
         }
     }
-    
+
     if (RT_NULL != i2s_device)
     {
         rt_device_set_tx_complete(i2s_device, RT_NULL);
@@ -219,6 +234,15 @@ static int i2s_test_rtt(int argc, char *argv[])
         master = 1;
         rt_kprintf("%s master mode, will recieve data\r\n", __FUNCTION__);
     }
+    else if ('o' == argv[1][0])
+    {
+        // cli_cmd: i2s_test_rtt o
+        // output 26M clk at GPIO22
+        uint32_t val = GFUNC_MODE_CLK26M;
+        sddev_control(GPIO_DEV_NAME, CMD_GPIO_ENABLE_SECOND, &val);
+        rt_kprintf("%s 26M clk output, will get 26M clk at GPIO22\r\n", __FUNCTION__);
+        return 0;
+    }
     else
     {
         rt_kprintf("%s slave mode, will send data\r\n", __FUNCTION__);
@@ -263,7 +287,7 @@ static int i2s_test_rtt(int argc, char *argv[])
         rt_kprintf(" --i2s device init failed---\r\n ");
         return 0;
     }
-    
+
     if (master)
     {
         result = rt_device_open(i2s_device, RT_DEVICE_FLAG_WRONLY);
@@ -290,7 +314,7 @@ static int i2s_test_rtt(int argc, char *argv[])
             rt_kprintf("rt_sem_create(g_i2s_sync_sem) failed!\r\n");
             goto exit;
         }
-        
+
         for (index = 0; index < I2S_TEST_BUFFER_COUNT; index++)
         {
             rt_sem_take(g_i2s_sync_sem, RT_WAITING_FOREVER);
@@ -306,7 +330,7 @@ static int i2s_test_rtt(int argc, char *argv[])
                 }
             }
         }
-        
+
         enable = 0;
         rt_device_control(i2s_device, RT_DEVICE_CTRL_I2S_DMA_TX_ENABLE, (void *)&enable);
         rt_kprintf("\r\n ---write test over---\r\n");
@@ -332,18 +356,18 @@ static int i2s_test_rtt(int argc, char *argv[])
         {
             for (buffer_index = 0; buffer_index < I2S_TEST_BUFFER_LENGTH; buffer_index++)
             {
-#if 0
+                #if 0
                 if (buffers[index][buffer_index] != ((index<<24) | (buffer_index<<16) | (buffer_index<<8) | (buffer_index<<0)))
                 {
                     rt_kprintf("buffers[%d][%d] %d != %d\r\n", index, buffer_index, buffers[index][buffer_index], ((index<<24) | (buffer_index<<16) | (buffer_index<<8) | (buffer_index<<0)));
                     break;
                 }
-#else
+                #else
                 rt_kprintf("buffers[%d][%d] 0x%x vs 0x%x\r\n", index, buffer_index, buffers[index][buffer_index], (0x80004000 | (index<<24) | (buffer_index<<16) | (index<<8) | (buffer_index<<0)));
-#endif
+                #endif
             }
         }
-        
+
         enable = 0;
         rt_device_control(i2s_device, RT_DEVICE_CTRL_I2S_DMA_RX_ENABLE, (void *)&enable);
         rt_kprintf("\r\n ---read test over---\r\n");
@@ -358,7 +382,7 @@ exit:
             buffers[index] = RT_NULL;
         }
     }
-    
+
     if (RT_NULL != i2s_device)
     {
         rt_device_set_tx_complete(i2s_device, RT_NULL);

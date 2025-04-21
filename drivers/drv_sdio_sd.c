@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 
@@ -65,11 +79,11 @@ static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_
     read_blk_num = size;
     read_data_buf = (UINT8*)buffer;
 
-#if 0
+    #if 0
     for(num=0; num<read_blk_num; num++)
     {
         result = sdcard_read_single_block(read_data_buf, start_blk_addr,
-                    SD_DEFAULT_BLOCK_SIZE);
+                                          SD_DEFAULT_BLOCK_SIZE);
         if(result!=SD_OK)
         {
             rt_kprintf("sdcard_read err:%d, curblk:0x%x\r\n",result, start_blk_addr);
@@ -80,11 +94,11 @@ static rt_size_t rt_sdcard_read(rt_device_t dev, rt_off_t pos, void* buffer, rt_
         start_blk_addr++;
         read_data_buf += SD_DEFAULT_BLOCK_SIZE;
     }
- #else
-	if(SD_OK != sdcard_read_multi_block(read_data_buf,start_blk_addr,read_blk_num))
-		size = 0;
+    #else
+    if(SD_OK != sdcard_read_multi_block(read_data_buf,start_blk_addr,read_blk_num))
+        size = 0;
 
- #endif
+    #endif
     rt_mutex_release(&sdcard_mutex);
 
     return size;
@@ -99,18 +113,18 @@ static rt_size_t rt_sdcard_write (rt_device_t dev, rt_off_t pos, const void* buf
     rt_mutex_take(&sdcard_mutex, RT_WAITING_FOREVER);
     start_blk_addr = pos;
     write_data_buf = (rt_uint8_t *)buffer;
-#if 0
-	if(1 == size)
-	{
-		if(SD_OK != sdcard_write_single_block(write_data_buf,start_blk_addr))
-			size = 0;
-	}
-	else
-#endif
-	{
-	    if(SD_OK != sdcard_write_multi_block(write_data_buf,start_blk_addr,size))
-	        size = 0;
-	}
+    #if 0
+    if(1 == size)
+    {
+        if(SD_OK != sdcard_write_single_block(write_data_buf,start_blk_addr))
+            size = 0;
+    }
+    else
+    #endif
+    {
+        if(SD_OK != sdcard_write_multi_block(write_data_buf,start_blk_addr,size))
+            size = 0;
+    }
     rt_mutex_release(&sdcard_mutex);
 
     return size;
@@ -143,6 +157,17 @@ static rt_err_t rt_sdcard_control(rt_device_t dev, int cmd, void *args)
         geometry->block_size = card_info.block_size;
         geometry->sector_count = card_info.total_block;
     }
+    else if(cmd == RT_DEVICE_CTRL_BLK_SYNC)
+    {
+        #if (CFG_SOC_NAME == SOC_BK7252N)
+        extern bk_err_t bk_sd_card_rw_sync(void);
+        int res = bk_sd_card_rw_sync();
+        if(res != BK_OK)
+        {
+            os_printf("err:sd sync=%d\r\n", res);
+        }
+        #endif
+    }
 
     return RT_EOK;
 }
@@ -165,28 +190,28 @@ int rt_hw_sdcard_init(void)
     //sdcard_init();
 
     //sdcard_initialize();
-#if (CFG_SOC_NAME == SOC_BK7252N)
+    #if (CFG_SOC_NAME == SOC_BK7252N)
     bk_sdio_host_driver_init();
-#endif
+    #endif
 
-	/* register sdcard device */
-	sdcard_device.type  = RT_Device_Class_Block;
-#ifdef RT_USING_DEVICE_OPS
+    /* register sdcard device */
+    sdcard_device.type  = RT_Device_Class_Block;
+    #ifdef RT_USING_DEVICE_OPS
     sdcard_device.ops   = &sdcard_ops;
-#else
-	sdcard_device.init 	= rt_sdcard_init;
-	sdcard_device.open 	= rt_sdcard_open;
-	sdcard_device.close = rt_sdcard_close;
-	sdcard_device.read 	= rt_sdcard_read;
-	sdcard_device.write = rt_sdcard_write;
-	sdcard_device.control = rt_sdcard_control;
-#endif /* RT_USING_DEVICE_OPS */
+    #else
+    sdcard_device.init 	= rt_sdcard_init;
+    sdcard_device.open 	= rt_sdcard_open;
+    sdcard_device.close = rt_sdcard_close;
+    sdcard_device.read 	= rt_sdcard_read;
+    sdcard_device.write = rt_sdcard_write;
+    sdcard_device.control = rt_sdcard_control;
+    #endif /* RT_USING_DEVICE_OPS */
 
-	/* no private */
-	sdcard_device.user_data = RT_NULL;
+    /* no private */
+    sdcard_device.user_data = RT_NULL;
 
-	rt_device_register(&sdcard_device, "sd0",
-			RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_REMOVABLE | RT_DEVICE_FLAG_STANDALONE);
+    rt_device_register(&sdcard_device, "sd0",
+                       RT_DEVICE_FLAG_RDWR | RT_DEVICE_FLAG_REMOVABLE | RT_DEVICE_FLAG_STANDALONE);
 
     return RT_EOK;
 }

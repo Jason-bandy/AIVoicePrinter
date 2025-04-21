@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -16,9 +30,9 @@
 #include "samples_config.h"
 
 #ifdef AP_CONFIG_SAMPLE
-struct tcpclient_config{
-   char host[32];
-   int port;
+struct tcpclient_config {
+    char host[32];
+    int port;
 };
 
 typedef enum
@@ -33,12 +47,12 @@ typedef enum
     ACT_DISCOVER_DEVICE,
     ACT_GET_IP_CFG,
     ACT_MES_MAX
-}HTTP_ACTION_TYPE;
+} HTTP_ACTION_TYPE;
 
 static rt_mq_t mq_httpserver_msg  = NULL;
 static const char *recive_data;
 static struct webnet_session* web_session;
-static char *body=NULL; 
+static char *body=NULL;
 static rt_sem_t create_httpbody_sem;
 static int tcpserver_port;
 static struct tcpclient_config tcpclient_cfg;
@@ -48,16 +62,16 @@ static rt_bool_t tcpclient_stop = RT_TRUE; /* 停止标志 */
 static int httpserver_msg_send(HTTP_ACTION_TYPE msg)
 {
     int ret = -1;
-    
+
     if(mq_httpserver_msg != NULL)
-    {   
+    {
         ret = rt_mq_send(mq_httpserver_msg, (void *)&msg, sizeof(uint8_t));
         if (ret != RT_EOK)
         {
             rt_kprintf("send httpserver msg failed \n");
         }
     }
-    
+
     return ret;
 }
 
@@ -81,12 +95,12 @@ static void action_get_ssidlist()
     cJSON_AddStringToObject(ssidinfo, "bssid", "01:02:03:04:05:06");
     cJSON_AddItemToArray(array,ssidinfo);
 
-/*
-    cJSON_UpdateStringToObject(ssidinfo, "ssid", "wifi2");
-    cJSON_UpdateNumberToObject(ssidinfo, "auth",  0);
-    cJSON_UpdateStringToObject(ssidinfo, "bssid", "01:02:03:04:05:06");
-*/
-    
+    /*
+        cJSON_UpdateStringToObject(ssidinfo, "ssid", "wifi2");
+        cJSON_UpdateNumberToObject(ssidinfo, "auth",  0);
+        cJSON_UpdateStringToObject(ssidinfo, "bssid", "01:02:03:04:05:06");
+    */
+
     cJSON_AddStringToObject(ssidinfo1, "ssid", "wifi2");
     cJSON_AddNumberToObject(ssidinfo1, "auth",  0);
     cJSON_AddStringToObject(ssidinfo1, "bssid", "01:02:03:04:05:06");
@@ -99,7 +113,7 @@ static void action_get_ssidlist()
     printf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (json)
         cJSON_Delete(json);
 }
@@ -123,12 +137,12 @@ static void action_set_sta()
     if (!json)
         goto _exit;
     cJSON_AddStringToObject(json, "action", "setSTA");
-    cJSON_AddStringToObject(json, "Msg", "success"); 
+    cJSON_AddStringToObject(json, "Msg", "success");
     body = cJSON_PrintUnformatted(json);
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (root)
         cJSON_Delete(root);
     if (json)
@@ -147,7 +161,7 @@ static void action_get_sta()
     json_data = cJSON_CreateObject();
     if (!json_data)
     {
-         goto _exit;
+        goto _exit;
     }
     cJSON_AddStringToObject(json_data, "ssid", "wifi_test");
     cJSON_AddStringToObject(json_data, "psw",  "12345678");
@@ -158,7 +172,7 @@ static void action_get_sta()
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (json)
         cJSON_Delete(json);
 }
@@ -181,12 +195,12 @@ static void action_set_tcpserver()
     if (!json)
         goto _exit;
     cJSON_AddStringToObject(json, "action", "setTCPServer");
-    cJSON_AddStringToObject(json, "Msg", "success"); 
+    cJSON_AddStringToObject(json, "Msg", "success");
     body = cJSON_PrintUnformatted(json);
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (root)
         cJSON_Delete(root);
     if (json)
@@ -205,7 +219,7 @@ static void action_get_tcpserver()
     json_data = cJSON_CreateObject();
     if (!json_data)
     {
-         goto _exit;
+        goto _exit;
     }
     cJSON_AddNumberToObject(json_data, "port", tcpserver_port);
     cJSON_AddItemToObject(json, "data", json_data);
@@ -213,14 +227,14 @@ static void action_get_tcpserver()
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (json)
         cJSON_Delete(json);
 }
 
 static void action_set_tcpclient()
 {
- 
+
     cJSON *root = RT_NULL,*json = RT_NULL,*data=RT_NULL,*port=RT_NULL,*host=RT_NULL;
     root = cJSON_Parse(recive_data);
     if (!root)
@@ -239,12 +253,12 @@ static void action_set_tcpclient()
     if (!json)
         goto _exit;
     cJSON_AddStringToObject(json, "action", "setTCPClient");
-    cJSON_AddStringToObject(json, "Msg", "success"); 
+    cJSON_AddStringToObject(json, "Msg", "success");
     body = cJSON_PrintUnformatted(json);
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (root)
         cJSON_Delete(root);
     if (json)
@@ -264,7 +278,7 @@ static void action_get_tcpclient()
     json_data = cJSON_CreateObject();
     if (!json_data)
     {
-         goto _exit;
+        goto _exit;
     }
     cJSON_AddNumberToObject(json_data, "port", tcpclient_cfg.port);
     cJSON_AddStringToObject(json_data, "host", tcpclient_cfg.host);
@@ -273,7 +287,7 @@ static void action_get_tcpclient()
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (json)
         cJSON_Delete(json);
 }
@@ -290,7 +304,7 @@ static void action_discover_device()
     json_data = cJSON_CreateObject();
     if (!json_data)
     {
-         goto _exit;
+        goto _exit;
     }
     cJSON_AddStringToObject(json_data, "staMAC", "30:AE:A4:86:B1:6C");
     cJSON_AddStringToObject(json_data, "staIP", "192.168.234.133");
@@ -304,7 +318,7 @@ static void action_discover_device()
     rt_kprintf("body:%s\r\n",body);
     rt_sem_release(create_httpbody_sem);
 
-_exit:    
+_exit:
     if (json)
         cJSON_Delete(json);
 }
@@ -312,7 +326,7 @@ _exit:
 
 static void action_get_ip_cfg()
 {
-  
+
     cJSON *json = RT_NULL;
     struct netif *netif = netif_list;
     json = cJSON_CreateObject();
@@ -348,7 +362,7 @@ static void action_get_ip_cfg()
         netif = netif->next;
     } /**< while(netif != RT_NULL) */
 
-#ifdef RT_LWIP_DNS
+    #ifdef RT_LWIP_DNS
     {
         rt_ubase_t index;
         const ip_addr_t *ip_addr;
@@ -367,7 +381,7 @@ static void action_get_ip_cfg()
             rt_exit_critical();
         }
     }
-#endif /**< #ifdef RT_LWIP_DNS */
+    #endif /**< #ifdef RT_LWIP_DNS */
 
     body = cJSON_PrintUnformatted(json);
     rt_kprintf("body:%s\r\n",body);
@@ -400,7 +414,7 @@ static void httpserver_msg_thread_entry(void *parameter)
             case ACT_GET_STA:
                 action_get_sta();
                 break;
-            
+
             case ACT_SET_TCPSERVER:
                 action_set_tcpserver();
                 break;
@@ -408,15 +422,15 @@ static void httpserver_msg_thread_entry(void *parameter)
             case ACT_GET_TCPSERVER:
                 action_get_tcpserver();
                 break;
-            
+
             case ACT_SET_TCPCLIENT:
                 action_set_tcpclient();
                 break;
 
             case ACT_GET_TCPCLIENT:
                 action_get_tcpclient();
-                break;      
-            
+                break;
+
             case ACT_DISCOVER_DEVICE:
                 action_discover_device();
                 break;
@@ -446,15 +460,15 @@ int httpserver_msg_init(void)
     {
         return -1;
     }
-    
+
     rt_thread_t tid = rt_thread_create("httpserver_msg",
-                           httpserver_msg_thread_entry,
-                           RT_NULL,
-                           1024 * 3,
-                           27,
-                           9);
+                                       httpserver_msg_thread_entry,
+                                       RT_NULL,
+                                       1024 * 3,
+                                       27,
+                                       9);
     if (tid != RT_NULL)
-    {   
+    {
         rt_thread_startup(tid);
     }
 
@@ -465,9 +479,9 @@ int httpserver_msg_init(void)
 
 static void cgi_web_ap_config_handler(struct webnet_session* session)
 {
-    char ssid[64]={0};
-    char password[64]={0};
-    
+    char ssid[64]= {0};
+    char password[64]= {0};
+
     const char* mimetype;
     struct webnet_request* request;
     static const char* header = "<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=gb2312\" /><title> ap_config </title></head>";
@@ -511,9 +525,9 @@ static void cgi_json_ap_config_handler(struct webnet_session* session)
     RT_ASSERT(session != RT_NULL);
 
     if (request->query_counter)
-    { 
+    {
         recive_data=request->query;
-       // recive_data=request->query_items[0].name;
+        // recive_data=request->query_items[0].name;
 
         root = cJSON_Parse(recive_data);
         if (!root)
@@ -530,10 +544,10 @@ static void cgi_json_ap_config_handler(struct webnet_session* session)
             httpserver_msg_send(ACT_GET_SSIDLIST);
         }
         else if(strcmp(action->valuestring, "setSTA") == 0)
-        {  
+        {
             rt_kprintf("send setAT event\r\n");
             httpserver_msg_send(ACT_SET_STA);
-        }   
+        }
         else if(strcmp(action->valuestring, "getSTA") == 0)
         {
             rt_kprintf("send getSTA event\r\n");
@@ -546,8 +560,8 @@ static void cgi_json_ap_config_handler(struct webnet_session* session)
         }
         else if(strcmp(action->valuestring, "getTCPServer") == 0)
         {
-           rt_kprintf("send getTCPServer event\r\n"); 
-           httpserver_msg_send(ACT_GET_TCPSERVER);
+            rt_kprintf("send getTCPServer event\r\n");
+            httpserver_msg_send(ACT_GET_TCPSERVER);
         }
         else if(strcmp(action->valuestring, "setTCPClient") == 0)
         {
@@ -575,7 +589,7 @@ static void cgi_json_ap_config_handler(struct webnet_session* session)
             goto _exit;
         }
     }
-    else 
+    else
     {
         rt_kprintf("no parameter\r\n");
         goto _exit;
@@ -588,7 +602,7 @@ static void cgi_json_ap_config_handler(struct webnet_session* session)
         goto _exit;
     }
 
-_exit:  
+_exit:
     if(body)
     {
         session->request->result_code = 200;
@@ -604,7 +618,7 @@ _exit:
     }
     if (root != RT_NULL)
         cJSON_Delete(root);
-    
+
     if(body)
     {
         free(body);
@@ -617,10 +631,10 @@ _exit:
 
 void apconfig_test(void)
 {
-#ifdef WEBNET_USING_CGI
+    #ifdef WEBNET_USING_CGI
     webnet_cgi_register("web_ap_config", cgi_web_ap_config_handler);
     webnet_cgi_register("json_ap_config", cgi_json_ap_config_handler);
-#endif
+    #endif
     httpserver_msg_init();
     webnet_init();
 }

@@ -10,7 +10,7 @@ libpath  = [cwd]
 
 
 #group = DefineGroup('voicechanger', src, depend = [''], CPPPATH = CPPPATH)
-group = DefineGroup('voicechanger', src, depend = [''], LIBS = libs, LIBPATH = libpath, CPPPATH = CPPPATH)
+group = DefineGroup('voice_changer', src, depend = [''], LIBS = libs, LIBPATH = libpath, CPPPATH = CPPPATH)
 
 
 Return('group')

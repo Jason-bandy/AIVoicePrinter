@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include <stdio.h>
 #include <string.h>
@@ -29,21 +43,21 @@
 
 typedef struct _FLIP_CHECK_ST
 {
-	unsigned char *jpg_src_buf;
-	int jpg_file_size;
-	uint16_t Y_width;
-	uint16_t Y_height;
-	rt_mq_t flip_mq;
-	rt_sem_t flip_sema;
-	MotionDetection md;
-}FLIP_CHECK_ST;
+    unsigned char *jpg_src_buf;
+    int jpg_file_size;
+    uint16_t Y_width;
+    uint16_t Y_height;
+    rt_mq_t flip_mq;
+    rt_sem_t flip_sema;
+    MotionDetection md;
+} FLIP_CHECK_ST;
 
 typedef struct _FLIP_MSG
 {
-	uint32_t type;
+    uint32_t type;
     unsigned char* arg;
     uint32_t size;
-}FLIP_MSG;
+} FLIP_MSG;
 
 static FLIP_CHECK_ST flip;
 static uint16_t stop_flag = 0;
@@ -55,7 +69,7 @@ static void flip_msg_send(void *buffer, int size,int type)
 
     msg.arg = (unsigned char*)buffer;
     msg.size = size;
-	msg.type = type;
+    msg.type = type;
     ret = rt_mq_send(flip.flip_mq, (void *)&msg, sizeof(FLIP_MSG));
     if (ret != RT_EOK)
         rt_kprintf("send msg failed!!!!\r\n");
@@ -63,182 +77,182 @@ static void flip_msg_send(void *buffer, int size,int type)
 
 static int flip_check_init(void)
 {
-	flip.flip_mq = rt_mq_create("flip_mq", sizeof(FLIP_MSG), 3, RT_IPC_FLAG_FIFO);
-	if(NULL == flip.flip_mq)
-	{
-		rt_kprintf("mq create error!!\r\n");
-		return -1;
-	}
-	flip.flip_sema = rt_sem_create("flip_sema",0,RT_IPC_FLAG_FIFO);
-	if(NULL == flip.flip_sema)
-	{
-		rt_kprintf("sema create error!!\r\n");
-		return -1;	
-	}
-	if(0 != jpg_decoder_init(PIC_WIDTH,PIC_HEIGHT,PIC_RATIO))
-		return -1;
-	video_buffer_open();
+    flip.flip_mq = rt_mq_create("flip_mq", sizeof(FLIP_MSG), 3, RT_IPC_FLAG_FIFO);
+    if(NULL == flip.flip_mq)
+    {
+        rt_kprintf("mq create error!!\r\n");
+        return -1;
+    }
+    flip.flip_sema = rt_sem_create("flip_sema",0,RT_IPC_FLAG_FIFO);
+    if(NULL == flip.flip_sema)
+    {
+        rt_kprintf("sema create error!!\r\n");
+        return -1;
+    }
+    if(0 != jpg_decoder_init(PIC_WIDTH,PIC_HEIGHT,PIC_RATIO))
+        return -1;
+    video_buffer_open();
 //	video_transfer_set_video_param(QVGA_320_240,TYPE_20FPS);
-	rt_kprintf("flip chcek init ok\r\n");
-	return RT_EOK;
+    rt_kprintf("flip chcek init ok\r\n");
+    return RT_EOK;
 }
 
 static void flip_check_deinit(void)
 {
-	rt_kprintf("flip chcek deinit\r\n");
-	if(flip.flip_mq)
-		rt_mq_delete(flip.flip_mq);
-	if(flip.flip_sema)
-		rt_sem_delete(flip.flip_sema);
-	uinitMotionDetection(&flip.md);
-	jpg_decoder_deinit();
-	video_buffer_close();
+    rt_kprintf("flip chcek deinit\r\n");
+    if(flip.flip_mq)
+        rt_mq_delete(flip.flip_mq);
+    if(flip.flip_sema)
+        rt_sem_delete(flip.flip_sema);
+    uinitMotionDetection(&flip.md);
+    jpg_decoder_deinit();
+    video_buffer_close();
 }
 
 static void flip_check_thread(void *parameter)
 {
-	FLIP_MSG msg;
-	unsigned char *Y_buffer;
-	int ret;
-	int pic_width,pic_heigth;
-	
-	initMotionDetection(&flip.md,MIN_THREASHOLD,MAX_THREASHOLD,DIFF_THRESHOLD_LEVEL,PIC_HEIGHT>>PIC_RATIO,FLIP_MINI_INTERVAL,rt_tick_get());
-	rt_sem_release(flip.flip_sema);//start get one frame jpg pic
-	while(1)
-	{		
-		long tmp = rt_tick_get();
-		if(rt_mq_recv(flip.flip_mq, &msg, sizeof(FLIP_MSG), 3000) == RT_EOK)
-		{
-			flip.jpg_src_buf = msg.arg;
-			flip.jpg_file_size = msg.size;
-			if(0 == flip.jpg_file_size)
-			{
-				rt_kprintf("pic error-----\r\n");
-				rt_sem_release(flip.flip_sema);//can get another jpg pic
-			}
-			else
-			{
-				ret = jpg_decoder_fun(flip.jpg_src_buf, &Y_buffer, flip.jpg_file_size);
-				rt_sem_release(flip.flip_sema);//can get another jpg pic
+    FLIP_MSG msg;
+    unsigned char *Y_buffer;
+    int ret;
+    int pic_width,pic_heigth;
 
-				if(0 == ret)
-				{
-					jpg_get_pic_size(&pic_width,&pic_heigth);
-					ret = getMotionResult(&flip.md,Y_buffer,pic_width>>PIC_RATIO,pic_heigth>>PIC_RATIO,rt_tick_get());
-					if(1 == ret)
-					{
-						rt_kprintf("\r\n---flipped:%x,%x---\r\n",flip.md.lastMdTimer,flip.md.serverWaitTime);
-					}
-				}
-				else
-				{
-					rt_kprintf("error:%d\r\n",ret);
-				}
-				
-				rt_kprintf("delta2:%x\r\n",rt_tick_get()-tmp);			
-			}
-			
-			if(NULL != Y_buffer)
-			{
-				rt_free(Y_buffer);
-				Y_buffer = NULL;
-			}
-		}
-		else
-		{
-			rt_kprintf("get msg error!!\r\n");
-			break;
-		}
-	}
-	
-	stop_flag = 0;
-	flip_check_deinit();
+    initMotionDetection(&flip.md,MIN_THREASHOLD,MAX_THREASHOLD,DIFF_THRESHOLD_LEVEL,PIC_HEIGHT>>PIC_RATIO,FLIP_MINI_INTERVAL,rt_tick_get());
+    rt_sem_release(flip.flip_sema);//start get one frame jpg pic
+    while(1)
+    {
+        long tmp = rt_tick_get();
+        if(rt_mq_recv(flip.flip_mq, &msg, sizeof(FLIP_MSG), 3000) == RT_EOK)
+        {
+            flip.jpg_src_buf = msg.arg;
+            flip.jpg_file_size = msg.size;
+            if(0 == flip.jpg_file_size)
+            {
+                rt_kprintf("pic error-----\r\n");
+                rt_sem_release(flip.flip_sema);//can get another jpg pic
+            }
+            else
+            {
+                ret = jpg_decoder_fun(flip.jpg_src_buf, &Y_buffer, flip.jpg_file_size);
+                rt_sem_release(flip.flip_sema);//can get another jpg pic
+
+                if(0 == ret)
+                {
+                    jpg_get_pic_size(&pic_width,&pic_heigth);
+                    ret = getMotionResult(&flip.md,Y_buffer,pic_width>>PIC_RATIO,pic_heigth>>PIC_RATIO,rt_tick_get());
+                    if(1 == ret)
+                    {
+                        rt_kprintf("\r\n---flipped:%x,%x---\r\n",flip.md.lastMdTimer,flip.md.serverWaitTime);
+                    }
+                }
+                else
+                {
+                    rt_kprintf("error:%d\r\n",ret);
+                }
+
+                rt_kprintf("delta2:%x\r\n",rt_tick_get()-tmp);
+            }
+
+            if(NULL != Y_buffer)
+            {
+                rt_free(Y_buffer);
+                Y_buffer = NULL;
+            }
+        }
+        else
+        {
+            rt_kprintf("get msg error!!\r\n");
+            break;
+        }
+    }
+
+    stop_flag = 0;
+    flip_check_deinit();
 }
 
 static void get_pic_thread(void* parameter)
 {
-	int ret;
-	int frame_len;
-	unsigned char *jpg_buf = rt_malloc(MAX_JPG_PIC_SIZE);
-	ASSERT(NULL != jpg_buf);
-	
-	while(1)
-	{
-		ret = rt_sem_take(flip.flip_sema,3000);
-		if(RT_EOK == ret)
-		{
-			if(1 == stop_flag)
-				break;
-			frame_len = video_buffer_read_frame(jpg_buf, MAX_JPG_PIC_SIZE);
-			flip_msg_send(jpg_buf,frame_len,0);
-		}
-	}
+    int ret;
+    int frame_len;
+    unsigned char *jpg_buf = rt_malloc(MAX_JPG_PIC_SIZE);
+    ASSERT(NULL != jpg_buf);
+
+    while(1)
+    {
+        ret = rt_sem_take(flip.flip_sema,3000);
+        if(RT_EOK == ret)
+        {
+            if(1 == stop_flag)
+                break;
+            frame_len = video_buffer_read_frame(jpg_buf, MAX_JPG_PIC_SIZE);
+            flip_msg_send(jpg_buf,frame_len,0);
+        }
+    }
 }
 
 
 static void flipcheck(int argc,char *argv[])
 {
-	static int thread_onging = 0;
+    static int thread_onging = 0;
     rt_thread_t tid1 = RT_NULL;
-	rt_thread_t tid2 = RT_NULL;
+    rt_thread_t tid2 = RT_NULL;
 
     if(strcmp(argv[1], "start") == 0)
     {
-    	if(1 == thread_onging)
-    	{
-    		rt_kprintf("service is ongoing\r\n");
-			return;
-    	}
-		
-		if(RT_EOK != flip_check_init())
-			goto exit;
+        if(1 == thread_onging)
+        {
+            rt_kprintf("service is ongoing\r\n");
+            return;
+        }
+
+        if(RT_EOK != flip_check_init())
+            goto exit;
 
 
         /* create flip thread */
         tid1 = rt_thread_create("flip",
-                               flip_check_thread,
-                               RT_NULL,
-                               1024,
-                               19,
-                               10);
+                                flip_check_thread,
+                                RT_NULL,
+                                1024,
+                                19,
+                                10);
 
         /* create get-jpg-pic thread */
         tid2 = rt_thread_create("get_pic",
-                               get_pic_thread,
-                               RT_NULL,
-                               512,
-                               20,
-                               10);
+                                get_pic_thread,
+                                RT_NULL,
+                                512,
+                                20,
+                                10);
         if ((RT_NULL == tid1)||(RT_NULL == tid2))
         {
-        	rt_kprintf("error!!\r\n");
-			if(tid1)
-				rt_thread_delete(tid1);
-			if(tid2)
-				rt_thread_delete(tid2);
-			goto exit;
+            rt_kprintf("error!!\r\n");
+            if(tid1)
+                rt_thread_delete(tid1);
+            if(tid2)
+                rt_thread_delete(tid2);
+            goto exit;
         }
-		else
-		{
+        else
+        {
             rt_thread_startup(tid1);
-			rt_thread_startup(tid2);
+            rt_thread_startup(tid2);
 
-			
-			return;
-		}
+
+            return;
+        }
     }
-	else if(strcmp(argv[1], "stop") == 0)
-	{
-		stop_flag = 1;
-		return;
-	}
-	else
-	{
-		rt_kprintf("invalid arg!\r\n");
-		return;
-	}
+    else if(strcmp(argv[1], "stop") == 0)
+    {
+        stop_flag = 1;
+        return;
+    }
+    else
+    {
+        rt_kprintf("invalid arg!\r\n");
+        return;
+    }
 exit:
-	flip_check_deinit(); 
+    flip_check_deinit();
 }
 MSH_CMD_EXPORT(flipcheck,flip check);
 #endif

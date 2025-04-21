@@ -29,6 +29,7 @@
 #include <stdint.h>
 
 extern unsigned char _empty_ram;
+extern unsigned char _itcmcode_ram_end;
 
 /* High Speed */ 
 #define RT_HW_TCM_BEGIN     (void*)&_empty_ram
@@ -46,6 +47,12 @@ extern unsigned char _empty_ram;
 /* share memery, normal speed */
 #define RT_HW_SDRAM_BEGIN   (void*)(0x02000000)
 #define RT_HW_SDRAM_END     (void*)(0x02000000 + 256 * 1024)
+#endif
+
+#if (CFG_SOC_NAME == SOC_BK7252N)
+/* itcm, normal speed */
+#define RT_HW_ITCM_BEGIN    (void*)(&_itcmcode_ram_end)
+#define RT_HW_ITCM_END      (void*)(0x003F0000 + 32 * 1024)
 #endif
 void rt_hw_board_init(void);
 

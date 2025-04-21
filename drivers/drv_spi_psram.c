@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rthw.h>
 #include <rtdevice.h>
@@ -47,7 +61,7 @@ static rt_size_t rt_spi_psram_read(rt_device_t dev, rt_off_t pos,
     return ret;
 }
 static rt_size_t rt_spi_psram_write(rt_device_t dev, rt_off_t pos,
-                                   const void *buffer, rt_size_t size)
+                                    const void *buffer, rt_size_t size)
 {
     int ret;
     ret = spi_psram_write(pos, (uint8_t*)buffer, size);
@@ -76,20 +90,20 @@ int rt_spi_psram_hw_init(void)
     device->tx_complete = RT_NULL;
     device->user_data   = RT_NULL;
 
-#ifdef RT_USING_DEVICE_OPS
+    #ifdef RT_USING_DEVICE_OPS
     device->ops = &spi_psram_ops;
-#else
+    #else
     device->control = RT_NULL;
     device->init    = rt_spi_psram_init;
     device->open    = rt_spi_psram_open;
     device->close   = rt_spi_psram_read;
     device->read    = rt_spi_psram_read;
     device->write   = rt_spi_psram_write;
-#endif /* RT_USING_DEVICE_OPS */
+    #endif /* RT_USING_DEVICE_OPS */
 
     /* register the device */
-    rt_device_register(device, "spi_psram", 
-        RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_RDWR);
+    rt_device_register(device, "spi_psram",
+                       RT_DEVICE_FLAG_STANDALONE | RT_DEVICE_FLAG_RDWR);
 
     //rt_device_init(device);
 

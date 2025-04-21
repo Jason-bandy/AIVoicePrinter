@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rthw.h>
 #include <rtthread.h>
 #include <rtdevice.h>
@@ -20,7 +34,7 @@ static rt_err_t drv_adc_open(struct rt_adc_device *device, rt_uint32_t channel, 
 
 static rt_err_t drv_adc_read(struct rt_adc_device *device, rt_uint32_t channel, rt_uint32_t *value)
 {
-#ifdef RT_USING_ADC
+    #ifdef RT_USING_ADC
     float voltage = 0.0;
     UINT32 ret = 0;
     GLOBAL_INT_DECLARATION();
@@ -56,19 +70,19 @@ static rt_err_t drv_adc_read(struct rt_adc_device *device, rt_uint32_t channel, 
     }
 
     {
-    UINT32 sum = 0, sum1, sum2;
-    UINT16 *pData = adc_param->pData;
-    sum1 = pData[1] + pData[2];
-    sum2 = pData[3] + pData[4];
-    sum = sum1/ 2  + sum2 / 2;
-    sum = sum / 2;
-    sum = sum / 4;
-    adc_param->pData[0] = sum;
+        UINT32 sum = 0, sum1, sum2;
+        UINT16 *pData = adc_param->pData;
+        sum1 = pData[1] + pData[2];
+        sum2 = pData[3] + pData[4];
+        sum = sum1/ 2  + sum2 / 2;
+        sum = sum / 2;
+        sum = sum / 4;
+        adc_param->pData[0] = sum;
     }
 
     voltage = saradc_calculate(adc_param->pData[0]);
     *value = (UINT32)(voltage * 1000);
-#endif
+    #endif
     return RT_EOK;
 }
 
@@ -83,7 +97,7 @@ void rt_hw_adc_init(void)
 {
     adc_param = (saradc_desc_t *)rt_malloc(sizeof(saradc_desc_t));
 
-    if(adc_param == RT_NULL) 
+    if(adc_param == RT_NULL)
     {
         rt_kprintf("malloc adc param failed\n");
         return;
@@ -108,9 +122,9 @@ void rt_hw_adc_init(void)
 
 int drv_adc_init(void)
 {
-#ifdef RT_USING_ADC
+    #ifdef RT_USING_ADC
     rt_hw_adc_init();
     rt_hw_adc_register(rt_calloc(1, sizeof(struct rt_adc_device)), "adc", &drv_ops, RT_NULL);
-#endif
+    #endif
 }
 INIT_DEVICE_EXPORT(drv_adc_init);

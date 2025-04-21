@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef __BLE_CONFIG_H_
 #define __BLE_CONFIG_H_
 
@@ -8,13 +22,13 @@ typedef int (*rt_ble_netconfig_result_cb)(char *ssid, char *password, char*ble_g
 
 enum
 {
-	AAAAS_IDX_SVC,	 
-	AAAAS_IDX_BBB0_VAL_CHAR,
-	AAAAS_IDX_BBB0_VAL_VALUE,
-	AAAAS_IDX_BBB1_VAL_CHAR,
-	AAAAS_IDX_BBB1_VAL_VALUE,
-	AAAAS_IDX_BBB1_VAL_NTF_CFG,
-	AAAAS_IDX_NB,
+    AAAAS_IDX_SVC,
+    AAAAS_IDX_BBB0_VAL_CHAR,
+    AAAAS_IDX_BBB0_VAL_VALUE,
+    AAAAS_IDX_BBB1_VAL_CHAR,
+    AAAAS_IDX_BBB1_VAL_VALUE,
+    AAAAS_IDX_BBB1_VAL_NTF_CFG,
+    AAAAS_IDX_NB,
 };
 
 
@@ -26,10 +40,10 @@ enum ble_status
 
 enum ble_netconfig_state
 {
-	BLE_NETCONFIG_STOP=0,
+    BLE_NETCONFIG_STOP=0,
     BLE_NETCONFIG_START,
     BLE_NETCONFIG_RECIVE_INFO,
-    
+
 };
 
 

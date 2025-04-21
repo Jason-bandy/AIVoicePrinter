@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include "arm_arch.h"
 #include "audio.h"
@@ -7,6 +21,7 @@
 #include "sys_ctrl_pub.h"
 #include "mem_pub.h"
 #include "gpio_pub.h"
+#include "common_reg_rw.h"
 
 #if CFG_GENERAL_DMA
 #include "general_dma_pub.h"
@@ -45,7 +60,7 @@ void audio_adc_set_enable_bit(UINT32 enable)
         reg_val |= (ADC_ENABLE | LINEIN_ENABLE);
     else
         reg_val &= ~(ADC_ENABLE | LINEIN_ENABLE);
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 void audio_adc_set_int_enable_bit(UINT32 enable)
@@ -57,7 +72,7 @@ void audio_adc_set_int_enable_bit(UINT32 enable)
         reg_val |= ADC_INT_EN;
     else
         reg_val &= ~ADC_INT_EN;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 void audio_adc_get_l_sample(INT16 *left)
@@ -88,7 +103,7 @@ void audio_adc_set_hpf2_bypass_bit(UINT32 enable)
         reg_val |= ADC_HPF2_BYPASS;
     else
         reg_val &= ~ADC_HPF2_BYPASS;
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 void audio_adc_set_gain(UINT32 gain)
@@ -102,7 +117,7 @@ void audio_adc_set_gain(UINT32 gain)
     reg_val &= ~(ADC_SET_GAIN_MASK << ADC_SET_GAIN_POSI);
     reg_val |= ((gain & ADC_SET_GAIN_MASK)  << ADC_SET_GAIN_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 void audio_adc_set_write_thred_bit(UINT32 thred)
@@ -118,7 +133,7 @@ void audio_adc_set_write_thred_bit(UINT32 thred)
     reg_val |= ((thred & ADC_WR_THRED_MASK) << ADC_WR_THRED_POSI);
     reg_val |= ((thred & DTMF_WR_THRED_MASK) << DTMF_WR_THRED_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 }
 
 void audio_adc_set_sample_rate(UINT32 sample_rate)
@@ -128,96 +143,96 @@ void audio_adc_set_sample_rate(UINT32 sample_rate)
     /* disable adc handset bit again, to make sure this bit unset */
     reg = REG_READ(AUD_EXTEND_CFG);
     reg &= ~(ADC_FRACMOD_MANUAL);
-    REG_WRITE(AUD_EXTEND_CFG, reg);
+    REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
 
     switch (sample_rate)
     {
     case 11025:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_441K);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 22050: //
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_441K >> 1);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 44100:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_44_1_K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 12000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_48K);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 24000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_48K >> 1);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 48000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 8000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_8K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 16000:
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_16K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     case 32000:
         reg = REG_READ(AUD_EXTEND_CFG);
         reg |= ADC_FRACMOD_MANUAL;
-        REG_WRITE(AUD_EXTEND_CFG, reg);
+        REG_WRITE_QSPI_EN(AUD_EXTEND_CFG, reg);
         reg = (CONST_DIV_32K);
-        REG_WRITE(AUD_ADC_FRACMOD, reg);
+        REG_WRITE_PROTECT(AUD_ADC_FRACMOD, reg);
         reg = REG_READ(AUDIO_CONFIG);
         reg &= ~(SAMPLE_RATE_ADC_MASK << SAMPLE_RATE_ADC_POSI);
         reg |= ((SAMPLE_RATE_48K & SAMPLE_RATE_ADC_MASK) << SAMPLE_RATE_ADC_POSI);
-        REG_WRITE(AUDIO_CONFIG, reg);
+        REG_WRITE_PROTECT(AUDIO_CONFIG, reg);
         break;
 
     default:
@@ -302,7 +317,7 @@ void audio_adc_set_volume(UINT32 volume)
     reg_val &= ~(MANUAL_PGA_VAL_MASK << MANUAL_PGA_VAL_POSI);
     reg_val |= ((act_vol & MANUAL_PGA_VAL_MASK) << MANUAL_PGA_VAL_POSI);
 
-    REG_WRITE(reg_addr, reg_val);
+    REG_WRITE_PROTECT(reg_addr, reg_val);
 
     AUD_PRT("set adc vol: %d - %d\r\n", volume, act_vol);
 }

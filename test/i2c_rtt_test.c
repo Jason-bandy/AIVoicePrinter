@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rtdevice.h>
 #include "finsh.h"
@@ -16,14 +30,14 @@ static int i2c_test_rtt(int argc, char *argv)
     const char *i2c_bus_device_name = "i2c";
     struct rt_i2c_bus_device *i2c_device;
     struct rt_i2c_msg msgs[2];
-    
+
     rt_uint8_t buffer1[2];
     rt_uint8_t buffer2[3];
     rt_size_t i, ret;
     rt_uint8_t ret1;
-    
-    ret1 = iic_bus_attach( );				/*gpio init and add bus*/   
-    rt_kprintf("iic_bus_attach  ret:%d\n", ret1);    
+
+    ret1 = iic_bus_attach( );				/*gpio init and add bus*/
+    rt_kprintf("iic_bus_attach  ret:%d\n", ret1);
 
     i2c_device = rt_i2c_bus_device_find(i2c_bus_device_name);
     if (i2c_device == RT_NULL)
@@ -35,106 +49,106 @@ static int i2c_test_rtt(int argc, char *argv)
     {
         rt_kprintf("find i2c success\n");
     }
-	
+
     /**********************step 1: read out.************************/
-	
+
     buffer1[0] = 0;
     msgs[0].addr = eeprom_addr;
     msgs[0].flags = RT_I2C_WR;		/* write to slave */
     msgs[0].buf = buffer1;			/* eeprom offset. */
     msgs[0].len = 1;
-	
+
     msgs[1].addr = eeprom_addr;
     msgs[1].flags = RT_I2C_RD; 		/* Read from slave */
     msgs[1].buf = buffer2;
     msgs[1].len = sizeof(buffer2);
-	
-	if ( rt_i2c_transfer(i2c_device, msgs, 2) !=2 )  /* write or read data */
-	{
-		rt_kprintf("--read eeprom fail--\r\n");
-	}
-	else
 
-	{
-		rt_kprintf("--read eeprom sucess--\r\n");
-	}
+    if ( rt_i2c_transfer(i2c_device, msgs, 2) !=2 )  /* write or read data */
+    {
+        rt_kprintf("--read eeprom fail--\r\n");
+    }
+    else
+
+    {
+        rt_kprintf("--read eeprom sucess--\r\n");
+    }
     for(i=0; i<sizeof(buffer2); i++)
     {
         rt_kprintf("%02X ", buffer2[i]);
     }
-	
-	rt_thread_delay(rt_tick_from_millisecond(50));	
-    rt_kprintf("\r\n---read test over---\r\n");	
 
-/**********************step 2: write back.************************/
+    rt_thread_delay(rt_tick_from_millisecond(50));
+    rt_kprintf("\r\n---read test over---\r\n");
 
-	for(i=0; i<sizeof(buffer2); i++)
-	{
-		buffer2[i] = buffer2[i]+5 ;
-	}
-	
-	msgs[0].addr = eeprom_addr;
+    /**********************step 2: write back.************************/
+
+    for(i=0; i<sizeof(buffer2); i++)
+    {
+        buffer2[i] = buffer2[i]+5 ;
+    }
+
+    msgs[0].addr = eeprom_addr;
     msgs[0].flags = RT_I2C_WR;		/* write to slave */
     msgs[0].buf = buffer1;			/* eeprom offset. */
     msgs[0].len = 1;
-	
-    msgs[1].addr = eeprom_addr;
-    msgs[1].flags = RT_I2C_WR | RT_I2C_NO_START; 		
-    msgs[1].len = sizeof(buffer2);
-		
-	if ( rt_i2c_transfer(i2c_device, msgs, 2) !=2 )
-	{
-		rt_kprintf("---write eeprom fail---\r\n");
-	}
-	else
 
-	{
-		rt_kprintf("---write eeprom sucess---\r\n");
-	}
-	
-	
-	rt_thread_delay(rt_tick_from_millisecond(50));	
-	
+    msgs[1].addr = eeprom_addr;
+    msgs[1].flags = RT_I2C_WR | RT_I2C_NO_START;
+    msgs[1].len = sizeof(buffer2);
+
+    if ( rt_i2c_transfer(i2c_device, msgs, 2) !=2 )
+    {
+        rt_kprintf("---write eeprom fail---\r\n");
+    }
+    else
+
+    {
+        rt_kprintf("---write eeprom sucess---\r\n");
+    }
+
+
+    rt_thread_delay(rt_tick_from_millisecond(50));
+
     for(i=0; i<msgs[1].len; i++)
     {
         rt_kprintf("%02X ", buffer2[i]);
     }
-	
+
     rt_kprintf("\r\n ---write test over---\r\n");
-	
-/**********************step 3:re-read out.************************/
+
+    /**********************step 3:re-read out.************************/
 
     buffer1[0] = 0;
 
-	msgs[0].addr = eeprom_addr;
-	msgs[0].flags = RT_I2C_WR;		/* write to slave */
-	msgs[0].buf = buffer1;			/* eeprom offset. */
-	msgs[0].len = 1;
-		
-	msgs[1].addr = eeprom_addr;
-	msgs[1].flags = RT_I2C_RD; 		/* Read from slave */
-	msgs[1].buf = buffer2;
-	msgs[1].len = sizeof(buffer2);
-				
-	if ( rt_i2c_transfer(i2c_device, msgs, 2) !=2 )
-	{
-		rt_kprintf("---re-read eeprom fail---\r\n");
-	}
-	else
+    msgs[0].addr = eeprom_addr;
+    msgs[0].flags = RT_I2C_WR;		/* write to slave */
+    msgs[0].buf = buffer1;			/* eeprom offset. */
+    msgs[0].len = 1;
 
-	{
-		rt_kprintf("---re-read eeprom sucess---\r\n");
-	}
-	
-   // rt_kprintf("rt_i2c_transfer :%d\r\n",ret);		
-	rt_thread_delay(rt_tick_from_millisecond(50));	
-		
-	for(i=0; i<msgs[1].len; i++)
-	{
-		rt_kprintf("%02X ", buffer2[i]);
-	}
-		
-	rt_kprintf("\r\n ---re-read test over---\r\n");
+    msgs[1].addr = eeprom_addr;
+    msgs[1].flags = RT_I2C_RD; 		/* Read from slave */
+    msgs[1].buf = buffer2;
+    msgs[1].len = sizeof(buffer2);
+
+    if ( rt_i2c_transfer(i2c_device, msgs, 2) !=2 )
+    {
+        rt_kprintf("---re-read eeprom fail---\r\n");
+    }
+    else
+
+    {
+        rt_kprintf("---re-read eeprom sucess---\r\n");
+    }
+
+    // rt_kprintf("rt_i2c_transfer :%d\r\n",ret);
+    rt_thread_delay(rt_tick_from_millisecond(50));
+
+    for(i=0; i<msgs[1].len; i++)
+    {
+        rt_kprintf("%02X ", buffer2[i]);
+    }
+
+    rt_kprintf("\r\n ---re-read test over---\r\n");
 
 
     return 0;

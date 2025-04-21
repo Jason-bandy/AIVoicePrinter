@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "rtthread.h"
 #include <rtdevice.h>
 #include "include.h"
@@ -199,18 +213,18 @@ uint32_t mixer_init(void)
         goto init_exit;
     }
 
-#if MIXER_MUX_NEW_STRATEGY
+    #if MIXER_MUX_NEW_STRATEGY
     if(MIXER_FAILURE == mixer_outside_src_buf_init())
     {
         goto init_exit;
     }
     mixer_outside_mp_init();
-#else
+    #else
     if(MIXER_FAILURE == mixer_mp_init())
     {
         goto init_exit;
     }
-#endif
+    #endif
 
     INIT_LIST_HEAD(&g_mixer->music_src_list);
 
@@ -266,7 +280,7 @@ uint32_t mixer_send_data_msg(void *node_ptr, uint32_t len)
     uint32_t ret;
 
     ret = mixer_send_msg(DATA_SIGNATURE, (uint32_t)node_ptr, len);
-    if(ret == MIXER_FAILURE) 
+    if(ret == MIXER_FAILURE)
     {
         RT_ASSERT(ret != MIXER_FAILURE);
         rt_mp_free(node_ptr);
@@ -279,7 +293,7 @@ uint32_t mixer_send_msg_audio_src_flow(void)
 {
     uint32_t ret;
     MIXER_PRINTF("[mixer] audio_src_flow\r\n");
-    
+
     ret = mixer_send_msg(MSG_SIGNATURE, MSG_TYPE_AUDIO_SRC_FLOW, 8);
     RT_ASSERT(ret == MIXER_SUCCESS);
 
@@ -290,9 +304,9 @@ uint32_t mixer_send_msg_audio_src_flow(void)
     }
     /* maybe wait_end may release many times*/
     while(rt_sem_trytake(g_mixer->wait_end) != -RT_ETIMEOUT );
-    
+
     MIXER_PRINTF("[mixer] audio_src_flow ed\r\n");
-    
+
     return 0;
 }
 
@@ -300,7 +314,7 @@ uint32_t mixer_send_msg_audio_src_static(void)
 {
     uint32_t ret;
     MIXER_PRINTF("[mixer] audio_src_static\r\n");
-    
+
     ret = mixer_send_msg(MSG_SIGNATURE, MSG_TYPE_AUDIO_SRC_STATIC, 8);
     RT_ASSERT(ret == MIXER_SUCCESS);
 
@@ -311,9 +325,9 @@ uint32_t mixer_send_msg_audio_src_static(void)
     }
     /* maybe wait_end may release many times*/
     while(rt_sem_trytake(g_mixer->wait_end) != -RT_ETIMEOUT );
-    
+
     MIXER_PRINTF("[mixer] audio_src_static ed\r\n");
-    
+
     return 0;
 }
 
@@ -345,12 +359,12 @@ uint32_t mixer_is_running(void)
 void mixer_pause(void)
 {
     int ret;
-    
+
     MIXER_PRINTF("[mixer] mixer_pause\r\n");
 
-    if(g_mixer->is_thd_pause == MIX_ACT_PAUSE) 
+    if(g_mixer->is_thd_pause == MIX_ACT_PAUSE)
         return;
-    
+
     ret = mixer_send_msg(MSG_SIGNATURE, MSG_TYPE_PAUSE_MIXER, 8);
     RT_ASSERT(ret == MIXER_SUCCESS)
 
@@ -369,12 +383,12 @@ void mixer_pause(void)
 void mixer_replay(void)
 {
     int ret;
-    
+
     MIXER_PRINTF("[mixer] mixer_replay\r\n");
-    
-    if(g_mixer->is_thd_pause == MIX_ACT_PLAYING) 
+
+    if(g_mixer->is_thd_pause == MIX_ACT_PLAYING)
         return;
-    
+
     ret = mixer_send_msg(MSG_SIGNATURE, MSG_TYPE_REPLAY_MIXER, 8);
     RT_ASSERT(ret == MIXER_SUCCESS)
 
@@ -385,7 +399,7 @@ void mixer_replay(void)
     }
     /* maybe wait_end may release many times*/
     while(rt_sem_trytake(g_mixer->wait_end) != -RT_ETIMEOUT );
-    
+
     MIXER_PRINTF("[mixer] mixer_replayed \r\n");
 }
 
@@ -401,7 +415,7 @@ static uint32_t mixer_adc_open(void)
     RT_ASSERT(g_mixer);
     MIXER_PRINTF("[mixer] mixer_adc_open, %p\r\n", adc->dev);
 
-    if(adc->dev == NULL) 
+    if(adc->dev == NULL)
     {
         dev = rt_device_find("mic");
         if(NULL == dev)
@@ -409,8 +423,8 @@ static uint32_t mixer_adc_open(void)
             ret = MIXER_FAILURE;
             goto adco_exit;
         }
-    } 
-    else 
+    }
+    else
     {
         dev = adc->dev;
     }
@@ -420,7 +434,7 @@ static uint32_t mixer_adc_open(void)
         MIXER_PRINTF("[mixer] mixer adc aready open\r\n");
         return MIXER_SUCCESS;
     }
-    
+
     ret = MIXER_SUCCESS;
     val = rt_device_open(dev, RT_DEVICE_OFLAG_RDONLY);
     RT_ASSERT(RT_EOK == val);
@@ -441,7 +455,7 @@ static uint32_t mixer_adc_set_rate(uint32_t rate)
 
     RT_ASSERT(g_mixer);
     RT_ASSERT(adc->dev);
-    
+
     MIXER_PRINTF("[mixer] mixer_adc_set_rate, %d\r\n", rate);
 
     dev = adc->dev;
@@ -472,7 +486,7 @@ static uint32_t mixer_adc_close(void)
     {
         return MIXER_SUCCESS;
     }
-    
+
     val = rt_device_close(adc->dev);
     RT_ASSERT(RT_EOK == val);
 
@@ -503,7 +517,7 @@ static uint32_t mixer_dac_open(void)
     RT_ASSERT(g_mixer);
     MIXER_PRINTF("[mixer] mixer_dac_open\r\n");
 
-    if(dac->dev == NULL) 
+    if(dac->dev == NULL)
     {
         dev = rt_device_find("sound");
         if(NULL == dev)
@@ -511,8 +525,8 @@ static uint32_t mixer_dac_open(void)
             ret = MIXER_FAILURE;
             goto daco_exit;
         }
-    } 
-    else 
+    }
+    else
     {
         dev = dac->dev;
     }
@@ -545,7 +559,7 @@ static uint32_t mixer_dac_set_rate(uint32_t rate)
 
     RT_ASSERT(g_mixer);
     RT_ASSERT(dac->dev);
-    
+
     MIXER_PRINTF("[mixer] mixer_dac_set_rate, %d\r\n", rate);
 
     dev = dac->dev;
@@ -572,7 +586,7 @@ static uint32_t mixer_dac_close(void)
     {
         return MIXER_SUCCESS;
     }
-    
+
     val = rt_device_close(dac->dev);
     RT_ASSERT(RT_EOK == val);
 
@@ -873,7 +887,7 @@ uint32_t mixer_mux2_acoustics(void)
     outside_src_buf = g_mixer->outside_src_buf;
     RT_ASSERT(outside_src_buf);
 
-#if CFG_SUPPORT_SINGLE_CHANNEL
+    #if CFG_SUPPORT_SINGLE_CHANNEL
     /*step 1: get music data of current node(inside audio source)*/
     expected_len = mixer_music_src_peek_current_node_len();
     MIXER_LOG("expected_len:%d\r\n", expected_len);
@@ -913,9 +927,9 @@ uint32_t mixer_mux2_acoustics(void)
 
     /*step 3: mixer*/
     sdly_mixer_multi_playing(outside_src_buf, inside_src_buf, inside_data_len);
-#else
+    #else
 #error "it is not the single channel of mic!!!"
-#endif
+    #endif
 
     sdly_forepart_mute(inside_src_buf, inside_data_len);
 
@@ -957,7 +971,7 @@ uint32_t mixer_single2_acoustics(void)
         return MIXER_FAILURE;
     }
 
-#if CFG_SUPPORT_SINGLE_CHANNEL
+    #if CFG_SUPPORT_SINGLE_CHANNEL
     read_bytes = mixer_sound_read(adc_device, 0,
                                   &exchange_buf[(g_mixer->outside_mp.blk_size >> 1)],
                                   (g_mixer->outside_mp.blk_size >> 1));
@@ -974,9 +988,9 @@ uint32_t mixer_single2_acoustics(void)
                  read_bytes);
 
     sdly_mixer_single_playing(exchange_buf, read_bytes);
-#else
+    #else
 #error "it is not the single channel of mic!!!"
-#endif
+    #endif
 
     sdly_forepart_mute(exchange_buf, read_bytes);
 
@@ -1017,7 +1031,7 @@ uint32_t mixer_mux_acoustics(void)
         goto mux_exit;
     }
 
-#if CFG_SUPPORT_SINGLE_CHANNEL
+    #if CFG_SUPPORT_SINGLE_CHANNEL
     /*step 1: get mic data(outside audio source)*/
     expected_len = MIN(mixer_music_src_get_data_len(), g_mixer->mp.blk_size);
     MIXER_LOG("expected_len:%d:%d:%d\r\n", expected_len, mixer_music_src_get_data_len(), g_mixer->mp.blk_size);
@@ -1044,9 +1058,9 @@ uint32_t mixer_mux_acoustics(void)
 
     /*step 3: mixer*/
     sdly_mixer_multi_playing(outside_src_buf, inside_src_buf, inside_data_len);
-#else
+    #else
 #error "it is not the single channel of mic!!!"
-#endif
+    #endif
 
     rt_mp_free(outside_src_buf);
 
@@ -1095,7 +1109,7 @@ uint32_t mixer_single_acoustics(void)
         return MIXER_FAILURE;
     }
 
-#if CFG_SUPPORT_SINGLE_CHANNEL
+    #if CFG_SUPPORT_SINGLE_CHANNEL
     read_bytes = mixer_sound_read(adc_device, 0,
                                   &exchange_buf[(g_mixer->mp.blk_size >> 1)],
                                   (g_mixer->mp.blk_size >> 1));
@@ -1114,9 +1128,9 @@ uint32_t mixer_single_acoustics(void)
     sdly_forepart_mute(exchange_buf, read_bytes);
 
     sdly_mixer_single_playing(exchange_buf, read_bytes);
-#else
+    #else
 #error "it is not the single channel of mic!!!"
-#endif
+    #endif
 
     wr_bytes = rt_device_write(dac_device, 0, exchange_buf, read_bytes);
     if(wr_bytes != read_bytes)
@@ -1137,7 +1151,7 @@ static uint32_t mixer_device_open(void)
     audio_adc_enable_linein();
     mixer_adc_open();
     mixer_adc_set_rate(MIXER_DEFAULT_SAMPLE_RATE);
-    
+
     mixer_dac_open();
     mixer_dac_set_rate(MIXER_DEFAULT_SAMPLE_RATE);
 
@@ -1163,12 +1177,12 @@ static uint32_t mixer_device_close(void)
 uint32_t mixer_device_set_rate(uint32_t sample_rate)
 {
     int ret;
-    
+
     MIXER_PRINTF("[mixer] set_rate:%d-%d\r\n", sample_rate, g_mixer->audio_sample_rate);
-    
-    if(g_mixer->audio_sample_rate == sample_rate) 
+
+    if(g_mixer->audio_sample_rate == sample_rate)
         return 0;
-    
+
     ret = mixer_send_msg(MSG_SIGNATURE, MSG_TYPE_AUDIO_SET_SAMPLE_RATE, sample_rate);
     RT_ASSERT(ret == MIXER_SUCCESS)
 
@@ -1179,9 +1193,9 @@ uint32_t mixer_device_set_rate(uint32_t sample_rate)
     }
     /* maybe wait_end may release many times*/
     while(rt_sem_trytake(g_mixer->wait_end) != -RT_ETIMEOUT );
-    
+
     MIXER_PRINTF("[mixer] set_rate ed\r\n", sample_rate);
-    
+
     return 0;
 }
 
@@ -1206,7 +1220,7 @@ static void mixer_entry(void *pv)
     {
         msg.sig = 0;
         ret = rt_mq_recv(g_mixer->mx_msg_queue, &msg, sizeof(msg), MX_MSG_QUEUE_TIMEOUT);
-        
+
         switch(msg.detail)
         {
         case MSG_TYPE_AUDIO_SRC_FLOW:
@@ -1218,7 +1232,7 @@ static void mixer_entry(void *pv)
                 {
                     g_mixer->is_mux_src = 1;
                 }
-                else 
+                else
                 {
                     mixer_dac_open();
                 }
@@ -1254,8 +1268,8 @@ static void mixer_entry(void *pv)
         case MSG_TYPE_AUDIO_SET_SAMPLE_RATE:
             if(MSG_SIGNATURE == msg.sig)
             {
-                MIXER_PRINTF("[mixer] MSG_TYPE_AUDIO_SET_SAMPLE_RATE:%d - %d\r\n", 
-                    msg.len,  g_mixer->audio_sample_rate);
+                MIXER_PRINTF("[mixer] MSG_TYPE_AUDIO_SET_SAMPLE_RATE:%d - %d\r\n",
+                             msg.len,  g_mixer->audio_sample_rate);
 
                 if(g_mixer->is_thd_pause == MIX_ACT_PLAYING)
                 {
@@ -1271,7 +1285,7 @@ static void mixer_entry(void *pv)
                 {
                     mixer_dac_set_rate(msg.len);
                 }
-                
+
                 ret = rt_sem_release(g_mixer->wait_end);
                 RT_ASSERT(ret == RT_EOK);
             }
@@ -1283,9 +1297,9 @@ static void mixer_entry(void *pv)
                 MIXER_PRINTF("[mixer] MSG_TYPE_PAUSE_MIXER\r\n");
 
                 g_mixer->is_thd_pause = MIX_ACT_PAUSE;
-                
+
                 mixer_adc_close();
-                
+
                 if(g_mixer->is_mux_src == 0)
                     mixer_dac_close();
 
@@ -1303,18 +1317,18 @@ static void mixer_entry(void *pv)
         case MSG_TYPE_REPLAY_MIXER:
             if(MSG_SIGNATURE == msg.sig)
             {
-                MIXER_PRINTF("[mixer] MSG_TYPE_REPLAY_MIXER:%d,%d\r\n", 
-                    g_mixer->audio_sample_rate, g_mixer->is_mux_src);
+                MIXER_PRINTF("[mixer] MSG_TYPE_REPLAY_MIXER:%d,%d\r\n",
+                             g_mixer->audio_sample_rate, g_mixer->is_mux_src);
 
                 audio_adc_enable_linein();
                 mixer_adc_open();
                 mixer_adc_set_rate(g_mixer->audio_sample_rate);
-                
+
                 mixer_dac_open();
                 mixer_dac_set_rate(g_mixer->audio_sample_rate);
 
                 g_mixer->is_thd_pause = MIX_ACT_PLAYING;
-                
+
                 ret = rt_sem_release(g_mixer->wait_end);
                 RT_ASSERT(ret == RT_EOK);
             }
@@ -1337,19 +1351,19 @@ static void mixer_entry(void *pv)
 
         if(g_mixer->is_mux_src)
         {
-#if MIXER_MUX_NEW_STRATEGY
+            #if MIXER_MUX_NEW_STRATEGY
             mixer_mux2_acoustics();
-#else
+            #else
             mixer_mux_acoustics();
-#endif
+            #endif
         }
         else
         {
-#if MIXER_MUX_NEW_STRATEGY
+            #if MIXER_MUX_NEW_STRATEGY
             mixer_single2_acoustics();
-#else
+            #else
             mixer_single_acoustics();
-#endif
+            #endif
         }
     }
 
@@ -1394,12 +1408,12 @@ static void mixer_deinit(void)
         g_mixer->wait_end = NULL;
     }
 
-#if MIXER_MUX_NEW_STRATEGY
+    #if MIXER_MUX_NEW_STRATEGY
     mixer_outside_mp_deinit();
     mixer_outside_src_buf_deinit();
-#else
+    #else
     mixer_mp_deinit();
-#endif
+    #endif
 
     rt_free(g_mixer);
     g_mixer = NULL;

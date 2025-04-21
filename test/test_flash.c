@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "test_config.h"
 #include <string.h>
 #include <stdlib.h>
@@ -16,7 +30,7 @@ static int flash_protect(int argc, char **argv)
     if(argc == 2)
     {
         protect_val = atoi(argv[1]);
-        
+
         if((uint32_t)protect_val > FLASH_UNPROTECT_LAST_BLOCK)
         {
             protect_val = 0;
@@ -26,6 +40,8 @@ static int flash_protect(int argc, char **argv)
     rt_kprintf("flash_protect  ==> %d\n", protect_val);
 
     bk_flash_enable_security(protect_val);
+
+    return 0;
 }
 MSH_CMD_EXPORT(flash_protect, flash_protect);
 
@@ -158,43 +174,156 @@ static int rbl_header_copy(int argc, char **argv)
     {
         uint8_t data[96];
         int len = 96;
-        
+
         read(fd, data, 96);
-#if defined (PRINT_RBL_INFO)
-		int i;
-		for(i = 0;i<96;i++)
-		{
-			rt_kprintf("%02x ",data[i]);
-			if((i+1)%16 == 0)
-				rt_kprintf("\r\n");
-		}
-#endif
-        
+        #if defined (PRINT_RBL_INFO)
+        int i;
+        for(i = 0; i<96; i++)
+        {
+            rt_kprintf("%02x ",data[i]);
+            if((i+1)%16 == 0)
+                rt_kprintf("\r\n");
+        }
+        #endif
+
         bk_flash_enable_security(/*FLASH_PROTECT_HALF*/FLASH_PROTECT_NONE); // half or custom
-        
+
         rt_kprintf("flash_erase %d 0x%08X\n", address, address);
         flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);
-        flash_write(data, len, address);
-		
-#if defined (PRINT_RBL_INFO)		
-		memset(data,0,len);
-		flash_read(data, len, address);
-		for(i = 0;i<96;i++)
-		{
-			rt_kprintf("%02x ",data[i]);
-			if((i+1)%16 == 0)
-				rt_kprintf("\r\n");
-		}
-#endif
+        flash_write((char *)data, len, address);
+
+        #if defined (PRINT_RBL_INFO)
+        memset(data,0,len);
+        flash_read((char *)data, len, address);
+        for(i = 0; i<96; i++)
+        {
+            rt_kprintf("%02x ",data[i]);
+            if((i+1)%16 == 0)
+                rt_kprintf("\r\n");
+        }
+        #endif
 
         close(fd);
     }
-	else
-	{
-		 rt_kprintf("[%s] fd:%d\n",__func__,fd);
-	}
+    else
+    {
+        rt_kprintf("[%s] fd:%d\n",__func__,fd);
+    }
 
     return 0;
 }
 MSH_CMD_EXPORT(rbl_header_copy, copy rbl.header to flash);
+
+static void flash_verify_thread_entry(void *parameter)
+{
+    rt_kprintf("flash_verify start\n");
+    bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_OTA);
+
+    uint32_t src_addr = pt->partition_start_addr;
+    uint32_t test_len = pt->partition_length;
+
+    uint32_t len = 0;
+
+    uint32_t address = src_addr;
+
+    uint32_t loop_times = 0;
+
+    char *data = rt_malloc(4096);
+    if(!data)
+    {
+        rt_kprintf("no memory for data\n");
+        rt_free(data);
+        return;
+    }
+
+    while(1)
+    {
+        rt_memset(data, 0, 4096);
+
+        bk_flash_enable_security(FLASH_PROTECT_NONE);
+        flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);
+        rt_thread_mdelay(1000);
+        bk_flash_enable_security(FLASH_PROTECT_ALL);
+
+        flash_read(data, 4096, address);
+
+        for(uint32_t i = 0; i < 4096; i++)
+        {
+            if(data[i] != 0xFF)
+            {
+                rt_kprintf("erase error\n");
+                break;
+            }
+        }
+
+        rt_kprintf("earse 4K pass 0x%06x - 0x%06x\n", address, address + 4096);
+
+        bk_flash_enable_security(FLASH_PROTECT_NONE);
+        rt_memset(data, 0xA5, 4096);
+        flash_write(data, 4096, address);
+        rt_thread_mdelay(100);
+        bk_flash_enable_security(FLASH_PROTECT_ALL);
+
+        flash_read(data, 4096, address);
+        rt_thread_mdelay(100);
+
+        for(uint32_t i = 0; i < 4096; i++)
+        {
+            if(data[i] != 0xA5)
+            {
+                rt_kprintf("write 0xA5 error\n");
+                break;
+            }
+        }
+
+        rt_kprintf("write 4K 0xA5 pass 0x%06x - 0x%06x\n", address, address + 4096);
+
+        bk_flash_enable_security(FLASH_PROTECT_NONE);
+        rt_memset(data, 0x5A, 4096);
+        flash_write(data, 4096, address);
+        rt_thread_mdelay(100);
+        bk_flash_enable_security(FLASH_PROTECT_ALL);
+
+        flash_read(data, 4096, address);
+        rt_thread_mdelay(100);
+
+        for(uint32_t i = 0; i < 4096; i++)
+        {
+            if(data[i] != 0x00)
+            {
+                rt_kprintf("write 0x5A error\n");
+                break;
+            }
+        }
+
+        rt_kprintf("write 4K 0x5A pass 0x%06x - 0x%06x\n", address, address + 4096);
+
+        len += 4096;
+        address += 4096;
+        if(address == (src_addr + test_len))
+        {
+            loop_times += 1;
+            rt_kprintf("test loop finish %d\n", loop_times);
+            address = src_addr;
+        }
+    }
+}
+
+static int flash_verify(int argc, char **argv)
+{
+    rt_thread_t tid = RT_NULL;
+
+    /* create record thread */
+    tid = rt_thread_create("flash_verify",
+                            flash_verify_thread_entry,
+                            RT_NULL,
+                            1024 * 4,
+                            27,
+                            10);
+    if (tid != RT_NULL)
+        rt_thread_startup(tid);
+
+    return 0;
+}
+MSH_CMD_EXPORT(flash_verify, flash_verify);
 #endif

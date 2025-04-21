@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -65,7 +79,7 @@ MSH_CMD_EXPORT(fast_connect_dump, fast_connect_dump);
 
 int wlan_fast_connect_info_write(wlan_fast_connect_t *data_info)
 {
-#ifdef PKG_USING_EASYFLASH
+    #ifdef PKG_USING_EASYFLASH
     uint32_t len;
     struct wlan_fast_connect old_data_info;
     int result = RT_EOK;
@@ -87,7 +101,7 @@ int wlan_fast_connect_info_write(wlan_fast_connect_t *data_info)
     }
 
     len = sizeof(struct wlan_fast_connect);
-	memset(&old_data_info, 0, len);
+    memset(&old_data_info, 0, len);
     ssid = ef_get_env("fc_ssid");
     bssid = ef_get_env("fc_bssid");
 
@@ -105,7 +119,7 @@ int wlan_fast_connect_info_write(wlan_fast_connect_t *data_info)
             bssid += 2;
         }
     }
-    
+
     channel = ef_get_env("fc_channel");
     security = ef_get_env("fc_security");
     psk = ef_get_env("fc_psk");
@@ -129,18 +143,18 @@ int wlan_fast_connect_info_write(wlan_fast_connect_t *data_info)
     old_data_info.security = atoi(security);
     memcpy(old_data_info.psk, ef_psk, (sizeof(ef_psk) - 1));
 
-    //wirte it to flash if different content: SSID, Passphrase, Channel, Security type 
+    //wirte it to flash if different content: SSID, Passphrase, Channel, Security type
     if((memcmp(&old_data_info, data_info, sizeof(struct wlan_fast_connect)) != 0))
     {
         rt_kprintf("write new profile to flash 0x%08X %d byte!\n", FLASH_FAST_DATA_ADDR, len);
         ef_set_env("fc_ssid", data_info->ssid);
         memset(tmp, 0x0, sizeof(tmp));
-        rt_sprintf(tmp, "%02x%02x%02x%02x%02x%02x", data_info->bssid[0], 
-                                                data_info->bssid[1],
-                                                data_info->bssid[2],
-                                                data_info->bssid[3],
-                                                data_info->bssid[4],
-                                                data_info->bssid[5]); 
+        rt_sprintf(tmp, "%02x%02x%02x%02x%02x%02x", data_info->bssid[0],
+                   data_info->bssid[1],
+                   data_info->bssid[2],
+                   data_info->bssid[3],
+                   data_info->bssid[4],
+                   data_info->bssid[5]);
         ef_set_env("fc_bssid", tmp);
 
         memset(tmp, 0x0, sizeof(tmp));
@@ -167,7 +181,7 @@ int wlan_fast_connect_info_write(wlan_fast_connect_t *data_info)
 
     // flash_data_info_dump(data_info);
     return RT_EOK;
-#else
+    #else
     uint32_t crc1, crc2, len;
     uint32_t data[(sizeof(struct wlan_fast_connect) + 4 - 1) / 4 + 1];
     int result = RT_EOK;
@@ -202,13 +216,13 @@ int wlan_fast_connect_info_write(wlan_fast_connect_t *data_info)
     // flash_data_info_dump(data_info);
 
     return RT_EOK;
-#endif /* PKG_USING_EASYFLASH */
-    
+    #endif /* PKG_USING_EASYFLASH */
+
 }
 
 int wlan_fast_connect_info_read(wlan_fast_connect_t *data_info)
 {
-#ifdef PKG_USING_EASYFLASH
+    #ifdef PKG_USING_EASYFLASH
     struct wlan_fast_connect old_data_info;
     char* ssid = RT_NULL;
     char* bssid = RT_NULL;
@@ -238,15 +252,15 @@ int wlan_fast_connect_info_read(wlan_fast_connect_t *data_info)
 
     for(i = 0; i < 6; i++)
     {
-		a = hex2byte(bssid);
-		if(a < 0)
+        a = hex2byte(bssid);
+        if(a < 0)
         {
             break;
-        }	
-		ef_bssid[i] = a;
-		bssid += 2;
-	}
-    
+        }
+        ef_bssid[i] = a;
+        bssid += 2;
+    }
+
     for(i = 0; i < 32; i++)
     {
         a = hex2byte(psk);
@@ -263,16 +277,16 @@ int wlan_fast_connect_info_read(wlan_fast_connect_t *data_info)
     data_info->security = atoi(security);
     memcpy(data_info->psk, ef_psk, (sizeof(ef_psk) - 1));
 
-	// check
-	if((data_info->channel < 1) || (data_info->channel > 13))
-	{
-		rt_kprintf("[%s] channel out of range! \n", __FUNCTION__, (int)data_info->channel);
-		result = -RT_EINVAL;
-	}
+    // check
+    if((data_info->channel < 1) || (data_info->channel > 13))
+    {
+        rt_kprintf("[%s] channel out of range! \n", __FUNCTION__, (int)data_info->channel);
+        result = -RT_EINVAL;
+    }
 
     // rt_kprintf("========================%s=============\n", data);
     return result;
-#else
+    #else
     uint32_t crc1, crc2;
     uint32_t data[(sizeof(struct wlan_fast_connect) + 4 - 1) / 4 + 1];
     int result = RT_EOK;
@@ -300,48 +314,48 @@ int wlan_fast_connect_info_read(wlan_fast_connect_t *data_info)
         result = -RT_ERROR;
     }
 
-	// check
-	if( (data_info->channel < 1) || (data_info->channel > 13) )
-	{
-		rt_kprintf("[%s] channel out of range! \n", __FUNCTION__, (int)data_info->channel);
-		result = -RT_EINVAL;
-	}
+    // check
+    if( (data_info->channel < 1) || (data_info->channel > 13) )
+    {
+        rt_kprintf("[%s] channel out of range! \n", __FUNCTION__, (int)data_info->channel);
+        result = -RT_EINVAL;
+    }
 
     return result;
-#endif /* PKG_USING_EASYFLASH */
-   
+    #endif /* PKG_USING_EASYFLASH */
+
 }
 
 int wlan_fast_connect_info_erase(void)
 {
-#ifdef PKG_USING_EASYFLASH
+    #ifdef PKG_USING_EASYFLASH
     // ef_env_set_default();
-#else
+    #else
     beken_flash_erase(FLASH_FAST_DATA_ADDR);
-#endif
+    #endif
 }
 
 static uint32_t hex2num(char c)
 {
     // rt_kprintf("%X\n", c);
     if (c >= '0' && c <= '9')
-		return c - '0';
-	if (c >= 'a' && c <= 'f')
-		return c - 'a' + 10;
-	if (c >= 'A' && c <= 'F')
-		return c - 'A' + 10;
-	return -1;
+        return c - '0';
+    if (c >= 'a' && c <= 'f')
+        return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F')
+        return c - 'A' + 10;
+    return -1;
 }
 
 static int hex2byte(const char *hex)
 {
-	int a, b;
-	a = hex2num(*hex++);
-	if (a < 0)
-		return -1;
-	b = hex2num(*hex++);
-	if (b < 0)
-		return -1;
-	return (a << 4) | b;
+    int a, b;
+    a = hex2num(*hex++);
+    if (a < 0)
+        return -1;
+    b = hex2num(*hex++);
+    if (b < 0)
+        return -1;
+    return (a << 4) | b;
 }
 #endif

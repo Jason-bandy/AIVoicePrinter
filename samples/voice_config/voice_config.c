@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -76,15 +90,15 @@ static void station_connect(const char *ssid, const char *passwd)
 static rt_thread_t tid = RT_NULL;
 static void cmd_voice_config_thread(void *parameter)
 {
-	extern rt_sem_t direct_conn_done_sem;
+    extern rt_sem_t direct_conn_done_sem;
 
-	if(direct_conn_done_sem != RT_NULL)
-	{
-	 	 rt_kprintf(" rt_sem_release direct_conn_done_sem =%d \n",rt_sem_release(direct_conn_done_sem));
-	}
+    if(direct_conn_done_sem != RT_NULL)
+    {
+        rt_kprintf(" rt_sem_release direct_conn_done_sem =%d \n",rt_sem_release(direct_conn_done_sem));
+    }
 
     rt_device_t device = 0;
-    struct voice_config_result result={0};
+    struct voice_config_result result= {0};
     int res;
     rt_kprintf("cmd_voice_config_thread start!\n");
     DEBUG_PRINTF("voice config version: %s\r\n", voice_config_version());
@@ -127,29 +141,29 @@ static void cmd_voice_config_thread(void *parameter)
     if(res == 0)
     {
 
-    #ifdef XIAOYA_OS
-        xiaoya_player_tips(TIP_FIND_AP_INFO,0);        
+        #ifdef XIAOYA_OS
+        xiaoya_player_tips(TIP_FIND_AP_INFO,0);
         /*not real save,just cache*/
         parm_set_wechat_openid_str((uint8_t *)result.custom);
-        sta_cfg_t sta_cfg; 
+        sta_cfg_t sta_cfg;
         memcpy(sta_cfg.ssid_str,result.ssid,strlen(result.ssid)+1);
         memcpy(sta_cfg.pwd_str,result.passwd,strlen(result.passwd)+1);
         parm_set_sta_cfg(&sta_cfg);
-    #endif
-		/**    wifi信息存储     ***/
-	
-#ifdef AP_DIERCT_CONNECT_TEST
-		extern direct_ap_info_t direct_ap_info;
-	    memcpy(direct_ap_info.direct_ssid,result.ssid,strlen(result.ssid)+1);
-        memcpy(direct_ap_info.direct_pwd,result.passwd,strlen(result.passwd)+1);
-#endif
+        #endif
+        /**    wifi信息存储     ***/
 
-		
+        #ifdef AP_DIERCT_CONNECT_TEST
+        extern direct_ap_info_t direct_ap_info;
+        memcpy(direct_ap_info.direct_ssid,result.ssid,strlen(result.ssid)+1);
+        memcpy(direct_ap_info.direct_pwd,result.passwd,strlen(result.passwd)+1);
+        #endif
+
+
         rt_kprintf("ssid len=%d, [%s]\n", result.ssid_len, result.ssid);
         rt_kprintf("passwd L=%d, [%s]\n", result.passwd_len, result.passwd);
         rt_kprintf("custom L=%d, [%s]\n", result.custom_len, result.custom);
-		
-		station_connect(result.ssid,result.passwd);
+
+        station_connect(result.ssid,result.passwd);
     }
     else
     {
@@ -197,7 +211,7 @@ void voice_netconfig_stop(void)
 {
     if (tid != RT_NULL)
     {
-        
+
         rt_kprintf("voice config cancel .\n");
         voice_config_stop();
         tid = NULL;

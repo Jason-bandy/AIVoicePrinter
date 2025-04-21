@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _MIXER_H_
 #define _MIXER_H_
 
@@ -12,7 +26,7 @@
 #define MIXER_LOG(...)
 #else
 #define MIXER_PRINTF(...)
-#define MIXER_WARNING_LOG(...)            
+#define MIXER_WARNING_LOG(...)
 #define MIXER_LOG(...)
 #endif //MIXER_DEBUG_PRTF
 
@@ -100,7 +114,7 @@ typedef struct _mixer_
     uint32_t audio_sample_rate;
     ADC_DEV_T adc_dev;
 
-#if MIXER_MUX_NEW_STRATEGY
+    #if MIXER_MUX_NEW_STRATEGY
     /* OUTSIDE_SRC_EXCHANGE_BUF_SIZE, the length is equal to
        the memory cell length of audio_device_init at the mem
        pool. outside_src_buf will be used at mux src mode, and
@@ -109,9 +123,9 @@ typedef struct _mixer_
     uint32_t outside_src_pos;
 
     MP_T outside_mp;
-#else
+    #else
     MP_T mp;
-#endif
+    #endif
 
     DAC_DEV_T dac_dev;
 

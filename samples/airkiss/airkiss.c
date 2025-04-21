@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 #include <rtdevice.h>
 #include <rthw.h>
@@ -42,26 +56,26 @@ typedef struct  switch_channel_t
     unsigned char switch_channel[14];
     unsigned char channel_bit[14];
     unsigned char channel_num;
-}SWITCH_CHANNEL_ST;
+} SWITCH_CHANNEL_ST;
 
 
 typedef struct  mac_channel_t
 {
     unsigned char ap_bssid[6];
     unsigned char ap_real_channel;
-}MAX_CHANNEL_ST;
+} MAX_CHANNEL_ST;
 
 typedef struct  airkiss_ap_t
-{   
+{
     unsigned char ap_num;
-    MAX_CHANNEL_ST *airkiss_ap_table;  
-}AIRKISS_AP_LIST;
+    MAX_CHANNEL_ST *airkiss_ap_table;
+} AIRKISS_AP_LIST;
 
 typedef struct  airkiss_result_info
-{   
+{
     unsigned char ssid[32];
     unsigned char passwd[32];
-}AIRKISS_RESULT_T;
+} AIRKISS_RESULT_T;
 
 static AIRKISS_RESULT_T airkiss_result_ap;
 static SWITCH_CHANNEL_ST channel_tab;
@@ -70,7 +84,7 @@ static AIRKISS_AP_LIST *airkiss_info=NULL;
 static uint8_t get_channel_with_bssid(uint8_t *bssid)
 {
     uint8_t channel=0;
-    for(int index=0;index<airkiss_info->ap_num;index++)
+    for(int index=0; index<airkiss_info->ap_num; index++)
     {
         if(memcmp(bssid,airkiss_info->airkiss_ap_table[index].ap_bssid,6)==0)
         {
@@ -83,7 +97,7 @@ static uint8_t get_channel_with_bssid(uint8_t *bssid)
 }
 
 static void  bk_wifi_scan(void)
-{   
+{
     struct rt_wlan_device *wlan;
     struct rt_wlan_scan_result *scan_result = RT_NULL;
     wlan = (struct rt_wlan_device *)rt_device_find("w0");
@@ -106,23 +120,23 @@ static void  bk_wifi_scan(void)
         for (index = 0; index < num; index ++)
         {
             AIRKISS_PRINTF("%-32.32s", scan_result->ap_table[index].ssid);
-            AIRKISS_PRINTF("%02x:%02x:%02x:%02x:%02x:%02x     ", 
-                scan_result->ap_table[index].bssid[0],
-                scan_result->ap_table[index].bssid[1],
-                scan_result->ap_table[index].bssid[2],
-                scan_result->ap_table[index].bssid[3],
-                scan_result->ap_table[index].bssid[4],
-                scan_result->ap_table[index].bssid[5]
-            );
+            AIRKISS_PRINTF("%02x:%02x:%02x:%02x:%02x:%02x     ",
+                           scan_result->ap_table[index].bssid[0],
+                           scan_result->ap_table[index].bssid[1],
+                           scan_result->ap_table[index].bssid[2],
+                           scan_result->ap_table[index].bssid[3],
+                           scan_result->ap_table[index].bssid[4],
+                           scan_result->ap_table[index].bssid[5]
+                          );
             channel_tab.channel_bit[scan_result->ap_table[index].channel]=1;
             airkiss_info->airkiss_ap_table[index].ap_real_channel=scan_result->ap_table[index].channel;
             rt_memcpy(airkiss_info->airkiss_ap_table[index].ap_bssid, scan_result->ap_table[index].bssid,6);
             AIRKISS_PRINTF("%4d    ", scan_result->ap_table[index].rssi);
             AIRKISS_PRINTF("%2d    ", scan_result->ap_table[index].channel);
             AIRKISS_PRINTF("%d\n", scan_result->ap_table[index].datarate / 1000000);
-            }
         }
-        rt_wlan_release_scan_result(&scan_result);
+    }
+    rt_wlan_release_scan_result(&scan_result);
 }
 
 static int bk_airkiss_check_channel(uint8_t * frame)
@@ -165,7 +179,7 @@ static void get_channel_list_to_switch()
 {
     uint8_t index=0;
     channel_tab.channel_num=0;
-    for(uint8_t i=1;i<=13;i++)
+    for(uint8_t i=1; i<=13; i++)
     {
         if(channel_tab.channel_bit[i]==1)
         {
@@ -176,17 +190,17 @@ static void get_channel_list_to_switch()
 
     if(0==index)
     {
-        for(uint8_t i=0;i<13;i++)
+        for(uint8_t i=0; i<13; i++)
         {
             channel_tab.switch_channel[i]=i+1;
         }
         channel_tab.channel_num=13;
     }
 
-    AIRKISS_PRINTF("switch channel: ");   
-    for(uint8_t i=0;i<channel_tab.channel_num;i++)
+    AIRKISS_PRINTF("switch channel: ");
+    for(uint8_t i=0; i<channel_tab.channel_num; i++)
         AIRKISS_PRINTF("%d  ",channel_tab.switch_channel[i]);
-    AIRKISS_PRINTF("\r\n");   
+    AIRKISS_PRINTF("\r\n");
 
 }
 
@@ -196,7 +210,7 @@ static void airkiss_switch_channel(void *parameter)
     if(1==lock_channel_err_flag)
     {
         AIRKISS_PRINTF("Lock err before,Lock channel %d \n", g_current_channel);
-        bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);  
+        bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);
         lock_channel_err_flag=0;
         rt_timer_stop(g_switch_timer);
         rt_timer_start(g_doing_timer);
@@ -207,7 +221,7 @@ static void airkiss_switch_channel(void *parameter)
     if(channel_idx>=channel_tab.channel_num)
         channel_idx=0;
     AIRKISS_PRINTF("Switch channel %d \n", g_current_channel);
-    bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);  
+    bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);
     airkiss_change_channel(ak_contex);
 }
 
@@ -219,7 +233,7 @@ static void airkiss_doing_timeout(void *parameter)
     if (RT_EOK != result)
     {
         AIRKISS_PRINTF("Airkiss init failed!!\r\n");
-    } 
+    }
 
     rt_timer_start(g_switch_timer);
 }
@@ -417,7 +431,7 @@ static void airkiss_thread_entry(void *parameter)
     }
     channel_idx=1;
     g_current_channel = 1;
-    bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);  
+    bk_wlan_set_channel_with_band_width(g_current_channel,PHY_CHNL_BW_20);
     rt_wlan_set_monitor_callback(g_wlan_device, airkiss_monitor_callback);
     rt_wlan_cfg_monitor(g_wlan_device, WIFI_MONITOR_START);
 
@@ -429,7 +443,7 @@ static void airkiss_thread_entry(void *parameter)
     }
     rt_wlan_cfg_monitor(g_wlan_device, WIFI_MONITOR_STOP);
     rt_wlan_set_monitor_callback(g_wlan_device, RT_NULL);
-    
+
     if (airkiss_recv_ret == AIRKISS_STATUS_COMPLETE)
     {
         AIRKISS_PRINTF("airkiss complte,start connect ap\r\n");
@@ -443,7 +457,7 @@ static void airkiss_thread_entry(void *parameter)
             AIRKISS_PRINTF("\r\nairkiss_get_result() ok!\n");
             AIRKISS_PRINTF(" ssid = %s \n pwd = %s \n,random = 0x%02x\r\n",
                            result.ssid, airkiss_result_ap.passwd,result.random);
-            
+
         }
 
         station_connect(result.ssid, result.pwd);
@@ -457,7 +471,7 @@ static void airkiss_thread_entry(void *parameter)
                 goto _exit;
             }
 
-        }while (!get_wifi_status(g_wlan_device->parent.netif));
+        } while (!get_wifi_status(g_wlan_device->parent.netif));
 
         {
             rt_thread_t tid;
@@ -515,7 +529,7 @@ _exit:
 
 int start_airkiss(void)
 {
-    
+
     int result = -1;
 
     if(airkiss_tid)
@@ -525,11 +539,11 @@ int start_airkiss(void)
     }
 
     airkiss_tid = rt_thread_create("airkiss",
-                           airkiss_thread_entry,
-                           RT_NULL,
-                           1024 * 4,
-                           20,
-                           10);
+                                   airkiss_thread_entry,
+                                   RT_NULL,
+                                   1024 * 4,
+                                   20,
+                                   10);
 
     if (airkiss_tid != NULL)
     {
@@ -541,12 +555,12 @@ int start_airkiss(void)
 
 int stop_airkiss(void)
 {
-	if(!airkiss_tid) {
-		return -1;
-	}
+    if(!airkiss_tid) {
+        return -1;
+    }
 
-	rt_sem_release(g_cfg_done_sem);
-	return 0;
+    rt_sem_release(g_cfg_done_sem);
+    return 0;
 }
 
 MSH_CMD_EXPORT(start_airkiss, start_ariksss);

@@ -28,6 +28,11 @@
 #define IPERF_MODE_CLIENT   2
 #define IPERF_MODE_STOPPING 3
 
+#define CLIENT_THREAD_PROIRITY  20
+#define SERVER_THREAD_PROIRITY  2
+static rt_uint8_t iperf_client_priority = CLIENT_THREAD_PROIRITY;
+static rt_uint8_t iperf_server_priority = SERVER_THREAD_PROIRITY;
+
 typedef struct
 {
     int mode;
@@ -412,7 +417,8 @@ void iperf_usage(void)
     rt_kprintf("Miscellaneous:\n");
     rt_kprintf("  -h           print this message and quit\n");
     rt_kprintf("  --stop       stop iperf program\n");
-    rt_kprintf("  -u           testing UDP protocol");
+    rt_kprintf("  -u           testing UDP protocol\n");
+    rt_kprintf("  config -server_pri/-client_pri 	  set iperf thread priority\n");
     return;
 }
 
@@ -433,6 +439,24 @@ int iperf(int argc, char **argv)
         index = 2;
         use_udp = 1;
     }
+    else if(strcmp(argv[1], "config") == 0 && argc == 4)
+    {
+        if (strcmp(argv[2], "-server_pri") == 0) {
+            iperf_server_priority = strtoul(argv[3], NULL, 10);
+            rt_kprintf("iperf config iperf_server_priority to %d !\n", iperf_server_priority);
+        }
+        else if (strcmp(argv[2], "-client_pri") == 0)
+        {
+            iperf_client_priority = strtoul(argv[3], NULL, 10);
+            rt_kprintf("iperf config iperf_client_priority to %d !\n", iperf_client_priority);
+        }
+        else
+        {
+            rt_kprintf("iperf config INVALID PRAMATER !\n");
+        }
+        return 0;
+    }
+
     if (strcmp(argv[index], "-h") == 0) goto __usage;
     else if (strcmp(argv[index], "--stop") == 0)
     {
@@ -498,12 +522,12 @@ int iperf(int argc, char **argv)
             if (mode == IPERF_MODE_CLIENT)
             {
                 tid = rt_thread_create("iperfc", iperf_udp_client, RT_NULL,
-                                   2048, 20, 20);
+                                   2048, iperf_client_priority, 20);
             }
             else if (mode == IPERF_MODE_SERVER)
             {
                 tid = rt_thread_create("iperfd", iperf_udp_server, RT_NULL,
-                                   2048, 10, 20);
+                                   2048, iperf_server_priority, 20);
             }
         }
         else
@@ -511,12 +535,12 @@ int iperf(int argc, char **argv)
             if (mode == IPERF_MODE_CLIENT)
             {
                 tid = rt_thread_create("iperfc", iperf_client, RT_NULL,
-                                   2048, 20, 20);
+                                   2048, iperf_client_priority, 20);
             }
             else if (mode == IPERF_MODE_SERVER)
             {
                 tid = rt_thread_create("iperfd", iperf_server, RT_NULL,
-                                   2048, 20, 20);
+                                   2048, iperf_server_priority, 20);
             }
         }
         if (tid) rt_thread_startup(tid);

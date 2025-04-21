@@ -54,6 +54,7 @@ extern void user_main( beken_thread_arg_t args );
 extern int rt_hw_flash_disk_readonly_init(const char *name, uint32_t base, uint32_t sector_size, uint32_t capacity);
 extern void rt_hw_wdg_start(int argc, char **argv);
 extern int bk_wlan_dtim_rf_ps_mode_enable(void );
+extern void rt_psram_heap_init(void);
 
 int main(int argc, char **argv)
 {
@@ -69,9 +70,17 @@ int main(int argc, char **argv)
     }
 #endif
 
+#if defined(RT_USING_QSPI_PSRAM_HEAP)
+    rt_psram_heap_init();
+#endif
+
 #if 0
     /* mount sd card fat partition 1 as root directory */
+#if (CFG_SOC_NAME == SOC_BK7252N)
+    saradc_config_vddram_voltage(PSRAM_VDD_3_5V);
+#else
     saradc_config_vddram_voltage(PSRAM_VDD_3_3V);
+#endif
     if(dfs_mount("sd0", "/sd", "elm", 0, 0) == 0)
         rt_kprintf("SD File System initialized!\n");
     else

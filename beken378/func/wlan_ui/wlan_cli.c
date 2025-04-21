@@ -1,12 +1,17 @@
-/**
- *  UNPUBLISHED PROPRIETARY SOURCE CODE
- *  Copyright (c) 2016 BEKEN Inc.
- *
- *  The contents of this file may not be disclosed to third parties, copied or
- *  duplicated in any form, in whole or in part, without the prior written
- *  permission of BEKEN Corporation.
- *
- */
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "sys_rtos.h"
 #include "rtos_pub.h"
 #include "error.h"
@@ -72,12 +77,15 @@
 #if AT_SERVICE_CFG
 #include "atsvr_comm.h"
 #endif
+
 #if (CFG_SUPPORT_BLE == 1)
+#include "ble.h"
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
 #include "application.h"
 #endif
 
-#if (CFG_BLE_VERSION == BLE_VERSION_5_1)
+#if (CFG_BLE_VERSION > BLE_VERSION_4_2)
+#include "ble_api_5_x.h"
 #include "app_ble_task.h"
 #endif
 #endif
@@ -94,6 +102,12 @@ extern void sec_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 #if (CFG_USE_AUDIO)
 #include "audio_cli.h"
 #endif
+
+#if CFG_FLASH_BYPASS_OTP
+#include "flash_bypass.h"
+#endif
+
+#include "sys_ctrl.h"
 
 #ifdef monitor_printf_debug
 #define monitor_dbg(fmt, ...)   bk_printf(fmt, ##__VA_ARGS__)
@@ -139,6 +153,9 @@ extern u32 monitor_process(u8 start);
 
 #if CFG_SARADC_CALIBRATE
 static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
+#if CFG_SARADC_VERIFY
+static void saradc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv);
+#endif
 #endif
 #if !AT_SERVICE_CFG
 static void cli_rx_callback(int uport, void *param);
@@ -200,7 +217,7 @@ static const struct cli_command *lookup_command(char *name, int len)
 *          2 on invalid syntax: the arguments list couldn't be parsed
 */
 extern void log_output_state(int flag);
- int handle_input(char *inbuf)
+int handle_input(char *inbuf)
 {
     struct
     {
@@ -385,94 +402,94 @@ static void tab_complete(char *inbuf, unsigned int *bp, const char *prompt)
 * Returns: 1 if there is input, 0 if the line should be ignored. */
 static int get_input(char *inbuf, unsigned int *bp, const char *prompt)
 {
-	if (inbuf == NULL){
-		os_printf("inbuf_null\r\n");
-		return 0;
-	}
+    if (inbuf == NULL) {
+        os_printf("inbuf_null\r\n");
+        return 0;
+    }
 
-	while (cli_getchar(&inbuf[*bp]) == 1)
-	{
-#if CFG_SUPPORT_BKREG
-		if ((0x01U == (UINT8)inbuf[*bp]) && (*bp == 0)) {
-			(*bp)++;
-			continue;
-		} else if ((0xe0U == (UINT8)inbuf[*bp]) && (*bp == 1)) {
-			(*bp)++;
-			continue;
-		} else if ((0xfcU == (UINT8)inbuf[*bp]) && (*bp == 2)) {
-			(*bp)++;
-			continue;
-		} else {
-			if ((0x01U == (UINT8)inbuf[0])
-				&& (0xe0U == (UINT8)inbuf[1])
-				&& (0xfcU == (UINT8)inbuf[2])
-				&& (*bp == 3)) {
-				uint8_t ch = inbuf[*bp];
-				uint8_t left = ch, len = 4 + (uint8_t)ch;
-				inbuf[*bp] = ch;
-				(*bp)++;
+    while (cli_getchar(&inbuf[*bp]) == 1)
+    {
+        #if CFG_SUPPORT_BKREG
+        if ((0x01U == (UINT8)inbuf[*bp]) && (*bp == 0)) {
+            (*bp)++;
+            continue;
+        } else if ((0xe0U == (UINT8)inbuf[*bp]) && (*bp == 1)) {
+            (*bp)++;
+            continue;
+        } else if ((0xfcU == (UINT8)inbuf[*bp]) && (*bp == 2)) {
+            (*bp)++;
+            continue;
+        } else {
+            if ((0x01U == (UINT8)inbuf[0])
+                    && (0xe0U == (UINT8)inbuf[1])
+                    && (0xfcU == (UINT8)inbuf[2])
+                    && (*bp == 3)) {
+                uint8_t ch = inbuf[*bp];
+                uint8_t left = ch, len = 4 + (uint8_t)ch;
+                inbuf[*bp] = ch;
+                (*bp)++;
 
-				if (ch >= IN_BUF_LEN) {
-					os_printf("Error: input buffer overflow\r\n");
-					os_printf("%s",prompt);
-					*bp = 0;
-					return 0;
-				}
+                if (ch >= IN_BUF_LEN) {
+                    os_printf("Error: input buffer overflow\r\n");
+                    os_printf("%s",prompt);
+                    *bp = 0;
+                    return 0;
+                }
 
-				while (left--) {
-					if (0 == cli_getchar((char*)&ch))
-						break;
+                while (left--) {
+                    if (0 == cli_getchar((char*)&ch))
+                        break;
 
-					inbuf[*bp] = ch;
-					(*bp)++;
-				}
+                    inbuf[*bp] = ch;
+                    (*bp)++;
+                }
 
-				extern int bkreg_run_command(const char *content, int cnt);
-				bkreg_run_command(inbuf, len);
-				memset(inbuf, 0, len);
-				*bp = 0;
-				continue;
-			}
-		}
-#endif
-		if (inbuf[*bp] == RET_CHAR)
-			continue;
-		if (inbuf[*bp] == END_CHAR) {   /* end of input line */
-			inbuf[*bp] = '\0';
-			*bp = 0;
-			return 1;
-		}
+                extern int bkreg_run_command(const char *content, int cnt);
+                bkreg_run_command(inbuf, len);
+                memset(inbuf, 0, len);
+                *bp = 0;
+                continue;
+            }
+        }
+        #endif
+        if (inbuf[*bp] == RET_CHAR)
+            continue;
+        if (inbuf[*bp] == END_CHAR) {   /* end of input line */
+            inbuf[*bp] = '\0';
+            *bp = 0;
+            return 1;
+        }
 
-		if ((inbuf[*bp] == 0x08) || /* backspace */
-			(inbuf[*bp] == 0x7f)) { /* DEL */
-			if (*bp > 0) {
-				(*bp)--;
-				if (!pCli->echo_disabled)
-					os_printf("%c %c", 0x08, 0x08);
-			}
-			continue;
-		}
+        if ((inbuf[*bp] == 0x08) || /* backspace */
+                (inbuf[*bp] == 0x7f)) { /* DEL */
+            if (*bp > 0) {
+                (*bp)--;
+                if (!pCli->echo_disabled)
+                    os_printf("%c %c", 0x08, 0x08);
+            }
+            continue;
+        }
 
-		if (inbuf[*bp] == '\t') {
-			inbuf[*bp] = '\0';
-			tab_complete(inbuf, bp,prompt);
-			continue;
-		}
+        if (inbuf[*bp] == '\t') {
+            inbuf[*bp] = '\0';
+            tab_complete(inbuf, bp,prompt);
+            continue;
+        }
 
-		if (!pCli->echo_disabled)
-			os_printf("%c", inbuf[*bp]);
+        if (!pCli->echo_disabled)
+            os_printf("%c", inbuf[*bp]);
 
-		(*bp)++;
-		if (*bp >= IN_BUF_LEN) {
-			os_printf("Error: input buffer overflow\r\n");
-			os_printf("%s",prompt);
-			*bp = 0;
-			return 0;
-		}
+        (*bp)++;
+        if (*bp >= IN_BUF_LEN) {
+            os_printf("Error: input buffer overflow\r\n");
+            os_printf("%s",prompt);
+            *bp = 0;
+            return 0;
+        }
 
-	}
+    }
 
-	return 0;
+    return 0;
 }
 
 
@@ -515,9 +532,9 @@ static void cli_main( uint32_t data )
 {
     bk_uart_set_rx_callback(cli_uart, cli_rx_callback, NULL);
 
-	#if CFG_RF_OTA_TEST
-	demo_sta_app_init("CMW-AP", "12345678");
-	#endif /* CFG_RF_OTA_TEST*/
+    #if CFG_RF_OTA_TEST
+    demo_sta_app_init("CMW-AP", "12345678");
+    #endif /* CFG_RF_OTA_TEST*/
 
     char prompt[5];
     if(get_ate_mode_state()==1)
@@ -559,9 +576,9 @@ exit:
 #endif
 static void task_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
 {
-#if CFG_OS_FREERTOS
+    #if CFG_OS_FREERTOS
     rtos_print_thread_status( pcWriteBuffer, xWriteBufferLen );
-#endif
+    #endif
 }
 
 #if CFG_MEM_DEBUG
@@ -569,12 +586,12 @@ void printLeakMem(int leaktime);
 
 static void memleak_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	uint32_t leaktime = 0;
+    uint32_t leaktime = 0;
 
-	if (argc >= 2)
-		leaktime = os_strtoul(argv[1], NULL, 10);
+    if (argc >= 2)
+        leaktime = os_strtoul(argv[1], NULL, 10);
 
-	printLeakMem(leaktime);
+    printLeakMem(leaktime);
 }
 #endif
 
@@ -627,12 +644,12 @@ void help_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **arg
 */
 void wifiscan_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-#if CFG_ROLE_LAUNCH
+    #if CFG_ROLE_LAUNCH
     LAUNCH_REQ param;
 
     param.req_type = LAUNCH_REQ_PURE_STA_SCAN;
     rl_sta_request_enter(&param, 0);
-#else
+    #else
     char *msg = NULL;
 
     if (argc == 1) {
@@ -642,7 +659,7 @@ void wifiscan_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
         msg = CLI_CMD_RSP_ERROR;
         os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
     }
-#endif
+    #endif
 }
 
 void wifiadvscan_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -688,9 +705,9 @@ void softap_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **a
     else
     {
         os_printf("parameter invalid\r\n");
-	    msg = CLI_CMD_RSP_ERROR;
-	    os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
-	    return;
+        msg = CLI_CMD_RSP_ERROR;
+        os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
+        return;
     }
 
     if(ap_ssid)
@@ -790,9 +807,9 @@ void del_virtual_intface(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
     u8 role = 0xff;
     char *msg = NULL;
 
-	#if CFG_ROLE_LAUNCH
+    #if CFG_ROLE_LAUNCH
     LAUNCH_REQ param;
-	#endif
+    #endif
 
     if(argc <= 1)
     {
@@ -835,10 +852,10 @@ void del_virtual_intface(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
         return;
     }
 
-#if (0 == CFG_ROLE_LAUNCH)
+    #if (0 == CFG_ROLE_LAUNCH)
     bk_wlan_stop(role);
     os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
-#endif
+    #endif
 }
 
 void show_virtual_intface(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -989,16 +1006,16 @@ void sta_adv_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **
 
 void show_sta_psk(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	uint8_t *psk;
-	int i;
+    uint8_t *psk;
+    int i;
 
-	psk = wpas_get_sta_psk();
-	os_printf("John# show_sta_psk.r\n");
-	for ( i = 0 ; i < 32 ; i++ )
-	{
-	    os_printf("%02x ", psk[i]);
-	}
-	os_printf("\r\n");
+    psk = wpas_get_sta_psk();
+    os_printf("John# show_sta_psk.r\n");
+    for ( i = 0 ; i < 32 ; i++ )
+    {
+        os_printf("%02x ", psk[i]);
+    }
+    os_printf("\r\n");
 }
 
 #include "conv_utf8_pub.h"
@@ -1009,7 +1026,7 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     char *msg = NULL;
 
     os_printf("sta_Command\r\n");
-#if CFG_SUPPORT_BSSID_CONNECT
+    #if CFG_SUPPORT_BSSID_CONNECT
     uint8_t bssid[6] = {0};
     if (os_strcmp(argv[1], "bssid") == 0)
     {
@@ -1033,7 +1050,7 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
         demo_sta_bssid_app_init(bssid, connect_key);
         return;
     }
-#endif
+    #endif
 
     if (argc > 1 && strlen(argv[1]) == 0)
     {
@@ -1064,20 +1081,20 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
     if (oob_ssid)
     {
         char *oob_ssid_tp = oob_ssid;
-#if CFG_USE_CONV_UTF8
+        #if CFG_USE_CONV_UTF8
         oob_ssid_tp = (char *)conv_utf8((uint8_t *)oob_ssid);
-#endif
+        #endif
 
         if (oob_ssid_tp)
         {
-#if CFG_AIRKISS_TEST
+            #if CFG_AIRKISS_TEST
             if (airkiss_is_at_its_context()) {
                 os_printf("airkiss is on-the-go\r\n");
                 return;
             }
-#endif
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
-#if CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST
+            #endif
+            #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+            #if CFG_TX_EVM_TEST || CFG_RX_SENSITIVITY_TEST
             if (!get_ate_mode_state() && !os_strcasecmp((const char *)oob_ssid_tp, "CMW-AP")) {
                 extern char ate_mode_state;
                 extern void improve_rx_sensitivity(void);
@@ -1087,12 +1104,12 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
                 sctrl_flash_select_dco();
                 improve_rx_sensitivity();
             }
-#endif
-#endif
+            #endif
+            #endif
             demo_sta_app_init((char *)oob_ssid_tp, connect_key);
-#if CFG_USE_CONV_UTF8
+            #if CFG_USE_CONV_UTF8
             os_free(oob_ssid_tp);
-#endif
+            #endif
         }
         else
         {
@@ -1116,68 +1133,68 @@ void sta_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
  */
 void sta_eap_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-#if 0 // TODO: backport to 3.0
-	char *ssid = NULL;
-	char *ca = "cacert.pem";
-	char *client_cert = "beken-iot-1.pem";
-	char *private_key = "beken-iot-1.key";
-	char *private_key_passwd = "12345678";
-	char *identity = "user";
+    #if 0 // TODO: backport to 3.0
+    char *ssid = NULL;
+    char *ca = "cacert.pem";
+    char *client_cert = "beken-iot-1.pem";
+    char *private_key = "beken-iot-1.key";
+    char *private_key_passwd = "12345678";
+    char *identity = "user";
 
-	if ((argc < 2) || (argc > 5)) {
-		CLI_LOGI("invalid argc number\n");
-		return;
-	}
+    if ((argc < 2) || (argc > 5)) {
+        CLI_LOGI("invalid argc number\n");
+        return;
+    }
 
-	ssid = argv[1];
+    ssid = argv[1];
 
-	char *oob_ssid_tp = ssid;
-#if CFG_USE_CONV_UTF8
-	oob_ssid_tp = (char *)conv_utf8((uint8_t *)ssid);
-#endif
+    char *oob_ssid_tp = ssid;
+    #if CFG_USE_CONV_UTF8
+    oob_ssid_tp = (char *)conv_utf8((uint8_t *)ssid);
+    #endif
 
-	if (oob_ssid_tp) {
-		int len;
-		wifi_sta_config_t *sta_config;
+    if (oob_ssid_tp) {
+        int len;
+        wifi_sta_config_t *sta_config;
 
-		len = os_strlen((char *)oob_ssid_tp);
-		if (SSID_MAX_LEN < len) {
-			CLI_LOGI("ssid name more than 32 Bytes\n");
-			return;
-		}
+        len = os_strlen((char *)oob_ssid_tp);
+        if (SSID_MAX_LEN < len) {
+            CLI_LOGI("ssid name more than 32 Bytes\n");
+            return;
+        }
 
-		sta_config = os_zalloc(sizeof(*sta_config));
-		if (!sta_config) {
-			CLI_LOGI("Cannot alloc STA config\n");
-			return;
-		}
+        sta_config = os_zalloc(sizeof(*sta_config));
+        if (!sta_config) {
+            CLI_LOGI("Cannot alloc STA config\n");
+            return;
+        }
 
-		os_strlcpy(sta_config->ssid, oob_ssid_tp, sizeof(sta_config->ssid));
-		sta_config->password[0] = '\0';	// No passwd needed fo EAP.
-		os_strlcpy(sta_config->eap, "TLS", sizeof(sta_config->eap));
-		os_strlcpy(sta_config->identity, identity, sizeof(sta_config->identity));
-		os_strlcpy(sta_config->ca, ca, sizeof(sta_config->ca));
-		os_strlcpy(sta_config->client_cert, client_cert, sizeof(sta_config->client_cert));
-		os_strlcpy(sta_config->private_key, private_key, sizeof(sta_config->private_key));
-		os_strlcpy(sta_config->private_key_passwd, private_key_passwd, sizeof(sta_config->private_key_passwd));
-		os_strlcpy(sta_config->phase1, "tls_disable_time_checks=1", sizeof(sta_config->phase1));
+        os_strlcpy(sta_config->ssid, oob_ssid_tp, sizeof(sta_config->ssid));
+        sta_config->password[0] = '\0';	// No passwd needed fo EAP.
+        os_strlcpy(sta_config->eap, "TLS", sizeof(sta_config->eap));
+        os_strlcpy(sta_config->identity, identity, sizeof(sta_config->identity));
+        os_strlcpy(sta_config->ca, ca, sizeof(sta_config->ca));
+        os_strlcpy(sta_config->client_cert, client_cert, sizeof(sta_config->client_cert));
+        os_strlcpy(sta_config->private_key, private_key, sizeof(sta_config->private_key));
+        os_strlcpy(sta_config->private_key_passwd, private_key_passwd, sizeof(sta_config->private_key_passwd));
+        os_strlcpy(sta_config->phase1, "tls_disable_time_checks=1", sizeof(sta_config->phase1));
 
-		CLI_LOGI("ssid:%s key:%s\n", sta_config->ssid, sta_config->password);
-		CLI_LOGI("eap:%s identity:%s\n", sta_config->eap, sta_config->identity);
-		CLI_LOGI("ca:%s client_cert:%s\n", sta_config->ca, sta_config->client_cert);
-		CLI_LOGI("private_key:%s\n", sta_config->private_key);
-		BK_LOG_ON_ERR(bk_wifi_sta_set_config(sta_config));
-		BK_LOG_ON_ERR(bk_wifi_sta_start());
+        CLI_LOGI("ssid:%s key:%s\n", sta_config->ssid, sta_config->password);
+        CLI_LOGI("eap:%s identity:%s\n", sta_config->eap, sta_config->identity);
+        CLI_LOGI("ca:%s client_cert:%s\n", sta_config->ca, sta_config->client_cert);
+        CLI_LOGI("private_key:%s\n", sta_config->private_key);
+        BK_LOG_ON_ERR(bk_wifi_sta_set_config(sta_config));
+        BK_LOG_ON_ERR(bk_wifi_sta_start());
 
-		os_free(sta_config);
+        os_free(sta_config);
 
-#if CFG_USE_CONV_UTF8
-		os_free(oob_ssid_tp);
-#endif
-	} else {
-		os_printf("not buf for utf8\r\n");
-	}
-#endif
+        #if CFG_USE_CONV_UTF8
+        os_free(oob_ssid_tp);
+        #endif
+    } else {
+        os_printf("not buf for utf8\r\n");
+    }
+    #endif
 }
 #endif
 
@@ -1296,6 +1313,26 @@ void wifidebug_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
     os_printf("wifidebug_Command\r\n");
 }
 
+#if (CFG_SOC_NAME == SOC_BK7252N)
+void ip_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    char *msg = NULL;
+
+    if (argc == 1)
+    {
+        msg = CLI_CMD_RSP_SUCCEED;
+        ate_ip_app_init();
+    }
+    else
+    {
+        os_printf("input param error\n");
+        msg = CLI_CMD_RSP_ERROR;
+    }
+
+    os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
+}
+#endif
+
 void ifconfig_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     char *msg = NULL;
@@ -1305,7 +1342,7 @@ void ifconfig_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char *
         msg = CLI_CMD_RSP_SUCCEED;
         demo_ip_app_init();
     }
-	else
+    else
     {
         os_printf("input param error\n");
         msg = CLI_CMD_RSP_ERROR;
@@ -1332,9 +1369,9 @@ void ping_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **arg
         int count = 4;
         if (argc >= 3)
             count = atoi(argv[2]);
-            os_printf("ping IP address: %s for %d times\n", argv[1], count);
-            ping(argv[1], count, 0);
-	}
+        os_printf("ping IP address: %s for %d times\n", argv[1], count);
+        ping(argv[1], count, 0);
+    }
 }
 
 void dns_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -1349,17 +1386,17 @@ void socket_show_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, cha
 
 void memory_show_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-#if CFG_OS_FREERTOS
+    #if CFG_OS_FREERTOS
     cmd_printf("free memory %d\r\n", xPortGetFreeHeapSize());
-#elif CFG_SUPPORT_LITEOS
-	LOS_MEM_POOL_STATUS status;
-	(void)LOS_MemInfoGet(m_aucSysMem0, &status);
+    #elif CFG_SUPPORT_LITEOS
+    LOS_MEM_POOL_STATUS status;
+    (void)LOS_MemInfoGet(m_aucSysMem0, &status);
 
     cmd_printf("freeNodeNum:%d, maxFreeNodeSize:%d, usedNodeNum:%d, usageWaterLine:%d\r\n", status.freeNodeNum, status.maxFreeNodeSize, status.usedNodeNum, status.usageWaterLine);
     cmd_printf("used memory %d\r\n", status.totalUsedSize);
     cmd_printf("free memory %d\r\n", status.totalFreeSize);
-#else
-#endif
+    #else
+    #endif
 }
 
 void memory_dump_Command( char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv )
@@ -1424,12 +1461,21 @@ void reboot(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
             os_printf("%s", msg);
             bk_reboot_for_ate();
         }
+        #if CFG_MEM_CHECK_ENABLE
+        else if (!os_strcasecmp(argv[1], "memcheck"))
+        {
+            msg = CLI_CMD_RSP_SUCCEED;
+            os_printf("%s", msg);
+            extern void cmd_start_memcheck(void);
+            cmd_start_memcheck();
+        }
+        #endif
         else
         {
             os_printf("input param error\n");
             msg = CLI_CMD_RSP_ERROR;
         }
-    } 
+    }
     else
     {
         os_printf("input param error\n");
@@ -1591,13 +1637,108 @@ extern OSStatus test_flash_read_without_print(volatile uint32_t start_addr, uint
 beken_thread_t idle_read_flash_handle = NULL;
 
 static void test_idle_read_flash(void *arg) {
-	while (1) {
-		test_flash_read_without_print(0x1000, 1000);
-		test_flash_read_without_print(0x100000, 1000);
-		test_flash_read_without_print(0x200000, 1000);
-		test_flash_read_without_print(0x300000, 0x1000);
-	}
-	rtos_delete_thread(&idle_read_flash_handle);
+    while (1) {
+        test_flash_read_without_print(0x1000, 1000);
+        test_flash_read_without_print(0x100000, 1000);
+        test_flash_read_without_print(0x200000, 1000);
+        test_flash_read_without_print(0x300000, 0x1000);
+    }
+    rtos_delete_thread(&idle_read_flash_handle);
+}
+
+static void flash_verify_thread_entry(void *parameter)
+{
+    os_printf("flash_verify start\n");
+    bk_logic_partition_t *pt = bk_flash_get_info(BK_PARTITION_OTA);
+
+    uint32_t src_addr = pt->partition_start_addr;
+    uint32_t test_len = pt->partition_length;
+
+    uint32_t len = 0;
+
+    uint32_t address = src_addr;
+
+    uint32_t loop_times = 0;
+
+    uint8_t *data = os_malloc(4096);
+    if(!data)
+    {
+        os_printf("no memory for data\n");
+        os_free(data);
+        return;
+    }
+
+    while(1)
+    {
+        os_memset(data, 0, 4096);
+
+        bk_flash_enable_security(FLASH_PROTECT_NONE);
+        flash_ctrl(CMD_FLASH_ERASE_SECTOR, &address);
+        rtos_delay_milliseconds(1000);
+        bk_flash_enable_security(FLASH_PROTECT_ALL);
+
+        flash_read((char *)data, 4096, address);
+
+        for(uint32_t i = 0; i < 4096; i++)
+        {
+            if(data[i] != 0xFF)
+            {
+                os_printf("erase error\n");
+                break;
+            }
+        }
+
+        os_printf("earse 4K pass 0x%06x - 0x%06x\n", address, address + 4096);
+
+        bk_flash_enable_security(FLASH_PROTECT_NONE);
+        os_memset(data, 0xA5, 4096);
+        flash_write((char *)data, 4096, address);
+        rtos_delay_milliseconds(100);
+        bk_flash_enable_security(FLASH_PROTECT_ALL);
+
+        flash_read((char *)data, 4096, address);
+        rtos_delay_milliseconds(100);
+
+        for(uint32_t i = 0; i < 4096; i++)
+        {
+            if(data[i] != 0xA5)
+            {
+                os_printf("write 0xA5 error\n");
+                break;
+            }
+        }
+
+        os_printf("write 4K 0xA5 pass 0x%06x - 0x%06x\n", address, address + 4096);
+
+        bk_flash_enable_security(FLASH_PROTECT_NONE);
+        os_memset(data, 0x5A, 4096);
+        flash_write((char *)data, 4096, address);
+        rtos_delay_milliseconds(100);
+        bk_flash_enable_security(FLASH_PROTECT_ALL);
+
+        flash_read((char *)data, 4096, address);
+        rtos_delay_milliseconds(100);
+
+        for(uint32_t i = 0; i < 4096; i++)
+        {
+            if(data[i] != 0x00)
+            {
+                os_printf("write 0x5A error\n");
+                break;
+            }
+        }
+
+        os_printf("write 4K 0x5A pass 0x%06x - 0x%06x\n", address, address + 4096);
+
+        len += 4096;
+        address += 4096;
+        if(address == (src_addr + test_len))
+        {
+            loop_times += 1;
+            os_printf("test loop finish %d\n", loop_times);
+            address = src_addr;
+        }
+    }
 }
 
 static void flash_command_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -1606,91 +1747,187 @@ static void flash_command_test(char *pcWriteBuffer, int xWriteBufferLen, int arg
     uint32_t len = 0;
     uint32_t addr = 0;
 
-#if 0//(CONFIG_SYSTEM_CTRL)
-	if (os_strcmp(argv[1], "config") == 0) {
-		uint32_t flash_src_clk = os_strtoul(argv[2], NULL, 10);
-		uint32_t flash_div_clk = os_strtoul(argv[3], NULL, 10);
-		uint32_t flash_line_mode = os_strtoul(argv[4], NULL, 10);
+    #if 0//(CONFIG_SYSTEM_CTRL)
+    if (os_strcmp(argv[1], "config") == 0) {
+        uint32_t flash_src_clk = os_strtoul(argv[2], NULL, 10);
+        uint32_t flash_div_clk = os_strtoul(argv[3], NULL, 10);
+        uint32_t flash_line_mode = os_strtoul(argv[4], NULL, 10);
 
-		if (FLASH_CLK_XTAL == flash_src_clk) {
-			sys_drv_flash_cksel(flash_src_clk);
-		}
+        if (FLASH_CLK_XTAL == flash_src_clk) {
+            sys_drv_flash_cksel(flash_src_clk);
+        }
 
-		if((FLASH_CLK_XTAL != sys_drv_flash_get_clk_sel()) && (0 == flash_div_clk)) {
-			os_printf("Config fail. Please set src clk as 26M, or set div larger than 0 firstly.\n");
-			return;
-		}
+        if((FLASH_CLK_XTAL != sys_drv_flash_get_clk_sel()) && (0 == flash_div_clk)) {
+            os_printf("Config fail. Please set src clk as 26M, or set div larger than 0 firstly.\n");
+            return;
+        }
 
-		sys_drv_flash_set_clk_div(flash_div_clk);
-		sys_drv_flash_cksel(flash_src_clk);
-		flash_set_line_mode(flash_line_mode);
-		os_printf("flash_src_clk = %u. [0 -> 26M; 1->98M; 2-> 120M]\n", flash_src_clk);
-		os_printf("flash_div_clk = %u. \n", flash_div_clk);
-		os_printf("flash_line_mode = %u.  \n", flash_line_mode);
+        sys_drv_flash_set_clk_div(flash_div_clk);
+        sys_drv_flash_cksel(flash_src_clk);
+        flash_set_line_mode(flash_line_mode);
+        os_printf("flash_src_clk = %u. [0 -> 26M; 1->98M; 2-> 120M]\n", flash_src_clk);
+        os_printf("flash_div_clk = %u. \n", flash_div_clk);
+        os_printf("flash_line_mode = %u.  \n", flash_line_mode);
 
-		return;
-	}
-#endif
-	if (os_strcmp(argv[1], "idle_read_start") == 0) {
-		uint32_t task_prio = os_strtoul(argv[2], NULL, 10);
-		os_printf("idle_read_flash task start: task_prio = %u.\n", task_prio);
-		rtos_create_thread(&idle_read_flash_handle, task_prio,
-			"idle_read_flash",
-			(beken_thread_function_t) test_idle_read_flash,
-			4096,
-			(beken_thread_arg_t)0);
+        return;
+    }
+    #endif
+    if (os_strcmp(argv[1], "idle_read_start") == 0) {
+        uint32_t task_prio = os_strtoul(argv[2], NULL, 10);
+        os_printf("idle_read_flash task start: task_prio = %u.\n", task_prio);
+        rtos_create_thread(&idle_read_flash_handle, task_prio,
+                           "idle_read_flash",
+                           (beken_thread_function_t) test_idle_read_flash,
+                           4096,
+                           (beken_thread_arg_t)0);
 
-		return;
-	} else if (os_strcmp(argv[1], "idle_read_stop") == 0) {
-		if (idle_read_flash_handle) {
-			rtos_delete_thread(&idle_read_flash_handle);
-			idle_read_flash_handle = NULL;
-			os_printf("idle_read_flash task stop\n");
-		}
-		return;
-	}
+        return;
+    } else if (os_strcmp(argv[1], "idle_read_stop") == 0) {
+        if (idle_read_flash_handle) {
+            rtos_delete_thread(&idle_read_flash_handle);
+            idle_read_flash_handle = NULL;
+            os_printf("idle_read_flash task stop\n");
+        }
+        return;
+    } else if (os_strcmp(argv[1], "verify") == 0) {
+        os_printf("flash_verify task start\n");
+        rtos_create_thread(NULL, BEKEN_APPLICATION_PRIORITY,
+                            "flash_verify",
+                            (beken_thread_function_t) flash_verify_thread_entry,
+                            4096,
+                            (beken_thread_arg_t)0);
+        return;
+    }
 
     if(argc == 4)
     {
         cmd = argv[1][0];
-		addr = atoi(argv[2]);
-		len = atoi(argv[3]);
+        addr = atoi(argv[2]);
+        len = atoi(argv[3]);
 
-       	switch(cmd)
+        switch(cmd)
         {
-	        case 'E':
-				bk_flash_enable_security(FLASH_PROTECT_NONE);
-				test_flash_erase(addr,len);
-				bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
-	         break;
+        case 'E':
+            bk_flash_enable_security(FLASH_PROTECT_NONE);
+            test_flash_erase(addr,len);
+            bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
+            break;
 
-        	case 'R':
-				test_flash_read(addr,len);
-	            break;
-	        case 'W':
-		        bk_flash_enable_security(FLASH_PROTECT_NONE);
-				test_flash_write(addr,len);
-				bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
-	         break;
-	//to check whether protection mechanism can work
-			case 'N':
-				test_flash_erase(addr,len);
-				break;
-			case 'M':
-				test_flash_write(addr,len);
-				break;
-            case 'T':
-				test_flash_read_time(addr,len);
-				break;
-        	default:
+        case 'R':
+            test_flash_read(addr,len);
+            break;
+        case 'W':
+            bk_flash_enable_security(FLASH_PROTECT_NONE);
+            test_flash_write(addr,len);
+            bk_flash_enable_security(FLASH_UNPROTECT_LAST_BLOCK);
+            break;
+        //to check whether protection mechanism can work
+        case 'N':
+            test_flash_erase(addr,len);
+            break;
+        case 'M':
+            test_flash_write(addr,len);
+            break;
+        case 'T':
+            test_flash_read_time(addr,len);
+            break;
+        default:
             break;
         }
     }
-	else
-	{
-		os_printf("FLASH <R/W/E/M/N/T> <start_addr> <len>\r\n");
-	}
+    else
+    {
+        os_printf("FLASH <R/W/E/M/N/T> <start_addr> <len>\r\n");
+    }
 }
+
+#if CFG_FLASH_BYPASS_OTP
+static void flash_bypass_command_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    char     cmd = 0;
+    uint8_t  idx = 0;
+    uint32_t length = 0;
+    uint32_t offset = 0;
+    flash_bypass_otp_ctrl_t otp_cfg = {0};
+    uint8_t *test_buf = (uint8_t *)os_malloc(1024);
+    if (!test_buf) {
+        goto malloc_err;
+    }
+    for (uint32_t i = 0; i < 1024; i++) {
+        test_buf[i] = i;
+    }
+
+    if(argc == 5)
+    {
+        cmd = argv[1][0];
+        idx = atoi(argv[2]);
+        offset = atoi(argv[3]);
+        length = atoi(argv[4]);
+
+        otp_cfg.otp_idx = idx;
+        otp_cfg.addr_offset = offset;
+        otp_cfg.read_len = length;
+        otp_cfg.write_len = length;
+
+        extern bk_err_t flash_bypass_otp_operation(flash_bypass_otp_cmd_t cmd, flash_bypass_otp_ctrl_t *param);
+        extern bk_err_t flash_bypass_id_read(void);
+        extern bk_err_t flash_bypass_sta_reg_read(void);
+
+        GLOBAL_INT_DECLARATION();
+        GLOBAL_INT_DISABLE();
+
+        switch(cmd)
+        {
+        case 'R':
+            flash_bypass_otp_operation(CMD_OTP_READ, &otp_cfg);
+            break;
+        case 'E':
+            flash_bypass_otp_operation(CMD_OTP_EARSE, &otp_cfg);
+            break;
+        case 'W':
+            otp_cfg.write_buf = (uint8_t *)os_malloc(length);
+            if (!otp_cfg.write_buf) {
+                goto malloc_err;
+            }
+            os_memcpy(otp_cfg.write_buf, test_buf + offset, length);
+            flash_bypass_otp_operation(CMD_OTP_WRITE, &otp_cfg);
+            break;
+        case 'L':
+            flash_bypass_otp_operation(CMD_OTP_SET_LOCK, &otp_cfg);
+            break;
+        case 'I':
+            flash_bypass_id_read();
+            break;
+        case 'S':
+            flash_bypass_sta_reg_read();
+            break;
+        case 'C':
+            flash_bypass_otp_operation(CMD_OTP_GET_LOCK, &otp_cfg);
+            break;
+        default:
+            break;
+        }
+
+        GLOBAL_INT_RESTORE();
+    }
+    else
+    {
+        os_printf("flash_bypass <R/E/W/L> <otp_idx> <addr_offset> <length> <buf>\r\n");
+    }
+
+    goto exit;
+
+malloc_err:
+    bk_printf("%s malloc failed.\n", __func__);
+exit:
+    if (test_buf) {
+        os_free(test_buf);
+    }
+    if (otp_cfg.write_buf) {
+        os_free(otp_cfg.write_buf);
+    }
+}
+#endif
 
 /*UART  I  index
 example:   UART I 0
@@ -1749,7 +1986,7 @@ static void efuse_cmd_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, c
         if (os_strncmp(argv[1], "-r", 2) == 0) {
             hexstr2bin(argv[2], &addr, 1);
             os_printf("efuse read: addr-0x%02x, data-0x%02x\r\n",
-                        addr, wifi_read_efuse(addr));
+                      addr, wifi_read_efuse(addr));
         }
     }
     else if(argc == 4)
@@ -1758,7 +1995,7 @@ static void efuse_cmd_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, c
             hexstr2bin(argv[2], &addr, 1);
             hexstr2bin(argv[3], &data, 6);
             os_printf("efuse write: addr-0x%02x, data-0x%02x, ret:%d\r\n",
-                        addr, data, wifi_write_efuse(addr, data));
+                      addr, data, wifi_write_efuse(addr, data));
         }
     }
     else {
@@ -1774,14 +2011,14 @@ static void efuse_mac_cmd_test(char *pcWriteBuffer, int xWriteBufferLen, int arg
     {
         if(wifi_get_mac_address_from_efuse(mac))
             os_printf("MAC address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
-                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
     else if(argc == 2)
     {
         if (os_strncmp(argv[1], "-r", 2) == 0) {
             if(wifi_get_mac_address_from_efuse(mac))
                 os_printf("MAC address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
-                        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+                          mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         }
     }
     else if(argc == 3)
@@ -1789,8 +2026,8 @@ static void efuse_mac_cmd_test(char *pcWriteBuffer, int xWriteBufferLen, int arg
         if(os_strncmp(argv[1], "-w", 2) == 0)  {
             hexstr2bin(argv[2], mac, 6);
             //if(wifi_set_mac_address_to_efuse(mac))
-                os_printf("Set MAC address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
-                        mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+            os_printf("Set MAC address: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
+                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         }
     }
     else {
@@ -1840,27 +2077,27 @@ void bkreg_cmd_handle_input(char *inbuf, int len)
 
 static void phy_cca_test(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	if(argc != 2)
-	{
-		os_printf("cca open\r\n");
-		os_printf("cca close\r\n");
-		os_printf("cca show\r\n");
-		return;
-	}
+    if(argc != 2)
+    {
+        os_printf("cca open\r\n");
+        os_printf("cca close\r\n");
+        os_printf("cca show\r\n");
+        return;
+    }
 
-	if (os_strncmp(argv[1], "open", 4) == 0) {
-		phy_open_cca();
-		os_printf("cca opened\r\n");
-	} else if (os_strncmp(argv[1], "close", 4) == 0) {
-		phy_close_cca();
-		os_printf("cca closed\r\n");
-	} else if (os_strncmp(argv[1], "show", 4) == 0) {
-		phy_show_cca();
-	} else {
-		os_printf("cca open\r\n");
-		os_printf("cca close\r\n");
-		os_printf("cca show\r\n");
-	}
+    if (os_strncmp(argv[1], "open", 4) == 0) {
+        phy_open_cca();
+        os_printf("cca opened\r\n");
+    } else if (os_strncmp(argv[1], "close", 4) == 0) {
+        phy_close_cca();
+        os_printf("cca closed\r\n");
+    } else if (os_strncmp(argv[1], "show", 4) == 0) {
+        phy_show_cca();
+    } else {
+        os_printf("cca open\r\n");
+        os_printf("cca close\r\n");
+        os_printf("cca show\r\n");
+    }
 }
 
 #if CFG_SUPPORT_OTA_TFTP
@@ -1872,12 +2109,12 @@ static void tftp_ota_get_Command(char *pcWriteBuffer, int xWriteBufferLen, int a
     extern char		BootFile[] ;
 
     if(argc > 3 )
-        {
+    {
         os_printf("ota server_ip ota_file\r\n");
         return;
     }
 
-     os_printf("%s\r\n",argv[1]);
+    os_printf("%s\r\n",argv[1]);
 
     os_strcpy(BootFile,argv[2]);
     os_printf("%s\r\n",BootFile);
@@ -1981,7 +2218,7 @@ static void reg_write_read_test(char *pcWriteBuffer, int xWriteBufferLen, int ar
             rwnx_cal_save_trx_rcbekn_reg_val();
 
         os_printf("regshow W: addr:0x%08x, value:0x%08x - check:0x%08x\r\n",
-            reg_addr, reg_value, REG_READ(reg_addr));
+                  reg_addr, reg_value, REG_READ(reg_addr));
     }
     else
     {
@@ -1989,11 +2226,10 @@ static void reg_write_read_test(char *pcWriteBuffer, int xWriteBufferLen, int ar
     }
 }
 
-#if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1) && (CFG_BLE_USE_CLI == 1))
+#if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1) && (CFG_BLE_USE_CLI == 1) && ((CFG_BLE_HOST_RW == 1) || (CFG_BLE_VERSION < BLE_VERSION_5_2)))
 #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
 #include "ble_api.h"
 #elif ((CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_5_2))
-#include "ble_api_5_x.h"
 #include "rwprf_config.h"
 #endif
 
@@ -2012,74 +2248,159 @@ static const uint8_t test_svc_uuid[16] = {0xFF,0xFF,0,0,0x34,0x56,0,0,0,0,0x28,0
 
 enum
 {
-	TEST_IDX_SVC,
-	TEST_IDX_FF01_VAL_CHAR,
-	TEST_IDX_FF01_VAL_VALUE,
-	TEST_IDX_FF02_VAL_CHAR,
-	TEST_IDX_FF02_VAL_VALUE,
-	TEST_IDX_FF02_VAL_IND_CFG,
-	TEST_IDX_FF03_VAL_CHAR,
-	TEST_IDX_FF03_VAL_VALUE,
-	TEST_IDX_FF03_VAL_NTF_CFG,
-	TEST_IDX_NB,
+    TEST_IDX_SVC,
+    TEST_IDX_FF01_VAL_CHAR,
+    TEST_IDX_FF01_VAL_VALUE,
+    TEST_IDX_FF02_VAL_CHAR,
+    TEST_IDX_FF02_VAL_VALUE,
+    TEST_IDX_FF02_VAL_IND_CFG,
+    TEST_IDX_FF03_VAL_CHAR,
+    TEST_IDX_FF03_VAL_VALUE,
+    TEST_IDX_FF03_VAL_NTF_CFG,
+    TEST_IDX_NB,
 };
+
+#if BLE_APP_SEC
+// Create a service demo with access requirement for test:
+// service GAP_LK_UNAUTH(GAP_SEC_NO_AUTH), WRITE/INDICATE ATT GAP_LK_AUTH(GATT_SEC_AUTH), NOTIFY ATT GAP_LK_UNAUTH(GAP_SEC_NO_AUTH)
+#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+bk_attm_desc_t test_att_db_sec[TEST_IDX_NB] =
+{
+    //  Service Declaration
+    [TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, PROP(RD), 0},
+
+    //  Level Characteristic Declaration
+    [TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    PROP(WR) | SEC_LVL(WP, AUTH), 128|OPT(NO_OFFSET)},
+
+    [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I) | SEC_LVL(NIP, AUTH), 128|OPT(NO_OFFSET)},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR),OPT(NO_OFFSET)},
+
+    [TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       PROP(N) | SEC_LVL(NIP, NO_AUTH), 128|OPT(NO_OFFSET)},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR), OPT(NO_OFFSET)},
+};
+#elif (CFG_BLE_VERSION == BLE_VERSION_5_1)
+bk_attm_desc_t test_att_db_sec[TEST_IDX_NB] =
+{
+    //  Service Declaration
+    [TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, BK_PERM_SET(RD, ENABLE), 0, 0},
+
+    //  Level Characteristic Declaration
+    [TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    BK_PERM_SET(WRITE_REQ, ENABLE) | BK_PERM_SET(WP, AUTH), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+
+    [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE) | BK_PERM_SET(IP, AUTH), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+
+    [TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       BK_PERM_SET(NTF, ENABLE) | BK_PERM_SET(NP, UNAUTH), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
+
+    [TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+};
+#endif//(CFG_BLE_VERSION == BLE_VERSION_5_1)
+
+ble_err_t bk_ble_init_sec(void)
+{
+    ble_err_t status = ERR_SUCCESS;
+
+    struct bk_ble_db_cfg ble_db_cfg;
+
+    ble_db_cfg.att_db = test_att_db_sec;
+    ble_db_cfg.att_db_nb = TEST_IDX_NB;
+    ble_db_cfg.prf_task_id = 0;
+    ble_db_cfg.start_hdl = 0;
+    ble_db_cfg.svc_perm = BK_PERM_SET(SVC_UUID_LEN, UUID_16) | BK_PERM_SET(SVC_AUTH, UNAUTH);
+    memcpy(&(ble_db_cfg.uuid[0]), &test_svc_uuid[0], 16);
+
+    status = bk_ble_create_db(&ble_db_cfg);
+
+    return status;
+}
+#endif
 
 #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
 bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 {
-	//  Service Declaration
-	[TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, PROP(RD), 0},
+    //  Service Declaration
+    [TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, PROP(RD), 0},
 
-	//  Level Characteristic Declaration
-	[TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
-	//  Level Characteristic Value
-	[TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    PROP(WR), 128|OPT(NO_OFFSET)},
+    //  Level Characteristic Declaration
+    [TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    PROP(WR), 128|OPT(NO_OFFSET)},
 
-	[TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
-	//  Level Characteristic Value
-	[TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I), 128|OPT(NO_OFFSET)},
+    [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    #if BLE_APP_SIGN_WRITE
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I) | PROP(WS), 128|OPT(NO_OFFSET)},
+    #else
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     PROP(I), 128|OPT(NO_OFFSET)},
+    #endif
 
-	//  Level Characteristic - Client Characteristic Configuration Descriptor
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
 
-	[TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR),OPT(NO_OFFSET)},
+    [TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR),OPT(NO_OFFSET)},
 
-	[TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
-	//  Level Characteristic Value
-	[TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       PROP(N), 128|OPT(NO_OFFSET)},
+    [TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  PROP(RD), 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       PROP(N), 128|OPT(NO_OFFSET)},
 
-	//  Level Characteristic - Client Characteristic Configuration Descriptor
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
 
-	[TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR), OPT(NO_OFFSET)},
+    [TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, PROP(RD)|PROP(WR), OPT(NO_OFFSET)},
 };
 #elif (CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_4_2)
 bk_attm_desc_t test_att_db[TEST_IDX_NB] =
 {
-	//  Service Declaration
-	[TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Service Declaration
+    [TEST_IDX_SVC]              = {BK_ATT_DECL_PRIMARY_SERVICE_128, BK_PERM_SET(RD, ENABLE), 0, 0},
 
-	//  Level Characteristic Declaration
-	[TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
-	//  Level Characteristic Value
-	[TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    BK_PERM_SET(WRITE_REQ, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    //  Level Characteristic Declaration
+    [TEST_IDX_FF01_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    [TEST_IDX_FF01_VAL_VALUE]   = {WRITE_REQ_CHARACTERISTIC_128,    BK_PERM_SET(WRITE_REQ, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
 
-	[TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
-	//  Level Characteristic Value
-	[TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    [TEST_IDX_FF02_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
+    //  Level Characteristic Value
+    #if BLE_APP_SIGN_WRITE
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE) | BK_PERM_SET(WRITE_SIGNED, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    #else
+    [TEST_IDX_FF02_VAL_VALUE]   = {INDICATE_CHARACTERISTIC_128,     BK_PERM_SET(IND, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    #endif
 
-	//  Level Characteristic - Client Characteristic Configuration Descriptor
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
 
-	[TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+    [TEST_IDX_FF02_VAL_IND_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
 
     [TEST_IDX_FF03_VAL_CHAR]    = {BK_ATT_DECL_CHARACTERISTIC_128,  BK_PERM_SET(RD, ENABLE), 0, 0},
-	//  Level Characteristic Value
-	[TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       BK_PERM_SET(NTF, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
+    //  Level Characteristic Value
+    [TEST_IDX_FF03_VAL_VALUE]   = {NOTIFY_CHARACTERISTIC_128,       BK_PERM_SET(NTF, ENABLE), BK_PERM_SET(RI, ENABLE)|BK_PERM_SET(UUID_LEN, UUID_16), 128},
 
-	//  Level Characteristic - Client Characteristic Configuration Descriptor
+    //  Level Characteristic - Client Characteristic Configuration Descriptor
 
-	[TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
+    [TEST_IDX_FF03_VAL_NTF_CFG] = {BK_ATT_DESC_CLIENT_CHAR_CFG_128, BK_PERM_SET(RD, ENABLE)|BK_PERM_SET(WRITE_REQ, ENABLE), 0, 0},
 };
 #endif//(CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_4_2)
-
 
 ble_err_t bk_ble_init(void)
 {
@@ -2127,46 +2448,46 @@ void appm_adv_data_decode(uint8_t len, const uint8_t *data)
     {
         switch(data[index + 1])
         {
-            case 0x01:
+        case 0x01:
+        {
+            bk_printf("AD_TYPE : ");
+            for(i = 0; i < data[index] - 1; i++)
             {
-                bk_printf("AD_TYPE : ");
-                for(i = 0; i < data[index] - 1; i++)
-                {
-                    bk_printf("%02x ",data[index + 2 + i]);
-                }
-                bk_printf("\r\n");
-                index +=(data[index] + 1);
+                bk_printf("%02x ",data[index + 2 + i]);
             }
-            break;
-            case 0x08:
-            case 0x09:
+            bk_printf("\r\n");
+            index +=(data[index] + 1);
+        }
+        break;
+        case 0x08:
+        case 0x09:
+        {
+            bk_printf("ADV_NAME : ");
+            for(i = 0; i < data[index] - 1; i++)
             {
-                bk_printf("ADV_NAME : ");
-                for(i = 0; i < data[index] - 1; i++)
-                {
-                    bk_printf("%c",data[index + 2 + i]);
-                }
-                bk_printf("\r\n");
-                index +=(data[index] + 1);
+                bk_printf("%c",data[index + 2 + i]);
             }
-            break;
-            case 0x02:
+            bk_printf("\r\n");
+            index +=(data[index] + 1);
+        }
+        break;
+        case 0x02:
+        {
+            bk_printf("UUID : ");
+            for(i = 0; i < data[index] - 1;)
             {
-                bk_printf("UUID : ");
-                for(i = 0; i < data[index] - 1;)
-                {
-                    bk_printf("%02x%02x  ",data[index + 2 + i],data[index + 3 + i]);
-                    i+=2;
-                }
-                bk_printf("\r\n");
-                index +=(data[index] + 1);
+                bk_printf("%02x%02x  ",data[index + 2 + i],data[index + 3 + i]);
+                i+=2;
             }
-            break;
-            default:
-            {
-                index +=(data[index] + 1);
-            }
-            break;
+            bk_printf("\r\n");
+            index +=(data[index] + 1);
+        }
+        break;
+        default:
+        {
+            index +=(data[index] + 1);
+        }
+        break;
         }
     }
     return ;
@@ -2176,74 +2497,74 @@ void cli_ble_event_callback(ble_event_t event, void *param)
 {
     switch(event)
     {
-        case BLE_STACK_OK:
+    case BLE_STACK_OK:
+    {
+        os_printf("STACK INIT OK\r\n");
+        bk_ble_init();
+    }
+    break;
+    case BLE_STACK_FAIL:
+    {
+        os_printf("STACK INIT FAIL\r\n");
+    }
+    break;
+    case BLE_CONNECT:
+    {
+        os_printf("BLE CONNECT\r\n");
+    }
+    break;
+    case BLE_DISCONNECT:
+    {
+        os_printf("BLE DISCONNECT\r\n");
+    }
+    break;
+    case BLE_MTU_CHANGE:
+    {
+        os_printf("BLE_MTU_CHANGE:%d\r\n", *(uint16_t *)param);
+    }
+    break;
+    case BLE_TX_DONE:
+    {
+        os_printf("BLE_TX_DONE\r\n");
+    }
+    break;
+    case BLE_GEN_DH_KEY:
+    {
+        os_printf("BLE_GEN_DH_KEY\r\n");
+        os_printf("key_len:%d\r\n", ((struct ble_gen_dh_key_ind *)param)->len);
+        for(int i = 0; i < ((struct ble_gen_dh_key_ind *)param)->len; i++)
         {
-            os_printf("STACK INIT OK\r\n");
-            bk_ble_init();
+            os_printf("%02x ", ((struct ble_gen_dh_key_ind *)param)->result[i]);
         }
-        break;
-        case BLE_STACK_FAIL:
+        os_printf("\r\n");
+    }
+    break;
+    case BLE_GET_KEY:
+    {
+        os_printf("BLE_GET_KEY\r\n");
+        os_printf("pub_x_len:%d\r\n", ((struct ble_get_key_ind *)param)->pub_x_len);
+        for(int i = 0; i < ((struct ble_get_key_ind *)param)->pub_x_len; i++)
         {
-            os_printf("STACK INIT FAIL\r\n");
+            os_printf("%02x ", ((struct ble_get_key_ind *)param)->pub_key_x[i]);
         }
-        break;
-        case BLE_CONNECT:
-        {
-            os_printf("BLE CONNECT\r\n");
-        }
-        break;
-        case BLE_DISCONNECT:
-        {
-            os_printf("BLE DISCONNECT\r\n");
-        }
-        break;
-        case BLE_MTU_CHANGE:
-        {
-            os_printf("BLE_MTU_CHANGE:%d\r\n", *(uint16_t *)param);
-        }
-        break;
-        case BLE_TX_DONE:
-        {
-            os_printf("BLE_TX_DONE\r\n");
-        }
-        break;
-        case BLE_GEN_DH_KEY:
-        {
-            os_printf("BLE_GEN_DH_KEY\r\n");
-            os_printf("key_len:%d\r\n", ((struct ble_gen_dh_key_ind *)param)->len);
-            for(int i = 0; i < ((struct ble_gen_dh_key_ind *)param)->len; i++)
-            {
-                os_printf("%02x ", ((struct ble_gen_dh_key_ind *)param)->result[i]);
-            }
-            os_printf("\r\n");
-        }
-        break;
-        case BLE_GET_KEY:
-        {
-            os_printf("BLE_GET_KEY\r\n");
-            os_printf("pub_x_len:%d\r\n", ((struct ble_get_key_ind *)param)->pub_x_len);
-            for(int i = 0; i < ((struct ble_get_key_ind *)param)->pub_x_len; i++)
-            {
-                os_printf("%02x ", ((struct ble_get_key_ind *)param)->pub_key_x[i]);
-            }
-            os_printf("\r\n");
-        }
-        break;
-        case BLE_CREATE_DB_OK:
-        {
-            os_printf("CREATE DB SUCCESS\r\n");
-        }
-        break;
-        case BLE_ATT_INFO_REQ:
-        {
-            att_info_req_t *a_ind = (att_info_req_t *)param;
-            bk_printf("BLE_ATT_INFO_REQ\r\n");
-            a_ind->length = 128;
-            a_ind->status = ERR_SUCCESS;
-        }
-        break;
-        default:
-            os_printf("UNKNOW EVENT\r\n");
+        os_printf("\r\n");
+    }
+    break;
+    case BLE_CREATE_DB_OK:
+    {
+        os_printf("CREATE DB SUCCESS\r\n");
+    }
+    break;
+    case BLE_ATT_INFO_REQ:
+    {
+        att_info_req_t *a_ind = (att_info_req_t *)param;
+        bk_printf("BLE_ATT_INFO_REQ\r\n");
+        a_ind->length = 128;
+        a_ind->status = ERR_SUCCESS;
+    }
+    break;
+    default:
+        os_printf("UNKNOW EVENT\r\n");
         break;
     }
 }
@@ -2253,54 +2574,54 @@ void ble_mesh_event_callback(ble_mesh_event_t event, void *param)
 {
     switch(event)
     {
-        case BLE_MESH_CREATE_DB_OK:
-        {
-            os_printf("MESH CREATE DB SUCCESS\r\n");
-			app_ai_lights_models_init(0);
-			app_store_mesh_info();
-        }
-        break;
+    case BLE_MESH_CREATE_DB_OK:
+    {
+        os_printf("MESH CREATE DB SUCCESS\r\n");
+        app_ai_lights_models_init(0);
+        app_store_mesh_info();
+    }
+    break;
 
-        case BLE_MESH_INIT_DONE:
-        {
-            os_printf("BLE_MESH_INIT_DONE\r\n");
-        }
-        break;
+    case BLE_MESH_INIT_DONE:
+    {
+        os_printf("BLE_MESH_INIT_DONE\r\n");
+    }
+    break;
 
-        case BLE_MESH_CREATE_DB_FAIL:
-        {
-            os_printf("MESH CREATE DB FAILED\r\n");
-        }
-        break;
+    case BLE_MESH_CREATE_DB_FAIL:
+    {
+        os_printf("MESH CREATE DB FAILED\r\n");
+    }
+    break;
 
-        case BLE_MESH_APP_KEY_ADD_DONE:
-        {
-        	os_printf("BLE_MESH_APP_KEY_ADD_DONE\r\n");
-        }
-        break;
+    case BLE_MESH_APP_KEY_ADD_DONE:
+    {
+        os_printf("BLE_MESH_APP_KEY_ADD_DONE\r\n");
+    }
+    break;
 
-        case BLE_MESH_PROV_INVITE:
-        {
-        	os_printf("BLE_MESH_PROV_INVITE\r\n");
-        }
-        break;
+    case BLE_MESH_PROV_INVITE:
+    {
+        os_printf("BLE_MESH_PROV_INVITE\r\n");
+    }
+    break;
 
-        case BLE_MESH_PROV_START:
-        {
-        	os_printf("BLE_MESH_PROV_START\r\n");
-        }
-        break;
+    case BLE_MESH_PROV_START:
+    {
+        os_printf("BLE_MESH_PROV_START\r\n");
+    }
+    break;
 
-        case BLE_MESH_PROV_DONE:
-        {
-        	os_printf("BLE_MESH_PROV_DONE\r\n");
-        }
-        break;
+    case BLE_MESH_PROV_DONE:
+    {
+        os_printf("BLE_MESH_PROV_DONE\r\n");
+    }
+    break;
 
-        default:
-        {
-            os_printf("unknown mesh event\r\n");
-        }
+    default:
+    {
+        os_printf("unknown mesh event\r\n");
+    }
     }
 }
 #endif
@@ -2309,8 +2630,8 @@ static void ble_command_usage(void)
 {
     os_printf("ble help           - Help information\r\n");
     os_printf("ble active         - Active ble to with BK7231BTxxx\r\n");
-	os_printf("ble start_adv      - Start advertising as a slave device\r\n");
-	os_printf("ble stop_adv       - Stop advertising as a slave device\r\n");
+    os_printf("ble start_adv      - Start advertising as a slave device\r\n");
+    os_printf("ble stop_adv       - Stop advertising as a slave device\r\n");
     os_printf("ble notify prf_id att_id value\r\n");
     os_printf("                   - Send ntf value to master\r\n");
     os_printf("ble indicate prf_id att_id value\r\n");
@@ -2337,21 +2658,30 @@ static void ble_advertise(void)
     adv_info.interval_max = 160;
 
     adv_idx = 0;
-    adv_info.advData[adv_idx] = 0x02; adv_idx++;
-    adv_info.advData[adv_idx] = 0x01; adv_idx++;
-    adv_info.advData[adv_idx] = 0x06; adv_idx++;
+    adv_info.advData[adv_idx] = 0x02;
+    adv_idx++;
+    adv_info.advData[adv_idx] = 0x01;
+    adv_idx++;
+    adv_info.advData[adv_idx] = 0x06;
+    adv_idx++;
 
-    adv_info.advData[adv_idx] = adv_name_len + 1; adv_idx +=1;
-    adv_info.advData[adv_idx] = 0x09; adv_idx +=1; //name
-    memcpy(&adv_info.advData[adv_idx], ble_name, adv_name_len); adv_idx +=adv_name_len;
+    adv_info.advData[adv_idx] = adv_name_len + 1;
+    adv_idx +=1;
+    adv_info.advData[adv_idx] = 0x09;
+    adv_idx +=1; //name
+    memcpy(&adv_info.advData[adv_idx], ble_name, adv_name_len);
+    adv_idx +=adv_name_len;
 
     adv_info.advDataLen = adv_idx;
 
     adv_idx = 0;
 
-    adv_info.respData[adv_idx] = adv_name_len + 1; adv_idx +=1;
-    adv_info.respData[adv_idx] = 0x08; adv_idx +=1; //name
-    memcpy(&adv_info.respData[adv_idx], ble_name, adv_name_len); adv_idx +=adv_name_len;
+    adv_info.respData[adv_idx] = adv_name_len + 1;
+    adv_idx +=1;
+    adv_info.respData[adv_idx] = 0x08;
+    adv_idx +=1; //name
+    memcpy(&adv_info.respData[adv_idx], ble_name, adv_name_len);
+    adv_idx +=adv_name_len;
     adv_info.respDataLen = adv_idx;
 
     if (ERR_SUCCESS != appm_start_advertising())
@@ -2373,16 +2703,16 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         ble_set_write_cb(cli_ble_write_callback);
         ble_set_read_cb(cli_ble_read_callback);
         ble_set_event_cb(cli_ble_event_callback);
-#if (CFG_SUPPORT_BLE_MESH)
+        #if (CFG_SUPPORT_BLE_MESH)
         ble_set_mesh_event_cb(ble_mesh_event_callback);
-#endif
+        #endif
         ble_activate(NULL);
     }
-	else if(os_strcmp(argv[1], "start_adv") == 0)
+    else if(os_strcmp(argv[1], "start_adv") == 0)
     {
         ble_advertise();
     }
-#if (CFG_SUPPORT_BLE_MESH)
+    #if (CFG_SUPPORT_BLE_MESH)
     else if(os_strcmp(argv[1], "mesh_start") == 0)
     {
         bk_ble_mesh_create_db();
@@ -2397,7 +2727,7 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         ble_flash_erase(0,(uint32_t)0x1F4000, (4 * 1024), NULL);
         bk_reboot();
     }
-#endif
+    #endif
     else if(os_strcmp(argv[1], "stop_adv") == 0)
     {
         if(ERR_SUCCESS != appm_stop_advertising())
@@ -2463,15 +2793,15 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
     }
     else if(os_strcmp(argv[1], "disc") == 0)
     {
-#if (CFG_BLE_VERSION == BLE_VERSION_4_2)
+        #if (CFG_BLE_VERSION == BLE_VERSION_4_2)
         appm_disconnect();
-#elif (CFG_BLE_VERSION == BLE_VERSION_5_1)
+        #elif (CFG_BLE_VERSION == BLE_VERSION_5_1)
         appm_disconnect(0x13);
-#endif
+        #endif
     }
-	else if (os_strcmp(argv[1], "dut") == 0)
+    else if (os_strcmp(argv[1], "dut") == 0)
     {
-		ble_dut_start();
+        ble_dut_start();
     }
 }
 #elif (CFG_BLE_VERSION == BLE_VERSION_5_1) || (CFG_BLE_VERSION == BLE_VERSION_5_2)
@@ -2485,236 +2815,263 @@ static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 
 void ble_notice_cb(ble_notice_t notice, void *param)
 {
-	switch (notice) {
-	case BLE_5_STACK_OK:
-		bk_printf("ble stack ok");
-		break;
-	case BLE_5_WRITE_EVENT:
-	{
-		write_req_t *w_req = (write_req_t *)param;
-		bk_printf("write_cb:conn_idx:%d, prf_id:%d, add_id:%d, len:%d, data[0]:%02x\r\n",
-			w_req->conn_idx, w_req->prf_id, w_req->att_idx, w_req->len, w_req->value[0]);
-		break;
-	}
-	case BLE_5_READ_EVENT:
-	{
-		read_req_t *r_req = (read_req_t *)param;
-		bk_printf("read_cb:conn_idx:%d, prf_id:%d, add_id:%d\r\n",
-			r_req->conn_idx, r_req->prf_id, r_req->att_idx);
+    switch (notice) {
+    case BLE_5_STACK_OK:
+        bk_printf("ble stack ok");
+        break;
+    case BLE_5_WRITE_EVENT:
+    {
+        write_req_t *w_req = (write_req_t *)param;
+        bk_printf("write_cb:conn_idx:%d, prf_id:%d, add_id:%d, len:%d, data[0]:%02x\r\n",
+                  w_req->conn_idx, w_req->prf_id, w_req->att_idx, w_req->len, w_req->value[0]);
+        break;
+    }
+    case BLE_5_READ_EVENT:
+    {
+        read_req_t *r_req = (read_req_t *)param;
+        bk_printf("read_cb:conn_idx:%d, prf_id:%d, add_id:%d  offset:%d\r\n",
+                  r_req->conn_idx, r_req->prf_id, r_req->att_idx, r_req->offset);
 
-		#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-		uint16_t length = 3;
-		r_req->value = kernel_malloc(length, KERNEL_MEM_KERNEL_MSG);
-		r_req->value[0] = 0x12;
-		r_req->value[1] = 0x34;
-		r_req->value[2] = 0x56;
+        #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+        /* Supports long packet reading. If the attribute value exists in the database, the response (RSP) is generated directly from the stored value.
+           Otherwise, a custom response is used, and the custom value is stored in the database for future retrieval.
+           For long packet reading, the appropriate data segment is retrieved based on the offset.*/
 
-		app_gatts_rsp_t rsp;
-		rsp.token = r_req->token;
-		rsp.con_idx = r_req->conn_idx;
-		rsp.attr_handle = r_req->hdl;
-		rsp.status = GAP_ERR_NO_ERROR;
-		rsp.att_length = length;
-		rsp.value_length = length;
-		rsp.value = r_req->value;
+        app_gatts_rsp_t rsp;
 
-		app_ble_gatts_set_attr_value(rsp.attr_handle, rsp.value_length, rsp.value);
-		bk_ble_gatts_read_response(&rsp);
-		kernel_free(r_req->value);
-		#else
-		r_req->value[0] = 0x12;
-		r_req->value[1] = 0x34;
-		r_req->value[2] = 0x56;
-		r_req->length = 3;
-		#endif
+        rsp.token = r_req->token;
+        rsp.con_idx = r_req->conn_idx;
+        rsp.attr_handle = r_req->hdl;
 
-		break;
-	}
-	case BLE_5_REPORT_ADV:
-	{
-		recv_adv_t *r_ind = (recv_adv_t *)param;
+        bk_ble_gatts_get_attr_value(r_req->hdl, &r_req->length, &r_req->value);
 
-		bk_printf("[%s]r_ind:actv_idx:%d,evt_type:%d adv_addr:%02x:%02x:%02x:%02x:%02x:%02x,rssi:%d\r\n",
-			((r_ind->evt_type&0x7) == 3)?"scan-rsp":((r_ind->evt_type&0x7) == 1)?"adv":"unknow",
-			r_ind->actv_idx,r_ind->evt_type, r_ind->adv_addr[0], r_ind->adv_addr[1], r_ind->adv_addr[2],
-			r_ind->adv_addr[3], r_ind->adv_addr[4], r_ind->adv_addr[5],r_ind->rssi);
-		break;
-	}
-	case BLE_5_REPORT_PER_ADV:
-	{
-		recv_adv_t *r_ind = (recv_adv_t *)param;
+        if (r_req->value) {
+            if (r_req->length > r_req->offset) {
+                uint16_t send_length = ((r_req->length - r_req->offset) > r_req->max_length) ? r_req->max_length : (r_req->length - r_req->offset);
 
-		bk_printf("[%s]r_ind:actv_idx:%d,evt_type:%d rssi:%d data_len:%d data[0]:0x%x\r\n","per-adv",
-			r_ind->actv_idx,r_ind->evt_type, r_ind->rssi, r_ind->data_len, r_ind->data[0]);
-		break;
-	}
-	case BLE_5_MTU_CHANGE:
-	{
-		mtu_change_t *m_ind = (mtu_change_t *)param;
-		bk_printf("BLE_5_MTU_CHANGE:conn_idx:%d, mtu_size:%d\r\n", m_ind->conn_idx, m_ind->mtu_size);
-		break;
-	}
-	case BLE_5_PHY_IND_EVENT:
-	{
-		conn_phy_ind_t *set_phy = (conn_phy_ind_t *)param;
-		bk_printf("BLE_5_PHY_IND_EVENT:conn_idx:%d, tx_phy:0x%x, rx_phy:0x%x\r\n", set_phy->conn_idx, set_phy->tx_phy, set_phy->rx_phy);
-		break;
-	}
-	case BLE_5_CONNECT_EVENT:
-	{
-		conn_ind_t *c_ind = (conn_ind_t *)param;
-		bk_printf("c_ind:conn_idx:%d, addr_type:%d, peer_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
-			c_ind->conn_idx, c_ind->peer_addr_type, c_ind->peer_addr[0], c_ind->peer_addr[1],
-			c_ind->peer_addr[2], c_ind->peer_addr[3], c_ind->peer_addr[4], c_ind->peer_addr[5]);
-		break;
-	}
-	case BLE_5_DISCONNECT_EVENT:
-	{
-		discon_ind_t *d_ind = (discon_ind_t *)param;
-		bk_printf("d_ind:conn_idx:%d,reason:%d\r\n", d_ind->conn_idx,d_ind->reason);
-		break;
-	}
-	case BLE_5_ATT_INFO_REQ:
-	{
-		att_info_req_t *a_ind = (att_info_req_t *)param;
-		bk_printf("a_ind:conn_idx:%d\r\n", a_ind->conn_idx);
-		a_ind->length = 128;
-		a_ind->status = ERR_SUCCESS;
-		break;
-	}
-	case BLE_5_CREATE_DB:
-	{
-		create_db_t *cd_ind = (create_db_t *)param;
-		bk_printf("cd_ind:prf_id:%d, status:%d\r\n", cd_ind->prf_id, cd_ind->status);
-		break;
-	}
-	#if (BLE_CENTRAL)
-	case BLE_5_INIT_CONNECT_EVENT:
-	{
-		conn_ind_t *c_ind = (conn_ind_t *)param;
-		#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-		app_ble_get_peer_feature(c_ind->conn_idx);
-		app_ble_set_le_pkt_size(c_ind->conn_idx,LE_MAX_OCTETS);
-		app_ble_mtu_exchange(c_ind->conn_idx);
-		sdp_discover_all_service(c_ind->conn_idx);
-		#endif
-		bk_printf("BLE_5_INIT_CONNECT_EVENT:conn_idx:%d, addr_type:%d, peer_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
-			c_ind->conn_idx, c_ind->peer_addr_type, c_ind->peer_addr[0], c_ind->peer_addr[1],
-			c_ind->peer_addr[2], c_ind->peer_addr[3], c_ind->peer_addr[4], c_ind->peer_addr[5]);
-		break;
-	}
-	case BLE_5_INIT_DISCONNECT_EVENT:
-	{
-		discon_ind_t *d_ind = (discon_ind_t *)param;
-		bk_printf("BLE_5_INIT_DISCONNECT_EVENT:conn_idx:%d,reason:0x%x\r\n", d_ind->conn_idx,d_ind->reason);
-		break;
-	}
-	#endif
-	case BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:
-	{
-		conn_param_req_t *d_ind = (conn_param_req_t *)param;
-		bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:conn_idx:%d,intv_min:%d,intv_max:%d,time_out:%d\r\n",d_ind->conn_idx,
-			d_ind->intv_min,d_ind->intv_max,d_ind->time_out);
-	}break;
-	case BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT:
-	{
-		conn_update_ind_t *d_ind = (conn_update_ind_t *)param;
-		bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT:conn_idx:%d,interval:%d,time_out:%d,latency\r\n",d_ind->conn_idx,
-			d_ind->interval,d_ind->time_out,d_ind->latency);
-	}break;
-	case BLE_5_SDP_REGISTER_FAILED:
-		bk_printf("BLE_5_SDP_REGISTER_FAILED\r\n");
-		break;
-	case BLE_5_GAP_CMD_CMP_EVENT:
-	{
-		ble_cmd_cmp_evt_t *evt = (ble_cmd_cmp_evt_t *)param;
-		bk_printf("BLE_5_GAP_CMD_CMP_EVENT cmd:0x%x,conn_idx:%d,status:0x%x\r\n",evt->cmd,evt->conn_idx,evt->status);
-		break;
-	}
-	case BLE_5_TX_DONE:
-	{
-		atts_tx_t *evt = (atts_tx_t *)param;
-		bk_printf("BLE_5_TX_DONE conn_idx:%d,prf_id:%d,att_idx:%d,status:%d\r\n",
-		evt->conn_idx,evt->prf_id,evt->att_idx,evt->status);
-	}break;
-	default:
-		break;
-	}
+                rsp.status = GAP_ERR_NO_ERROR;
+                rsp.att_length = send_length;
+                rsp.value_length = send_length;
+                rsp.value = &(r_req->value[r_req->offset]);
+            } else {
+                rsp.status = ATT_ERR_INVALID_ATTRIBUTE_VAL_LEN;
+            }
+
+            bk_ble_gatts_read_response(&rsp);
+        } else {
+            uint16_t length = 3;
+            r_req->value = kernel_malloc(length, KERNEL_MEM_KERNEL_MSG);
+            r_req->value[0] = 0x12;
+            r_req->value[1] = 0x34;
+            r_req->value[2] = 0x56;
+
+            rsp.status = GAP_ERR_NO_ERROR;
+            rsp.att_length = length;
+            rsp.value_length = length;
+            rsp.value = r_req->value;
+
+            bk_ble_gatts_set_attr_value(rsp.attr_handle, rsp.value_length, rsp.value);
+            bk_ble_gatts_read_response(&rsp);
+            kernel_free(r_req->value);
+        }
+        #else
+        r_req->value[0] = 0x12;
+        r_req->value[1] = 0x34;
+        r_req->value[2] = 0x56;
+        r_req->length = 3;
+        #endif
+
+        break;
+    }
+    case BLE_5_REPORT_ADV:
+    {
+        recv_adv_t *r_ind = (recv_adv_t *)param;
+
+        bk_printf("[%s]r_ind:actv_idx:%d,evt_type:%d adv_addr:%02x:%02x:%02x:%02x:%02x:%02x,rssi:%d\r\n",
+                  ((r_ind->evt_type&0x7) == 3)?"scan-rsp":((r_ind->evt_type&0x7) == 1)?"adv":"unknow",
+                  r_ind->actv_idx,r_ind->evt_type, r_ind->adv_addr[0], r_ind->adv_addr[1], r_ind->adv_addr[2],
+                  r_ind->adv_addr[3], r_ind->adv_addr[4], r_ind->adv_addr[5],r_ind->rssi);
+        break;
+    }
+    case BLE_5_REPORT_PER_ADV:
+    {
+        recv_adv_t *r_ind = (recv_adv_t *)param;
+
+        bk_printf("[%s]r_ind:actv_idx:%d,evt_type:%d rssi:%d data_len:%d data[0]:0x%x\r\n","per-adv",
+                  r_ind->actv_idx,r_ind->evt_type, r_ind->rssi, r_ind->data_len, r_ind->data[0]);
+        break;
+    }
+    case BLE_5_MTU_CHANGE:
+    {
+        mtu_change_t *m_ind = (mtu_change_t *)param;
+        bk_printf("BLE_5_MTU_CHANGE:conn_idx:%d, mtu_size:%d\r\n", m_ind->conn_idx, m_ind->mtu_size);
+        break;
+    }
+    case BLE_5_PHY_IND_EVENT:
+    {
+        conn_phy_ind_t *set_phy = (conn_phy_ind_t *)param;
+        bk_printf("BLE_5_PHY_IND_EVENT:conn_idx:%d, tx_phy:0x%x, rx_phy:0x%x\r\n", set_phy->conn_idx, set_phy->tx_phy, set_phy->rx_phy);
+        break;
+    }
+    case BLE_5_CONNECT_EVENT:
+    {
+        conn_ind_t *c_ind = (conn_ind_t *)param;
+        bk_printf("c_ind:conn_idx:%d, addr_type:%d, peer_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
+                  c_ind->conn_idx, c_ind->peer_addr_type, c_ind->peer_addr[0], c_ind->peer_addr[1],
+                  c_ind->peer_addr[2], c_ind->peer_addr[3], c_ind->peer_addr[4], c_ind->peer_addr[5]);
+        break;
+    }
+    case BLE_5_DISCONNECT_EVENT:
+    {
+        discon_ind_t *d_ind = (discon_ind_t *)param;
+        bk_printf("d_ind:conn_idx:%d,reason:%d\r\n", d_ind->conn_idx,d_ind->reason);
+        break;
+    }
+    case BLE_5_ATT_INFO_REQ:
+    {
+        att_info_req_t *a_ind = (att_info_req_t *)param;
+        bk_printf("a_ind:conn_idx:%d\r\n", a_ind->conn_idx);
+        a_ind->length = 128;
+        a_ind->status = ERR_SUCCESS;
+        break;
+    }
+    case BLE_5_CREATE_DB:
+    {
+        create_db_t *cd_ind = (create_db_t *)param;
+        bk_printf("cd_ind:prf_id:%d, status:%d\r\n", cd_ind->prf_id, cd_ind->status);
+        break;
+    }
+    #if (BLE_CENTRAL)
+    case BLE_5_INIT_CONNECT_EVENT:
+    {
+        conn_ind_t *c_ind = (conn_ind_t *)param;
+        #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+        app_ble_get_peer_feature(c_ind->conn_idx);
+        app_ble_set_le_pkt_size(c_ind->conn_idx,LE_MAX_OCTETS);
+        app_ble_mtu_exchange(c_ind->conn_idx);
+        sdp_discover_all_service(c_ind->conn_idx);
+        #endif
+        bk_printf("BLE_5_INIT_CONNECT_EVENT:conn_idx:%d, addr_type:%d, peer_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
+                  c_ind->conn_idx, c_ind->peer_addr_type, c_ind->peer_addr[0], c_ind->peer_addr[1],
+                  c_ind->peer_addr[2], c_ind->peer_addr[3], c_ind->peer_addr[4], c_ind->peer_addr[5]);
+        break;
+    }
+    case BLE_5_INIT_DISCONNECT_EVENT:
+    {
+        discon_ind_t *d_ind = (discon_ind_t *)param;
+        bk_printf("BLE_5_INIT_DISCONNECT_EVENT:conn_idx:%d,reason:0x%x\r\n", d_ind->conn_idx,d_ind->reason);
+        break;
+    }
+    #endif
+    case BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:
+    {
+        conn_param_req_t *d_ind = (conn_param_req_t *)param;
+        bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_REQ_EVENT:conn_idx:%d,intv_min:%d,intv_max:%d,time_out:%d\r\n",d_ind->conn_idx,
+                  d_ind->intv_min,d_ind->intv_max,d_ind->time_out);
+    }
+    break;
+    case BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT:
+    {
+        conn_update_ind_t *d_ind = (conn_update_ind_t *)param;
+        bk_printf("BLE_5_INIT_CONN_PARAM_UPDATE_IND_EVENT:conn_idx:%d,interval:%d,time_out:%d,latency\r\n",d_ind->conn_idx,
+                  d_ind->interval,d_ind->time_out,d_ind->latency);
+    }
+    break;
+    case BLE_5_SDP_REGISTER_FAILED:
+        bk_printf("BLE_5_SDP_REGISTER_FAILED\r\n");
+        break;
+    case BLE_5_GAP_CMD_CMP_EVENT:
+    {
+        ble_cmd_cmp_evt_t *evt = (ble_cmd_cmp_evt_t *)param;
+        bk_printf("BLE_5_GAP_CMD_CMP_EVENT cmd:0x%x,conn_idx:%d,status:0x%x\r\n",evt->cmd,evt->conn_idx,evt->status);
+        break;
+    }
+    case BLE_5_TX_DONE:
+    {
+        atts_tx_t *evt = (atts_tx_t *)param;
+        bk_printf("BLE_5_TX_DONE conn_idx:%d,prf_id:%d,att_idx:%d,status:%d\r\n",
+                  evt->conn_idx,evt->prf_id,evt->att_idx,evt->status);
+    }
+    break;
+    default:
+        break;
+    }
 }
 
 void ble_cmd_cb(ble_cmd_t cmd, ble_cmd_param_t *param)
 {
-	bk_printf("cmd:%d idx:%d status:%d\r\n", cmd, param->cmd_idx, param->status);
+    bk_printf("cmd:%d idx:%d status:%d\r\n", cmd, param->cmd_idx, param->status);
 }
 #if BLE_CENTRAL && (CFG_SOC_NAME == SOC_BK7231N)
 static void ble_app_sdp_characteristic_cb(unsigned char conidx,uint16_t chars_val_hdl,unsigned char uuid_len,unsigned char *uuid)
 {
-	bk_printf("[APP]characteristic conidx:%d,handle:0x%02x(%d),UUID:0x",conidx,chars_val_hdl,chars_val_hdl);
-	for(int i = 0; i< uuid_len; i++)
-	{
-		bk_printf("%02x ",uuid[i]);
-	}
-	bk_printf("\r\n");
+    bk_printf("[APP]characteristic conidx:%d,handle:0x%02x(%d),UUID:0x",conidx,chars_val_hdl,chars_val_hdl);
+    for(int i = 0; i< uuid_len; i++)
+    {
+        bk_printf("%02x ",uuid[i]);
+    }
+    bk_printf("\r\n");
 }
 
 void app_sdp_charac_cb(CHAR_TYPE type,uint8 conidx,uint16_t hdl,uint16_t len,uint8 *data)
 {
-	bk_printf("[APP]type:%x conidx:%d,handle:0x%02x(%d),len:%d,0x",type,conidx,hdl,hdl,len);
-	for(int i = 0; i< len; i++)
-	{
-		bk_printf("%02x ",data[i]);
-	}
-	bk_printf("\r\n");
+    bk_printf("[APP]type:%x conidx:%d,handle:0x%02x(%d),len:%d,0x",type,conidx,hdl,hdl,len);
+    for(int i = 0; i< len; i++)
+    {
+        bk_printf("%02x ",data[i]);
+    }
+    bk_printf("\r\n");
 }
-static const app_sdp_service_uuid service_tab[] ={
-	{
-		.uuid_len = 0x02,
-		.uuid[0] = 0x00,
-		.uuid[1] = 0x18,
-	},
-	{
-		.uuid_len = 0x02,
-		.uuid[0] = 0x01,
-		.uuid[1] = 0x18,
-	},
+static const app_sdp_service_uuid service_tab[] = {
+    {
+        .uuid_len = 0x02,
+        .uuid[0] = 0x00,
+        .uuid[1] = 0x18,
+    },
+    {
+        .uuid_len = 0x02,
+        .uuid[0] = 0x01,
+        .uuid[1] = 0x18,
+    },
 };
 
 #elif (CFG_BLE_VERSION == BLE_VERSION_5_2) && (BLE_GATT_CLI)
 void sdp_event_cb(sdp_notice_t notice, void *param)
 {
-	switch (notice) {
-		case SDP_CHARAC_NOTIFY_EVENT:
-			{
-				sdp_event_t *g_sdp = (sdp_event_t *)param;
-				bk_printf("[SDP_CHARAC_NOTIFY_EVENT]con_idx:%d,hdl:0x%x,value_length:%d\r\n",g_sdp->con_idx,g_sdp->hdl,g_sdp->value_length);
-			}
-			break;
-		case SDP_CHARAC_INDICATE_EVENT:
-			{
-				sdp_event_t *g_sdp = (sdp_event_t *)param;
-				bk_printf("[SDP_CHARAC_INDICATE_EVENT]con_idx:%d,hdl:0x%x,value_length:%d\r\n",g_sdp->con_idx,g_sdp->hdl,g_sdp->value_length);
-			}
-			break;
-		case SDP_CHARAC_READ:
-			{
-				sdp_event_t *g_sdp = (sdp_event_t *)param;
-				bk_printf("[SDP_CHARAC_READ]con_idx:%d,hdl:0x%x,value_length:%d\r\n",g_sdp->con_idx,g_sdp->hdl,g_sdp->value_length);
-			}
-			break;
-		case SDP_DISCOVER_SVR_DONE:
-			{
-				bk_printf("[SDP_DISCOVER_SVR_DONE]\r\n");
-			}
-			break;
-		case SDP_CHARAC_WRITE_DONE:
-			{
-				bk_printf("[SDP_CHARAC_WRITE_DONE]\r\n");
-			}
-			break;
-		default:
-			bk_printf("[%s]Event:%d\r\n",__func__,notice);
-			break;
-	}
+    switch (notice) {
+    case SDP_CHARAC_NOTIFY_EVENT:
+    {
+        sdp_event_t *g_sdp = (sdp_event_t *)param;
+        bk_printf("[SDP_CHARAC_NOTIFY_EVENT]con_idx:%d,hdl:0x%x,value_length:%d\r\n",g_sdp->con_idx,g_sdp->hdl,g_sdp->value_length);
+    }
+    break;
+    case SDP_CHARAC_INDICATE_EVENT:
+    {
+        sdp_event_t *g_sdp = (sdp_event_t *)param;
+        bk_printf("[SDP_CHARAC_INDICATE_EVENT]con_idx:%d,hdl:0x%x,value_length:%d\r\n",g_sdp->con_idx,g_sdp->hdl,g_sdp->value_length);
+    }
+    break;
+    case SDP_CHARAC_READ:
+    {
+        sdp_event_t *g_sdp = (sdp_event_t *)param;
+        bk_printf("[SDP_CHARAC_READ]con_idx:%d,hdl:0x%x,value_length:%d\r\n",g_sdp->con_idx,g_sdp->hdl,g_sdp->value_length);
+    }
+    break;
+    case SDP_DISCOVER_SVR_DONE:
+    {
+        bk_printf("[SDP_DISCOVER_SVR_DONE]\r\n");
+    }
+    break;
+    case SDP_CHARAC_WRITE_DONE:
+    {
+        sdp_event_t *g_sdp = (sdp_event_t *)param;
+        bk_printf("[SDP_CHARAC_WRITE_DONE]con_idx:%d,status:0x%x\r\n", g_sdp->con_idx, g_sdp->status);
+    }
+    break;
+    default:
+        bk_printf("[%s]Event:%d\r\n",__func__,notice);
+        break;
+    }
 }
 #endif
 #define BLE_VSN5_DEFAULT_MASTER_IDX      0
@@ -2730,1279 +3087,1409 @@ void sdp_event_cb(sdp_notice_t notice, void *param)
 #if (BLE_BATT_SERVER | BLE_HID_DEVICE | BLE_FINDME_TARGET | BLE_DIS_SERVER)
 void profile_notice_cb(ble_notice_t notice, void *param)
 {
-	switch (notice) {
-	case BLE_5_STACK_OK:
-	{
-		bk_printf("ble stack ok");
-		break;
-	}
-	case BLE_5_CONNECT_EVENT:
-	{
-		conn_ind_t *c_ind = (conn_ind_t *)param;
-		bk_printf("c_ind:conn_idx:%d, addr_type:%d, peer_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
-			c_ind->conn_idx, c_ind->peer_addr_type, c_ind->peer_addr[0], c_ind->peer_addr[1],
-			c_ind->peer_addr[2], c_ind->peer_addr[3], c_ind->peer_addr[4], c_ind->peer_addr[5]);
-		break;
-	}
-	case BLE_5_DISCONNECT_EVENT:
-	{
-		discon_ind_t *d_ind = (discon_ind_t *)param;
-		bk_printf("d_ind:conn_idx:%d,reason:%d\r\n", d_ind->conn_idx,d_ind->reason);
-		break;
-	}
-	default:
-		break;
-	}
+    switch (notice) {
+    case BLE_5_STACK_OK:
+    {
+        bk_printf("ble stack ok");
+        break;
+    }
+    case BLE_5_CONNECT_EVENT:
+    {
+        conn_ind_t *c_ind = (conn_ind_t *)param;
+        bk_printf("c_ind:conn_idx:%d, addr_type:%d, peer_addr:%02x:%02x:%02x:%02x:%02x:%02x\r\n",
+                  c_ind->conn_idx, c_ind->peer_addr_type, c_ind->peer_addr[0], c_ind->peer_addr[1],
+                  c_ind->peer_addr[2], c_ind->peer_addr[3], c_ind->peer_addr[4], c_ind->peer_addr[5]);
+        break;
+    }
+    case BLE_5_DISCONNECT_EVENT:
+    {
+        discon_ind_t *d_ind = (discon_ind_t *)param;
+        bk_printf("d_ind:conn_idx:%d,reason:%d\r\n", d_ind->conn_idx,d_ind->reason);
+        break;
+    }
+    default:
+        break;
+    }
 }
 #endif
 
 #if BLE_APP_SEC
 void security_notice_cb(sec_notice_t notice, void *param)
 {
-	switch (notice) {
-		#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-		case APP_SEC_SECURITY_REQ_IND:
-		{
-			uint8_t *conn_idx = (uint8_t *)param;
-			bk_ble_gap_security_rsp(*conn_idx, true);
-		} break;
-		case APP_SEC_PAIRING_REQ_IND:
-		{
-			uint8_t *conn_idx = (uint8_t *)param;
-			bk_ble_gap_pairing_rsp(*conn_idx, true);
-		} break;
-		case APP_SEC_PASSKEY_REPLY:
-		{
-			uint8_t *conn_idx = (uint8_t *)param;
-			uint32_t tk = 123456;
-			bk_ble_passkey_reply(*conn_idx, true, tk);
-			bk_printf("tk: %d\r\n", tk);
-		} break;
-		case APP_SEC_CONFIRM_REPLY:
-		{
-			numeric_cmp_t *num_par = (numeric_cmp_t *)param;
-			bk_printf("Exchange of Numeric Value: %d", num_par->num_value);
-			bk_ble_confirm_reply(num_par->conn_idx, true);
-		} break;
-		#endif
-		case APP_SEC_PAIRING_SUCCEED:
-		{
-			bk_printf("BLE PAIRING SUCCEED, bonded status = 0x%x\r\n", app_sec_env.bonded);
-		} break;
-		case APP_SEC_PAIRING_FAILED:
-		{
-			bk_printf("[WARNING]BLE PAIRING FAILED, bonded status = 0x%x\r\n", app_sec_env.bonded);
-		} break;
-		case APP_SEC_ENCRYPT_SUCCEED:
-		{
-			bk_printf("BLE ENCRYPTION SUCCEED\r\n");
-		} break;
-		default:
-			break;
-	}
+    switch (notice) {
+        case APP_SEC_BONDLIST_COMPARISON_CMP_IND:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_printf("peer_idx=%d\r\n", app_sec_env.sec_info[*conn_idx].matched_peer_idx);
+        } break;
+        case APP_SEC_ATT_ERR_INSUFF_AUTHEN:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            uint8_t role = app_ble_env.connections[*conn_idx].role;
+            bk_printf("conn_idx:%d, role:%d\r\n", *conn_idx, role);
+
+            if (role == APP_BLE_SLAVE_ROLE) {
+                bk_ble_security_req(*conn_idx);
+            } else if (role == APP_BLE_MASTER_ROLE) {
+                bk_ble_security_start(*conn_idx);
+            }
+        } break;
+        case APP_SEC_SECURITY_REQ_IND:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_ble_security_start(*conn_idx);
+        } break;
+        case APP_SEC_PAIRING_REQ_IND:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_ble_pairing_rsp(*conn_idx, true);
+        } break;
+        case APP_SEC_PASSKEY_REPLY:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            uint32_t tk = 123456;
+            bk_ble_passkey_reply(*conn_idx, true, tk);
+            bk_printf("tk: %d\r\n", tk);
+        } break;
+        case APP_SEC_CONFIRM_REPLY:
+        {
+            numeric_cmp_t *num_par = (numeric_cmp_t *)param;
+            bk_printf("Exchange of Numeric Value: %d", num_par->num_value);
+            bk_ble_confirm_reply(num_par->conn_idx, true);
+        } break;
+        case APP_SEC_PAIRING_SUCCEED:
+        {
+            bk_printf("BLE PAIRING SUCCEED, bonded status = 0x%x\r\n", app_sec_env.bonded);
+        } break;
+        case APP_SEC_PAIRING_FAIL:
+        {
+            bk_printf("[WARNING]BLE PAIRING FAILED, bonded status = 0x%x\r\n", app_sec_env.bonded);
+        } break;
+        case APP_SEC_ENCRYPT_SUCCEED:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_printf("BLE ENCRYPTION SUCCEED, conidx = %d\r\n", *conn_idx);
+        } break;
+        case APP_SEC_ENCRYPT_FAIL:
+        {
+            uint8_t *conn_idx = (uint8_t *)param;
+            bk_printf("BLE ENCRYPTION FAIL, conidx = %d\r\n", *conn_idx);
+        } break;
+        default:
+            break;
+    }
 }
 #endif
 
 static void ble_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	uint8_t adv_data[31];
-	uint8_t actv_idx;
-
-	if(os_strcmp(argv[1],"pta")==0){
-		uint32_t enable = os_strtoul(argv[2], NULL, 10);
-		ble_coex_set_pta(enable ? true : false);
-	}
-
-	if(os_strcmp(argv[1],"exit")==0){
-		ble_thread_exit();
-	}
-	if(os_strcmp(argv[1],"notify")==0){
-		uint32_t len;
-		uint16 prf_id;
-		uint8 write_buffer[128]={0};
-		len=os_strtoul(argv[3], NULL, 10);
-		if(argc!=4){
-			os_printf("notify arg %d error\r\n",argc);
-			return;
-		}else{
-			if(len>128 || len<4){
-				os_printf("The length of the notify should be between 4 and 128 \r\n");
-				if(len<4){
-					os_printf("Output 4 bytes\r\n");
-					len=4;
-				}else{
-					os_printf("Output the first 128 bytes\r\n");
-					len=128;
-				}
-			}
-			for(int i=0;i<4;i++){
-				write_buffer[i]=rand()%257;
-			}
-		}
-		prf_id=atoi(argv[2]);
-		if(ERR_SUCCESS!=bk_ble_send_ntf_value(len, write_buffer,prf_id,TEST_IDX_FF03_VAL_VALUE)){
-			os_printf("ERROR\r\n");
-		}
-	}
-	if(os_strcmp(argv[1],"indicate")==0){
-		uint16 prf_id;
-		uint32_t len;
-		uint8 write_buffer[128]={0};
-		len=os_strtoul(argv[3], NULL, 10);
-		if(argc!=4){
-			os_printf("indicate arg %d error\r\n",argc);
-			return;
-		}else{
-			if(len>128 || len<4){
-				os_printf("The length of the indicate should be between 4 and 128 \r\n");
-				if(len<4){
-					os_printf("Output 4 bytes\r\n");
-					len=4;
-				}else{
-					os_printf("Output the first 128 bytes\r\n");
-					len=128;
-				}
-			}
-			for(int i=0;i<4;i++){
-				write_buffer[i]=rand()%257;
-			}
-		}
-		prf_id=atoi(argv[2]);
-		if(ERR_SUCCESS!=bk_ble_send_ind_value(len, write_buffer,prf_id,TEST_IDX_FF02_VAL_VALUE)){
-			os_printf("ERROR\r\n");
-		}
-	}
-	if (os_strcmp(argv[1], "dut") == 0) {
-		char *const txevm_exit[3] = {"txevm", "-e", "0"};
-		do_evm(NULL, 0, 3, txevm_exit);
-		ble_dut_start();
-	}
-	if (os_strcmp(argv[1], "active") == 0) {
-		ble_set_notice_cb(ble_notice_cb);
-		ble_entry();
-		bk_ble_init();
-	}
-
-	#if (BLE_BATT_SERVER) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if(os_strcmp(argv[1], "bass_init") == 0) {
-		ble_set_notice_cb(profile_notice_cb);
-		bk_bass_init();
-	}
-	if(os_strcmp(argv[1], "bass_ntf") == 0){
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_bass_ntf_send(os_strtoul(argv[2], NULL, 10));
-	}
-	if(os_strcmp(argv[1], "bass_enable") == 0){
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_bass_enable(os_strtoul(argv[2], NULL, 10));
-	}
-	#endif
-	#if (BLE_HID_DEVICE) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if (os_strcmp(argv[1], "hogpd_init") == 0) {
-		ble_set_notice_cb(profile_notice_cb);
-		bk_hogpd_init();
-	}
-	if (os_strcmp(argv[1], "hogpd_enable") == 0) {
-		bk_hogpd_enable();
-	}
-	#endif
-	#if (BLE_FINDME_TARGET) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if (os_strcmp(argv[1], "findt_init") == 0) {
-		ble_set_notice_cb(profile_notice_cb);
-		bk_findt_init();
-	}
-	#endif
-	#if (BLE_DIS_SERVER) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if (os_strcmp(argv[1], "diss_init") == 0) {
-		ble_set_notice_cb(profile_notice_cb);
-		bk_diss_init();
-	}
-	if (os_strcmp(argv[1], "diss_set") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		if(os_strtoul(argv[2], NULL, 10) == 0){
-			uint8_t set_data[5];
-			set_data[0]=0x62;//b
-			set_data[1]=0x65;//e
-			set_data[2]=0x6b;//k
-			set_data[3]=0x65;//e
-			set_data[4]=0x6e;//n
-			bk_diss_set(os_strtoul(argv[2], NULL, 10), 5, set_data);
-		}else if(os_strtoul(argv[2], NULL, 10) == 1){
-			uint8_t set_data[6];
-			set_data[0]=0x62;//b
-			set_data[1]=0x6b;//k
-			set_data[2]=0x37;//7
-			set_data[3]=0x32;//2
-			set_data[4]=0x33;//3
-			set_data[5]=0x38;//8
-			bk_diss_set(os_strtoul(argv[2], NULL, 10), 6, set_data);
-		}else if(os_strtoul(argv[2], NULL, 10) == 6){
-			uint8_t set_data[8];
-			set_data[0]=0xdd;//mac
-			set_data[1]=0xa3;
-			set_data[2]=0xca;
-			set_data[3]=0x05;//beken
-			set_data[4]=0xf0;
-			set_data[5]=0x8c;
-			set_data[6]=0x47;
-			set_data[7]=0xc7;
-			bk_diss_set(os_strtoul(argv[2], NULL, 10),8, set_data);
-		}else if(os_strtoul(argv[2], NULL, 10) == 7){
-			uint8_t set_data[6];
-			set_data[0]=0x01;
-			set_data[1]=0x02;
-			set_data[2]=0x03;
-			set_data[3]=0x04;
-			set_data[4]=0x05;
-			set_data[5]=0x06;
-			bk_diss_set(os_strtoul(argv[2], NULL, 10), 6, set_data);
-		}else if(os_strtoul(argv[2], NULL, 10) == 8){
-			uint8_t set_data[7];
-			set_data[0]=0x01;//Blutooth SIG company
-			set_data[1]=0xf0;//beken
-			set_data[2]=0x05;
-			set_data[3]=0x01;//product id
-			set_data[4]=0x00;
-			set_data[5]=0x02;//product version
-			set_data[6]=0x00;
-			bk_diss_set(os_strtoul(argv[2], NULL, 10), 7, set_data);
-		}else{
-			uint8_t set_data[3];
-			set_data[0]=0x31;
-			set_data[1]=0x32;
-			set_data[2]=0x33;
-			bk_diss_set(os_strtoul(argv[2], NULL, 10), 3, set_data);
-		}
-	}
-	#endif
-	if (os_strcmp(argv[1], "create_adv") == 0) {
-		actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
-		bk_ble_create_advertising(actv_idx, 7, 160, 160, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "create_ext_adv") == 0) {
-		if (argc < 4){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
-		bk_ble_create_extended_advertising(actv_idx, 7, 160, 160, /*scannable*/os_strtoul(argv[2], NULL, 10), /*connectable*/os_strtoul(argv[3], NULL, 10), ble_cmd_cb);
-	}
-	#if (CFG_SOC_NAME == SOC_BK7231N)
-	if (os_strcmp(argv[1], "set_adv_data") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		adv_data[0] = 0x02;
-		adv_data[1] = 0x01;
-		adv_data[2] = 0x06;
-		adv_data[3] = 0x0B;
-		adv_data[4] = 0x09;
-		memcpy(&adv_data[5], "7231N_BLE", 10);
-		bk_ble_set_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, 0xF, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "set_rsp_data") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		adv_data[0] = 0x07;
-		adv_data[1] = 0x08;
-		memcpy(&adv_data[2], "7231N", 6);
-		bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, 0x8, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "set_ext_adv_data") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		uint16_t data_len;
-	#if (CFG_BLE_AUX_CHAIN)
-		data_len = 140;
-	#else
-		data_len = 22;
-	#endif
-		//data_len = os_strtoul(argv[3], NULL, 10);
-		uint8_t ext_adv_data[data_len];
-		uint16_t i;
-
-		ext_adv_data[0] = 0x02;
-		ext_adv_data[1] = 0x01;
-		ext_adv_data[2] = 0x06;
-		ext_adv_data[3] = 0x0B;
-		ext_adv_data[4] = 0x09;
-		memcpy(&ext_adv_data[5], "7231N_EXT", 10);
-		ext_adv_data[15] = data_len - 16;
-		ext_adv_data[16] = 0xFF;
-		ext_adv_data[17] = 0xF0;
-		ext_adv_data[18] = 0x05;
-		for (i = 0; i < data_len - 19; i++) {
-			ext_adv_data[19 + i] = i;
-		}
-		bk_ble_set_ext_adv_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "set_ext_rsp_data") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		uint16_t data_len;
-	#if (CFG_BLE_AUX_CHAIN)
-		data_len = 260;
-	#else
-		data_len = 22;
-	#endif
-		//data_len = os_strtoul(argv[3], NULL, 10);
-		uint8_t ext_adv_data[data_len];
-		uint16_t i;
-
-		ext_adv_data[0] = 0x0B;
-		ext_adv_data[1] = 0x09;
-		memcpy(&ext_adv_data[2], "7231N_EXT", 10);
-		ext_adv_data[12] = data_len - 13;
-		ext_adv_data[13] = 0xFF;
-		ext_adv_data[14] = 0xF0;
-		ext_adv_data[15] = 0x05;
-		for (i = 0; i < data_len - 16; i++) {
-			ext_adv_data[16 + i] = i;
-		}
-		bk_ble_set_ext_scan_rsp_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
-	}
-	#elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	/*note:AD type flags already added to adv data,not be set by application*/
-	if (os_strcmp(argv[1], "set_adv_data") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		adv_data[0] = 0x0A;
-		adv_data[1] = 0x09;
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		memcpy(&adv_data[2], "7238_BLE", 9);
-		#else
-		memcpy(&adv_data[2], "7252n_BLE", 9);
-		#endif
-		adv_data[11] = 0x03;
-		adv_data[12] = 0x19;
-		adv_data[13] = app_ble_env.dev_appearance & 0xFF;
-		adv_data[14] = (app_ble_env.dev_appearance >> 8) & 0xFF;
-		bk_ble_set_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, 0xF, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "set_rsp_data") == 0) {
-		uint8_t adv_data_len;
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		adv_data[0] = 0x06;
-		adv_data[1] = 0x08;
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		memcpy(&adv_data[2], "7238", 5);
-		#else
-		memcpy(&adv_data[2], "7252n", 5);
-		#endif
-		#if (BLE_HID_DEVICE)
-		adv_data[7] = 0x03;
-		adv_data[8] = 0x03;
-		adv_data[9] = 0x12;
-		adv_data[10] = 0x18;
-		adv_data_len = 0xB;
-		#else
-		adv_data_len = 0x7;
-		#endif
-		bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, adv_data_len, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "set_ext_adv_data") == 0) {
-		uint16_t data_len;
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		#if (CFG_BLE_AUX_CHAIN)
-		data_len = 140;		//189frag
-		#else
-		data_len = 18;
-		#endif
-
-		//data_len = os_strtoul(argv[3], NULL, 10);
-		uint8_t ext_adv_data[data_len];
-		uint16_t i;
-
-		ext_adv_data[0] = 0x0B;
-		ext_adv_data[1] = 0x09;
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		memcpy(&ext_adv_data[2], "BK7238EXT", 10);
-		#else
-		memcpy(&ext_adv_data[2], "BK7252nEXT", 10);
-		#endif
-		ext_adv_data[12] = data_len - 13;
-		ext_adv_data[13] = 0xFF;
-		ext_adv_data[14] = 0xF0;
-		ext_adv_data[15] = 0x05;
-		for (i = 0; i < data_len - 16; i++) {
-			ext_adv_data[16 + i] = i;
-		}
-		bk_ble_set_ext_adv_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "set_ext_rsp_data") == 0) {
-		uint16_t data_len;
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		#if (CFG_BLE_AUX_CHAIN)
-		data_len = 260;
-		#else
-		data_len = 25;
-		#endif
-
-		//data_len = os_strtoul(argv[3], NULL, 10);
-		uint8_t ext_adv_data[data_len];
-		uint16_t i;
-
-		ext_adv_data[0] = 0x11;
-		ext_adv_data[1] = 0x09;
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		memcpy(&ext_adv_data[2], "BK7238-SCAN-EXT", 16);
-		#else
-		memcpy(&ext_adv_data[2], "BK7252n-SCAN-EXT", 16);
-		#endif
-		ext_adv_data[18] = data_len - 19;
-		ext_adv_data[19] = 0xFF;
-		ext_adv_data[20] = 0xF0;
-		ext_adv_data[21] = 0x05;
-		for (i = 0; i < data_len - 22; i++) {
-			ext_adv_data[22 + i] = i;
-		}
-		bk_ble_set_ext_scan_rsp_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
-	}
-
-	#if (CFG_BLE_PER_ADV)
-	if (os_strcmp(argv[1], "create_per_adv") == 0) {
-		if (argc < 8){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		struct per_adv_param per_adv_param;
-
-		per_adv_param.adv_intv_min = os_strtoul(argv[2], NULL, 10);
-		per_adv_param.adv_intv_max = os_strtoul(argv[3], NULL, 10);
-		if ((per_adv_param.adv_intv_min > ADV_INTERVAL_MAX || per_adv_param.adv_intv_min < ADV_INTERVAL_MIN)
-			|| (per_adv_param.adv_intv_max > ADV_INTERVAL_MAX || per_adv_param.adv_intv_max < ADV_INTERVAL_MIN)
-			|| (per_adv_param.adv_intv_min > per_adv_param.adv_intv_max)) {
-			bk_printf("input param interval is error\n");
-			return;
-		}
-
-		per_adv_param.chnl_map = os_strtoul(argv[4], NULL, 10);
-		if (per_adv_param.chnl_map > 7) {
-			bk_printf("input param chnl_map is error\n");
-			return;
-		}
-
-		per_adv_param.adv_prop = (0 << ADV_PROP_CONNECTABLE_POS) | (0 << ADV_PROP_SCANNABLE_POS);;
-		per_adv_param.prim_phy = os_strtoul(argv[5], NULL, 10);
-		if(!(per_adv_param.prim_phy == 1 || per_adv_param.prim_phy == 3)) {
-			bk_printf("input param prim_phy is error\n");
-			return;
-		}
-
-		per_adv_param.second_phy = os_strtoul(argv[6], NULL, 10);
-		if(per_adv_param.second_phy < 1 || per_adv_param.second_phy > 3) {
-			bk_printf("input param second_phy is error\n");
-			return;
-		}
-
-		per_adv_param.own_addr_type = os_strtoul(argv[7], NULL, 10);
-		switch (per_adv_param.own_addr_type) {
-			case 0:
-			case 1:
-				per_adv_param.own_addr_type = GAPM_STATIC_ADDR;
-				break;
-			case 2:
-				per_adv_param.own_addr_type = GAPM_GEN_RSLV_ADDR;
-				break;
-			case 3:
-				per_adv_param.own_addr_type = GAPM_GEN_NON_RSLV_ADDR;
-				break;
-			default:
-				bk_printf("input param own_addr_type is error\n");
-				break;
-		}
-
-		actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
-
-		bk_ble_create_periodic_advertising(actv_idx, &per_adv_param, ble_cmd_cb);
-	}
-
-	if (os_strcmp(argv[1], "set_per_adv_data") == 0) {
-		if (argc < 4) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		uint8_t adv_data[255];
-		uint8_t adv_len = 0;
-
-		sscanf(argv[3],"\"%[^\"]\"",argv[3]);
-
-		adv_len=strlen(argv[3])/2;
-		memset(adv_data, 0, sizeof(adv_data));
-		hexstr2bin(argv[3], adv_data, adv_len);
-
-		bk_ble_set_periodic_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, adv_len, ble_cmd_cb);
-	}
-
-	if (os_strcmp(argv[1], "start_per_adv") == 0) {
-		if (argc < 3) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		bk_ble_start_periodic_advertising(os_strtoul(argv[2], NULL, 10), 0, ble_cmd_cb);
-	}
-
-	if (os_strcmp(argv[1], "stop_per_adv") == 0) {
-		if (argc < 3) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		bk_ble_stop_periodic_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	#endif
-
-	#if (CFG_BLE_PER_SYNC)
-	if (os_strcmp(argv[1], "create_per_sync") == 0) {
-		actv_idx = app_ble_get_idle_actv_idx_handle(PER_SYNC_ACTV);
-		bk_ble_create_periodic_sync(actv_idx, ble_cmd_cb);
-	}
-
-	if (os_strcmp(argv[1], "start_per_sync") == 0) {
-		if (argc < 11) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		ble_periodic_sync_param_t periodic_param;
-		os_memset(&periodic_param, 0, sizeof(periodic_param));
-
-		periodic_param.report_en_bf = os_strtoul(argv[3], NULL, 10);
-		periodic_param.adv_sid = os_strtoul(argv[4], NULL, 10);
-		hexstr2bin(argv[5], periodic_param.adv_addr.addr, GAP_BD_ADDR_LEN);
-		periodic_param.adv_addr_type = os_strtoul(argv[6], NULL, 10);
-		periodic_param.skip = os_strtoul(argv[7], NULL, 10);
-		periodic_param.sync_to = os_strtoul(argv[8], NULL, 10);
-		periodic_param.cte_type = os_strtoul(argv[9], NULL, 10);
-		periodic_param.per_sync_type = os_strtoul(argv[10], NULL, 10);
-
-		switch (periodic_param.per_sync_type) {
-			case 0:
-				periodic_param.per_sync_type = GAPM_PER_SYNC_TYPE_GENERAL;
-				break;
-			case 1:
-				periodic_param.per_sync_type = GAPM_PER_SYNC_TYPE_SELECTIVE;
-				break;
-			case 2:
-				periodic_param.per_sync_type = GAPM_PER_SYNC_TYPE_PAST;
-				break;
-			default:
-				bk_printf("input param per_sync_type is error\n");
-				return;
-				break;
-		}
-
-		bk_ble_start_periodic_sync(os_strtoul(argv[2], NULL, 10), &periodic_param, ble_cmd_cb);
-	}
-
-	if (os_strcmp(argv[1], "stop_per_sync") == 0) {
-		if (argc < 3) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		bk_ble_stop_periodic_sync(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	#endif
-
-	#if (CFG_BLE_PER_ADV) | (CFG_BLE_PER_SYNC)
-	if (os_strcmp(argv[1], "per_adv_sync_transf") == 0) {
-		if (argc < 4) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		bk_ble_periodic_adv_sync_transf(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 10));
-	}
-	#endif
-
-	if (os_strcmp(argv[1], "get_phy") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		ble_read_phy_t phy;
-		phy.rx_phy = 0;
-		phy.tx_phy = 0;
-
-		if (!bk_ble_gap_read_phy(os_strtoul(argv[2], NULL, 10), &phy)) {
-			bk_printf("tx_phy = 0x%x, rx_phy = 0x%x\r\n", phy.tx_phy, phy.rx_phy);
-		}
-	}
-
-	if (os_strcmp(argv[1], "set_phy") == 0) {
-		if (argc < 6){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		ble_set_phy_t set_phy;
-
-		set_phy.tx_phy = os_strtoul(argv[3], NULL, 10);
-		set_phy.rx_phy = os_strtoul(argv[4], NULL, 10);
-		set_phy.phy_opt = os_strtoul(argv[5], NULL, 10);
-
-		switch (set_phy.phy_opt) {
-			case 0:
-				set_phy.phy_opt = CODED_NO_PREFERRED;
-			break;
-			case 1:
-				set_phy.phy_opt = CODED_500K_RATE;
-			break;
-			case 2:
-				set_phy.phy_opt = CODED_125K_RATE;
-			break;
-			default:
-				bk_printf("input phy_opt param error\r\n");
-			break;
-		}
-
-		bk_ble_gap_set_phy(os_strtoul(argv[2], NULL, 10), &set_phy);
-	}
-
-	if (os_strcmp(argv[1], "gatts_app_unreg") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		bk_ble_gatts_app_unregister(os_strtoul(argv[2], NULL, 16));
-	}
-
-	if (os_strcmp(argv[1], "del_srv") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		bk_ble_gatts_remove_service(os_strtoul(argv[2], NULL, 16));
-	}
-
-	if (os_strcmp(argv[1], "set_attr_val") == 0) {
-		if (argc < 5){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		uint8_t value[128] = {0};
-		uint16_t length = os_strtoul(argv[3], NULL, 10);
-		hexstr2bin(argv[4], value, length);
-
-		bk_ble_gatts_set_attr_value(os_strtoul(argv[2], NULL, 16), length, value);
-	}
-
-	if (os_strcmp(argv[1], "get_attr_val") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		uint16_t length = 0;
-		uint8_t *value;
-
-		if(bk_ble_gatts_get_attr_value(os_strtoul(argv[2], NULL, 16), &length, &value) == 0){
-			bk_printf("att_value:");
-			for (uint16_t len = 0; len < length; len++) {
-				bk_printf("0x%x ", value[len]);
-			}
-			bk_printf("\r\n");
-		}
-	}
-
-	if (os_strcmp(argv[1], "srv_change_ind") == 0) {
-		if (argc < 4){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		uint16_t start_handle = os_strtoul(argv[2], NULL, 16);
-		uint16_t end_handle = os_strtoul(argv[3], NULL, 16);
-
-		if (start_handle <= end_handle) {
-			bk_ble_gatts_send_service_change_indication(start_handle, end_handle);
-		}
-	}
-
-	if (os_strcmp(argv[1], "rssi") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		app_ble_get_con_rssi(os_strtoul(argv[2], NULL, 10));
-	}
-
-	if (os_strcmp(argv[1], "set_icon") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		uint16_t appearance;
-		appearance = os_strtoul(argv[2], NULL, 16);
-		bk_printf("appearance=0x%x\r\n", appearance);
-		bk_ble_gap_config_local_icon(appearance);
-	}
-	if (os_strcmp(argv[1], "set_host_chnlmap") == 0) {
-		if (argc < 3 || (strlen(argv[2]) != BLE_CHANNELS_LEN * 2)) {
-			os_printf("ERROR\r\n");
-			return;
-		}
-
-		bk_ble_channels_t chnl_map;
-		hexstr2bin(argv[2], chnl_map.channels, BLE_CHANNELS_LEN);
-		bk_ble_gap_set_channels(&chnl_map);
-	}
-	if (os_strcmp(argv[1], "get_wl_size") == 0) {
-		uint8_t num;
-		bk_ble_gap_get_whitelist_size(&num);
-		bk_printf("BLE WhiteList Size:%d\r\n", num);
-	}
-	if (os_strcmp(argv[1], "clear_wl") == 0) {
-		bk_ble_gap_clear_whitelist();
-	}
-	if (os_strcmp(argv[1], "update_wl") == 0) {
-		//argv[2] 0:remove, 1:add;
-		//argv[4] 0:public, 1:random;
-		struct bd_addr addr;
-		if (argc < 5){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		hexstr2bin(argv[3], addr.addr, BD_ADDR_LEN);
-		bk_ble_gap_update_whitelist(atoi(argv[2]), &addr, atoi(argv[4]));
-	}
-	if (os_strcmp(argv[1], "update_pal")== 0) {
-		//argv[2] 0:remove, 1:add;
-		//argv[4] 0:public, 1:random;
-		struct bd_addr bdaddr;
-
-		if (argc < 6){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		hexstr2bin(argv[3], bdaddr.addr, GAP_BD_ADDR_LEN);
-		bk_ble_gap_update_per_adv_list(atoi(argv[2]), &bdaddr, atoi(argv[4]), atoi(argv[5]));
-	}
-	if (os_strcmp(argv[1], "clear_pal")== 0) {
-		bk_ble_gap_clear_per_adv_list();
-	}
-	#endif // (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if (os_strcmp(argv[1], "start_adv") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_start_advertising(os_strtoul(argv[2], NULL, 10), 0, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "stop_adv") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_stop_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "delete_adv") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_delete_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "create_scan") == 0) {
-		actv_idx = app_ble_get_idle_actv_idx_handle(SCAN_ACTV);
-		bk_ble_create_scaning(actv_idx, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "start_scan") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_start_scaning(os_strtoul(argv[2], NULL, 10), 100, 30, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "stop_scan") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_stop_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "delete_scan") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_delete_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "update_conn") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_update_param(os_strtoul(argv[2], NULL, 10), 50, 50, 0, 800);
-	}
-	if (os_strcmp(argv[1], "dis_conn") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_disconnect(os_strtoul(argv[2], NULL, 10));
-	}
-	if (os_strcmp(argv[1], "mtu_change") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_gatt_mtu_change(os_strtoul(argv[2], NULL, 10));
-	}
-	if (os_strcmp(argv[1], "init_adv") == 0) {
-	#if (CFG_SOC_NAME == SOC_BK7231N)
-		struct adv_param adv_info;
-		adv_info.channel_map = 7;
-		adv_info.duration = 0;
-		adv_info.prop = (1 << ADV_PROP_CONNECTABLE_POS) | (1 << ADV_PROP_SCANNABLE_POS);
-		adv_info.interval_min = 160;
-		adv_info.interval_max = 160;
-		adv_info.advData[0] = 0x02;
-		adv_info.advData[1] = 0x01;
-		adv_info.advData[2] = 0x06;
-		adv_info.advData[3] = 0x0B;
-		adv_info.advData[4] = 0x09;
-		memcpy(&adv_info.advData[5], "7231N_BLE", 10);
-		adv_info.advDataLen = 0xF;
-		adv_info.respData[0] = 0x07;
-		adv_info.respData[1] = 0x08;
-		memcpy(&adv_info.respData[2], "7231N", 6);
-		adv_info.respDataLen = 0x8;
-	#elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
-		struct adv_param adv_info;
-		adv_info.channel_map = 7;
-		adv_info.duration = 0;
-		adv_info.prop = (1 << ADV_PROP_CONNECTABLE_POS) | (1 << ADV_PROP_SCANNABLE_POS);
-		adv_info.interval_min = 160;
-		adv_info.interval_max = 160;
-		adv_info.advData[0] = 0x09;
-		adv_info.advData[1] = 0x09;
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		memcpy(&adv_info.advData[2], "7238_BLE", 8);
-		#else
-		memcpy(&adv_info.advData[2], "7252nBLE", 8);
-		#endif
-		adv_info.advDataLen = 10;
-
-		#if (CFG_SOC_NAME == SOC_BK7238)
-		adv_info.respData[0] = 0x05;
-		adv_info.respData[1] = 0x08;
-		memcpy(&adv_info.respData[2], "7238", 4);
-		adv_info.respDataLen = 6;
-		#else
-		adv_info.respData[0] = 0x06;
-		adv_info.respData[1] = 0x08;
-		memcpy(&adv_info.respData[2], "7252n", 5);
-		adv_info.respDataLen = 7;
-		#endif
-	#endif
-		actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
-		bk_ble_adv_start(actv_idx, &adv_info, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "deinit_adv") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_adv_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "init_scan") == 0) {
-		struct scan_param scan_info;
-		scan_info.channel_map = 7;
-		scan_info.interval = 100;
-		scan_info.window = 30;
-		actv_idx = app_ble_get_idle_actv_idx_handle(SCAN_ACTV);
-		bk_ble_scan_start(actv_idx, &scan_info, ble_cmd_cb);
-	}
-	if (os_strcmp(argv[1], "deinit_scan") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		bk_ble_scan_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
-	}
-	#if BLE_APP_SEC
-	if (os_strcmp(argv[1], "get_bond_status") == 0) {
-		bk_printf("bond status: 0x%x\r\n", app_sec_get_bond_status());
-	}
-	if (os_strcmp(argv[1], "smp_init") == 0) {
-		struct app_pairing_cfg par;
-		par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
-
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-
-		if (os_strtoul(argv[2], NULL, 10) == 0) {
-			bk_printf("BLE use Legacy Pairing\r\n");
-			par.sec_req   = GAP_SEC1_AUTH_PAIR_ENC;
-			par.auth      = GAP_AUTH_REQ_MITM_BOND;
-			par.ikey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_LINKKEY | GAP_KDIST_IDKEY;
-			par.rkey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_LINKKEY;
-		#if BLE_APP_SEC_CON
-		} else if (os_strtoul(argv[2], NULL, 10) == 1) {
-			// 0: PK, 1: NC, 2: JW
-			uint8_t pk_meth = os_strtoul(argv[3], NULL, 10);
-
-			bk_printf("BLE use Secure Connection Pairiing\r\n");
-			par.sec_req   = GAP_SEC1_SEC_CON_PAIR_ENC;
-			par.auth      = GAP_AUTH_REQ_SEC_CON_BOND;
-			par.ikey_dist = GAP_KDIST_IDKEY;
-			par.rkey_dist = GAP_KDIST_NONE;
-
-			if (pk_meth == 1) {
-				par.iocap = GAP_IO_CAP_DISPLAY_YES_NO;
-			} else if (pk_meth == 2) {
-				par.iocap   = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
-				par.sec_req = GAP_SEC1_NOAUTH_PAIR_ENC;
-			}
-		#endif
-		}
-		app_sec_config(&par, security_notice_cb);
-	}
-	if (os_strcmp(argv[1], "sec_req") == 0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		app_sec_send_security_req(os_strtoul(argv[2], NULL, 10));
-	}
-	if (os_strcmp(argv[1], "remove_bond")==0) {
-		if (argc < 3){
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
-		app_sec_remove_bond(os_strtoul(argv[2], NULL, 10));
-	}
-	#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if (os_strcmp(argv[1], "get_bond_dev_num")==0) {
-		uint8_t num;
-		bk_ble_get_bond_device_num(&num);
-		if (num < 0xFF) {
-			bk_printf("bond num: %d\r\n", num);
-		} else {
-			bk_printf("ERROR\r\n");
-		}
-	}
-	if (os_strcmp(argv[1], "get_bond_dev_list")==0) {
-		uint8_t exp_num, dev_num;
-
-		bk_ble_get_bond_device_num(&exp_num);
-		if (exp_num == 0xFF) {
-			return;
-		}
-
-		dev_num = exp_num;
-		bk_ble_bond_dev_t dev_list[exp_num];
-		bk_ble_get_bonded_device_list(&dev_num, dev_list);
-
-		if (dev_num != exp_num) {
-			bk_printf("[WARNING] exp_num = %d, act_num = %d\r\n", exp_num, dev_num);
-		}
-		for (int i = 0; i < dev_num; i++) {
-			bk_printf("[%d] addr_type:%d, addr", i, dev_list[i].addr_type);
-			for (int j = 0; j <6; j++) {
-				bk_printf(":%x", dev_list[i].addr[j]);
-			}
-			bk_printf("\r\n");
-		}
-	}
-	#endif // (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	#endif // if BLE_APP_SEC
+    uint8_t adv_data[31];
+    uint8_t actv_idx;
+
+    if(os_strcmp(argv[1],"pta")==0) {
+        uint32_t enable = os_strtoul(argv[2], NULL, 10);
+        ble_coex_set_pta(enable ? true : false);
+    }
+
+    if(os_strcmp(argv[1],"exit")==0) {
+        ble_thread_exit();
+    }
+    if(os_strcmp(argv[1],"notify")==0) {
+        uint32_t len;
+        uint16 prf_id;
+        uint8 write_buffer[128]= {0};
+        len=os_strtoul(argv[3], NULL, 10);
+        if(argc!=4) {
+            os_printf("notify arg %d error\r\n",argc);
+            return;
+        } else {
+            if(len>128 || len<4) {
+                os_printf("The length of the notify should be between 4 and 128 \r\n");
+                if(len<4) {
+                    os_printf("Output 4 bytes\r\n");
+                    len=4;
+                } else {
+                    os_printf("Output the first 128 bytes\r\n");
+                    len=128;
+                }
+            }
+            for(int i=0; i<4; i++) {
+                write_buffer[i]=rand()%257;
+            }
+        }
+        prf_id=atoi(argv[2]);
+        if(ERR_SUCCESS!=bk_ble_send_ntf_value(len, write_buffer,prf_id,TEST_IDX_FF03_VAL_VALUE)) {
+            os_printf("ERROR\r\n");
+        }
+    }
+    if(os_strcmp(argv[1],"indicate")==0) {
+        uint16 prf_id;
+        uint32_t len;
+        uint8 write_buffer[128]= {0};
+        len=os_strtoul(argv[3], NULL, 10);
+        if(argc!=4) {
+            os_printf("indicate arg %d error\r\n",argc);
+            return;
+        } else {
+            if(len>128 || len<4) {
+                os_printf("The length of the indicate should be between 4 and 128 \r\n");
+                if(len<4) {
+                    os_printf("Output 4 bytes\r\n");
+                    len=4;
+                } else {
+                    os_printf("Output the first 128 bytes\r\n");
+                    len=128;
+                }
+            }
+            for(int i=0; i<4; i++) {
+                write_buffer[i]=rand()%257;
+            }
+        }
+        prf_id=atoi(argv[2]);
+        if(ERR_SUCCESS!=bk_ble_send_ind_value(len, write_buffer,prf_id,TEST_IDX_FF02_VAL_VALUE)) {
+            os_printf("ERROR\r\n");
+        }
+    }
+    if (os_strcmp(argv[1], "dut") == 0) {
+        char *const txevm_exit[3] = {"txevm", "-e", "0"};
+        do_evm(NULL, 0, 3, txevm_exit);
+        ble_dut_start();
+    }
+    if (os_strcmp(argv[1], "active") == 0) {
+        ble_set_notice_cb(ble_notice_cb);
+        ble_entry();
+
+        #if BLE_APP_SEC
+        if (os_strcmp(argv[2], "sec") == 0) {
+            bk_ble_init_sec();
+        } else
+        #endif
+        {
+            bk_ble_init();
+        }
+    }
+
+    #if (BLE_BATT_SERVER) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if(os_strcmp(argv[1], "bass_init") == 0) {
+        ble_set_notice_cb(profile_notice_cb);
+        bk_bass_init();
+    }
+    if(os_strcmp(argv[1], "bass_ntf") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_bass_ntf_send(os_strtoul(argv[2], NULL, 10));
+    }
+    if(os_strcmp(argv[1], "bass_enable") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_bass_enable(os_strtoul(argv[2], NULL, 10));
+    }
+    #endif
+    #if (BLE_HID_DEVICE) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if (os_strcmp(argv[1], "hogpd_init") == 0) {
+        ble_set_notice_cb(profile_notice_cb);
+        bk_hogpd_init();
+    }
+    if (os_strcmp(argv[1], "hogpd_enable") == 0) {
+        bk_hogpd_enable();
+    }
+    #endif
+    #if (BLE_FINDME_TARGET) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if (os_strcmp(argv[1], "findt_init") == 0) {
+        ble_set_notice_cb(profile_notice_cb);
+        bk_findt_init();
+    }
+    #endif
+    #if (BLE_DIS_SERVER) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if (os_strcmp(argv[1], "diss_init") == 0) {
+        ble_set_notice_cb(profile_notice_cb);
+        bk_diss_init();
+    }
+    if (os_strcmp(argv[1], "diss_set") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        if(os_strtoul(argv[2], NULL, 10) == 0) {
+            uint8_t set_data[5];
+            set_data[0]=0x62;//b
+            set_data[1]=0x65;//e
+            set_data[2]=0x6b;//k
+            set_data[3]=0x65;//e
+            set_data[4]=0x6e;//n
+            bk_diss_set(os_strtoul(argv[2], NULL, 10), 5, set_data);
+        } else if(os_strtoul(argv[2], NULL, 10) == 1) {
+            uint8_t set_data[6];
+            set_data[0]=0x62;//b
+            set_data[1]=0x6b;//k
+            set_data[2]=0x37;//7
+            set_data[3]=0x32;//2
+            set_data[4]=0x33;//3
+            set_data[5]=0x38;//8
+            bk_diss_set(os_strtoul(argv[2], NULL, 10), 6, set_data);
+        } else if(os_strtoul(argv[2], NULL, 10) == 6) {
+            uint8_t set_data[8];
+            set_data[0]=0xdd;//mac
+            set_data[1]=0xa3;
+            set_data[2]=0xca;
+            set_data[3]=0x05;//beken
+            set_data[4]=0xf0;
+            set_data[5]=0x8c;
+            set_data[6]=0x47;
+            set_data[7]=0xc7;
+            bk_diss_set(os_strtoul(argv[2], NULL, 10),8, set_data);
+        } else if(os_strtoul(argv[2], NULL, 10) == 7) {
+            uint8_t set_data[6];
+            set_data[0]=0x01;
+            set_data[1]=0x02;
+            set_data[2]=0x03;
+            set_data[3]=0x04;
+            set_data[4]=0x05;
+            set_data[5]=0x06;
+            bk_diss_set(os_strtoul(argv[2], NULL, 10), 6, set_data);
+        } else if(os_strtoul(argv[2], NULL, 10) == 8) {
+            uint8_t set_data[7];
+            set_data[0]=0x01;//Blutooth SIG company
+            set_data[1]=0xf0;//beken
+            set_data[2]=0x05;
+            set_data[3]=0x01;//product id
+            set_data[4]=0x00;
+            set_data[5]=0x02;//product version
+            set_data[6]=0x00;
+            bk_diss_set(os_strtoul(argv[2], NULL, 10), 7, set_data);
+        } else {
+            uint8_t set_data[3];
+            set_data[0]=0x31;
+            set_data[1]=0x32;
+            set_data[2]=0x33;
+            bk_diss_set(os_strtoul(argv[2], NULL, 10), 3, set_data);
+        }
+    }
+    #endif
+    if (os_strcmp(argv[1], "create_adv") == 0) {
+        actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
+        bk_ble_create_advertising(actv_idx, 7, 160, 160, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "create_ext_adv") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
+        bk_ble_create_extended_advertising(actv_idx, 7, 160, 160, /*scannable*/os_strtoul(argv[2], NULL, 10), /*connectable*/os_strtoul(argv[3], NULL, 10), ble_cmd_cb);
+    }
+    #if (CFG_SOC_NAME == SOC_BK7231N)
+    if (os_strcmp(argv[1], "set_adv_data") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        adv_data[0] = 0x02;
+        adv_data[1] = 0x01;
+        adv_data[2] = 0x06;
+        adv_data[3] = 0x0B;
+        adv_data[4] = 0x09;
+        memcpy(&adv_data[5], "7231N_BLE", 10);
+        bk_ble_set_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, 0xF, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "set_rsp_data") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        adv_data[0] = 0x07;
+        adv_data[1] = 0x08;
+        memcpy(&adv_data[2], "7231N", 6);
+        bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, 0x8, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "set_ext_adv_data") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        uint16_t data_len;
+        #if (CFG_BLE_AUX_CHAIN)
+        data_len = 140;
+        #else
+        data_len = 22;
+        #endif
+        //data_len = os_strtoul(argv[3], NULL, 10);
+        uint8_t ext_adv_data[data_len];
+        uint16_t i;
+
+        ext_adv_data[0] = 0x02;
+        ext_adv_data[1] = 0x01;
+        ext_adv_data[2] = 0x06;
+        ext_adv_data[3] = 0x0B;
+        ext_adv_data[4] = 0x09;
+        memcpy(&ext_adv_data[5], "7231N_EXT", 10);
+        ext_adv_data[15] = data_len - 16;
+        ext_adv_data[16] = 0xFF;
+        ext_adv_data[17] = 0xF0;
+        ext_adv_data[18] = 0x05;
+        for (i = 0; i < data_len - 19; i++) {
+            ext_adv_data[19 + i] = i;
+        }
+        bk_ble_set_ext_adv_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "set_ext_rsp_data") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        uint16_t data_len;
+        #if (CFG_BLE_AUX_CHAIN)
+        data_len = 260;
+        #else
+        data_len = 22;
+        #endif
+        //data_len = os_strtoul(argv[3], NULL, 10);
+        uint8_t ext_adv_data[data_len];
+        uint16_t i;
+
+        ext_adv_data[0] = 0x0B;
+        ext_adv_data[1] = 0x09;
+        memcpy(&ext_adv_data[2], "7231N_EXT", 10);
+        ext_adv_data[12] = data_len - 13;
+        ext_adv_data[13] = 0xFF;
+        ext_adv_data[14] = 0xF0;
+        ext_adv_data[15] = 0x05;
+        for (i = 0; i < data_len - 16; i++) {
+            ext_adv_data[16 + i] = i;
+        }
+        bk_ble_set_ext_scan_rsp_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
+    }
+    #elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    /*note:AD type flags already added to adv data,not be set by application*/
+    if (os_strcmp(argv[1], "set_adv_data") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        adv_data[0] = 0x0A;
+        adv_data[1] = 0x09;
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        memcpy(&adv_data[2], "7238_BLE", 9);
+        #else
+        memcpy(&adv_data[2], "7252n_BLE", 9);
+        #endif
+        adv_data[11] = 0x03;
+        adv_data[12] = 0x19;
+        adv_data[13] = app_ble_env.dev_appearance & 0xFF;
+        adv_data[14] = (app_ble_env.dev_appearance >> 8) & 0xFF;
+        bk_ble_set_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, 0xF, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "set_rsp_data") == 0) {
+        uint8_t adv_data_len;
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        adv_data[0] = 0x06;
+        adv_data[1] = 0x08;
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        memcpy(&adv_data[2], "7238", 5);
+        #else
+        memcpy(&adv_data[2], "7252n", 5);
+        #endif
+        #if (BLE_HID_DEVICE)
+        adv_data[7] = 0x03;
+        adv_data[8] = 0x03;
+        adv_data[9] = 0x12;
+        adv_data[10] = 0x18;
+        adv_data_len = 0xB;
+        #else
+        adv_data_len = 0x7;
+        #endif
+        bk_ble_set_scan_rsp_data(os_strtoul(argv[2], NULL, 10), adv_data, adv_data_len, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "set_ext_adv_data") == 0) {
+        uint16_t data_len;
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        #if (CFG_BLE_AUX_CHAIN)
+        data_len = 140;		//189frag
+        #else
+        data_len = 18;
+        #endif
+
+        //data_len = os_strtoul(argv[3], NULL, 10);
+        uint8_t ext_adv_data[data_len];
+        uint16_t i;
+
+        ext_adv_data[0] = 0x0B;
+        ext_adv_data[1] = 0x09;
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        memcpy(&ext_adv_data[2], "BK7238EXT", 10);
+        #else
+        memcpy(&ext_adv_data[2], "BK7252nEXT", 10);
+        #endif
+        ext_adv_data[12] = data_len - 13;
+        ext_adv_data[13] = 0xFF;
+        ext_adv_data[14] = 0xF0;
+        ext_adv_data[15] = 0x05;
+        for (i = 0; i < data_len - 16; i++) {
+            ext_adv_data[16 + i] = i;
+        }
+        bk_ble_set_ext_adv_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "set_ext_rsp_data") == 0) {
+        uint16_t data_len;
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        #if (CFG_BLE_AUX_CHAIN)
+        data_len = 260;
+        #else
+        data_len = 25;
+        #endif
+
+        //data_len = os_strtoul(argv[3], NULL, 10);
+        uint8_t ext_adv_data[data_len];
+        uint16_t i;
+
+        ext_adv_data[0] = 0x11;
+        ext_adv_data[1] = 0x09;
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        memcpy(&ext_adv_data[2], "BK7238-SCAN-EXT", 16);
+        #else
+        memcpy(&ext_adv_data[2], "BK7252n-SCAN-EXT", 16);
+        #endif
+        ext_adv_data[18] = data_len - 19;
+        ext_adv_data[19] = 0xFF;
+        ext_adv_data[20] = 0xF0;
+        ext_adv_data[21] = 0x05;
+        for (i = 0; i < data_len - 22; i++) {
+            ext_adv_data[22 + i] = i;
+        }
+        bk_ble_set_ext_scan_rsp_data(os_strtoul(argv[2], NULL, 10), ext_adv_data, data_len, ble_cmd_cb);
+    }
+
+    #if (CFG_BLE_PER_ADV)
+    if (os_strcmp(argv[1], "create_per_adv") == 0) {
+        if (argc < 8) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        struct per_adv_param per_adv_param;
+
+        per_adv_param.adv_intv_min = os_strtoul(argv[2], NULL, 10);
+        per_adv_param.adv_intv_max = os_strtoul(argv[3], NULL, 10);
+        if ((per_adv_param.adv_intv_min > ADV_INTERVAL_MAX || per_adv_param.adv_intv_min < ADV_INTERVAL_MIN)
+                || (per_adv_param.adv_intv_max > ADV_INTERVAL_MAX || per_adv_param.adv_intv_max < ADV_INTERVAL_MIN)
+                || (per_adv_param.adv_intv_min > per_adv_param.adv_intv_max)) {
+            bk_printf("input param interval is error\n");
+            return;
+        }
+
+        per_adv_param.chnl_map = os_strtoul(argv[4], NULL, 10);
+        if (per_adv_param.chnl_map > 7) {
+            bk_printf("input param chnl_map is error\n");
+            return;
+        }
+
+        per_adv_param.adv_prop = (0 << ADV_PROP_CONNECTABLE_POS) | (0 << ADV_PROP_SCANNABLE_POS);;
+        per_adv_param.prim_phy = os_strtoul(argv[5], NULL, 10);
+        if(!(per_adv_param.prim_phy == 1 || per_adv_param.prim_phy == 3)) {
+            bk_printf("input param prim_phy is error\n");
+            return;
+        }
+
+        per_adv_param.second_phy = os_strtoul(argv[6], NULL, 10);
+        if(per_adv_param.second_phy < 1 || per_adv_param.second_phy > 3) {
+            bk_printf("input param second_phy is error\n");
+            return;
+        }
+
+        per_adv_param.own_addr_type = os_strtoul(argv[7], NULL, 10);
+        switch (per_adv_param.own_addr_type) {
+        case 0:
+        case 1:
+            per_adv_param.own_addr_type = GAPM_STATIC_ADDR;
+            break;
+        case 2:
+            per_adv_param.own_addr_type = GAPM_GEN_RSLV_ADDR;
+            break;
+        case 3:
+            per_adv_param.own_addr_type = GAPM_GEN_NON_RSLV_ADDR;
+            break;
+        default:
+            bk_printf("input param own_addr_type is error\n");
+            break;
+        }
+
+        actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
+
+        bk_ble_create_periodic_advertising(actv_idx, &per_adv_param, ble_cmd_cb);
+    }
+
+    if (os_strcmp(argv[1], "set_per_adv_data") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        uint8_t adv_data[255];
+        uint8_t adv_len = 0;
+
+        sscanf(argv[3],"\"%[^\"]\"",argv[3]);
+
+        adv_len=strlen(argv[3])/2;
+        memset(adv_data, 0, sizeof(adv_data));
+        hexstr2bin(argv[3], adv_data, adv_len);
+
+        bk_ble_set_periodic_adv_data(os_strtoul(argv[2], NULL, 10), adv_data, adv_len, ble_cmd_cb);
+    }
+
+    if (os_strcmp(argv[1], "start_per_adv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        bk_ble_start_periodic_advertising(os_strtoul(argv[2], NULL, 10), 0, ble_cmd_cb);
+    }
+
+    if (os_strcmp(argv[1], "stop_per_adv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        bk_ble_stop_periodic_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    #endif
+
+    #if (CFG_BLE_PER_SYNC)
+    if (os_strcmp(argv[1], "create_per_sync") == 0) {
+        actv_idx = app_ble_get_idle_actv_idx_handle(PER_SYNC_ACTV);
+        bk_ble_create_periodic_sync(actv_idx, ble_cmd_cb);
+    }
+
+    if (os_strcmp(argv[1], "start_per_sync") == 0) {
+        if (argc < 11) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        ble_periodic_sync_param_t periodic_param;
+        os_memset(&periodic_param, 0, sizeof(periodic_param));
+
+        periodic_param.report_en_bf = os_strtoul(argv[3], NULL, 10);
+        periodic_param.adv_sid = os_strtoul(argv[4], NULL, 10);
+        hexstr2bin(argv[5], periodic_param.adv_addr.addr, GAP_BD_ADDR_LEN);
+        periodic_param.adv_addr_type = os_strtoul(argv[6], NULL, 10);
+        periodic_param.skip = os_strtoul(argv[7], NULL, 10);
+        periodic_param.sync_to = os_strtoul(argv[8], NULL, 10);
+        periodic_param.cte_type = os_strtoul(argv[9], NULL, 10);
+        periodic_param.per_sync_type = os_strtoul(argv[10], NULL, 10);
+
+        switch (periodic_param.per_sync_type) {
+        case 0:
+            periodic_param.per_sync_type = GAPM_PER_SYNC_TYPE_GENERAL;
+            break;
+        case 1:
+            periodic_param.per_sync_type = GAPM_PER_SYNC_TYPE_SELECTIVE;
+            break;
+        case 2:
+            periodic_param.per_sync_type = GAPM_PER_SYNC_TYPE_PAST;
+            break;
+        default:
+            bk_printf("input param per_sync_type is error\n");
+            return;
+            break;
+        }
+
+        bk_ble_start_periodic_sync(os_strtoul(argv[2], NULL, 10), &periodic_param, ble_cmd_cb);
+    }
+
+    if (os_strcmp(argv[1], "stop_per_sync") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        bk_ble_stop_periodic_sync(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    #endif
+
+    #if (CFG_BLE_PER_ADV) | (CFG_BLE_PER_SYNC)
+    if (os_strcmp(argv[1], "per_adv_sync_transf") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        bk_ble_periodic_adv_sync_transf(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 10));
+    }
+    #endif
+
+    if (os_strcmp(argv[1], "get_phy") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        ble_read_phy_t phy;
+        phy.rx_phy = 0;
+        phy.tx_phy = 0;
+
+        if (!bk_ble_gap_read_phy(os_strtoul(argv[2], NULL, 10), &phy)) {
+            bk_printf("tx_phy = 0x%x, rx_phy = 0x%x\r\n", phy.tx_phy, phy.rx_phy);
+        }
+    }
+
+    if (os_strcmp(argv[1], "set_phy") == 0) {
+        if (argc < 6) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        ble_set_phy_t set_phy;
+
+        set_phy.tx_phy = os_strtoul(argv[3], NULL, 10);
+        set_phy.rx_phy = os_strtoul(argv[4], NULL, 10);
+        set_phy.phy_opt = os_strtoul(argv[5], NULL, 10);
+
+        switch (set_phy.phy_opt) {
+        case 0:
+            set_phy.phy_opt = CODED_NO_PREFERRED;
+            break;
+        case 1:
+            set_phy.phy_opt = CODED_500K_RATE;
+            break;
+        case 2:
+            set_phy.phy_opt = CODED_125K_RATE;
+            break;
+        default:
+            bk_printf("input phy_opt param error\r\n");
+            break;
+        }
+
+        bk_ble_gap_set_phy(os_strtoul(argv[2], NULL, 10), &set_phy);
+    }
+
+    if (os_strcmp(argv[1], "gatts_app_unreg") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        bk_ble_gatts_app_unregister(os_strtoul(argv[2], NULL, 16));
+    }
+
+    if (os_strcmp(argv[1], "del_srv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        bk_ble_gatts_remove_service(os_strtoul(argv[2], NULL, 16));
+    }
+
+    if (os_strcmp(argv[1], "set_attr_val") == 0) {
+        if (argc < 5) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        uint8_t value[128] = {0};
+        uint16_t length = os_strtoul(argv[3], NULL, 10);
+        hexstr2bin(argv[4], value, length);
+
+        bk_ble_gatts_set_attr_value(os_strtoul(argv[2], NULL, 16), length, value);
+    }
+
+    if (os_strcmp(argv[1], "get_attr_val") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        uint16_t length = 0;
+        uint8_t *value;
+
+        if(bk_ble_gatts_get_attr_value(os_strtoul(argv[2], NULL, 16), &length, &value) == 0) {
+            bk_printf("att_value:");
+            for (uint16_t len = 0; len < length; len++) {
+                bk_printf("0x%x ", value[len]);
+            }
+            bk_printf("\r\n");
+        }
+    }
+
+    if (os_strcmp(argv[1], "srv_change_ind") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        uint16_t start_handle = os_strtoul(argv[2], NULL, 16);
+        uint16_t end_handle = os_strtoul(argv[3], NULL, 16);
+
+        if (start_handle <= end_handle) {
+            bk_ble_gatts_send_service_change_indication(start_handle, end_handle);
+        }
+    }
+
+    if (os_strcmp(argv[1], "rssi") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        app_ble_get_con_rssi(os_strtoul(argv[2], NULL, 10));
+    }
+
+    if (os_strcmp(argv[1], "set_icon") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        uint16_t appearance;
+        appearance = os_strtoul(argv[2], NULL, 16);
+        bk_printf("appearance=0x%x\r\n", appearance);
+        bk_ble_gap_config_local_icon(appearance);
+    }
+    if (os_strcmp(argv[1], "set_host_chnlmap") == 0) {
+        if (argc < 3 || (strlen(argv[2]) != BLE_CHANNELS_LEN * 2)) {
+            os_printf("ERROR\r\n");
+            return;
+        }
+
+        bk_ble_channels_t chnl_map;
+        hexstr2bin(argv[2], chnl_map.channels, BLE_CHANNELS_LEN);
+        bk_ble_gap_set_channels(&chnl_map);
+    }
+    if (os_strcmp(argv[1], "get_wl_size") == 0) {
+        uint8_t num;
+        bk_ble_gap_get_whitelist_size(&num);
+        bk_printf("BLE WhiteList Size:%d\r\n", num);
+    }
+    if (os_strcmp(argv[1], "clear_wl") == 0) {
+        bk_ble_gap_clear_whitelist();
+    }
+    if (os_strcmp(argv[1], "update_wl") == 0) {
+        //argv[2] 0:remove, 1:add;
+        //argv[4] 0:public, 1:random;
+        struct bd_addr addr;
+        if (argc < 5) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        hexstr2bin(argv[3], addr.addr, BD_ADDR_LEN);
+        bk_ble_gap_update_whitelist(atoi(argv[2]), &addr, atoi(argv[4]));
+    }
+    if (os_strcmp(argv[1], "update_pal")== 0) {
+        //argv[2] 0:remove, 1:add;
+        //argv[4] 0:public, 1:random;
+        struct bd_addr bdaddr;
+
+        if (argc < 6) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        hexstr2bin(argv[3], bdaddr.addr, GAP_BD_ADDR_LEN);
+        bk_ble_gap_update_per_adv_list(atoi(argv[2]), &bdaddr, atoi(argv[4]), atoi(argv[5]));
+    }
+    if (os_strcmp(argv[1], "clear_pal")== 0) {
+        bk_ble_gap_clear_per_adv_list();
+    }
+    #endif // (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if (os_strcmp(argv[1], "start_adv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_start_advertising(os_strtoul(argv[2], NULL, 10), 0, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "stop_adv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_stop_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "delete_adv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_delete_advertising(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "create_scan") == 0) {
+        actv_idx = app_ble_get_idle_actv_idx_handle(SCAN_ACTV);
+        bk_ble_create_scaning(actv_idx, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "start_scan") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_start_scaning(os_strtoul(argv[2], NULL, 10), 100, 30, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "stop_scan") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_stop_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "delete_scan") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_delete_scaning(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "update_conn") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_update_param(os_strtoul(argv[2], NULL, 10), 50, 50, 0, 800);
+    }
+    if (os_strcmp(argv[1], "dis_conn") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_disconnect(os_strtoul(argv[2], NULL, 10));
+    }
+    if (os_strcmp(argv[1], "mtu_change") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_gatt_mtu_change(os_strtoul(argv[2], NULL, 10));
+    }
+    if (os_strcmp(argv[1], "init_adv") == 0) {
+        #if (CFG_SOC_NAME == SOC_BK7231N)
+        struct adv_param adv_info;
+        adv_info.channel_map = 7;
+        adv_info.duration = 0;
+        adv_info.prop = (1 << ADV_PROP_CONNECTABLE_POS) | (1 << ADV_PROP_SCANNABLE_POS);
+        adv_info.interval_min = 160;
+        adv_info.interval_max = 160;
+        adv_info.advData[0] = 0x02;
+        adv_info.advData[1] = 0x01;
+        adv_info.advData[2] = 0x06;
+        adv_info.advData[3] = 0x0B;
+        adv_info.advData[4] = 0x09;
+        memcpy(&adv_info.advData[5], "7231N_BLE", 10);
+        adv_info.advDataLen = 0xF;
+        adv_info.respData[0] = 0x07;
+        adv_info.respData[1] = 0x08;
+        memcpy(&adv_info.respData[2], "7231N", 6);
+        adv_info.respDataLen = 0x8;
+        #elif (CFG_BLE_VERSION == BLE_VERSION_5_2)
+        struct adv_param adv_info;
+        adv_info.channel_map = 7;
+        adv_info.duration = 0;
+        adv_info.prop = (1 << ADV_PROP_CONNECTABLE_POS) | (1 << ADV_PROP_SCANNABLE_POS);
+        adv_info.interval_min = 160;
+        adv_info.interval_max = 160;
+        adv_info.advData[0] = 0x09;
+        adv_info.advData[1] = 0x09;
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        memcpy(&adv_info.advData[2], "7238_BLE", 8);
+        #else
+        memcpy(&adv_info.advData[2], "7252nBLE", 8);
+        #endif
+        adv_info.advDataLen = 10;
+
+        #if (CFG_SOC_NAME == SOC_BK7238)
+        adv_info.respData[0] = 0x05;
+        adv_info.respData[1] = 0x08;
+        memcpy(&adv_info.respData[2], "7238", 4);
+        adv_info.respDataLen = 6;
+        #else
+        adv_info.respData[0] = 0x06;
+        adv_info.respData[1] = 0x08;
+        memcpy(&adv_info.respData[2], "7252n", 5);
+        adv_info.respDataLen = 7;
+        #endif
+        #endif
+        actv_idx = app_ble_get_idle_actv_idx_handle(ADV_ACTV);
+        bk_ble_adv_start(actv_idx, &adv_info, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "deinit_adv") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_adv_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "init_scan") == 0) {
+        struct scan_param scan_info;
+        scan_info.channel_map = 7;
+        scan_info.interval = 100;
+        scan_info.window = 30;
+        actv_idx = app_ble_get_idle_actv_idx_handle(SCAN_ACTV);
+        bk_ble_scan_start(actv_idx, &scan_info, ble_cmd_cb);
+    }
+    if (os_strcmp(argv[1], "deinit_scan") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_scan_stop(os_strtoul(argv[2], NULL, 10), ble_cmd_cb);
+    }
+    #if BLE_APP_SEC
+    if (os_strcmp(argv[1], "get_bond_status") == 0) {
+        bk_printf("bond status: 0x%x\r\n", app_sec_get_bond_status());
+    }
+    if (os_strcmp(argv[1], "smp_init") == 0) {
+        struct app_pairing_cfg par;
+
+        par.ikey_dist = GAP_KDIST_ENCKEY | GAP_KDIST_IDKEY;
+        par.rkey_dist = GAP_KDIST_ENCKEY;
+
+        #if BLE_APP_SIGN_WRITE
+        par.sec_req   = GAP_SEC2_NOAUTH_DATA_SGN;
+        par.ikey_dist |= GAP_KDIST_SIGNKEY;
+        par.rkey_dist |= GAP_KDIST_SIGNKEY;
+        #else
+        par.sec_req   = GAP_SEC1_NOAUTH_PAIR_ENC;
+        #endif
+
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+
+        if (os_strtoul(argv[2], NULL, 10) == 0) {
+            // 0: PK, 1: JW
+            uint8_t pk_meth = os_strtoul(argv[3], NULL, 10);
+
+            bk_printf("BLE use Legacy Pairing\r\n");
+
+            // core5.2 p1663: MITM shall only be set if the slave's IO capabilities would allow Passkey entry or OOB
+            par.auth = GAP_AUTH_REQ_NO_MITM_BOND;
+
+            if (pk_meth == 0) {
+                par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
+            } else if (pk_meth == 1) {
+                par.iocap = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
+            }
+        #if BLE_APP_SEC_CON
+        } else if (os_strtoul(argv[2], NULL, 10) == 1) {
+            // 0: PK, 1: NC, 2: JW
+            uint8_t pk_meth = os_strtoul(argv[3], NULL, 10);
+
+            bk_printf("BLE use Secure Connection Pairiing\r\n");
+            par.auth = GAP_AUTH_REQ_SEC_CON_NO_MITM_BOND;
+
+            if (pk_meth == 0) {
+                par.iocap = GAP_IO_CAP_DISPLAY_ONLY;
+            } else if (pk_meth == 1) {
+                par.iocap = GAP_IO_CAP_DISPLAY_YES_NO;
+            } else if (pk_meth == 2) {
+                par.iocap   = GAP_IO_CAP_NO_INPUT_NO_OUTPUT;
+            }
+        #endif
+        }
+        bk_ble_gap_set_security_param(&par, security_notice_cb);
+    }
+    if (os_strcmp(argv[1], "sec_req") == 0) {
+        if (argc < 3){
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_security_req(os_strtoul(argv[2], NULL, 10));
+    }
+    if (os_strcmp(argv[1], "remove_bond")==0) {
+        if (argc < 3){
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_remove_bond_device(os_strtoul(argv[2], NULL, 10), true);
+    }
+    if (os_strcmp(argv[1], "start_enc")==0) {
+        if (argc < 3){
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
+        bk_ble_security_start(os_strtoul(argv[2], NULL, 10));
+    }
+    if (os_strcmp(argv[1], "get_bond_dev_num")==0) {
+        uint8_t num;
+        bk_ble_get_bond_device_num(&num);
+        if (num < 0xFF) {
+            bk_printf("bond num: %d\r\n", num);
+        } else {
+            bk_printf("ERROR\r\n");
+        }
+    }
+    if (os_strcmp(argv[1], "get_bond_dev_list")==0) {
+        uint8_t exp_num, dev_num;
+
+        bk_ble_get_bond_device_num(&exp_num);
+        if (exp_num == 0xFF) {
+            return;
+        }
+
+        dev_num = exp_num;
+        bond_device_addr_t dev_list[exp_num];
+        bk_ble_get_bonded_device_list(&dev_num, dev_list);
+
+        if (dev_num != exp_num) {
+            bk_printf("[WARNING] exp_num = %d, act_num = %d\r\n", exp_num, dev_num);
+        }
+        for (int i = 0; i < dev_num; i++) {
+            bk_printf("[%d] addr_type:%d, addr", dev_list[i].bond_idx, dev_list[i].addr_type);
+            for (int j = 0; j <6; j++) {
+                bk_printf(":%x", dev_list[i].addr[j]);
+            }
+            bk_printf("\r\n");
+        }
+    }
+    #endif // if BLE_APP_SEC
 #if ((CFG_BLE_VERSION == BLE_VERSION_5_2) && BLE_GATT_CLI)
-	if (os_strcmp(argv[1], "read_by_type") == 0) {
-		if (argc < 6) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
+    if (os_strcmp(argv[1], "read_by_type") == 0) {
+        if (argc < 6) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
 
-		uint16_t start_handle = os_strtoul(argv[3], NULL, 16);
-		uint16_t end_handle = os_strtoul(argv[4], NULL, 16);
-		uint8_t uuid_type = os_strtoul(argv[5], NULL, 10);
-		uint8_t uuid_length = 0;
-		uint8_t uuid[GATT_UUID_128_LEN];
+        uint16_t start_handle = os_strtoul(argv[3], NULL, 16);
+        uint16_t end_handle = os_strtoul(argv[4], NULL, 16);
+        uint8_t uuid_type = os_strtoul(argv[5], NULL, 10);
+        uint8_t uuid_length = 0;
+        uint8_t uuid[GATT_UUID_128_LEN];
 
-		if (uuid_type == GATT_UUID_16) {
-			uuid_length = GATT_UUID_16_LEN;
-		} else if (uuid_type == GATT_UUID_32) {
-			uuid_length = GATT_UUID_32_LEN;
-		} else if (uuid_type == GATT_UUID_128) {
-			uuid_length = GATT_UUID_128_LEN;
-		} else {
-			bk_printf("uuid_type error!\r\n");
-			return;
-		}
+        if (uuid_type == GATT_UUID_16) {
+            uuid_length = GATT_UUID_16_LEN;
+        } else if (uuid_type == GATT_UUID_32) {
+            uuid_length = GATT_UUID_32_LEN;
+        } else if (uuid_type == GATT_UUID_128) {
+            uuid_length = GATT_UUID_128_LEN;
+        } else {
+            bk_printf("uuid_type error!\r\n");
+            return;
+        }
 
-		if (start_handle <= end_handle) {
-			hexstr2bin(argv[6], uuid, uuid_length);
-			bk_ble_gattc_read_by_type(os_strtoul(argv[2], NULL, 10), start_handle, end_handle, uuid_type, uuid);
-		} else {
-			bk_printf("param error!\r\n");
-		}
-	}
+        if (start_handle <= end_handle) {
+            hexstr2bin(argv[6], uuid, uuid_length);
+            bk_ble_gattc_read_by_type(os_strtoul(argv[2], NULL, 10), start_handle, end_handle, uuid_type, uuid);
+        } else {
+            bk_printf("param error!\r\n");
+        }
+    }
 
-	if (os_strcmp(argv[1], "read_mult") == 0) {
-		if (argc < 3) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
+    if (os_strcmp(argv[1], "read_mult") == 0) {
+        if (argc < 3) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
 
-		app_gattc_multi_t read_multi;
-		gatt_att_t atts[2];
-		read_multi.nb_att = 2;
-		atts[0].length = 3;
-		atts[0].hdl = 0x1b;
-		atts[1].length = 3;
-		atts[1].hdl = 0x1e;
-		read_multi.p_atts = atts;
+        app_gattc_multi_t read_multi;
+        gatt_att_t atts[2];
+        read_multi.nb_att = 2;
+        atts[0].length = 3;
+        atts[0].hdl = 0x1b;
+        atts[1].length = 3;
+        atts[1].hdl = 0x1e;
+        read_multi.p_atts = atts;
 
-		bk_ble_gattc_read_multiple(os_strtoul(argv[2], NULL, 10), &read_multi);
-	}
+        bk_ble_gattc_read_multiple(os_strtoul(argv[2], NULL, 10), &read_multi);
+    }
 
-	if (os_strcmp(argv[1], "reg_notify") == 0) {
-		if (argc < 4) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
+    if (os_strcmp(argv[1], "reg_notify") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
 
-		bk_ble_gattc_register_for_notify(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 16));
-	}
+        bk_ble_gattc_register_for_notify(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 16));
+    }
 
-	if (os_strcmp(argv[1], "reg_indicate") == 0) {
-		if (argc < 4) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
+    if (os_strcmp(argv[1], "reg_indicate") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
 
-		bk_ble_gattc_register_for_indicate(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 16));
-	}
+        bk_ble_gattc_register_for_indicate(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 16));
+    }
 
-	if (os_strcmp(argv[1], "unreg") == 0) {
-		if (argc < 4) {
-			bk_printf("\nThe number of param is wrong!\n");
-			return;
-		}
+    if (os_strcmp(argv[1], "unreg") == 0) {
+        if (argc < 4) {
+            bk_printf("\nThe number of param is wrong!\n");
+            return;
+        }
 
-		bk_ble_gattc_unregister_for_notify_or_indicate(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 16));
-	}
-#endif
-#if CFG_BLE_INIT_NUM
-	#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-	if (os_strcmp(argv[1], "set_ext_conn_par") == 0) {
-		uint8_t phy_mask;
-		struct appm_create_conn_param init_par;
+        bk_ble_gattc_unregister_for_notify_or_indicate(os_strtoul(argv[2], NULL, 10), os_strtoul(argv[3], NULL, 16));
+    }
+    #endif
+    #if CFG_BLE_INIT_NUM
+    #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+    if (os_strcmp(argv[1], "set_ext_conn_par") == 0) {
+        uint8_t phy_mask;
+        struct appm_create_conn_param init_par;
 
-		if (argc < 9) {
-			bk_printf("ERROR\r\n");
-			return;
-		}
+        if (argc < 9) {
+            bk_printf("ERROR\r\n");
+            return;
+        }
 
-		phy_mask = atoi(argv[2]);
-		init_par.conn_intv_max = atoi(argv[3]);
-		init_par.conn_intv_min = atoi(argv[3]);
-		init_par.conn_latency = atoi(argv[4]);
-		init_par.supervision_to = atoi(argv[5]);
-		init_par.scan_interval = atoi(argv[6]);
-		init_par.scan_window = atoi(argv[7]);
-		init_par.ce_len_min = atoi(argv[8]);
-		init_par.ce_len_max = atoi(argv[8]);
-		bk_ble_gap_prefer_ext_connect_params_set(phy_mask, &init_par, &init_par, &init_par);
-	}
-	#endif
-	uint8_t conn_idx;
-	if (os_strcmp(argv[1], "con_create") == 0)
-	{
-		ble_set_notice_cb(ble_notice_cb);
-		conn_idx = app_ble_get_idle_conn_idx_handle(INIT_ACTV);
-		bk_printf("------------->conn_idx:%d\r\n",conn_idx);
+        phy_mask = atoi(argv[2]);
+        init_par.conn_intv_max = atoi(argv[3]);
+        init_par.conn_intv_min = atoi(argv[3]);
+        init_par.conn_latency = atoi(argv[4]);
+        init_par.supervision_to = atoi(argv[5]);
+        init_par.scan_interval = atoi(argv[6]);
+        init_par.scan_window = atoi(argv[7]);
+        init_par.ce_len_min = atoi(argv[8]);
+        init_par.ce_len_max = atoi(argv[8]);
+        bk_ble_gap_prefer_ext_connect_params_set(phy_mask, &init_par, &init_par, &init_par);
+    }
+    #endif
+    uint8_t conn_idx;
+    if (os_strcmp(argv[1], "con_create") == 0)
+    {
+        ble_set_notice_cb(ble_notice_cb);
+        conn_idx = app_ble_get_idle_conn_idx_handle(INIT_ACTV);
+        bk_printf("------------->conn_idx:%d\r\n",conn_idx);
 
-		#if BLE_SDP_CLIENT && (CFG_SOC_NAME == SOC_BK7231N)
-		register_app_sdp_service_tab(sizeof(service_tab)/sizeof(app_sdp_service_uuid),(app_sdp_service_uuid *)service_tab);
-		app_sdp_service_filtration(0);
-		register_app_sdp_characteristic_callback(ble_app_sdp_characteristic_cb);
-		register_app_sdp_charac_callback(app_sdp_charac_cb);
-		bk_ble_create_init(conn_idx, 0, 0, 0,ble_cmd_cb);
-		#elif(CFG_BLE_VERSION == BLE_VERSION_5_2)
-		sdp_set_notice_cb(sdp_event_cb);
-		bk_ble_create_init(conn_idx, ble_cmd_cb);
-		#endif
-	}
-	else if ((os_strcmp(argv[1], "con_start") == 0) && (argc >= 5))
-	{
-		struct bd_addr bdaddr;
-		unsigned char addr_type = ADDR_PUBLIC;
-		int addr_type_str = atoi(argv[3]);
-		int actv_idx_str = atoi(argv[4]);
-		bk_printf("idx:%d,addr_type:%d\r\n",actv_idx_str,addr_type_str);
-		if((addr_type_str > ADDR_RPA_OR_RAND)||(actv_idx_str >= 0xFF)){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		hexstr2bin(argv[2], bdaddr.addr, GAP_BD_ADDR_LEN);
-		addr_type = addr_type_str;
-		bk_ble_init_set_connect_dev_addr(conn_idx,&bdaddr,addr_type);
-		#if (CFG_BLE_VERSION == BLE_VERSION_5_2)
-		bk_ble_init_start_conn(conn_idx,10000,ble_cmd_cb);
-		#else
-		bk_ble_init_start_conn(conn_idx,ble_cmd_cb);
-		#endif
-	}
-	else if ((os_strcmp(argv[1], "con_stop") == 0) && (argc >= 3))
-	{
-		int actv_idx_str = atoi(argv[2]);
-		bk_printf("idx:%d\r\n",actv_idx_str);
-		if(actv_idx_str >= 0xFF){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		bk_ble_init_stop_conn(conn_idx,ble_cmd_cb);
-	}
-	else if ((os_strcmp(argv[1], "con_dis") == 0) && (argc >= 3))
-	{
-		int actv_idx_str = atoi(argv[2]);
-		bk_printf("idx:%d\r\n",actv_idx_str);
-		if(actv_idx_str >= 0xFF){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		app_ble_master_appm_disconnect(conn_idx);
-	} else if (os_strcmp(argv[1], "del_init") == 0)
-	{
-		bk_ble_delete_init(os_strtoul(argv[2], NULL, 10),ble_cmd_cb);
-	}
-#if BLE_CENTRAL
-	else if (os_strcmp(argv[1], "con_read") == 0)
-	{
-		if(argc < 4){
-			bk_printf("param error\r\n");
-			return;
-		}
-		int actv_idx_str = atoi(argv[3]);
-		bk_printf("idx:%d\r\n",actv_idx_str);
-		if(actv_idx_str >= 0xFF){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		int handle = atoi(argv[2]);
-		if(handle >=0 && handle <= 0xFFFF){
-			bk_ble_read_service_data_by_handle_req(conn_idx,handle);
-		}
-		else{
-			bk_printf("handle(%x) error\r\n",handle);
-		}
-	}
-	else if (os_strcmp(argv[1], "con_write") == 0)
-	{
-		//cmd:ble con_write 24 0
-		if(argc < 4){
-			bk_printf("param error\r\n");
-			return;
-		}
-		int handle = atoi(argv[2]);
-		int actv_idx_str = atoi(argv[3]);
-		bk_printf("idx:%d\r\n",actv_idx_str);
-		if(actv_idx_str >= 0xFF){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		unsigned char test_buf[4] = {0x01,0x02,0x22,0x32};
-		if(handle >=0 && handle <= 0xFFFF){
-			bk_ble_write_service_data_req(conn_idx,handle,4,test_buf);
-		}else{
-			bk_printf("handle(%x) error\r\n",handle);
-		}
-	}
-	#if (CFG_SOC_NAME == SOC_BK7231N)
-	else if (os_strcmp(argv[1], "con_rd_sv_ntf_int_cfg") == 0)
-	{
-		if(argc < 4){
-			bk_printf("param error\r\n");
-			return;
-		}
-		int actv_idx_str = atoi(argv[3]);
-		bk_printf("idx:%d\r\n",actv_idx_str);
-		if(actv_idx_str >= 0xFF){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		int handle = atoi(argv[2]);
-		if(handle >=0 && handle <= 0xFFFF){
-			appm_read_service_ntf_ind_cfg_by_handle_req(conn_idx,handle);
-		}else{
-			bk_printf("handle(%x) error\r\n",handle);
-		}
-	}
-	else if (os_strcmp(argv[1], "con_rd_sv_ud_cfg") == 0)
-	{
-		if(argc < 4){
-			bk_printf("param error\r\n");
-			return;
-		}
-		int actv_idx_str = atoi(argv[3]);
-		bk_printf("idx:%d\r\n",actv_idx_str);
-		if(actv_idx_str >= 0xFF){
-			return;
-		}
-		conn_idx = actv_idx_str;
-		int handle = atoi(argv[2]);
-		if(handle >=0 && handle <= 0xFFFF){
-			appm_read_service_userDesc_by_handle_req(conn_idx,handle);
-		}else{
-			bk_printf("handle(%x) error\r\n",handle);
-		}
-	}
-	#endif //(CFG_SOC_NAME == SOC_BK7231N)
-	else if(os_strcmp(argv[1], "svc_filt") == 0)
-	{
-		if(argc < 3){
-			bk_printf("param error\r\n");
-			return;
-		}
-		int en = atoi(argv[2]);
-		bk_printf("svc_filt en:%d\r\n",en);
-		app_sdp_service_filtration(en);
-	}
-#endif
-#endif ///CFG_BLE_INIT_NUM
+        #if BLE_SDP_CLIENT && (CFG_SOC_NAME == SOC_BK7231N)
+        register_app_sdp_service_tab(sizeof(service_tab)/sizeof(app_sdp_service_uuid),(app_sdp_service_uuid *)service_tab);
+        app_sdp_service_filtration(0);
+        register_app_sdp_characteristic_callback(ble_app_sdp_characteristic_cb);
+        register_app_sdp_charac_callback(app_sdp_charac_cb);
+        bk_ble_create_init(conn_idx, 0, 0, 0,ble_cmd_cb);
+        #elif(CFG_BLE_VERSION == BLE_VERSION_5_2)
+        sdp_set_notice_cb(sdp_event_cb);
+        bk_ble_create_init(conn_idx, ble_cmd_cb);
+        #endif
+    }
+    else if ((os_strcmp(argv[1], "con_start") == 0) && (argc >= 5))
+    {
+        struct bd_addr bdaddr;
+        unsigned char addr_type = ADDR_PUBLIC;
+        int addr_type_str = atoi(argv[3]);
+        int actv_idx_str = atoi(argv[4]);
+        bk_printf("idx:%d,addr_type:%d\r\n",actv_idx_str,addr_type_str);
+        if((addr_type_str > ADDR_RPA_OR_RAND)||(actv_idx_str >= 0xFF)) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        hexstr2bin(argv[2], bdaddr.addr, GAP_BD_ADDR_LEN);
+        addr_type = addr_type_str;
+        bk_ble_init_set_connect_dev_addr(conn_idx,&bdaddr,addr_type);
+        #if (CFG_BLE_VERSION == BLE_VERSION_5_2)
+        bk_ble_init_start_conn(conn_idx,10000,ble_cmd_cb);
+        #else
+        bk_ble_init_start_conn(conn_idx,ble_cmd_cb);
+        #endif
+    }
+    else if ((os_strcmp(argv[1], "con_stop") == 0) && (argc >= 3))
+    {
+        int actv_idx_str = atoi(argv[2]);
+        bk_printf("idx:%d\r\n",actv_idx_str);
+        if(actv_idx_str >= 0xFF) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        bk_ble_init_stop_conn(conn_idx,ble_cmd_cb);
+    }
+    else if ((os_strcmp(argv[1], "con_dis") == 0) && (argc >= 3))
+    {
+        int actv_idx_str = atoi(argv[2]);
+        bk_printf("idx:%d\r\n",actv_idx_str);
+        if(actv_idx_str >= 0xFF) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        app_ble_master_appm_disconnect(conn_idx);
+    } else if (os_strcmp(argv[1], "del_init") == 0)
+    {
+        bk_ble_delete_init(os_strtoul(argv[2], NULL, 10),ble_cmd_cb);
+    }
+    #if BLE_CENTRAL
+    else if (os_strcmp(argv[1], "con_read") == 0)
+    {
+        if(argc < 4) {
+            bk_printf("param error\r\n");
+            return;
+        }
+        int actv_idx_str = atoi(argv[3]);
+        bk_printf("idx:%d\r\n",actv_idx_str);
+        if(actv_idx_str >= 0xFF) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        int handle = atoi(argv[2]);
+        if(handle >=0 && handle <= 0xFFFF) {
+            bk_ble_read_service_data_by_handle_req(conn_idx,handle);
+        }
+        else {
+            bk_printf("handle(%x) error\r\n",handle);
+        }
+    }
+    else if (os_strcmp(argv[1], "con_write") == 0)
+    {
+        //cmd:ble con_write 24 0
+        if(argc < 4) {
+            bk_printf("param error\r\n");
+            return;
+        }
+        int handle = atoi(argv[2]);
+        int actv_idx_str = atoi(argv[3]);
+        bk_printf("idx:%d\r\n",actv_idx_str);
+        if(actv_idx_str >= 0xFF) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        unsigned char test_buf[4] = {0x01,0x02,0x22,0x32};
+        if(handle >=0 && handle <= 0xFFFF) {
+            bk_ble_write_service_data_req(conn_idx,handle,4,test_buf);
+        } else {
+            bk_printf("handle(%x) error\r\n",handle);
+        }
+    }
+    #if (CFG_SOC_NAME == SOC_BK7231N)
+    else if (os_strcmp(argv[1], "con_rd_sv_ntf_int_cfg") == 0)
+    {
+        if(argc < 4) {
+            bk_printf("param error\r\n");
+            return;
+        }
+        int actv_idx_str = atoi(argv[3]);
+        bk_printf("idx:%d\r\n",actv_idx_str);
+        if(actv_idx_str >= 0xFF) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        int handle = atoi(argv[2]);
+        if(handle >=0 && handle <= 0xFFFF) {
+            appm_read_service_ntf_ind_cfg_by_handle_req(conn_idx,handle);
+        } else {
+            bk_printf("handle(%x) error\r\n",handle);
+        }
+    }
+    else if (os_strcmp(argv[1], "con_rd_sv_ud_cfg") == 0)
+    {
+        if(argc < 4) {
+            bk_printf("param error\r\n");
+            return;
+        }
+        int actv_idx_str = atoi(argv[3]);
+        bk_printf("idx:%d\r\n",actv_idx_str);
+        if(actv_idx_str >= 0xFF) {
+            return;
+        }
+        conn_idx = actv_idx_str;
+        int handle = atoi(argv[2]);
+        if(handle >=0 && handle <= 0xFFFF) {
+            appm_read_service_userDesc_by_handle_req(conn_idx,handle);
+        } else {
+            bk_printf("handle(%x) error\r\n",handle);
+        }
+    }
+    #endif //(CFG_SOC_NAME == SOC_BK7231N)
+    else if(os_strcmp(argv[1], "svc_filt") == 0)
+    {
+        if(argc < 3) {
+            bk_printf("param error\r\n");
+            return;
+        }
+        int en = atoi(argv[2]);
+        bk_printf("svc_filt en:%d\r\n",en);
+        app_sdp_service_filtration(en);
+    }
+    #endif
+    #endif ///CFG_BLE_INIT_NUM
 }
 #endif
+#endif
+
+#if (CFG_BLE_HOST_RW == 0) && (CFG_BLE_VERSION == BLE_VERSION_5_2)
+ble_err_t ble_hci_to_host_evt_cb(uint8_t *buf, uint16_t len)
+{
+    bk_printf("evt:");
+    for (uint8_t i = 0; i < len; i++) {
+        bk_printf("%x ",buf[i]);
+    }
+    bk_printf("\r\n");
+
+    return 0;
+}
+
+ble_err_t ble_hci_to_host_acl_cb(uint8_t *buf, uint16_t len)
+{
+    bk_printf("acl:");
+    for (uint8_t i = 0; i < len; i++) {
+        bk_printf("%x ",buf[i]);
+    }
+    bk_printf("\r\n");
+    return 0;
+}
+
+static void ble_command_controller(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    if (os_strcmp(argv[1], "dut") == 0) {
+        char *const txevm_exit[3] = {"txevm", "-e", "0"};
+        do_evm(NULL, 0, 3, txevm_exit);
+        ble_dut_start();
+    }
+    if (os_strcmp(argv[1], "active") == 0) {
+        bk_ble_reg_hci_recv_callback(ble_hci_to_host_evt_cb,ble_hci_to_host_acl_cb);
+    }
+
+    if (os_strcmp(argv[1], "adv") == 0) {
+        uint8_t data[] = {
+            0x09,0x10,0x00
+        };
+
+        uint8_t data1[] = {
+            0x01,0x20,0x08,0xFD,0xFF,0x0F,0x00,0x00,0x00,0x00,0x00
+        };
+
+        uint8_t data2[] = {
+            0x06,0x20,0x0F,0x40,0x00,0x40,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x07,0x00
+        };
+
+        uint8_t data3[] = {
+            0x08,0x20,0x20,0x10,0x02,0x01,06,0x0C,0x08,0x52,0x57,0x2D,0x42,0x4C,0x45,0x2D,0x44,0x45,0x56,
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00
+        };
+
+        uint8_t data4[] = {
+            0x0A,0x20,0x01,0x01
+        };
+
+        uint8_t reset[] = {
+            0x03, 0x0c, 0x00
+        };
+
+        //config advertise
+        bk_ble_hci_cmd_to_controller(reset,sizeof(reset));
+        rtos_delay_milliseconds(20);
+        bk_ble_hci_cmd_to_controller(data,sizeof(data));
+        rtos_delay_milliseconds(20);
+        bk_ble_hci_cmd_to_controller(data1,sizeof(data1));
+        rtos_delay_milliseconds(20);
+        bk_ble_hci_cmd_to_controller(data2,sizeof(data2));
+        rtos_delay_milliseconds(20);
+        bk_ble_hci_cmd_to_controller(data3,sizeof(data3));
+        rtos_delay_milliseconds(20);
+        bk_ble_hci_cmd_to_controller(data4,sizeof(data4));
+        rtos_delay_milliseconds(20);
+    }
+
+    if(os_strcmp(argv[1],"exit")==0) {
+        ble_thread_exit();
+    }
+}
 #endif
 
 #if CFG_WIFI_SENSOR
@@ -4048,114 +4535,114 @@ extern void lowvol_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int a
 
 static void wifi_mgmt_filter_cb(uint8_t *data, int len, void *info)
 {
-	if (!data) {
-		bk_printf("null data\n");
-		return;
-	}
+    if (!data) {
+        bk_printf("null data\n");
+        return;
+    }
 
-	uint16_t framectrl = co_read16(data);
-	uint16_t frame_type_subtype = framectrl & MAC_FCTRL_TYPESUBTYPE_MASK;
+    uint16_t framectrl = co_read16(data);
+    uint16_t frame_type_subtype = framectrl & MAC_FCTRL_TYPESUBTYPE_MASK;
 
-	bk_printf("filter type=%x info=%u\n", frame_type_subtype, (uint32_t)info);
+    bk_printf("filter type=%x info=%u\n", frame_type_subtype, (uint32_t)info);
 }
 
 static void wifi_mgmt_filter_help(void)
 {
-	bk_printf("wifi_mgmt_filter 0(all)/1(probe req)/-1(stop)\n");
+    bk_printf("wifi_mgmt_filter 0(all)/1(probe req)/-1(stop)\n");
 }
 
 static void cmd_wifi_mgmt_filter(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	OSStatus ret = kGeneralErr;
-	uint32_t filter = 0;
+    OSStatus ret = kGeneralErr;
+    uint32_t filter = 0;
 
-	if (argc != 2){
-		wifi_mgmt_filter_help();
-		return;
-	}
+    if (argc != 2) {
+        wifi_mgmt_filter_help();
+        return;
+    }
 
-	filter = os_strtoul(argv[1], NULL, 0);
-	if (filter == -1) {
-		ret = bk_wlan_reg_rx_mgmt_cb(NULL, 0);
-	} else {
-		ret = bk_wlan_reg_rx_mgmt_cb(wifi_mgmt_filter_cb, filter);
-	}
+    filter = os_strtoul(argv[1], NULL, 0);
+    if (filter == -1) {
+        ret = bk_wlan_reg_rx_mgmt_cb(NULL, 0);
+    } else {
+        ret = bk_wlan_reg_rx_mgmt_cb(wifi_mgmt_filter_cb, filter);
+    }
 
-	bk_printf("set filter ret=%x\n", ret);
+    bk_printf("set filter ret=%x\n", ret);
 }
 
 #if CFG_WIFI_RAW_TX_CMD
 
 typedef struct {
-	uint32_t interval;
-	uint32_t counter;
+    uint32_t interval;
+    uint32_t counter;
 } wifi_raw_tx_param_t;
 
 static void wifi_raw_tx_thread(void *arg)
 {
-	char frame[] = {
-		0xB0, //version, type, subtype
-		0x00, //frame control
-		0x3A, 0x01, //duration
-		0xC8, 0x47, 0x8C, 0x42, 0x00, 0x48, //Address1 - destination
-		0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address2 - source
-		0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address3 - bssid
-		0x20, 0xC0, //sequence
+    char frame[] = {
+        0xB0, //version, type, subtype
+        0x00, //frame control
+        0x3A, 0x01, //duration
+        0xC8, 0x47, 0x8C, 0x42, 0x00, 0x48, //Address1 - destination
+        0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address2 - source
+        0x4C, 0xD1, 0xA1, 0xC5, 0x38, 0xE4, //Address3 - bssid
+        0x20, 0xC0, //sequence
 
-		//Auth Response
-		0x00, 0x00, //Auth algorithm - open system
-		0x02, 0x00, //Auth seq num
-		0x00, 0x00, //Status code
-	};
-	wifi_raw_tx_param_t *tx_param;
-	int ret;
+        //Auth Response
+        0x00, 0x00, //Auth algorithm - open system
+        0x02, 0x00, //Auth seq num
+        0x00, 0x00, //Status code
+    };
+    wifi_raw_tx_param_t *tx_param;
+    int ret;
 
-	tx_param = (wifi_raw_tx_param_t *)arg;
-	os_printf("wifi raw tx begin, interval=%u counter=%d\n", tx_param->interval,
-			tx_param->counter);
+    tx_param = (wifi_raw_tx_param_t *)arg;
+    os_printf("wifi raw tx begin, interval=%u counter=%d\n", tx_param->interval,
+              tx_param->counter);
 
-	for (uint32_t i = 0; i < tx_param->counter; i++) {
-		ret = bk_wlan_send_80211_raw_frame((unsigned char*)frame, sizeof(frame));
-		if (ret != kNoErr) {
-			os_printf("raw tx error, ret=%d\n", ret);
-		}
+    for (uint32_t i = 0; i < tx_param->counter; i++) {
+        ret = bk_wlan_send_80211_raw_frame((unsigned char*)frame, sizeof(frame));
+        if (ret != kNoErr) {
+            os_printf("raw tx error, ret=%d\n", ret);
+        }
 
-		rtos_delay_milliseconds(tx_param->interval);
-	}
+        rtos_delay_milliseconds(tx_param->interval);
+    }
 
-	os_free(arg);
-	os_printf("wifi raw tx end\n");
-	rtos_delete_thread(NULL);
+    os_free(arg);
+    os_printf("wifi raw tx end\n");
+    rtos_delete_thread(NULL);
 }
 
 static void wifi_raw_tx_command(char *pcWriteBuffer, int xWriteBufferLen,
-				int argc, char **argv)
+                                int argc, char **argv)
 {
-	OSStatus ret;
+    OSStatus ret;
 
-	if (argc != 3) {
-		bk_printf("param error");
-		bk_printf("usage: wifi_raw_tx interval counter");
-		return;
-	}
+    if (argc != 3) {
+        bk_printf("param error");
+        bk_printf("usage: wifi_raw_tx interval counter");
+        return;
+    }
 
-	wifi_raw_tx_param_t *tx_param;
-	tx_param = (wifi_raw_tx_param_t *)os_malloc(sizeof(wifi_raw_tx_param_t));
-	if (!tx_param) {
-		bk_printf("out of memory\n");
-		return;
-	}
+    wifi_raw_tx_param_t *tx_param;
+    tx_param = (wifi_raw_tx_param_t *)os_malloc(sizeof(wifi_raw_tx_param_t));
+    if (!tx_param) {
+        bk_printf("out of memory\n");
+        return;
+    }
 
-	tx_param->interval = os_strtoul(argv[1], NULL, 10);
-	tx_param->counter = os_strtoul(argv[2], NULL, 10);
-	ret = rtos_create_thread(NULL, THD_CORE_PRIORITY, "raw_tx",
-				(beken_thread_function_t)wifi_raw_tx_thread,
-				2048, tx_param);
-	if (kNoErr != ret) {
-		os_free(tx_param);
-		os_printf("Create raw tx thread failed, ret=%d\r\n", ret);
-		return;
-	}
+    tx_param->interval = os_strtoul(argv[1], NULL, 10);
+    tx_param->counter = os_strtoul(argv[2], NULL, 10);
+    ret = rtos_create_thread(NULL, THD_CORE_PRIORITY, "raw_tx",
+                             (beken_thread_function_t)wifi_raw_tx_thread,
+                             2048, tx_param);
+    if (kNoErr != ret) {
+        os_free(tx_param);
+        os_printf("Create raw tx thread failed, ret=%d\r\n", ret);
+        return;
+    }
 }
 #endif
 
@@ -4164,29 +4651,29 @@ extern void bk_aware_demo_main(void);
 extern void bk_aware_demo_stop(void);
 
 static void bk_wifi_aware_command(char *pcWriteBuffer, int xWriteBufferLen,
-				int argc, char **argv)
+                                  int argc, char **argv)
 {
-	if (argc == 2 && os_strcmp(argv[1], "start") == 0) {
-		bk_aware_demo_main();
-	} else if (argc == 2 && os_strcmp(argv[1], "stop") == 0) {
-		bk_aware_demo_stop();
-	} else {
-		os_printf("Usage: bk_aware <start>|<stop>\n");
-	}
+    if (argc == 2 && os_strcmp(argv[1], "start") == 0) {
+        bk_aware_demo_main();
+    } else if (argc == 2 && os_strcmp(argv[1], "stop") == 0) {
+        bk_aware_demo_stop();
+    } else {
+        os_printf("Usage: bk_aware <start>|<stop>\n");
+    }
 }
 #endif
 
 #if CFG_WIFI_FTM
 static void ftm_command(char *pcWriteBuffer, int xWriteBufferLen,
-				int argc, char **argv)
+                        int argc, char **argv)
 {
-	if (argc == 2 && os_strcmp(argv[1], "start") == 0) {
-		rw_msg_send_ftm_start(0, 3, 1);
-	} else if (argc == 2 && os_strcmp(argv[1], "stop") == 0) {
-		//bk_aware_demo_stop();
-	} else {
-		os_printf("Usage: ftm <start>|<stop>\n");
-	}
+    if (argc == 2 && os_strcmp(argv[1], "start") == 0) {
+        rw_msg_send_ftm_start(0, 3, 1);
+    } else if (argc == 2 && os_strcmp(argv[1], "stop") == 0) {
+        //bk_aware_demo_stop();
+    } else {
+        os_printf("Usage: ftm <start>|<stop>\n");
+    }
 }
 #endif
 
@@ -4201,9 +4688,9 @@ beken_timer_t wifi_snr_timer;
 static void get_wifi_snr_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
     rtos_init_timer(&wifi_snr_timer,
-                          1 * 1000,
-                          wifi_snr_timer_handler,
-                          (void *)0);
+                    1 * 1000,
+                    wifi_snr_timer_handler,
+                    (void *)0);
     rtos_start_timer(&wifi_snr_timer);
 }
 #endif
@@ -4253,7 +4740,7 @@ static void i2c2_test_slave(char *pcWriteBuffer, int xWriteBufferLen, int argc, 
         os_printf("i2c2 test success\r\n");
         for (i = 0; i < I2C_TEST_DATA_LEGNTH; i++)
             os_printf("pData[%d]=0x%x\r\n", i, testdata[i]);
-    }else{
+    } else {
         os_printf("i2c2 test fail\r\n");
     }
 
@@ -4290,7 +4777,7 @@ static void i2c2_test_master(char *pcWriteBuffer, int xWriteBufferLen, int argc,
         os_printf("i2c2 test success\r\n");
         for (i = 0; i < I2C_TEST_DATA_LEGNTH; i++)
             os_printf("pData[%d]=0x%x\r\n", i, testdata[i]);
-    }else{
+    } else {
         os_printf("i2c2 test fail\r\n");
     }
 
@@ -4327,7 +4814,7 @@ static void i2c2_test_memory(char *pcWriteBuffer, int xWriteBufferLen, int argc,
         os_printf("i2c2 test success\r\n");
         for (i = 0; i < I2C_TEST_DATA_LEGNTH; i++)
             os_printf("pData[%d]=0x%x\r\n", i, testdata[i]);
-    }else{
+    } else {
         os_printf("i2c2 test fail\r\n");
     }
 
@@ -4344,17 +4831,20 @@ static const struct cli_command built_ins[] =
     {"exit", "CLI exit", cli_exit_handler},
 
     /// WIFI
+    #if (CFG_SOC_NAME == SOC_BK7252N)
+    {"ip", "ip [sta|ap][{ip}{mask}{gate}{dns}]", ip_Command},
+    #endif
     {"scan", "scan ap", wifiscan_Command},
     {"advscan", "scan ap", wifiadvscan_Command},
     {"softap", "softap ssid key", softap_Command},
     {"stopintf", "stopintf intfacename", stop_wlan_intface_Command},
     {"sta", "sta ap_ssid key", sta_Command},
-#if CFG_WPA2_ENTERPRISE
-	{"sta_eap", "sta_eap ssid password [identity] [client_cert] [private_key]", sta_eap_Command},
-#endif
-#if CFG_WFA_CERT
+    #if CFG_WPA2_ENTERPRISE
+    {"sta_eap", "sta_eap ssid password [identity] [client_cert] [private_key]", sta_eap_Command},
+    #endif
+    #if CFG_WFA_CERT
     {"net", "wifi net config", net_Command},           // 8k rom size
-#endif
+    #endif
     {"adv", "adv", sta_adv_Command},
     {"mtr", "mtr channel", mtr_Command},
     {"addif", "addif param", add_virtual_intface},
@@ -4372,9 +4862,9 @@ static const struct cli_command built_ins[] =
     {"sockshow", "Show all sockets", socket_show_Command},
     // os
     {"tasklist", "list all thread name status", task_Command},
-#if CFG_MEM_DEBUG
+    #if CFG_MEM_DEBUG
     {"memleak", "show memleak", memleak_Command},
-#endif
+    #endif
 
     // others
     {"memshow", "print memory information", memory_show_Command},
@@ -4391,53 +4881,68 @@ static const struct cli_command built_ins[] =
     {"GPIO_INT", "GPIO_INT <cmd> <arg1> <arg2>", Gpio_int_Command},
     {"flash", "flash <cmd(R/W/E/N/idle_read_start/idle_read_stop)>", flash_command_test},
     {"UART", "UART I <index>", Uart_command_test},
+    #if CFG_FLASH_BYPASS_OTP
+    {"flash_bypass", "flash_bypass [R/E/W/L] [otp_idx:0/1/2/3] [addr_offset] [length]", flash_bypass_command_test},
+    #endif
 
-#if CFG_TX_EVM_TEST
+    #if CFG_TX_EVM_TEST
     {"txevm", "txevm [-m] [-c] [-l] [-r] [-w]", tx_evm_cmd_test},
-#endif
-#if CFG_RX_SENSITIVITY_TEST
+    #endif
+    #if CFG_RX_SENSITIVITY_TEST
     {"rxsens", "rxsens [-m] [-d] [-c] [-l]", rx_sens_cmd_test},
-#endif
+    #endif
     #if (CFG_SOC_NAME != SOC_BK7231)
     {"efuse",       "efuse [-r addr] [-w addr data]", efuse_cmd_test},
     {"efusemac",    "efusemac [-r] [-w] [mac]",       efuse_mac_cmd_test},
     #endif // (CFG_SOC_NAME != SOC_BK7231)
 
-#if CFG_SARADC_CALIBRATE
+    #if CFG_SARADC_CALIBRATE
     {"adc", "adc [func] [param]", adc_command},
-#endif
+    #if CFG_SARADC_VERIFY
+    {"saradc", "saradc start mode 1 num [1~100000] chan [1~7] div 0 sam_rate 5", saradc_command},
+    #endif
+    #endif
 
     {"easylink", "start easylink", easylink_Command},
-#if CFG_AIRKISS_TEST
+    #if CFG_AIRKISS_TEST
     {"airkiss", "start airkiss", airkiss_Command},
 
-#endif
-#if CFG_SUPPORT_OTA_TFTP
-	{"tftpota", "tftpota [ip] [file]", tftp_ota_get_Command},
-#endif
+    #endif
+    #if CFG_SUPPORT_OTA_TFTP
+    {"tftpota", "tftpota [ip] [file]", tftp_ota_get_Command},
+    #endif
 
-#if 0//CFG_USE_SDCARD_HOST
+    #if 0//CFG_USE_SDCARD_HOST
     {"sdtest", "sdtest <cmd>", sd_operate},
-#endif
+    #endif
 
-#if CFG_USE_TEMPERATURE_DETECT
+    #if CFG_USE_TEMPERATURE_DETECT
     {"tmpdetect", "tmpdetect <cmd>", temp_detect_Command},
-#endif
-#if CFG_SUPPORT_OTA_HTTP
+    #endif
+    #if CFG_SUPPORT_OTA_HTTP
     {"http_ota", "http_ota url", http_ota_Command},
-#endif
+    #endif
     {"regshow", "regshow -w/r addr [value]", reg_write_read_test},
 
-	{"cca", "cca open\\close\\show", phy_cca_test},
-#if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1))
+    {"cca", "cca open\\close\\show", phy_cca_test},
+    #if ((CFG_SOC_NAME != SOC_BK7231) && (CFG_SUPPORT_BLE == 1) && (CFG_BLE_USE_CLI == 1) && ((CFG_BLE_HOST_RW == 1) || (CFG_BLE_VERSION < BLE_VERSION_5_2)))
     {"ble", "ble arg1 arg2",  ble_command},
-#endif
-#if CFG_USE_I2C2
+    #endif
+    #if ((CFG_BLE_HOST_RW == 0) && (CFG_BLE_VERSION == BLE_VERSION_5_2))
+    {"ble", "ble arg1 arg2",  ble_command_controller},
+    #endif
+    #if CFG_USE_I2C2
     {"i2c_master", "i2c_master read/write",  i2c2_test_master},
     {"i2c_slave", "i2c_slave read/write",  i2c2_test_slave},
     {"i2c_memory", "i2c_memory read/write",  i2c2_test_memory},
-#endif
-#if (CFG_SOC_NAME != SOC_BK7231)
+    #endif
+    #if (CFG_SOC_NAME == SOC_BK7238)
+    {"rfcali_cfg_mode",      "1:manual, 0:auto, others: clear flash mode",      cmd_rfcali_cfg_mode},
+    {"rfcali_power_shift_g", "-8~8dB",                cmd_rfcali_cfg_tssi_g},
+    {"rfcali_power_shift_b", "-8~8dB",                cmd_rfcali_cfg_tssi_b},
+    {"rfcali_show_data",     "",                      cmd_rfcali_show_data},
+    {"rfcali_cfg_rate_dist", "b g n40 ble (0-31)",    cmd_rfcali_cfg_rate_dist},
+    #elif (CFG_SOC_NAME != SOC_BK7231)
     {"rfcali_cfg_mode",      "1:manual, 0:auto, others: clear flash mode",      cmd_rfcali_cfg_mode},
     {"rfcali_cfg_tssi_g",    "0-255",                 cmd_rfcali_cfg_tssi_g},
     {"rfcali_cfg_tssi_b",    "0-255",                 cmd_rfcali_cfg_tssi_b},
@@ -4445,29 +4950,29 @@ static const struct cli_command built_ins[] =
     {"rfcali_cfg_tssi_n40",  "0-255",                 cmd_rfcali_cfg_tssi_n40},
     {"rfcali_show_data",     "",                      cmd_rfcali_show_data},
     {"rfcali_cfg_rate_dist", "b g n40 ble (0-31)",    cmd_rfcali_cfg_rate_dist},
-#endif
-#if CFG_WIFI_SENSOR
-	{"wifisensor", "wifi sensor", wifi_sensor_command},
-#endif
+    #endif
+    #if CFG_WIFI_SENSOR
+    {"wifisensor", "wifi sensor", wifi_sensor_command},
+    #endif
     {"wifi_mgmt_filter", "wifi_mgmt_filter <0/1/-1>", cmd_wifi_mgmt_filter},
-#if CFG_WIFI_RAW_TX_CMD
-	{"wifi_raw_tx", "wifi_raw_tx", wifi_raw_tx_command},
-#endif
-#if CFG_BK_AWARE
-	{"bk_aware", "bk_aware", bk_wifi_aware_command},
-#endif
-#if CFG_QUICK_TRACK
+    #if CFG_WIFI_RAW_TX_CMD
+    {"wifi_raw_tx", "wifi_raw_tx", wifi_raw_tx_command},
+    #endif
+    #if CFG_BK_AWARE
+    {"bk_aware", "bk_aware", bk_wifi_aware_command},
+    #endif
+    #if CFG_QUICK_TRACK
     {"app", "quicktrack controlappc", controlappc_start},
-#endif
-#if CFG_WIFI_FTM
+    #endif
+    #if CFG_WIFI_FTM
     {"ftm", "802.11mc FTM", ftm_command},
-#endif
-#if CFG_BK_NX_GET_WIFI_SNR
+    #endif
+    #if CFG_BK_NX_GET_WIFI_SNR
     {"get_wifi_snr", "get", get_wifi_snr_Command},
-#endif
-#if THROUGHPUT_DEMO
+    #endif
+    #if THROUGHPUT_DEMO
     {"tp", "tp argv[]", ble_throughput_demo_command},
-#endif
+    #endif
 };
 #else
 static const struct cli_command built_ins[] =
@@ -4485,9 +4990,9 @@ static const struct cli_command built_ins[] =
     {"sockshow", "Show all sockets", socket_show_Command},
     // os
     {"tasklist", "list all thread name status", task_Command},
-#if CFG_MEM_DEBUG
+    #if CFG_MEM_DEBUG
     {"memleak", "show memleak", memleak_Command},
-#endif
+    #endif
     // others
     {"memshow", "print memory information", memory_show_Command},
     {"memdump", "<addr> <length>", memory_dump_Command},
@@ -4496,36 +5001,36 @@ static const struct cli_command built_ins[] =
     {"reboot", "reboot system", reboot},
     {"time",     "system time",                 uptime_Command},
     {"partition",    "Flash partition map",            partShow_Command},
-#if CFG_SARADC_CALIBRATE
+    #if CFG_SARADC_CALIBRATE
     {"adc", "adc [func] [param]", adc_command},
-#endif
-#if CFG_AIRKISS_TEST
+    #endif
+    #if CFG_AIRKISS_TEST
     {"airkiss", "start airkiss", airkiss_Command},
-#endif
-#if CFG_SUPPORT_OTA_TFTP
+    #endif
+    #if CFG_SUPPORT_OTA_TFTP
     {"tftpota", "tftpota [ip] [file]", tftp_ota_get_Command},
-#endif
-#if 0//CFG_USE_SDCARD_HOST
+    #endif
+    #if 0//CFG_USE_SDCARD_HOST
     {"sdtest", "sdtest <cmd>", sd_operate},
-#endif
-#if CFG_WIFI_SENSOR
+    #endif
+    #if CFG_WIFI_SENSOR
     {"wifisensor", "wifi sensor", wifi_sensor_command},
-#endif
-#if CFG_WIFI_RAW_TX_CMD
+    #endif
+    #if CFG_WIFI_RAW_TX_CMD
     {"wifi_raw_tx", "wifi_raw_tx", wifi_raw_tx_command},
-#endif
-#if CFG_BK_AWARE
+    #endif
+    #if CFG_BK_AWARE
     {"bk_aware", "bk_aware", bk_wifi_aware_command},
-#endif
-#if CFG_QUICK_TRACK
+    #endif
+    #if CFG_QUICK_TRACK
     {"app", "quicktrack controlappc", controlappc_start},
-#endif
-#if CFG_WIFI_FTM
+    #endif
+    #if CFG_WIFI_FTM
     {"ftm", "802.11mc FTM", ftm_command},
-#endif
-#if CFG_BK_NX_GET_WIFI_SNR
+    #endif
+    #if CFG_BK_NX_GET_WIFI_SNR
     {"get_wifi_snr", "get", get_wifi_snr_Command},
-#endif
+    #endif
     {"bk_erase_all_test", "bk_erase_all_test ", bk_erase_all_test},
     {"sta", "sta ap_ssid key", sta_Command},
     {"txevm", "txevm [-m] [-c] [-l] [-r] [-w]", tx_evm_cmd_test},
@@ -4541,9 +5046,9 @@ void help_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **arg
     int i, n;
     uint32_t build_in_count = sizeof(built_ins) / sizeof(struct cli_command);
 
-#if (DEBUG)
+    #if (DEBUG)
     build_in_count++; //For command: micodebug
-#endif
+    #endif
 
     os_printf( "====Build-in Commands====\r\n" );
     for (i = 0, n = 0; i < MAX_CMD_COUNT && n < pCli->num_commands; i++)
@@ -4796,37 +5301,43 @@ void pwr_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv
 
 static void Deep_Sleep_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	PS_DEEP_CTRL_PARAM deep_sleep_param;
+    PS_DEEP_CTRL_PARAM deep_sleep_param;
 
-	deep_sleep_param.wake_up_way			= 0;
+    deep_sleep_param.wake_up_way            = 0;
 
-	deep_sleep_param.gpio_index_map      	= os_strtoul(argv[1], NULL, 16);
-	deep_sleep_param.gpio_edge_map       	= os_strtoul(argv[2], NULL, 16);
-	deep_sleep_param.gpio_last_index_map 	= os_strtoul(argv[3], NULL, 16);
-	deep_sleep_param.gpio_last_edge_map  	= os_strtoul(argv[4], NULL, 16);
-	deep_sleep_param.sleep_time     		= os_strtoul(argv[5], NULL, 16);
-	deep_sleep_param.wake_up_way     		= os_strtoul(argv[6], NULL, 16);
-	deep_sleep_param.gpio_stay_lo_map 	    = os_strtoul(argv[7], NULL, 16);
-	deep_sleep_param.gpio_stay_hi_map  	    = os_strtoul(argv[8], NULL, 16);
+    deep_sleep_param.gpio_index_map         = os_strtoul(argv[1], NULL, 16);
+    deep_sleep_param.gpio_edge_map          = os_strtoul(argv[2], NULL, 16);
+    deep_sleep_param.gpio_last_index_map    = os_strtoul(argv[3], NULL, 16);
+    deep_sleep_param.gpio_last_edge_map     = os_strtoul(argv[4], NULL, 16);
+    deep_sleep_param.sleep_time             = os_strtoul(argv[5], NULL, 16);
+    deep_sleep_param.wake_up_way            = os_strtoul(argv[6], NULL, 16);
+    deep_sleep_param.gpio_stay_lo_map       = os_strtoul(argv[7], NULL, 16);
+    deep_sleep_param.gpio_stay_hi_map       = os_strtoul(argv[8], NULL, 16);
 
-	if(argc == 9)
-	{
-		os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n",
-					deep_sleep_param.gpio_index_map,
-					deep_sleep_param.gpio_edge_map,
-					deep_sleep_param.gpio_last_index_map,
-					deep_sleep_param.gpio_last_edge_map,
-					deep_sleep_param.sleep_time,
-					deep_sleep_param.wake_up_way);
+    #if (CFG_SOC_NAME == SOC_BK7252N)
+    deep_sleep_param.gpio_edge_sel_map      = os_strtoul(argv[9], NULL, 16);
+    deep_sleep_param.gpio_last_edge_sel_map = os_strtoul(argv[10], NULL, 16);
+    #endif
 
-	#if (CFG_SOC_NAME != SOC_BK7271) && CFG_USE_DEEP_PS
-		bk_enter_deep_sleep_mode(&deep_sleep_param);
-	#endif
-	}
-	else
-	{
-		os_printf("---argc error!!! \r\n");
-	}
+
+    if(argc >= 9)
+    {
+        os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n",
+                  deep_sleep_param.gpio_index_map,
+                  deep_sleep_param.gpio_edge_map,
+                  deep_sleep_param.gpio_last_index_map,
+                  deep_sleep_param.gpio_last_edge_map,
+                  deep_sleep_param.sleep_time,
+                  deep_sleep_param.wake_up_way);
+
+        #if (CFG_SOC_NAME != SOC_BK7271) && CFG_USE_DEEP_PS
+        bk_enter_deep_sleep_mode(&deep_sleep_param);
+        #endif
+    }
+    else
+    {
+        os_printf("---argc error!!! \r\n");
+    }
 }
 
 static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
@@ -4836,55 +5347,55 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
     dtim = dtim;
     char *msg = NULL;
 
-	#if PS_SUPPORT_MANUAL_SLEEP
+    #if PS_SUPPORT_MANUAL_SLEEP
     UINT32 standby_time = 0;
     UINT32 dtim_wait_time = 0;
-	#endif
+    #endif
 
     if(argc < 3)
     {
         goto IDLE_CMD_ERR;
     }
-#if  CFG_USE_DEEP_PS
+    #if  CFG_USE_DEEP_PS
 
     if(0 == os_strcmp(argv[1], "deepps"))
     {
-    	PS_DEEP_CTRL_PARAM deep_sleep_param;
+        PS_DEEP_CTRL_PARAM deep_sleep_param;
         if(argc != 11)
         {
             goto IDLE_CMD_ERR;
         }
 
-    	deep_sleep_param.gpio_index_map      	= os_strtoul(argv[2], NULL, 16);
-    	deep_sleep_param.gpio_edge_map       	= os_strtoul(argv[3], NULL, 16);
-    	deep_sleep_param.gpio_stay_lo_map 	    = os_strtoul(argv[4], NULL, 16);
+        deep_sleep_param.gpio_index_map      	= os_strtoul(argv[2], NULL, 16);
+        deep_sleep_param.gpio_edge_map       	= os_strtoul(argv[3], NULL, 16);
+        deep_sleep_param.gpio_stay_lo_map 	    = os_strtoul(argv[4], NULL, 16);
 
-    	deep_sleep_param.gpio_last_index_map 	= os_strtoul(argv[5], NULL, 16);
-    	deep_sleep_param.gpio_last_edge_map  	= os_strtoul(argv[6], NULL, 16);
+        deep_sleep_param.gpio_last_index_map 	= os_strtoul(argv[5], NULL, 16);
+        deep_sleep_param.gpio_last_edge_map  	= os_strtoul(argv[6], NULL, 16);
         deep_sleep_param.gpio_stay_hi_map  	    = os_strtoul(argv[7], NULL, 16);
 
-    	deep_sleep_param.sleep_time     		= os_strtoul(argv[8], NULL, 16);
-    	deep_sleep_param.lpo_32k_src     		= os_strtoul(argv[9], NULL, 16);
+        deep_sleep_param.sleep_time     		= os_strtoul(argv[8], NULL, 16);
+        deep_sleep_param.lpo_32k_src     		= os_strtoul(argv[9], NULL, 16);
 
-    	deep_sleep_param.wake_up_way     		= os_strtoul(argv[10], NULL, 16);
+        deep_sleep_param.wake_up_way     		= os_strtoul(argv[10], NULL, 16);
 
-		os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n",
-					deep_sleep_param.gpio_index_map,
-					deep_sleep_param.gpio_edge_map,
-					deep_sleep_param.gpio_last_index_map,
-					deep_sleep_param.gpio_last_edge_map,
-					deep_sleep_param.sleep_time,
-					deep_sleep_param.wake_up_way);
-		os_printf("--- 0x%0X 0x%0X 0x%0X \r\n",
-        			deep_sleep_param.gpio_stay_lo_map,
-        			deep_sleep_param.gpio_stay_hi_map,
-        			deep_sleep_param.lpo_32k_src);
+        os_printf("---deep sleep test param : 0x%0X 0x%0X 0x%0X 0x%0X %d %d\r\n",
+                  deep_sleep_param.gpio_index_map,
+                  deep_sleep_param.gpio_edge_map,
+                  deep_sleep_param.gpio_last_index_map,
+                  deep_sleep_param.gpio_last_edge_map,
+                  deep_sleep_param.sleep_time,
+                  deep_sleep_param.wake_up_way);
+        os_printf("--- 0x%0X 0x%0X 0x%0X \r\n",
+                  deep_sleep_param.gpio_stay_lo_map,
+                  deep_sleep_param.gpio_stay_hi_map,
+                  deep_sleep_param.lpo_32k_src);
 
-		bk_enter_deep_sleep_mode(&deep_sleep_param);
+        bk_enter_deep_sleep_mode(&deep_sleep_param);
     }
-#endif
+    #endif
 
-#if CFG_USE_FAKERTC_PS
+    #if CFG_USE_FAKERTC_PS
     else if (0 == os_strcmp(argv[1], "idleps"))
     {
         GLOBAL_INT_DECLARATION();
@@ -4913,18 +5424,18 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         count = 100;
         while((1 == bk_unconditional_normal_sleep(0xFFFFFFFF,1))) {
             rtos_delay_milliseconds(2);
-			count--;
-			if(count == 0){
-				bk_printf("IDLE_SLEEP timeout\r\n");
-				break;
-        	}
+            count--;
+            if(count == 0) {
+                bk_printf("IDLE_SLEEP timeout\r\n");
+                break;
+            }
         }
 
         bk_printf("idle Sleep out\r\n");
     }
-#endif
+    #endif
 
-#if CFG_USE_MCU_PS
+    #if CFG_USE_MCU_PS
     else if(0 == os_strcmp(argv[1], "mcudtim"))
     {
         if(argc < 3)
@@ -4932,8 +5443,8 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
             goto IDLE_CMD_ERR;
         }
 
-		msg = CLI_CMD_RSP_SUCCEED;
-#if (CFG_LOW_VOLTAGE_PS_COEXIST == 1)
+        msg = CLI_CMD_RSP_SUCCEED;
+        #if (CFG_LOW_VOLTAGE_PS_COEXIST == 1)
         if(argc == 4)
         {
             u32 enabled = os_strtoul(argv[3], NULL, 10);
@@ -4947,7 +5458,7 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
                 os_printf("enable low vol ps: %d\r\n", enabled);
             }
         }
-#endif
+        #endif
         dtim = os_strtoul(argv[2], NULL, 10);
         if(dtim == 1)
         {
@@ -4962,18 +5473,25 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
             goto IDLE_CMD_ERR;
         }
     }
-#if (1 == CFG_LOW_VOLTAGE_PS)
+    #if (1 == CFG_LOW_VOLTAGE_PS)
     else if(0 == os_strcmp(argv[1], "gpio"))
     {
         if(argc < 4)
         {
             goto IDLE_CMD_ERR;
         }
-        sctrl_set_gpio_wakeup_index(os_strtoul(argv[2], NULL, 10),os_strtoul(argv[3], NULL, 10));
+        if (0 == os_strcmp(argv[2], "float"))
+        {
+            sctrl_set_deep_sleep_gpio_floating_map(os_strtoul(argv[3], NULL, 16));
+        }
+        else
+        {
+            sctrl_set_gpio_wakeup_index(os_strtoul(argv[2], NULL, 10),os_strtoul(argv[3], NULL, 10));
+        }
     }
-#endif
-#endif
-#if CFG_USE_STA_PS
+    #endif
+    #endif
+    #if CFG_USE_STA_PS
     else if(0 == os_strcmp(argv[1], "rfdtim"))
     {
         if(argc < 3)
@@ -4985,10 +5503,15 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         dtim = os_strtoul(argv[2], NULL, 10);
         if(dtim == 1)
         {
-            if(argc == 4)
+            if(argc >= 4)
             {
                 dtim = os_strtoul(argv[3], NULL, 10);
                 power_save_set_listen_int(dtim);
+            }
+            if (argc >= 5)
+            {
+                dtim = os_strtoul(argv[4], NULL, 10);
+                power_save_set_keep_alive_per(dtim);
             }
             if (bk_wlan_dtim_rf_ps_mode_enable())
             {
@@ -5059,7 +5582,7 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
             goto IDLE_CMD_ERR;
         }
     }
-	#if PS_USE_KEEP_TIMER
+    #if PS_USE_KEEP_TIMER
     else if(0 == os_strcmp(argv[1], "rf_timer"))
     {
         if(argc != 3)
@@ -5071,12 +5594,12 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
 
         if(dtim == 1)
         {
-        	extern int bk_wlan_dtim_rf_ps_timer_start(void);
+            extern int bk_wlan_dtim_rf_ps_timer_start(void);
             bk_wlan_dtim_rf_ps_timer_start();
         }
         else  if(dtim == 0)
         {
-        	extern int bk_wlan_dtim_rf_ps_timer_pause(void);
+            extern int bk_wlan_dtim_rf_ps_timer_pause(void);
             bk_wlan_dtim_rf_ps_timer_pause();
         }
         else
@@ -5084,7 +5607,7 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
             goto IDLE_CMD_ERR;
         }
     }
-	#endif
+    #endif
     else if(0 == os_strcmp(argv[1], "listen"))
     {
         if(argc != 4)
@@ -5111,7 +5634,7 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
         #endif
         power_save_dump();
     }
-#if (1 == CFG_LOW_VOLTAGE_PS_TEST)
+    #if (1 == CFG_LOW_VOLTAGE_PS_TEST)
     else if(0 == os_strcmp(argv[1], "info"))
     {
         if(argc == 3)
@@ -5135,23 +5658,23 @@ static void Ps_Command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char 
             goto IDLE_CMD_ERR;
         }
     }
-#endif
-#if(CFG_HW_PARSER_TIM_ELEMENT == 1)
+    #endif
+    #if(CFG_HW_PARSER_TIM_ELEMENT == 1)
     else if(0 == os_strcmp(argv[1], "tim"))
     {
         uint32_t cnt = os_strtoul(argv[2], NULL, 10);
         power_save_set_hw_tim_cnt_limit(cnt);
     }
-#endif
-#if ( 1 == CFG_LOW_VOLTAGE_PS_32K_DIV)
+    #endif
+    #if ( 1 == CFG_LOW_VOLTAGE_PS_32K_DIV)
     else if(0 == os_strcmp(argv[1], "test"))
     {
         extern void sctrl_sta_test_sleep(uint32 sleep_ms);
         dtim = os_strtoul(argv[2], NULL, 10);
         sctrl_sta_test_sleep(dtim);
     }
-#endif
-#endif
+    #endif
+    #endif
     else
     {
         goto IDLE_CMD_ERR;
@@ -5167,9 +5690,9 @@ IDLE_CMD_ERR:
     os_printf("gpio_map is hex and every bits is map to gpio0-gpio31\r\n");
     os_printf("ieee:ps rfdtim [],[1/0] is open or close \r\n\r\n");
     os_printf("ieee:ps mcudtim [],[1/0] is open or close \r\n\r\n");
-#if (1 == CFG_LOW_VOLTAGE_PS_TEST)
+    #if (1 == CFG_LOW_VOLTAGE_PS_TEST)
     os_printf("info:ps info [1/0] [period_s], default period = 600 s \r\n");
-#endif
+    #endif
     msg = CLI_CMD_RSP_ERROR;
     os_memcpy(pcWriteBuffer, msg, os_strlen(msg));
 }
@@ -5186,7 +5709,7 @@ static void mac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         msg = CLI_CMD_RSP_SUCCEED;
         wifi_get_mac_address((char *)sta_mac, CONFIG_ROLE_STA);
         wifi_get_mac_address((char *)ap_mac, CONFIG_ROLE_AP);
-        
+
         os_printf("sta mac: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
                   sta_mac[0], sta_mac[1], sta_mac[2], sta_mac[3], sta_mac[4], sta_mac[5]);
         os_printf("ap mac: %02x-%02x-%02x-%02x-%02x-%02x\r\n",
@@ -5211,22 +5734,22 @@ static void mac_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
 
 static void rc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	uint8_t sta_idx = 0;
-	uint16_t rate_cfg = 0;
+    uint8_t sta_idx = 0;
+    uint16_t rate_cfg = 0;
 
-	if (argc <= 2) {
-		os_printf("invalid RC command\n");
-		return;
-	}
+    if (argc <= 2) {
+        os_printf("invalid RC command\n");
+        return;
+    }
 
-	if(os_strcmp(argv[1], "set_fixrate") == 0) {
-		sta_idx = os_strtoul(argv[2], NULL, 10) & 0xFFFF;
-		rate_cfg = os_strtoul(argv[3], NULL, 10) & 0xFFFF;
-		bk_wifi_rc_config(sta_idx, rate_cfg);
-	}
-	else {
-		os_printf("invalid RC paramter\n");
-	}
+    if(os_strcmp(argv[1], "set_fixrate") == 0) {
+        sta_idx = os_strtoul(argv[2], NULL, 10) & 0xFFFF;
+        rate_cfg = os_strtoul(argv[3], NULL, 10) & 0xFFFF;
+        bk_wifi_rc_config(sta_idx, rate_cfg);
+    }
+    else {
+        os_printf("invalid RC paramter\n");
+    }
 }
 
 #if CFG_SARADC_CALIBRATE
@@ -5239,224 +5762,224 @@ int adc_offfset, adc_value_2v;
 
 static void adc_detect_callback(int new_mv, void *user_data)
 {
-	static int cnt = 0;
-	if (adc_accuracy != 0)
-		new_mv = (new_mv << (adc_accuracy - 1));
-	test_adc.user_data = (void *)new_mv;
+    static int cnt = 0;
+    if (adc_accuracy != 0)
+        new_mv = (new_mv << (adc_accuracy - 1));
+    test_adc.user_data = (void *)new_mv;
 
-	if (cnt++ >= 100)
-	{
-		cnt = 0;
-		os_printf("adc channel%d voltage:%d,%x\r\n", test_adc.channel, new_mv, test_adc.user_data);
-	}
+    if (cnt++ >= 100)
+    {
+        cnt = 0;
+        os_printf("adc channel%d voltage:%d,%x\r\n", test_adc.channel, new_mv, test_adc.user_data);
+    }
 }
 
 static void adc_detect_callback1(int new_mv, void *user_data)
 {
-	static int total = 0;
-	static int cnt = 0;
-	int low_adc;
-	static int temp = 0;
-	if (temp++ < 100)
-		return;
+    static int total = 0;
+    static int cnt = 0;
+    int low_adc;
+    static int temp = 0;
+    if (temp++ < 100)
+        return;
 
-	if (adc_accuracy != 0)
-		new_mv = (new_mv << (adc_accuracy - 1));
-	test_adc.user_data = (void *)new_mv;
+    if (adc_accuracy != 0)
+        new_mv = (new_mv << (adc_accuracy - 1));
+    test_adc.user_data = (void *)new_mv;
 
-	total += new_mv;
-	cnt++;
-	if (cnt >= 100)
-	{
-		low_adc = total / cnt;
-		saradc_val.low = low_adc;
-		cnt = 0;
-		temp = 0;
-		adc_offfset = low_adc - 2048;
-		os_printf("step1: adc channel:%d adc_offfset:%d,low_adc:%d\r\n", test_adc.channel, adc_offfset, low_adc);
-		os_printf("adc_low:%x,adc_high,%x\r\n", saradc_val.low, saradc_val.high);
-		total = 0;
-	}
+    total += new_mv;
+    cnt++;
+    if (cnt >= 100)
+    {
+        low_adc = total / cnt;
+        saradc_val.low = low_adc;
+        cnt = 0;
+        temp = 0;
+        adc_offfset = low_adc - 2048;
+        os_printf("step1: adc channel:%d adc_offfset:%d,low_adc:%d\r\n", test_adc.channel, adc_offfset, low_adc);
+        os_printf("adc_low:%x,adc_high,%x\r\n", saradc_val.low, saradc_val.high);
+        total = 0;
+    }
 }
 
 static void adc_detect_callback2(int new_mv, void *user_data)
 {
-	static int total = 0;
-	static int cnt = 0;
-	static int temp = 0;
-	if (temp++ < 100)
-		return;
-	int high_adc;
+    static int total = 0;
+    static int cnt = 0;
+    static int temp = 0;
+    if (temp++ < 100)
+        return;
+    int high_adc;
 
-	if (adc_accuracy != 0)
-		new_mv = (new_mv << (adc_accuracy - 1));
+    if (adc_accuracy != 0)
+        new_mv = (new_mv << (adc_accuracy - 1));
 
-	test_adc.user_data = (void *)new_mv;
+    test_adc.user_data = (void *)new_mv;
 
-	total += new_mv;
-	cnt++;
-	if (cnt >= 100)
-	{
-		high_adc = total / cnt;
-		saradc_val.high = high_adc;
-		cnt = 0;
-		temp = 0;
-		adc_value_2v = high_adc;
-		os_printf("step2: adc channel:%d adc_value_2v:%d\r\n", test_adc.channel, high_adc);
-		total = 0;
-		os_printf("adc_low:%x,adc_high,%x\r\n", saradc_val.low, saradc_val.high);
+    total += new_mv;
+    cnt++;
+    if (cnt >= 100)
+    {
+        high_adc = total / cnt;
+        saradc_val.high = high_adc;
+        cnt = 0;
+        temp = 0;
+        adc_value_2v = high_adc;
+        os_printf("step2: adc channel:%d adc_value_2v:%d\r\n", test_adc.channel, high_adc);
+        total = 0;
+        os_printf("adc_low:%x,adc_high,%x\r\n", saradc_val.low, saradc_val.high);
 
-	}
+    }
 }
 
 static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
 {
-	UINT32 status;
-	DD_HANDLE saradc_handle;
-	saradc_cal_val_t p_ADC_cal;
-	saradc_desc_t *p_ADC_drv_desc = NULL;
-	int channel;
-	GLOBAL_INT_DECLARATION();
+    UINT32 status;
+    DD_HANDLE saradc_handle;
+    saradc_cal_val_t p_ADC_cal;
+    saradc_desc_t *p_ADC_drv_desc = NULL;
+    int channel;
+    GLOBAL_INT_DECLARATION();
 
-	if (argc < 2)
-		goto IDLE_CMD_ERR;
+    if (argc < 2)
+        goto IDLE_CMD_ERR;
 
-	if (0 == os_strcmp(argv[1], "read"))
-	{
-		status = manual_cal_load_adc_cali_flash();
-		if (status != 0) {
-			os_printf("Can't read cali value, use default!\r\n");
-			os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
-			os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
-		}
-	} else if (0 == os_strcmp(argv[1], "set"))
-	{
-		p_ADC_drv_desc = (saradc_desc_t *)os_malloc(sizeof(saradc_desc_t));
-		if (p_ADC_drv_desc == NULL) {
-			os_printf("malloc1 failed!\r\n");
-			return;
-		}
+    if (0 == os_strcmp(argv[1], "read"))
+    {
+        status = manual_cal_load_adc_cali_flash();
+        if (status != 0) {
+            os_printf("Can't read cali value, use default!\r\n");
+            os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
+            os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
+        }
+    } else if (0 == os_strcmp(argv[1], "set"))
+    {
+        p_ADC_drv_desc = (saradc_desc_t *)os_malloc(sizeof(saradc_desc_t));
+        if (p_ADC_drv_desc == NULL) {
+            os_printf("malloc1 failed!\r\n");
+            return;
+        }
 
-		saradc_config_param_init(p_ADC_drv_desc);
+        saradc_config_param_init(p_ADC_drv_desc);
 
-		p_ADC_drv_desc->data_buff_size = ADC_TEMP_BUFFER_SIZE;
-		p_ADC_drv_desc->pData = (UINT16 *)os_malloc(p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
-		os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+        p_ADC_drv_desc->data_buff_size = ADC_TEMP_BUFFER_SIZE;
+        p_ADC_drv_desc->pData = (UINT16 *)os_malloc(p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+        os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
 
-		if (p_ADC_drv_desc->pData == NULL) {
-			os_printf("malloc1 failed!\r\n");
-			os_free(p_ADC_drv_desc);
-			return;
-		}
+        if (p_ADC_drv_desc->pData == NULL) {
+            os_printf("malloc1 failed!\r\n");
+            os_free(p_ADC_drv_desc);
+            return;
+        }
 
-		UINT32 ret = 0;
-		do {
-			GLOBAL_INT_DISABLE();
-			if (saradc_check_busy() == 0) {
-				saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
-				if (DD_HANDLE_UNVALID != saradc_handle) {
-					GLOBAL_INT_RESTORE();
-					break;
-				}
-			}
-			GLOBAL_INT_RESTORE();
+        UINT32 ret = 0;
+        do {
+            GLOBAL_INT_DISABLE();
+            if (saradc_check_busy() == 0) {
+                saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
+                if (DD_HANDLE_UNVALID != saradc_handle) {
+                    GLOBAL_INT_RESTORE();
+                    break;
+                }
+            }
+            GLOBAL_INT_RESTORE();
 
-			rtos_delay_milliseconds(5);
-			ret++;
-		} while (ret < 5);
+            rtos_delay_milliseconds(5);
+            ret++;
+        } while (ret < 5);
 
-		if (ret == 5) {
-			os_printf("saradc open failed!\r\n");
-			os_free(p_ADC_drv_desc->pData);
-			os_free(p_ADC_drv_desc);
-			return;
-		}
+        if (ret == 5) {
+            os_printf("saradc open failed!\r\n");
+            os_free(p_ADC_drv_desc->pData);
+            os_free(p_ADC_drv_desc);
+            return;
+        }
 
-		while (1) {
-			if (p_ADC_drv_desc->current_sample_data_cnt >=
-				p_ADC_drv_desc->data_buff_size) {
-				ddev_close(saradc_handle);
-				saradc_ensure_close();
-				break;
-			}
-		}
+        while (1) {
+            if (p_ADC_drv_desc->current_sample_data_cnt >=
+                    p_ADC_drv_desc->data_buff_size) {
+                ddev_close(saradc_handle);
+                saradc_ensure_close();
+                break;
+            }
+        }
 
-		{
-			UINT32 sum = 0, sum1, sum2;
-			UINT16 *pData = p_ADC_drv_desc->pData;
-			sum1 = pData[1] + pData[2];
-			sum2 = pData[3] + pData[4];
-			sum = sum1 / 2  + sum2 / 2;
-			sum = sum / 2;
-			sum = sum / 4;
-			p_ADC_drv_desc->pData[0] = sum;
-		}
+        {
+            UINT32 sum = 0, sum1, sum2;
+            UINT16 *pData = p_ADC_drv_desc->pData;
+            sum1 = pData[1] + pData[2];
+            sum2 = pData[3] + pData[4];
+            sum = sum1 / 2  + sum2 / 2;
+            sum = sum / 2;
+            sum = sum / 4;
+            p_ADC_drv_desc->pData[0] = sum;
+        }
 
-		if (0 == os_strcmp(argv[2], "low"))
-			p_ADC_cal.mode = SARADC_CALIBRATE_LOW;
-		else if (0 == os_strcmp(argv[2], "high"))
-			p_ADC_cal.mode = SARADC_CALIBRATE_HIGH;
-		else {
-			os_printf("invalid parameter\r\n");
-			return;
-		}
-		p_ADC_cal.val = p_ADC_drv_desc->pData[4];
-		if (SARADC_FAILURE == ddev_control(saradc_handle, SARADC_CMD_SET_CAL_VAL, (VOID *)&p_ADC_cal)) {
-			os_printf("set calibrate value failture\r\n");
-			os_free(p_ADC_drv_desc->pData);
-			os_free(p_ADC_drv_desc);
-			return;
-		}
-		os_printf("set calibrate success\r\n");
-		os_printf("type:[%s] value:[0x%x]\r\n", (p_ADC_cal.mode ? "high" : "low"), p_ADC_cal.val);
-		os_free(p_ADC_drv_desc->pData);
-		os_free(p_ADC_drv_desc);
-	} else if (0 == os_strcmp(argv[1], "write"))
-	{
-		manual_cal_save_chipinfo_tab_to_flash();
-		os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
-		os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
-	} else if (0 == os_strcmp(argv[1], "cal_low"))
-	{
-		/*adc calibration when first usd adc channel ,
-		 *cal_low: caculate offset when voltage is 0v.
-		 *cal_high:caculate voltage is 2v .
-		 *start: get current adc value.
-		 */
-		channel = os_strtoul(argv[2], NULL, 10);
-		os_printf("offset adc channel:%d \r\n", channel);
-		step_flag = 0;
-		adctest_flag = 0;
-		saradc_work_create();
-		adc_obj_init(&test_adc, adc_detect_callback1, channel, &test_adc);
-		adc_obj_start(&test_adc);
-	} else if (0 == os_strcmp(argv[1], "cal_high"))
-	{
-		channel = os_strtoul(argv[2], NULL, 10);
-		os_printf("2v: adc channel:%d \r\n", channel);
-		step_flag = 1;
-		adctest_flag = 0;
-		saradc_work_create();
-		adc_obj_init(&test_adc, adc_detect_callback2, channel, &test_adc);
-		adc_obj_start(&test_adc);
-	} else if (0 == os_strcmp(argv[1], "start"))
-	{
-		channel = os_strtoul(argv[2], NULL, 10);
-		os_printf("---adc channel:%d---\r\n", channel);
-		adctest_flag = 1;
-		saradc_work_create();
-		adc_obj_init(&test_adc, adc_detect_callback, channel, &test_adc);
-		adc_obj_start(&test_adc);
-	} else if (0 == os_strcmp(argv[1], "stop"))
-		adc_obj_stop(&test_adc);
+        if (0 == os_strcmp(argv[2], "low"))
+            p_ADC_cal.mode = SARADC_CALIBRATE_LOW;
+        else if (0 == os_strcmp(argv[2], "high"))
+            p_ADC_cal.mode = SARADC_CALIBRATE_HIGH;
+        else {
+            os_printf("invalid parameter\r\n");
+            return;
+        }
+        p_ADC_cal.val = p_ADC_drv_desc->pData[4];
+        if (SARADC_FAILURE == ddev_control(saradc_handle, SARADC_CMD_SET_CAL_VAL, (VOID *)&p_ADC_cal)) {
+            os_printf("set calibrate value failture\r\n");
+            os_free(p_ADC_drv_desc->pData);
+            os_free(p_ADC_drv_desc);
+            return;
+        }
+        os_printf("set calibrate success\r\n");
+        os_printf("type:[%s] value:[0x%x]\r\n", (p_ADC_cal.mode ? "high" : "low"), p_ADC_cal.val);
+        os_free(p_ADC_drv_desc->pData);
+        os_free(p_ADC_drv_desc);
+    } else if (0 == os_strcmp(argv[1], "write"))
+    {
+        manual_cal_save_chipinfo_tab_to_flash();
+        os_printf("calibrate low value:[%x]\r\n", saradc_val.low);
+        os_printf("calibrate high value:[%x]\r\n", saradc_val.high);
+    } else if (0 == os_strcmp(argv[1], "cal_low"))
+    {
+        /*adc calibration when first usd adc channel ,
+         *cal_low: caculate offset when voltage is 0v.
+         *cal_high:caculate voltage is 2v .
+         *start: get current adc value.
+         */
+        channel = os_strtoul(argv[2], NULL, 10);
+        os_printf("offset adc channel:%d \r\n", channel);
+        step_flag = 0;
+        adctest_flag = 0;
+        saradc_work_create();
+        adc_obj_init(&test_adc, adc_detect_callback1, channel, &test_adc);
+        adc_obj_start(&test_adc);
+    } else if (0 == os_strcmp(argv[1], "cal_high"))
+    {
+        channel = os_strtoul(argv[2], NULL, 10);
+        os_printf("2v: adc channel:%d \r\n", channel);
+        step_flag = 1;
+        adctest_flag = 0;
+        saradc_work_create();
+        adc_obj_init(&test_adc, adc_detect_callback2, channel, &test_adc);
+        adc_obj_start(&test_adc);
+    } else if (0 == os_strcmp(argv[1], "start"))
+    {
+        channel = os_strtoul(argv[2], NULL, 10);
+        os_printf("---adc channel:%d---\r\n", channel);
+        adctest_flag = 1;
+        saradc_work_create();
+        adc_obj_init(&test_adc, adc_detect_callback, channel, &test_adc);
+        adc_obj_start(&test_adc);
+    } else if (0 == os_strcmp(argv[1], "stop"))
+        adc_obj_stop(&test_adc);
     else if(0 == os_strcmp(argv[1], "get"))
     {
         INT32 channel = atoi(argv[2]);
         UINT32 sum = 0;
         UINT32 index;
-		typedef UINT16 heap_t;
-		size_t MinHeapInsert(heap_t *heap, size_t heap_size, heap_t x);
-		heap_t MinHeapReplace(heap_t *heap, size_t heap_size, heap_t x);
+        typedef UINT16 heap_t;
+        size_t MinHeapInsert(heap_t *heap, size_t heap_size, heap_t x);
+        heap_t MinHeapReplace(heap_t *heap, size_t heap_size, heap_t x);
 
         p_ADC_drv_desc = (saradc_desc_t *)os_malloc(sizeof(saradc_desc_t));
         if (p_ADC_drv_desc == NULL)
@@ -5496,38 +6019,38 @@ static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
                 }
                 else
                 {
-                ddev_close(saradc_handle);
+                    ddev_close(saradc_handle);
                 }
                 break;
             }
         }
 
-		heap_t heap[(100 + 1) / 2];
-		int count = 0;
+        heap_t heap[(100 + 1) / 2];
+        int count = 0;
 
-		for (index = 0; index < sizeof(heap) / sizeof(heap[0]); index++) {
-			MinHeapInsert(heap, index, (heap_t)p_ADC_drv_desc->pData[index]);
+        for (index = 0; index < sizeof(heap) / sizeof(heap[0]); index++) {
+            MinHeapInsert(heap, index, (heap_t)p_ADC_drv_desc->pData[index]);
 
-		}
+        }
 
-		for (index = sizeof(heap) / sizeof(heap[0]); index < 100; index++) {
-			if (heap[0] < (heap_t)p_ADC_drv_desc->pData[index])
-			{
-				MinHeapReplace(heap, sizeof(heap) / sizeof(heap[0]), (heap_t)p_ADC_drv_desc->pData[index]);
-			}
-		}
+        for (index = sizeof(heap) / sizeof(heap[0]); index < 100; index++) {
+            if (heap[0] < (heap_t)p_ADC_drv_desc->pData[index])
+            {
+                MinHeapReplace(heap, sizeof(heap) / sizeof(heap[0]), (heap_t)p_ADC_drv_desc->pData[index]);
+            }
+        }
 
-		for (index = 0; index < 100; index++)
-		{
-			//error [-0.5%, 0.5%] ==> [-5, 5]
-			if ((p_ADC_drv_desc->pData[index] > heap[0] + 0x10) || (heap[0] > p_ADC_drv_desc->pData[index] + 0x10))
-			{
-				continue;
-			}
+        for (index = 0; index < 100; index++)
+        {
+            //error [-0.5%, 0.5%] ==> [-5, 5]
+            if ((p_ADC_drv_desc->pData[index] > heap[0] + 0x10) || (heap[0] > p_ADC_drv_desc->pData[index] + 0x10))
+            {
+                continue;
+            }
 
-			count++;
-			sum += p_ADC_drv_desc->pData[index];
-		}
+            count++;
+            sum += p_ADC_drv_desc->pData[index];
+        }
 
         p_ADC_drv_desc->pData[0] = (UINT16)(sum / count);
 
@@ -5542,21 +6065,137 @@ static void adc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char
         os_free(p_ADC_drv_desc->pData);
         os_free(p_ADC_drv_desc);
         return;
-    }
-	else
-		goto IDLE_CMD_ERR;
+    } else
+        goto IDLE_CMD_ERR;
 
-	return;
+    return;
 
 IDLE_CMD_ERR:
-	os_printf("Usage:ps [func] [param]\r\n");
+    os_printf("Usage:ps [func] [param]\r\n");
 }
+
+#if CFG_SARADC_VERIFY
+static DD_HANDLE saradc_handle = DD_HANDLE_UNVALID;
+static saradc_desc_t *p_ADC_drv_desc = NULL;
+static void saradc_command(char *pcWriteBuffer, int xWriteBufferLen, int argc, char **argv)
+{
+    UINT32 status;
+    GLOBAL_INT_DECLARATION();
+
+    if (0 == os_strcmp(argv[1], "start"))
+    {
+        uint32_t saradc_num   = 1000;
+        uint8_t  adc_channel  = 3;
+        uint8_t  saradc_mode  = 0;  // ToDo: uart mode and sram mode
+        uint32_t sample_rate  = 0x0;
+        uint32_t div          = 32;
+        uint32_t arg_id       = 1;
+        uint32_t arg_cnt      = argc;
+        uint8_t  sum_filter   = 0;
+
+        arg_cnt -= 2;
+        while (arg_cnt > 1) {
+            if (os_strcmp(argv[arg_id+1], "num") == 0) {
+                saradc_num = atoi(argv[arg_id+2]);
+                os_printf("saradc_num = %d\r\n",saradc_num);
+            } else if(os_strcmp(argv[arg_id+1], "chan") == 0) {
+                adc_channel = atoi(argv[arg_id+2]);
+                os_printf("adc_channel = %d\r\n",adc_channel);
+            } else if(os_strcmp(argv[arg_id+1], "div") == 0) {
+                div = atoi(argv[arg_id+2]);
+                os_printf("div = %d\r\n",div);
+            } else if(os_strcmp(argv[arg_id+1], "sam_rate") == 0) {
+                sample_rate = atoi(argv[arg_id+2]);
+                os_printf("sample_rate = %d\r\n",sample_rate);
+            } else if(os_strcmp(argv[arg_id+1], "mode") == 0) {
+                saradc_mode = atoi(argv[arg_id+2]);
+                os_printf("saradc_mode = %d\r\n",saradc_mode);
+            }
+            arg_cnt -= 2;
+            arg_id  += 2;
+        }
+
+        UINT32 param;
+        param = BLK_BIT_SARADC;
+        sddev_control(SCTRL_DEV_NAME, CMD_SCTRL_BLK_ENABLE, &param);
+
+        UINT32 reg_val;
+        reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL2);
+        reg_val &= ~(GADC_TIMING_CONTROL_MASK << GADC_TIMING_CONTROL_POSI);
+        reg_val |= ((sample_rate & GADC_TIMING_CONTROL_MASK) << GADC_TIMING_CONTROL_POSI);
+        sctrl_analog_set(SCTRL_ANALOG_CTRL2, reg_val);
+
+        reg_val = sctrl_analog_get(SCTRL_ANALOG_CTRL6);
+        reg_val &= ~(IOLDO_TRIM_MASK << IOLDO_TRIM_POS);
+        reg_val |= ((7 & IOLDO_TRIM_MASK) << IOLDO_TRIM_POS);
+        sctrl_analog_set(SCTRL_ANALOG_CTRL6, reg_val);
+
+        p_ADC_drv_desc = (saradc_desc_t *)os_malloc(sizeof(saradc_desc_t));
+        if (!p_ADC_drv_desc) {
+            os_printf("malloc failed!\r\n");
+            goto saradc_verify_exit;
+        }
+
+        os_memset(p_ADC_drv_desc, 0x00, sizeof(saradc_desc_t));
+        p_ADC_drv_desc->channel = adc_channel;
+        p_ADC_drv_desc->data_buff_size = saradc_num;
+        p_ADC_drv_desc->mode = (ADC_CONFIG_MODE_CONTINUE << 0)
+                               | (ADC_CONFIG_MODE_4CLK_DELAY << 2);
+        p_ADC_drv_desc->has_data                = 0;
+        p_ADC_drv_desc->current_read_data_cnt   = 0;
+        p_ADC_drv_desc->current_sample_data_cnt = 0;
+        p_ADC_drv_desc->pre_div = div;
+        p_ADC_drv_desc->samp_rate = 0;
+        p_ADC_drv_desc->pData = (UINT16 *)os_malloc(p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+
+        if(!p_ADC_drv_desc->pData) {
+            os_printf("malloc1 failed!\r\n");
+            goto saradc_verify_exit;
+        }
+        os_memset(p_ADC_drv_desc->pData, 0x00, p_ADC_drv_desc->data_buff_size * sizeof(UINT16));
+
+        GLOBAL_INT_DISABLE();
+        saradc_handle = ddev_open(SARADC_DEV_NAME, &status, (UINT32)p_ADC_drv_desc);
+        GLOBAL_INT_RESTORE();
+        ddev_control(saradc_handle, SARADC_CMD_SET_SUM_FILTER, (void *)&sum_filter);
+        ddev_control(saradc_handle, SARADC_CMD_PAUSE, NULL);
+        ddev_close(saradc_handle);
+
+saradc_verify_exit:
+        if (p_ADC_drv_desc->pData)
+            os_free(p_ADC_drv_desc->pData);
+        if (p_ADC_drv_desc)
+            os_free(p_ADC_drv_desc);
+        return;
+    }
+    else if (0 == os_strcmp(argv[1], "read"))
+    {
+        ddev_control(saradc_handle, SARADC_CMD_RESUME, NULL);
+        while (1) {
+            if (p_ADC_drv_desc->current_sample_data_cnt == p_ADC_drv_desc->data_buff_size) {
+                ddev_close(saradc_handle);
+                break;
+            }
+        }
+        for (uint32_t i = 0; i < p_ADC_drv_desc->data_buff_size; i++) {
+            bk_printf("%d\n", p_ADC_drv_desc->pData[i]);
+        }
+    }
+    else
+        goto IDLE_CMD_ERR;
+
+    return;
+
+IDLE_CMD_ERR:
+    os_printf("Usage:ps [func] [param]\r\n");
+}
+#endif
 #endif
 #if !AT_SERVICE_CFG
 static void cli_rx_callback(int uport, void *param)
 {
-	if(log_rx_interrupt_sema)
-    	rtos_set_semaphore(&log_rx_interrupt_sema);
+    if(log_rx_interrupt_sema)
+        rtos_set_semaphore(&log_rx_interrupt_sema);
 }
 #endif
 /* ========= CLI input&output APIs ============ */
@@ -5633,45 +6272,45 @@ static const struct cli_command user_clis[] =
     {"rc", "wifi rate control config", rc_command},
     {"ps", "ps [func] [param]", Ps_Command},
     {"deep_sleep", "deep_sleep [param]", Deep_Sleep_Command},
-#if (1 == CFG_USE_FORCE_LOWVOL_PS)
+    #if (1 == CFG_USE_FORCE_LOWVOL_PS)
     {"lowvol_sleep", "lowvol_sleep [param]", lowvol_Sleep_Command},
-#endif
-#ifdef TCP_CLIENT_DEMO
+    #endif
+    #ifdef TCP_CLIENT_DEMO
     {"tcp_cont", "tcp_cont [ip] [port]", tcp_make_connect_server_command},
-#endif
+    #endif
 
-#if CFG_TCP_SERVER_TEST
+    #if CFG_TCP_SERVER_TEST
     {"tcp_server", "tcp_server [ip] [port]",make_tcp_server_command },
-#endif
+    #endif
 
-#if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
+    #if (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
     {"iperf", "iperf help", iperf },
-#endif // (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
+    #endif // (CFG_IPERF_TEST == IPERF_OPEN_WITH_ACCEL)
 
-#if CFG_SUPPORT_TPC_PA_MAP
+    #if CFG_SUPPORT_TPC_PA_MAP
     {"pwr", "pwr help", pwr_Command },
-#endif
+    #endif
 
-#if (CFG_SOC_NAME == SOC_BK7221U)
+    #if (CFG_SOC_NAME == SOC_BK7221U)
     {"sec", "sec help", sec_Command },
-#endif
-#if CFG_AP_MONITOR_COEXIST_TBTT
+    #endif
+    #if CFG_AP_MONITOR_COEXIST_TBTT
     {"monitor_tbtt", "monitor tbtt on/off", monitor_tbtt_Command },
     {"monitor_tbtt_dur", "monitor tbtt dur (0-50)", monitor_tbtt_dur_Command },
-#endif
-#if CFG_AP_MONITOR_COEXIST_DEMO
+    #endif
+    #if CFG_AP_MONITOR_COEXIST_DEMO
     {"monitor_all_chan", "start monitor all channel", monitor_all_chan_Command},
-#endif
-#if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
+    #endif
+    #if (CFG_SOC_NAME == SOC_BK7231N) || (CFG_SOC_NAME == SOC_BK7238) || (CFG_SOC_NAME == SOC_BK7252N)
     {"la", "la [i] to dump ADC data", cmd_la },
-#endif
+    #endif
 };
 
 static const struct cli_command ate_clis[] =
 {
-#if (CFG_IPERF_TEST == IPERF_OPEN_ONLY)
+    #if (CFG_IPERF_TEST == IPERF_OPEN_ONLY)
     {"iperf", "iperf help", iperf },
-#endif // (CFG_IPERF_TEST == IPERF_OPEN_ONLY)
+    #endif // (CFG_IPERF_TEST == IPERF_OPEN_ONLY)
 };
 
 extern int video_demo_register_cmd(void);
@@ -5714,33 +6353,38 @@ int cli_init(void)
     }
 
     if (get_ate_mode_state()) {
-         if(cli_register_commands(ate_clis, sizeof(ate_clis) / sizeof(struct cli_command))) {
-             goto init_general_err;
-         }
+        if(cli_register_commands(ate_clis, sizeof(ate_clis) / sizeof(struct cli_command))) {
+            goto init_general_err;
+        }
     }
 
     if (video_demo_register_cmd()) {
         goto init_general_err;
     }
 
-#if ((CFG_USE_AUDIO) && (CFG_SOC_NAME == SOC_BK7252N))
+    #if ((CFG_USE_AUDIO) && (CFG_SOC_NAME == SOC_BK7252N))
     if (cli_aud_test_init()) {
         goto init_general_err;
     }
-#endif
+    #endif
 
-#if CFG_PERIPHERAL_TEST
+    #if CFG_PERIPHERAL_TEST
     bk_peripheral_cli_init();
-#endif
+    #endif
 
-#if (CFG_SOC_NAME == SOC_BK7252N)
+    #if CFG_USE_BK_PLAYER_TEST
+    void bk_player_cli_init(void);
+    bk_player_cli_init();
+    #endif
+
+    #if ((CFG_SOC_NAME == SOC_BK7252N) && (CFG_USE_SDCARD_HOST))
     cli_sdio_host_init();
     cli_sd_init();
-#endif
+    #endif
 
-#if AT_SERVICE_CFG
+    #if AT_SERVICE_CFG
     atsvr_app_init();
-#else
+    #else
     int ret;
     ret = rtos_create_thread(&cli_thread_handle,
                              BEKEN_DEFAULT_WORKER_PRIORITY,
@@ -5758,7 +6402,7 @@ int cli_init(void)
                   ret);
         goto init_general_err;
     }
-#endif
+    #endif
 
     pCli->initialized = 1;
     pCli->echo_disabled = 0;

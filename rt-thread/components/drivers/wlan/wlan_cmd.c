@@ -519,8 +519,10 @@ int wifi(int argc, char **argv)
 				wlan->info->channel = ap_info.channel;
 				bk_wifi_get_softap_mac_address((char *)wlan->info->bssid);
 				wlan->info->security = ap_info.security;
-			} else
-				rt_kprintf("wlan->info->mode =%d\n", wlan->info->mode);
+			} else {
+				rt_kprintf("wlan->info->mode =%d, not found\n", wlan->info->mode);
+				return 0;
+			}
 
 			rssi = rt_wlan_get_rssi(wlan);
 

@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef _SYS_CONFIG_H_
 #define _SYS_CONFIG_H_
 
@@ -140,6 +154,7 @@
 #define CFG_ENABLE_BUTTON                          0
 #define CFG_UDISK_MP3                              0
 #define CFG_EASY_FLASH                             0
+#define CFG_FLASH_BYPASS_OTP                       0
 #define CFG_AP_SUPPORT_HT_IE                       0
 #define CFG_SUPPORT_BSSID_CONNECT                  0
 #define CFG_USE_CONV_UTF8                          0
@@ -240,6 +255,7 @@
 #else
 #define CFG_SUPPORT_CALIBRATION                    1
 #define CFG_SUPPORT_MANUAL_CALI                    1
+#define CFG_ENABLE_ATE_FEATURE                     1
 //tpc rf pa map power for bk7231u
 #define CFG_SUPPORT_TPC_PA_MAP                     1
 #endif
@@ -351,6 +367,8 @@
 #define BLE_WIFI_CO_REQUEST                        3
 #define RF_USE_POLICY                              WIFI_DEFAULT_BLE_REQUEST
 
+//0:ble controller only 1:ble full stack
+#define CFG_BLE_HOST_RW                            1
 #define CFG_BLE_ADV_NUM                            1
 #define CFG_BLE_SCAN_NUM                           1
 #define CFG_BLE_USE_DYN_RAM                        1
@@ -425,7 +443,9 @@
 #define CFG_USE_SPI                                0
 #define CFG_USE_SPI_MASTER                         0
 #define CFG_USE_SPI_SLAVE                          0
-#define CFG_USE_SPI_DMA                            0
+#define CFG_USE_SPI_DMA_MASTER                     0
+#define CFG_USE_SPI_DMA_SLAVE                      0
+#define CFG_USE_SPI_MST_FLASH                      0
 
 /*section 30 ----- peripheral interface test case */
 #define CFG_PERIPHERAL_TEST                        0
@@ -477,5 +497,11 @@
 #endif // (AT_SERVICE_CFG)
 
 #define CFG_DEFAULT_ADC_HIGH_BITS                  0x84
+
+#if CFG_OS_FREERTOS
+#define CFG_MEM_CHECK_ENABLE                       1
+#else
+#define CFG_MEM_CHECK_ENABLE                       0
+#endif
 
 #endif // _SYS_CONFIG_H_

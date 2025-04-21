@@ -1,14 +1,28 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include <rtthread.h>
 
 #ifdef PLAY_LIST_TEST
-#include "codec_helixmp3.h" 
+#include "codec_helixmp3.h"
 #include "player_init.h"
 #include "player.h"
 #include "test_config.h"
 
 #define PLAY_LIST_SIZE  3
 
-struct music_list 
+struct music_list
 {
     int list_size;
     int cur_index;
@@ -16,10 +30,10 @@ struct music_list
 };
 
 static rt_mq_t play_list_mq;
-static struct music_list test_list = 
-{  
-    PLAY_LIST_SIZE, 
-    0, 
+static struct music_list test_list =
+{
+    PLAY_LIST_SIZE,
+    0,
     {
         "http://183.193.243.90:9151/mp3/73865964.mp3",
         "http://183.193.243.90:9151/mp3/108479485.mp3",
@@ -29,32 +43,32 @@ static struct music_list test_list =
 
 static void play_music_callback(int event, void *user_data)
 {
-/*
-/////////////////////////////////////////////////////////////////////////////////
-NOTE: any function in player.h is forbidden to be called in the callback funtion
-\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\ 
-*/
+    /*
+    /////////////////////////////////////////////////////////////////////////////////
+    NOTE: any function in player.h is forbidden to be called in the callback funtion
+    \\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\\
+    */
     switch(event)
     {
-	    case PLAYER_AUDIO_CLOSED:
-	        rt_mq_send(play_list_mq, &event, sizeof(int));
-	        rt_kprintf("recv event PLAYER_AUDIO_CLOSED\r\n");
-	        break;
-	    case PLAYER_PLAYBACK_FAILED:
-	        rt_mq_send(play_list_mq, &event, sizeof(int));
-	        rt_kprintf("recv event PLAYER_PLAYBACK_FAILED\r\n");
-	        break;
-	    case PLAYER_PLAYBACK_BREAK:
-	        rt_mq_send(play_list_mq, &event, sizeof(int));
-	        rt_kprintf("recv event PLAYER_PLAYBACK_BREAK\r\n");
-	        break;
-	    case PLAYER_PLAYBACK_STOP:
-	        rt_kprintf("recv event PLAYER_PLAYBACK_STOP\r\n");
-	        break;
-	   
-		default:
-			rt_kprintf("recv event :%d\r\n",event);
-			break;
+    case PLAYER_AUDIO_CLOSED:
+        rt_mq_send(play_list_mq, &event, sizeof(int));
+        rt_kprintf("recv event PLAYER_AUDIO_CLOSED\r\n");
+        break;
+    case PLAYER_PLAYBACK_FAILED:
+        rt_mq_send(play_list_mq, &event, sizeof(int));
+        rt_kprintf("recv event PLAYER_PLAYBACK_FAILED\r\n");
+        break;
+    case PLAYER_PLAYBACK_BREAK:
+        rt_mq_send(play_list_mq, &event, sizeof(int));
+        rt_kprintf("recv event PLAYER_PLAYBACK_BREAK\r\n");
+        break;
+    case PLAYER_PLAYBACK_STOP:
+        rt_kprintf("recv event PLAYER_PLAYBACK_STOP\r\n");
+        break;
+
+    default:
+        rt_kprintf("recv event :%d\r\n",event);
+        break;
     }
 }
 
@@ -69,7 +83,7 @@ static void play_switch(void)
     }
     else
     {
-    	rt_kprintf("---list play is finished---\r\n");
+        rt_kprintf("---list play is finished---\r\n");
         player_stop();
     }
 }
@@ -89,7 +103,7 @@ static void play_list_entry(void *param)
         case PLAYER_PLAYBACK_BREAK:
             play_switch();
             break;
-            
+
         default:
             break;
         }
@@ -101,7 +115,7 @@ static void play_list(int argc, char **argv)
     rt_thread_t tid;
 
     player_set_volume(50);
-    player_set_event_callback(play_music_callback, RT_NULL); 
+    player_set_event_callback(play_music_callback, RT_NULL);
 
     play_list_mq = rt_mq_create("play_list_mq", sizeof(int), 10, RT_IPC_FLAG_FIFO);
     if(RT_NULL == play_list_mq)

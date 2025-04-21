@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "include.h"
 #include <rtthread.h>
 #include <rthw.h>
@@ -24,15 +38,15 @@
 
 #define   I2C1          	0
 #define   I2C2          	1
-#define   I2C_DEV_ID     	I2C1 
+#define   I2C_DEV_ID     	I2C1
 #define   I2C_SALVE_ID 		0x21
 
 static DD_HANDLE i2c_hdl;
 
 static void i2c_device_init()
 {
-	unsigned int oflag,status;
-	oflag = 0;
+    unsigned int oflag,status;
+    oflag = 0;
     #if I2C_DEV_ID
     i2c_hdl = ddev_open(I2C2_DEV_NAME, &status, oflag);
     #else
@@ -43,7 +57,7 @@ static void i2c_device_init()
 
 static void i2c_device_deinit()
 {
-	ddev_close(i2c_hdl);
+    ddev_close(i2c_hdl);
 }
 
 
@@ -125,7 +139,7 @@ static unsigned long i2c_test_eeprom(void)
     DD_HANDLE i2c_hdl;
     unsigned char pReadData[8];
     unsigned char pWriteData[8];
-    
+
     i2c_device_init();
     I2C_EEPROM_PRT("----- I2C1_test_eeprom start -----\r\n");
 
@@ -154,7 +168,7 @@ static unsigned long i2c_test_eeprom(void)
             for (i=0; i<8; i++)
             {
                 I2C_EEPROM_FATAL("pReadData[%d]=0x%x, pWriteData[%d]=0x%x\r\n",
-                                i, pReadData[i], i, pWriteData[i]);
+                                 i, pReadData[i], i, pWriteData[i]);
             }
         }
     }

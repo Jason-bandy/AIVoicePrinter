@@ -1,3 +1,17 @@
+// Copyright 2015-2024 Beken
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #ifndef KISS_FTR_H
 #define KISS_FTR_H
 
@@ -6,13 +20,13 @@
 extern "C" {
 #endif
 
-    
-/* 
- 
+
+/*
+
  Real optimized version can save about 45% cpu time vs. complex fft of a real seq.
 
- 
- 
+
+
  */
 
 typedef struct kiss_fftr_state *kiss_fftr_cfg;
@@ -22,7 +36,7 @@ kiss_fftr_cfg my_kiss_fftr_alloc(int nfft,int inverse_fft,void * mem, size_t * l
 /*
  nfft must be even
 
- If you don't care to allocate space, use mem = lenmem = NULL 
+ If you don't care to allocate space, use mem = lenmem = NULL
 */
 
 
