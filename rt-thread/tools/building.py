@@ -398,6 +398,10 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
     flash_size_def = GetLocalDepend(sys_config_options, 'CFG_FLASH_SELECTION_TYPE')
     flash_size = GetLocalDepend(sys_config_options, flash_size_def)
 
+    # Convert flash_size to string if it's an integer
+    if isinstance(flash_size, int):
+        flash_size = str(flash_size)
+
     #rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '\n'
     rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '> /dev/null' + '\n'
 

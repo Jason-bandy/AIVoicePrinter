@@ -1,0 +1,7 @@
+	# gawk profile, created Thu Mar 19 17:29:35 2026
+
+	# Rule(s)
+
+	{
+		print ("valueOf_" ($1) "=" ($1))
+	}

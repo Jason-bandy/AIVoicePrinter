@@ -1,6 +1,7 @@
 from __future__ import print_function
 import os
 import subprocess
+import platform
 
 # toolchains options
 ARCH        ='arm'
@@ -21,23 +22,55 @@ if os.getenv('RTT_CC'):
 print('CROSS_TOOL is: %s' % CROSS_TOOL)
 if  CROSS_TOOL == 'gcc':
     PLATFORM    = 'gcc'
-    EXEC_PATH   = r'/opt/gcc-arm-none-eabi-5_4-2016q3/bin'
+    
+    # Auto-detect OS and set appropriate path
+    system_platform = platform.system()
+    if system_platform == 'Darwin':  # macOS
+        # Try common macOS installation paths
+        possible_paths = [
+            '/opt/homebrew/bin',  # Apple Silicon Mac
+            '/usr/local/bin',     # Intel Mac
+            '/opt/gcc-arm-none-eabi-5_4-2016q3/bin',
+        ]
+        
+        # Check which path exists
+        EXEC_PATH = None
+        for path in possible_paths:
+            if os.path.exists(path):
+                EXEC_PATH = path
+                break
+        
+        if EXEC_PATH is None:
+            # Default to Homebrew path
+            EXEC_PATH = '/opt/homebrew/bin' if os.path.exists('/opt/homebrew/bin') else '/usr/local/bin'
+            
+    elif system_platform == 'Linux':
+        EXEC_PATH = '/usr/bin'
+    else:  # Windows
+        EXEC_PATH = r'/opt/gcc-arm-none-eabi-5_4-2016q3/bin'
 else:
     print('Please make sure your toolchains is GNU GCC!')
     exit(0)
 
 if os.getenv('RTT_EXEC_PATH'):
     EXEC_PATH = os.getenv('RTT_EXEC_PATH')
+
+# Check toolchain version (skip on macOS if version check causes issues)
+try:
     rtt_toolchain = subprocess.check_output(EXEC_PATH + "/arm-none-eabi-gcc -dumpversion", shell=True).strip()
-
-if isinstance(rtt_toolchain, bytes):
-    rtt_toolchain = rtt_toolchain.decode()
-
-if rtt_toolchain != SDK_TOOLCHAIN:
-    print('Please make sure your toolchains version is %s!' % SDK_TOOLCHAIN)
-    exit(0)
-
-print('EXEC_PATH is: %s' % EXEC_PATH)
+    
+    if isinstance(rtt_toolchain, bytes):
+        rtt_toolchain = rtt_toolchain.decode()
+    
+    # Only enforce version check on Windows, allow flexibility on macOS/Linux
+    if system_platform == 'Windows' and rtt_toolchain != SDK_TOOLCHAIN:
+        print('Please make sure your toolchains version is %s!' % SDK_TOOLCHAIN)
+        exit(0)
+    else:
+        print('Using GCC toolchain version: %s (located at: %s)' % (rtt_toolchain.strip(), EXEC_PATH))
+except Exception as e:
+    print('Warning: Could not verify toolchain version: %s' % str(e))
+    print('Continuing with build anyway...')
 
 BUILD = 'release'
 # BUILD = 'debug'

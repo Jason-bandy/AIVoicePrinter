@@ -1,0 +1,40 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "scons: build",
+            "type": "shell",
+            "command": "scons",
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": ["$gcc"],
+            "detail": "使用 scons 编译项目"
+        },
+        {
+            "label": "scons: clean",
+            "type": "shell",
+            "command": "scons --clean",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "清理构建文件"
+        },
+        {
+            "label": "scons: generate mdk5 project",
+            "type": "shell",
+            "command": "scons --target=mdk5",
+            "group": "build",
+            "problemMatcher": ["$gcc"],
+            "detail": "生成 Keil MDK v5 工程文件"
+        },
+        {
+            "label": "beken_packager: package firmware (4M)",
+            "type": "shell",
+            "command": "cd tools/beken_packager && .\\beken_packager.exe config_audio_4M_ROMFS.json",
+            "group": "build",
+            "problemMatcher": [],
+            "detail": "打包固件为可烧写格式 (4MB Flash)"
+        }
+    ]
+}
