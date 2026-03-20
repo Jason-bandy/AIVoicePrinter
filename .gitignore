@@ -1,0 +1,26 @@
+# Build output
+build/
+*.o
+*.a
+*.elf
+*.bin
+*.map
+*.asm
+
+# Generated files
+link.lds
+.config
+
+# SCons
+.sconsign.dblite
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Claude
+.claude/
+
+# macOS
+.DS_Store
