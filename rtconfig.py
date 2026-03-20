@@ -47,7 +47,16 @@ if  CROSS_TOOL == 'gcc':
     elif system_platform == 'Linux':
         EXEC_PATH = '/usr/bin'
     else:  # Windows
-        EXEC_PATH = r'/opt/gcc-arm-none-eabi-5_4-2016q3/bin'
+        possible_paths_win = [
+            r'C:\Program Files (x86)\GNU Tools ARM Embedded\5.4 2016q3\bin',
+            r'C:\Program Files\GNU Tools ARM Embedded\5.4 2016q3\bin',
+            r'C:\gcc-arm-none-eabi-5_4-2016q3\bin',
+        ]
+        EXEC_PATH = possible_paths_win[0]  # default
+        for p in possible_paths_win:
+            if os.path.exists(p):
+                EXEC_PATH = p
+                break
 else:
     print('Please make sure your toolchains is GNU GCC!')
     exit(0)
@@ -57,7 +66,8 @@ if os.getenv('RTT_EXEC_PATH'):
 
 # Check toolchain version (skip on macOS if version check causes issues)
 try:
-    rtt_toolchain = subprocess.check_output(EXEC_PATH + "/arm-none-eabi-gcc -dumpversion", shell=True).strip()
+    gcc_cmd = '"%s"' % os.path.join(EXEC_PATH, "arm-none-eabi-gcc") + " -dumpversion"
+    rtt_toolchain = subprocess.check_output(gcc_cmd, shell=True).strip()
     
     if isinstance(rtt_toolchain, bytes):
         rtt_toolchain = rtt_toolchain.decode()

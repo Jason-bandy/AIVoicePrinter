@@ -91,7 +91,7 @@ class Win32Spawn:
 
         import subprocess
 
-        newargs = string.join(args[1:], ' ')
+        newargs = ' '.join(args[1:])
         cmdline = cmd + " " + newargs
 
         # Make sure the env is constructed by strings

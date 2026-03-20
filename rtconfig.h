@@ -49,6 +49,7 @@
 #define RT_USING_MEMHEAP
 #define RT_USING_MEMHEAP_AS_HEAP
 #define RT_USING_HEAP
+#define RT_USING_QSPI_PSRAM_HEAP
 
 /* Kernel Device Object */
 
@@ -56,7 +57,7 @@
 #define RT_USING_DEVICE_OPS
 #define RT_USING_CONSOLE
 #define RT_CONSOLEBUF_SIZE 128
-#define RT_CONSOLE_DEVICE_NAME "uart2"
+#define RT_CONSOLE_DEVICE_NAME "uart1"
 
 /* RT-Thread Components */
 
@@ -123,7 +124,7 @@
 #define RT_USING_AUDIO
 #define RT_USING_SPI
 #define RT_USING_I2S
-
+#define RT_USING_PWM
 /* Using USB */
 
 
@@ -192,7 +193,7 @@
 
 /* IoT - internet of things */
 
-#define PKG_USING_PAHOMQTT
+//#define PKG_USING_PAHOMQTT
 #define PAHOMQTT_PIPE_MODE
 #define PKG_USING_PAHOMQTT_EXAMPLE
 #define RT_PKG_MQTT_THREAD_STACK_SIZE 4096
@@ -203,7 +204,7 @@
 #define WEBCLIENT_HEADER_BUFSZ 4096
 #define WEBCLIENT_RESPONSE_BUFSZ 4096
 #define PKG_USING_WEBCLIENT_LATEST_VERSION
-#define PKG_USING_CJSON
+//#define PKG_USING_CJSON
 #define PKG_USING_CJSON_V102
 
 /* Wi-Fi */
@@ -225,7 +226,7 @@
 
 
 /* security packages */
-#define PKG_USING_TINYCRYPT
+//#define PKG_USING_TINYCRYPT
 #define TINY_CRYPT_MD5
 #define TINY_CRYPT_AES
 #define TINY_CRYPT_AES_ROM_TABLES
@@ -247,6 +248,8 @@
 #define FAL_DEBUG_CONFIG
 #define FAL_DEBUG 1
 #define PKG_USING_FAL_LATEST_VERSION
+/* 0xF000 not error with sizeof(bootloader.bin) <= 60K/34*32 */
+/* but 0x11000 will be better. */
 #define FAL_PART_TABLE_END_OFFSET (60 * 1024UL) //speed up if need change to 64k
 #define FAL_PART_TABLE_FLASH_DEV_NAME "beken_onchip_crc"
 
@@ -307,29 +310,26 @@
 /* Player Config */
 
 /* PLAYER 1.2.7 ************************************************************************** */
-#define PKG_USING_PLAYER
+//#define PKG_USING_PLAYER
 #define PKG_USING_PLAYER_V127
 #define PLAYER_DEVICE "sound"
 #define PLAYER_DEFAULT_VOLUME 65
 
-/* PLAYER 内部支持 CODEC */
-#define PLAYER_ENABLE_CODEC_PCM             /* PCM编码 */
-#define PLAYER_ENABLE_CODEC_WAV             /* WAV编码 */
-// #define PLAYER_ENABLE_FORMAT_TS          /* MPEG-TS容器 */
+#define PLAYER_ENABLE_CODEC_PCM
+#define PLAYER_ENABLE_CODEC_WAV
+// #define PLAYER_ENABLE_FORMAT_TS
 
-/* PLAYER 网络流 */
-#define PLAYER_ENABLE_NET_STREAM            /* 网络流音频播放支持 */
-#define PLAYER_ENABLE_HTTP_STREAM           /* HTTP流音频播放支持 */
-#define PLAYER_ENABLE_HTTPS_STREAM          /* HTTPS流音频播放支持 */
-#define PLAYER_ENABLE_TTS_STREAM            /* TTS流音频播放支持 */
-// #define PLAYER_ENABLE_HLS_STREAM         /* HLS流音频播放支持 */
-// #define PLAYER_ENABLE_HLS_ACCELERATE     /* HLS TLS加速 */
-// #define PLAYER_ENABLE_PLS_STREAM         /* PLS流音频播放支持 */
+#define PLAYER_ENABLE_NET_STREAM
+#define PLAYER_ENABLE_HTTP_STREAM
+#define PLAYER_ENABLE_HTTPS_STREAM
+#define PLAYER_ENABLE_TTS_STREAM
+// #define PLAYER_ENABLE_HLS_STREAM
+// #define PLAYER_ENABLE_HLS_ACCELERATE
+// #define PLAYER_ENABLE_PLS_STREAM
 
-#define PLAYER_USING_NETSTREAM_BUFSZ 96     /* 网络缓存 */
+#define PLAYER_USING_NETSTREAM_BUFSZ 96
 
-/* PLAYER 日志 */
-#define PLAYER_USING_DEBUG 0                /* 0:发布版本, 1:调试版本 */
+#define PLAYER_USING_DEBUG 0
 
 /* PLAYER Example */
 #define PLAYER_USING_EXAMPLE00
@@ -349,7 +349,7 @@
 #define CONFIG_VOICE_CHANGER        0
 
 /* tools packages */
-#define PKG_USING_EASYFLASH
+//#define PKG_USING_EASYFLASH
 
 
 //#define PKG_USING_LITTLEFS
@@ -363,3 +363,4 @@
 
 #define RT_USING_MEMTRACE
 #endif
+#define RT_DFS_ELM_USE_EXFAT
