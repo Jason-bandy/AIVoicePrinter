@@ -126,9 +126,9 @@ def gather_out_files(bootloader_str, full_image, uart_image, firmware_rbl):
 
 if __name__=='__main__':
     if os.name == 'nt':
-        cmd_str = "python3 tools\\beken_packager\\gen_partition tools\\beken_packager\\flash_partition.o"
+        cmd_str = '"' + sys.executable + '" tools\\beken_packager\\gen_partition tools\\beken_packager\\flash_partition.o'
     else:
-        cmd_str = "python3 tools/beken_packager/gen_partition tools/beken_packager/flash_partition.o"
+        cmd_str = '"' + sys.executable + '" tools/beken_packager/gen_partition tools/beken_packager/flash_partition.o'
     print(cmd_str)
     os.system(cmd_str)
     os.remove("tools/beken_packager/flash_partition.o")

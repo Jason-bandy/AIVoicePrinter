@@ -403,7 +403,10 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
         flash_size = str(flash_size)
 
     #rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '\n'
-    rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '> /dev/null' + '\n'
+    if sys.platform == 'win32':
+        rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '\n'
+    else:
+        rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + ' > /dev/null' + '\n'
 
     Env = env
     Rtt_Root = os.path.abspath(root_directory)

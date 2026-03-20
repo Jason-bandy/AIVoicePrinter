@@ -79,14 +79,18 @@ enum
 
 #define AUD_ADC_DEV_NAME             "aud_adc"
 #define AUD_ADC_CMD_MAGIC            (0x2EBC0000)
+typedef void (*adc_rx_callback)(UINT32 fill_size);
+
 typedef struct aud_adc_cfg_st
 {
     UINT8 *buf;
     UINT16 buf_len;
+    UINT16 inter_thre;
     UINT16 freq;
-    UINT16 channels;
-    UINT16 mode;
+    UINT8 channels;
+    UINT8 mode;
     UINT32 linein_detect_pin;
+    adc_rx_callback rx_cb;
 } AUD_ADC_CFG_ST, *AUD_ADC_CFG_PTR;
 
 enum
