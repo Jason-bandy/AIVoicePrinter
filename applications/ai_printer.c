@@ -22,7 +22,7 @@
 /* ASR: POST multipart/form-data with audio file */
 #define AI_ASR_URL          "https://api.transkoi.luckjingle.com/api/apis/thirdParty/asr"
 
-/* AI Print: GET with prompt query parameter (update if server differs) */
+/* AI Print: POST with JSON body {"prompt":"..."} */
 #define AI_PRINT_URL        "https://api.transkoi.luckjingle.com/luckypod/aiPrinter/testImagePrint"
 
 /* Audio: 8kHz, 16-bit, mono, 3 seconds = 48000 bytes PCM */
@@ -198,9 +198,11 @@ static int ai_asr_call(char *body_buf, int body_sz, char *text_out)
             goto out;
         }
 
-        /* Response: {"code":200,"data":{"recognizedText":"...","printDataBase64":"...",...}} */
+        /* Response: {"code":200,"data":{"recognizedText":"..."}} or {"data":{"text":"..."}} */
         cJSON *data = cJSON_GetObjectItem(json, "data");
         cJSON *recognized = data ? cJSON_GetObjectItem(data, "recognizedText") : RT_NULL;
+        if (!recognized || recognized->type != cJSON_String)
+            recognized = data ? cJSON_GetObjectItem(data, "text") : RT_NULL;
 
         if (recognized && (recognized->type == cJSON_String) && recognized->valuestring) {
             strncpy(text_out, recognized->valuestring, AI_TEXT_MAX - 1);
@@ -208,7 +210,7 @@ static int ai_asr_call(char *body_buf, int body_sz, char *text_out)
             rt_kprintf("[AIPrinter] Recognized text: \"%s\"\n", text_out);
             ret = 0;
         } else {
-            rt_kprintf("[AIPrinter] ASR: 'recognizedText' not found in response\n");
+            rt_kprintf("[AIPrinter] ASR: no text found in response\n");
         }
         cJSON_Delete(json);
     }
@@ -223,33 +225,35 @@ out:
 
 static int ai_print_call(const char *text)
 {
-    int enc_len = strlen(text) * 3 + 4;
-    int url_len = enc_len + 128;
-    char *enc = RT_NULL;
-    char *url = RT_NULL;
     struct webclient_session *sess = RT_NULL;
     uint8_t *resp = RT_NULL;
+    char *body = RT_NULL;
     int ret = -1;
 
-    enc = rt_malloc(enc_len);
-    url = rt_malloc(url_len);
-    if (!enc || !url) {
-        rt_kprintf("[AIPrinter] OOM for print URL buffers\n");
+    /* Build form body: prompt=<url-encoded text> */
+    int enc_len = strlen(text) * 3 + 4;
+    int body_len = enc_len + 16;
+    char *enc = rt_malloc(enc_len);
+    body = rt_malloc(body_len);
+    if (!enc || !body) {
+        rt_kprintf("[AIPrinter] OOM for print body\n");
+        if (enc) rt_free(enc);
         goto out;
     }
-
     ai_url_encode(text, enc, enc_len);
-    rt_snprintf(url, url_len, "%s?prompt=%s", AI_PRINT_URL, enc);
-    rt_kprintf("[AIPrinter] GET print API: %s\n", url);
+    rt_snprintf(body, body_len, "prompt=%s", enc);
+    rt_free(enc);
+    rt_kprintf("[AIPrinter] POST print API, prompt=\"%s\"\n", text);
 
-    /* Use session-based GET to read large response (printDataBase64 can be big) */
     sess = webclient_session_create(AI_HTTP_HDR_SZ);
     if (!sess) {
         rt_kprintf("[AIPrinter] webclient_session_create failed\n");
         goto out;
     }
 
-    int status = webclient_get(sess, url);
+    webclient_header_fields_add(sess, "Content-Type: application/x-www-form-urlencoded\r\n");
+
+    int status = webclient_post(sess, AI_PRINT_URL, body, strlen(body));
     rt_kprintf("[AIPrinter] Print API HTTP status: %d\n", status);
     if (status != 200) {
         rt_kprintf("[AIPrinter] Print API returned non-200 status\n");
@@ -305,8 +309,7 @@ static int ai_print_call(const char *text)
 
 out:
     if (sess) webclient_close(sess);
-    if (enc) rt_free(enc);
-    if (url) rt_free(url);
+    if (body) rt_free(body);
     if (resp) rt_free(resp);
     return ret;
 }

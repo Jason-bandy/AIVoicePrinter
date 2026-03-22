@@ -305,7 +305,7 @@
 //#define BEKEN_USING_SPI_FLASH
 //#define BEKEN_USING_SPI_PSRAM
 //#define BEKEN_USING_SPI_HSLAVE
-#define RT_USING_BLE
+//#define RT_USING_BLE
 
 /* Player Config */
 
@@ -358,8 +358,11 @@
 /*xiaoya */
 //#define XIAOYA_OS
 #ifdef XIAOYA_OS
-#define PKG_USING_MBEDTLS
+//#define PKG_USING_MBEDTLS
 #endif
+
+/* HTTPS support for webclient */
+#define PKG_USING_MBEDTLS
 
 #define RT_USING_MEMTRACE
 #endif

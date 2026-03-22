@@ -11,11 +11,11 @@
             "size": "65280"
         },
         {
-            "firmware": "../../rtthread.bin",
+            "firmware": "../../out/rtthread.bin",
             "version": "2M.1220",
             "partition": "app",
             "start_addr": "0x00011000",
-            "size": "1156K"
+            "size": "1180K"
         }
     ]
 }
