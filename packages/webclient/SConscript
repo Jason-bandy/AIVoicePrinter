@@ -11,6 +11,14 @@ if GetDepend(['WEBCLIENT_USING_FILE_DOWMLOAD']):
 if GetDepend(['WEBCLIENT_USING_SAMPLES']):
     src += Glob('samples/*.c')
 
-group = DefineGroup('WebClient', src, depend = ['PKG_USING_WEBCLIENT'], CPPPATH = path)
+CPPDEFINES = []
+if GetDepend(['PKG_USING_MBEDTLS']):
+    CPPDEFINES = ['WEBCLIENT_USING_MBED_TLS']
+    path += [
+        cwd + '/../mbedtls/mbedtls/include',
+        cwd + '/../mbedtls/mbedtls-port/inc',
+    ]
+
+group = DefineGroup('WebClient', src, depend = ['PKG_USING_WEBCLIENT'], CPPPATH = path, CPPDEFINES = CPPDEFINES)
 
 Return('group')

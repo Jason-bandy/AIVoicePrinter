@@ -58,6 +58,14 @@ extern void rt_psram_heap_init(void);
 
 int main(int argc, char **argv)
 {
+    rt_kprintf("\r\n");
+    rt_kprintf("************************************************************\r\n");
+    rt_kprintf("*          ZhiPlus AI Printer Firmware v1.0.0              *\r\n");
+    rt_kprintf("*          BK7252N  |  RT-Thread SDK 3.0.78                *\r\n");
+    rt_kprintf("*          Copyright (C) 2024 ZhiPlus Technology Co., Ltd  *\r\n");
+    rt_kprintf("************************************************************\r\n");
+    rt_kprintf("\r\n");
+
     /* mount ROMFS as root directory */
 #if defined(RT_USING_DFS_ROMFS)
     if (dfs_mount(RT_NULL, "/", "rom", 0, (const void *)DFS_ROMFS_ROOT) == 0)
@@ -110,6 +118,11 @@ int main(int argc, char **argv)
 #endif
 
     wlan_app_init();
+
+    /* AI Printer: connect WiFi → record → ASR → print (CEN button triggers each cycle) */
+    extern void ai_printer_start(void);
+    ai_printer_start();
+
 #if  defined(PKG_USING_PLAYER)
     extern int player_codec_helixmp3_register(void);
     extern int player_codec_beken_aac_register(void);

@@ -3,7 +3,9 @@ from building import *
 cwd  = GetCurrentDir()
 src  = Glob('*.c')
 list = os.listdir(cwd)
-CPPPATH = [cwd]
+CPPPATH = [cwd,
+           cwd + '/../packages/cJSON',
+           cwd + '/../packages/webclient/inc']
 objs = []
 
 if GetDepend('RT_USING_DFS_ROMFS') == False:

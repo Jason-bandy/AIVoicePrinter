@@ -216,7 +216,7 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
     AddOption('--beken',
                 dest = 'beken',
                 type = 'string',
-                default = 'bk7251',
+                default = 'bk7252n',
                 help = 'set beken project: bk7231u/bk7231n/etc...')
     AddOption('--buildlibs',
                 dest = 'buildlibs',
