@@ -16,8 +16,11 @@
 
 /* ========================= Configuration ========================= */
 
-#define AI_WIFI_SSID        "Xiaomi_402"
-#define AI_WIFI_PASSWORD    "88996677"
+/* WiFi AP list: tries each in order until one connects */
+static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
+    { "Xiaomi_402", "88996677"   },
+    { "XMLJ",       "lj20251210" },
+};
 
 /* ASR: POST multipart/form-data with audio file */
 #define AI_ASR_URL          "https://api.transkoi.luckjingle.com/api/apis/thirdParty/asr"
@@ -25,9 +28,9 @@
 /* AI Print: POST with JSON body {"prompt":"..."} */
 #define AI_PRINT_URL        "https://api.transkoi.luckjingle.com/luckypod/aiPrinter/testImagePrint"
 
-/* Audio: 8kHz, 16-bit, mono, 3 seconds = 48000 bytes PCM */
+/* Audio: 8kHz, 16-bit, mono, 6 seconds = 96000 bytes PCM */
 #define AI_SAMPLE_RATE      8000
-#define AI_RECORD_SECS      3
+#define AI_RECORD_SECS      6
 #define AI_PCM_BYTES        (AI_SAMPLE_RATE * AI_RECORD_SECS * 2)
 #define AI_WAV_HDR_SZ       44
 
@@ -80,34 +83,32 @@ static void ai_url_encode(const char *src, char *dst, int dsz)
 
 static int ai_wifi_connect(void)
 {
-    network_InitTypeDef_st cfg;
+    int n = sizeof(AI_WIFI_LIST) / sizeof(AI_WIFI_LIST[0]);
+    for (int i = 0; i < n; i++) {
+        network_InitTypeDef_st cfg;
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.wifi_mode = BK_STATION;
+        strncpy(cfg.wifi_ssid, AI_WIFI_LIST[i].ssid, sizeof(cfg.wifi_ssid) - 1);
+        strncpy(cfg.wifi_key,  AI_WIFI_LIST[i].pass, sizeof(cfg.wifi_key) - 1);
+        cfg.dhcp_mode = DHCP_CLIENT;
 
-    memset(&cfg, 0, sizeof(cfg));
-    cfg.wifi_mode = BK_STATION;
-    strncpy(cfg.wifi_ssid, AI_WIFI_SSID, sizeof(cfg.wifi_ssid) - 1);
-    strncpy(cfg.wifi_key,  AI_WIFI_PASSWORD, sizeof(cfg.wifi_key) - 1);
-    cfg.dhcp_mode = DHCP_CLIENT;
+        rt_kprintf("[AIPrinter] Trying WiFi: %s\n", AI_WIFI_LIST[i].ssid);
+        bk_wlan_start(&cfg);
 
-    rt_kprintf("[AIPrinter] Connecting to WiFi: %s\n", AI_WIFI_SSID);
-    bk_wlan_start(&cfg);
-
-    for (int waited = 0; waited < AI_WIFI_TIMEOUT_MS; waited += 300) {
-        rw_evt_type st = mhdr_get_station_status();
-        if (st == RW_EVT_STA_GOT_IP) {
-            rt_kprintf("[AIPrinter] WiFi connected! Got IP.\n");
-            return 0;
+        for (int waited = 0; waited < AI_WIFI_TIMEOUT_MS; waited += 300) {
+            rw_evt_type st = mhdr_get_station_status();
+            if (st == RW_EVT_STA_GOT_IP) {
+                rt_kprintf("[AIPrinter] WiFi connected: %s\n", AI_WIFI_LIST[i].ssid);
+                return 0;
+            }
+            if (st == RW_EVT_STA_PASSWORD_WRONG || st == RW_EVT_STA_NO_AP_FOUND) {
+                rt_kprintf("[AIPrinter] WiFi %s failed, trying next...\n", AI_WIFI_LIST[i].ssid);
+                break;
+            }
+            rt_thread_delay(300);
         }
-        if (st == RW_EVT_STA_PASSWORD_WRONG) {
-            rt_kprintf("[AIPrinter] WiFi: wrong password!\n");
-            return -1;
-        }
-        if (st == RW_EVT_STA_NO_AP_FOUND) {
-            rt_kprintf("[AIPrinter] WiFi: AP not found!\n");
-            return -1;
-        }
-        rt_thread_delay(300);
     }
-    rt_kprintf("[AIPrinter] WiFi: connection timeout!\n");
+    rt_kprintf("[AIPrinter] WiFi: all APs failed!\n");
     return -1;
 }
 
@@ -164,6 +165,7 @@ static int ai_asr_call(char *body_buf, int body_sz, char *text_out)
         rt_snprintf(ct, sizeof(ct), "multipart/form-data; boundary=%s", AI_BOUNDARY);
         webclient_header_fields_add(sess, "Content-Type: %s\r\n", ct);
         webclient_header_fields_add(sess, "Content-Length: %d\r\n", body_sz);
+        webclient_header_fields_add(sess, "Authorization: Bearer test-token-2026-luckypod\r\n");
     }
 
     rt_kprintf("[AIPrinter] POST to ASR API, body=%d bytes...\n", body_sz);
@@ -252,6 +254,8 @@ static int ai_print_call(const char *text)
     }
 
     webclient_header_fields_add(sess, "Content-Type: application/x-www-form-urlencoded\r\n");
+    webclient_header_fields_add(sess, "Content-Length: %d\r\n", (int)strlen(body));
+    webclient_header_fields_add(sess, "Authorization: Bearer test-token-2026-luckypod\r\n");
 
     int status = webclient_post(sess, AI_PRINT_URL, body, strlen(body));
     rt_kprintf("[AIPrinter] Print API HTTP status: %d\n", status);
@@ -296,7 +300,7 @@ static int ai_print_call(const char *text)
             }
 
             if (print_b64 && (print_b64->type == cJSON_String) && print_b64->valuestring) {
-                rt_kprintf("[AIPrinter] printDataBase64: %s\n", print_b64->valuestring);
+                rt_kprintf("[AIPrinter] printDataBase64(first 50): %.50s\n", print_b64->valuestring);
             } else {
                 rt_kprintf("[AIPrinter] printDataBase64: (null)\n");
             }
