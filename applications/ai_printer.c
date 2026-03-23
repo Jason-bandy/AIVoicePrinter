@@ -1,9 +1,9 @@
 /*
  * AI Printer Application - BK7252N
  *
- * Flow: Boot → WiFi Connect → 3s Countdown → Record (3s) → ASR API → AI Print API
+ * Flow: Boot → WiFi Connect → wait button → Record (6s) → ASR API → AI Print API → loop
  *
- * Usage: Press CEN button to reset the board and trigger a new print cycle.
+ * Usage: Press trigger button (GPIO AI_BTN_GPIO) to start a new print cycle.
  * All progress is printed to the serial port (UART).
  */
 
@@ -13,8 +13,11 @@
 #include <string.h>
 #include "wlan_ui_pub.h"
 #include "rw_msg_pub.h"
+#include "gpio_pub.h"
+#include "multi_button.h"
 
 /* ========================= Configuration ========================= */
+#define AI_BTN_GPIO     4   /* GPIO pin connected to trigger button (button → GND) */
 
 /* WiFi AP list: tries each in order until one connects */
 static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
@@ -110,6 +113,42 @@ static int ai_wifi_connect(void)
     }
     rt_kprintf("[AIPrinter] WiFi: all APs failed!\n");
     return -1;
+}
+
+/* ========================= Button Trigger ========================= */
+
+static BUTTON_S  g_ai_button;
+static rt_sem_t  g_btn_sem;
+
+static uint8_t btn_read_level(BUTTON_S *handle)
+{
+    return (uint8_t)bk_gpio_input((uint32_t)handle->user_data);
+}
+
+static void btn_on_single_click(void *param)
+{
+    rt_kprintf("[AIPrinter] Button pressed! Starting recording...\n");
+    rt_sem_release(g_btn_sem);
+}
+
+static void btn_tick_thread(void *arg)
+{
+    while (1) {
+        button_ticks(RT_NULL);
+        rt_thread_delay(5); /* matches TICKS_INTERVAL = 5ms */
+    }
+}
+
+static void ai_button_init(void)
+{
+    bk_gpio_config_input_pup(AI_BTN_GPIO); /* input + pull-up, button connects to GND */
+    button_init(&g_ai_button, btn_read_level, 0, (void *)AI_BTN_GPIO);
+    button_attach(&g_ai_button, SINGLE_CLICK, btn_on_single_click);
+    button_start(&g_ai_button);
+
+    rt_thread_t t = rt_thread_create("btn_tick", btn_tick_thread, RT_NULL,
+                                     512, AI_TASK_PRIO - 1, 5);
+    if (t) rt_thread_startup(t);
 }
 
 /* ========================= Audio Record ========================= */
@@ -322,94 +361,81 @@ out:
 
 static void ai_printer_task(void *arg)
 {
-    char asr_text[AI_TEXT_MAX] = {0};
-    char prefix[200];
-    char suffix[64];
-    int  pre_len, suf_len, pcm_off, body_sz;
-    char *body = RT_NULL;
-
     rt_kprintf("\n[AIPrinter] ======================================\n");
     rt_kprintf("[AIPrinter]   AI Voice Printer  (BK7252N)\n");
-    rt_kprintf("[AIPrinter]   Press CEN to restart / retrigger\n");
+    rt_kprintf("[AIPrinter]   GPIO%d button triggers recording\n", AI_BTN_GPIO);
     rt_kprintf("[AIPrinter] ======================================\n\n");
 
-    /* Step 1: Connect WiFi */
+    /* Step 1: Connect WiFi once at startup */
     rt_kprintf("[AIPrinter] [1/4] Connecting to WiFi...\n");
     if (ai_wifi_connect() != 0) {
-        rt_kprintf("[AIPrinter] WiFi failed. Press CEN to retry.\n");
-        goto done;
+        rt_kprintf("[AIPrinter] WiFi failed! Check config and reboot.\n");
+        return;
     }
 
-    /* Step 2: Countdown + Record */
-    rt_kprintf("[AIPrinter] [2/4] Prepare to speak. Recording starts in:\n");
-    for (int i = 3; i >= 1; i--) {
-        rt_kprintf("[AIPrinter]   %d...\n", i);
-        rt_thread_delay(1000);
+    /* Main loop: wait button → record → ASR → print → repeat */
+    while (1) {
+        char  asr_text[AI_TEXT_MAX] = {0};
+        char  prefix[200], suffix[64];
+        int   pre_len, suf_len, pcm_off, body_sz;
+        char *body = RT_NULL;
+
+        rt_kprintf("[AIPrinter] Ready. Press button (GPIO%d) to start.\n", AI_BTN_GPIO);
+        rt_sem_take(g_btn_sem, RT_WAITING_FOREVER);
+
+        /* Step 2: Record */
+        rt_kprintf("[AIPrinter] [2/4] Speak now! Recording %ds...\n", AI_RECORD_SECS);
+
+        pre_len = rt_snprintf(prefix, sizeof(prefix),
+            "--%s\r\n"
+            "Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n"
+            "Content-Type: audio/wav\r\n"
+            "\r\n",
+            AI_BOUNDARY);
+        suf_len = rt_snprintf(suffix, sizeof(suffix), "\r\n--%s--\r\n", AI_BOUNDARY);
+        pcm_off = pre_len + AI_WAV_HDR_SZ;
+        body_sz = pcm_off + AI_PCM_BYTES + suf_len;
+
+        body = rt_malloc(body_sz);
+        if (!body) {
+            rt_kprintf("[AIPrinter] OOM: cannot allocate %d bytes!\n", body_sz);
+            continue;
+        }
+
+        memcpy(body, prefix, pre_len);
+        ai_wav_header((uint8_t *)(body + pre_len), AI_PCM_BYTES);
+
+        if (ai_record_pcm((uint8_t *)(body + pcm_off), AI_PCM_BYTES) != 0) {
+            rt_kprintf("[AIPrinter] Recording failed!\n");
+            rt_free(body);
+            continue;
+        }
+        memcpy(body + pcm_off + AI_PCM_BYTES, suffix, suf_len);
+
+        /* Step 3: ASR */
+        rt_kprintf("[AIPrinter] [3/4] Sending audio to ASR API...\n");
+        if (ai_asr_call(body, body_sz, asr_text) != 0 || !asr_text[0]) {
+            rt_kprintf("[AIPrinter] ASR failed or empty result!\n");
+            rt_free(body);
+            continue;
+        }
+        rt_free(body);
+
+        /* Step 4: Print */
+        rt_kprintf("[AIPrinter] [4/4] Text: \"%s\" → Print API\n", asr_text);
+        ai_print_call(asr_text);
+
+        rt_kprintf("[AIPrinter] Done! Press button for next print.\n\n");
     }
-
-    /* Build multipart body in a single allocation:
-     *   [prefix][WAV header (44B)][PCM data (48000B)][suffix]
-     */
-    pre_len = rt_snprintf(prefix, sizeof(prefix),
-        "--%s\r\n"
-        "Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n"
-        "Content-Type: audio/wav\r\n"
-        "\r\n",
-        AI_BOUNDARY);
-    suf_len = rt_snprintf(suffix, sizeof(suffix), "\r\n--%s--\r\n", AI_BOUNDARY);
-    pcm_off = pre_len + AI_WAV_HDR_SZ;
-    body_sz = pcm_off + AI_PCM_BYTES + suf_len;
-
-    rt_kprintf("[AIPrinter] Allocating body buffer: %d bytes\n", body_sz);
-    body = rt_malloc(body_sz);
-    if (!body) {
-        rt_kprintf("[AIPrinter] OOM: cannot allocate %d bytes!\n", body_sz);
-        goto done;
-    }
-
-    /* Fill multipart prefix */
-    memcpy(body, prefix, pre_len);
-    /* Fill WAV header */
-    ai_wav_header((uint8_t *)(body + pre_len), AI_PCM_BYTES);
-    /* Record PCM directly into body buffer */
-    if (ai_record_pcm((uint8_t *)(body + pcm_off), AI_PCM_BYTES) != 0) {
-        rt_kprintf("[AIPrinter] Recording failed!\n");
-        goto done;
-    }
-    /* Fill multipart suffix */
-    memcpy(body + pcm_off + AI_PCM_BYTES, suffix, suf_len);
-
-    /* Step 3: ASR API */
-    rt_kprintf("[AIPrinter] [3/4] Sending audio to ASR API...\n");
-    if (ai_asr_call(body, body_sz, asr_text) != 0) {
-        rt_kprintf("[AIPrinter] ASR failed!\n");
-        goto done;
-    }
-    if (!asr_text[0]) {
-        rt_kprintf("[AIPrinter] ASR returned empty text!\n");
-        goto done;
-    }
-
-    /* Free audio body now (no longer needed) */
-    rt_free(body);
-    body = RT_NULL;
-
-    /* Step 4: Print API */
-    rt_kprintf("[AIPrinter] [4/4] Text: \"%s\" → Print API\n", asr_text);
-    ai_print_call(asr_text);
-
-    rt_kprintf("\n[AIPrinter] ======================================\n");
-    rt_kprintf("[AIPrinter]   Done! Press CEN for next print.\n");
-    rt_kprintf("[AIPrinter] ======================================\n\n");
-
-done:
-    if (body) rt_free(body);
 }
 
 /* ========================= Entry Point ========================= */
 
 void ai_printer_start(void)
 {
+    g_btn_sem = rt_sem_create("btn_sem", 0, RT_IPC_FLAG_FIFO);
+    ai_button_init();
+
     rt_thread_t t = rt_thread_create("ai_printer",
                                      ai_printer_task, RT_NULL,
                                      AI_TASK_STACK_SZ, AI_TASK_PRIO, 20);
