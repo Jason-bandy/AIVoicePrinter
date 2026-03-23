@@ -15,6 +15,7 @@
 #include "rw_msg_pub.h"
 #include "gpio_pub.h"
 #include "multi_button.h"
+#include "ble_printer.h"
 
 /* ========================= Configuration ========================= */
 #define AI_BTN_GPIO     4   /* GPIO pin connected to trigger button (button → GND) */
@@ -340,6 +341,8 @@ static int ai_print_call(const char *text)
 
             if (print_b64 && (print_b64->type == cJSON_String) && print_b64->valuestring) {
                 rt_kprintf("[AIPrinter] printDataBase64(first 50): %.50s\n", print_b64->valuestring);
+                /* Send ESC/POS data to BLE printer */
+                ble_printer_send_base64(print_b64->valuestring);
             } else {
                 rt_kprintf("[AIPrinter] printDataBase64: (null)\n");
             }
@@ -371,6 +374,13 @@ static void ai_printer_task(void *arg)
     if (ai_wifi_connect() != 0) {
         rt_kprintf("[AIPrinter] WiFi failed! Check config and reboot.\n");
         return;
+    }
+
+    /* Step 2: Connect BLE printer (once at startup) */
+    rt_kprintf("[AIPrinter] [2/3] Connecting to BLE printer...\n");
+    if (ble_printer_connect() != 0) {
+        rt_kprintf("[AIPrinter] BLE printer connect failed! Check printer is on.\n");
+        /* Continue anyway - print data will fail gracefully */
     }
 
     /* Main loop: wait button → record → ASR → print → repeat */
@@ -435,6 +445,7 @@ void ai_printer_start(void)
 {
     g_btn_sem = rt_sem_create("btn_sem", 0, RT_IPC_FLAG_FIFO);
     ai_button_init();
+    ble_printer_init();
 
     rt_thread_t t = rt_thread_create("ai_printer",
                                      ai_printer_task, RT_NULL,
