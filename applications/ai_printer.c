@@ -292,6 +292,7 @@ static int ai_print_call(const char *text)
         rt_kprintf("[AIPrinter] webclient_session_create failed\n");
         goto out;
     }
+    webclient_set_timeout(sess, 120000);   /* 120s: image generation can be slow */
 
     webclient_header_fields_add(sess, "Content-Type: application/x-www-form-urlencoded\r\n");
     webclient_header_fields_add(sess, "Content-Length: %d\r\n", (int)strlen(body));
@@ -376,13 +377,6 @@ static void ai_printer_task(void *arg)
         return;
     }
 
-    /* Step 2: Connect BLE printer (once at startup) */
-    rt_kprintf("[AIPrinter] [2/3] Connecting to BLE printer...\n");
-    if (ble_printer_connect() != 0) {
-        rt_kprintf("[AIPrinter] BLE printer connect failed! Check printer is on.\n");
-        /* Continue anyway - print data will fail gracefully */
-    }
-
     /* Main loop: wait button → record → ASR → print → repeat */
     while (1) {
         char  asr_text[AI_TEXT_MAX] = {0};
@@ -431,7 +425,7 @@ static void ai_printer_task(void *arg)
         }
         rt_free(body);
 
-        /* Step 4: Print */
+        /* Step 4: Print via API (BLE if connected, else UART2 fallback) */
         rt_kprintf("[AIPrinter] [4/4] Text: \"%s\" → Print API\n", asr_text);
         ai_print_call(asr_text);
 

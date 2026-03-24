@@ -10,24 +10,27 @@
  */
 
 #include <rtthread.h>
+#include <rtdevice.h>
 #include <string.h>
 #include "ble_api_5_x.h"
+#include "ble_ui.h"
+#include "app_ble.h"
 #include "app_sdp.h"
 #include "base_64.h"
 #include "ble_printer.h"
 
 /* ========================= Config ========================= */
 
-#define PRINTER_NAME        "TPC50S_A07B_BLE"
-#define BLE_CHUNK_SIZE      20          /* safe default, fits any MTU */
-#define BLE_SCAN_TIMEOUT_MS 30000
-#define BLE_DISC_TIMEOUT_MS 10000
+#define PRINTER_NAME         "TPC50S_A07B_BLE"
+#define BLE_CHUNK_SIZE       20          /* safe default, fits any MTU */
+#define BLE_SCAN_TIMEOUT_MS  30000
+#define BLE_DISC_TIMEOUT_MS  30000
 #define BLE_WRITE_TIMEOUT_MS 3000
 
-/* 0xFF00 service UUID, little-endian 16-bit */
-static const app_sdp_service_uuid s_printer_svc_tab[] = {
-    { .uuid_len = 2, .uuid = {0x00, 0xFF} },
-};
+/* UART2 fallback: P0=TX, P1=RX.
+ * Change UART_PRN_BAUD_RATE to match your printer's wired serial setting. */
+#define UART_PRN_DEV_NAME    "uart2"
+#define UART_PRN_BAUD_RATE   921600
 
 /* 0xFF02 write characteristic UUID (little-endian) */
 #define WRITE_UUID_B0   0x02
@@ -50,7 +53,10 @@ static uint16_t         s_write_hdl  = 0xFFFF;
 static uint8_t          s_peer_addr[6];
 static uint8_t          s_peer_addr_type;
 
+static rt_device_t      s_uart_dev = RT_NULL;   /* UART2 fallback (P0/P1) */
+
 static rt_sem_t         s_found_sem;   /* printer advertisement found */
+static rt_sem_t         s_cmd_sem;     /* BLE cmd step done (scan_stop / init_create) */
 static rt_sem_t         s_conn_sem;    /* BLE connected */
 static rt_sem_t         s_disc_sem;    /* service discovery done */
 static rt_sem_t         s_write_sem;   /* one write chunk done */
@@ -77,24 +83,71 @@ static int ad_find_name(const uint8_t *data, uint8_t len,
     return 0;
 }
 
+/* ========================= UART Fallback (P0=TX / P1=RX) ========================= */
+
+static int uart_printer_send(const uint8_t *data, int len)
+{
+    if (!s_uart_dev) {
+        rt_kprintf("[BLEPrinter] UART fallback not available.\n");
+        return -1;
+    }
+    rt_size_t written = rt_device_write(s_uart_dev, 0, data, (rt_size_t)len);
+    rt_kprintf("[BLEPrinter] UART sent %d/%d bytes.\n", (int)written, len);
+    return (written == (rt_size_t)len) ? 0 : -1;
+}
+
 /* ========================= SDP Callbacks ========================= */
 
-/* Called for each characteristic found in registered services */
-static void printer_sdp_char_cb(uint8_t conidx, uint16_t val_hdl,
-                                 uint8_t uuid_len, uint8_t *uuid)
+/* Scan svr_list for the 0xFF02 write characteristic; sets s_write_hdl if found.
+ * register_app_sdp_characteristic_callback() is NOT used: the SDK stores that
+ * callback but never calls it in the BLE 5.2 stack. */
+static void printer_scan_svc_db(uint8_t con_idx)
 {
-    if (uuid_len == 2 && uuid[0] == WRITE_UUID_B0 && uuid[1] == WRITE_UUID_B1) {
-        s_write_hdl = val_hdl;
-        rt_kprintf("[BLEPrinter] Write char found, handle=0x%04x\n", val_hdl);
+    struct sdp_env_tag *env = sdp_get_env_use_conidx(con_idx);
+    if (!env) return;
+    struct sdp_db *p_db = (struct sdp_db *)env->svr_list.first;
+    while (p_db) {
+        struct db *svc = &p_db->svr;
+        for (uint8_t i = 0; i < svc->chars_nb; i++) {
+            struct bk_prf_char_def *ch = &svc->chars[i];
+            uint8_t *u = (uint8_t *)ch->uuid;
+            /* uuid_type 0x00 == GATT_UUID_16; bytes stored little-endian */
+            if (ch->uuid_type == 0x00 &&
+                u[0] == WRITE_UUID_B0 && u[1] == WRITE_UUID_B1) {
+                s_write_hdl = ch->val_hdl;
+                rt_kprintf("[BLEPrinter] Found 0xFF02, handle=0x%04x\n", s_write_hdl);
+                return;
+            }
+        }
+        p_db = (struct sdp_db *)p_db->hdr.next;
     }
 }
 
 /* Called for SDP-level events */
 static void printer_sdp_notice_cb(sdp_notice_t notice, void *param)
 {
+    sdp_event_t *e = (sdp_event_t *)param;
+    uint8_t cidx;
+
     switch (notice) {
+    case SDP_DISCOVER_SVR:
+        /* Fired for each service pushed into the DB - scan immediately. */
+        if (s_state != BLE_PRN_DISCOVERING || s_write_hdl != 0xFFFF) break;
+        cidx = e ? (uint8_t)e->con_idx : s_conn_idx;
+        printer_scan_svc_db(cidx);
+        if (s_write_hdl != 0xFFFF) {
+            s_state = BLE_PRN_READY;
+            rt_sem_release(s_disc_sem);
+        }
+        break;
+
     case SDP_DISCOVER_SVR_DONE:
-        rt_kprintf("[BLEPrinter] Discovery done, write_hdl=0x%04x\n", s_write_hdl);
+        /* All GATT discovery complete - release sem if not already done above. */
+        rt_kprintf("[BLEPrinter] Discovery complete, write_hdl=0x%04x\n", s_write_hdl);
+        if (s_state == BLE_PRN_READY) break;   /* already released via SDP_DISCOVER_SVR */
+        cidx = e ? (uint8_t)e->con_idx : s_conn_idx;
+        if (s_write_hdl == 0xFFFF)
+            printer_scan_svc_db(cidx);         /* final fallback full-scan */
         s_state = (s_write_hdl != 0xFFFF) ? BLE_PRN_READY : BLE_PRN_IDLE;
         rt_sem_release(s_disc_sem);
         break;
@@ -161,7 +214,11 @@ static void printer_ble_notice_cb(ble_notice_t notice, void *param)
 
 static void printer_ble_cmd_cb(ble_cmd_t cmd, ble_cmd_param_t *param)
 {
-    (void)cmd; (void)param;
+    (void)param;
+    /* Release step semaphore for operations we explicitly wait on */
+    if (cmd == BLE_DEINIT_SCAN || cmd == BLE_INIT_CREATE) {
+        rt_sem_release(s_cmd_sem);
+    }
 }
 
 /* ========================= Public API ========================= */
@@ -169,21 +226,31 @@ static void printer_ble_cmd_cb(ble_cmd_t cmd, ble_cmd_param_t *param)
 int ble_printer_init(void)
 {
     s_found_sem = rt_sem_create("prn_fnd", 0, RT_IPC_FLAG_FIFO);
+    s_cmd_sem   = rt_sem_create("prn_cmd", 0, RT_IPC_FLAG_FIFO);
     s_conn_sem  = rt_sem_create("prn_con", 0, RT_IPC_FLAG_FIFO);
     s_disc_sem  = rt_sem_create("prn_dsc", 0, RT_IPC_FLAG_FIFO);
     s_write_sem = rt_sem_create("prn_wrt", 0, RT_IPC_FLAG_FIFO);
 
-    if (!s_found_sem || !s_conn_sem || !s_disc_sem || !s_write_sem) {
+    if (!s_found_sem || !s_cmd_sem || !s_conn_sem || !s_disc_sem || !s_write_sem) {
         rt_kprintf("[BLEPrinter] OOM creating semaphores!\n");
         return -1;
     }
 
     ble_set_notice_cb(printer_ble_notice_cb);
-    register_app_sdp_characteristic_callback(printer_sdp_char_cb);
-    register_app_sdp_service_tab(
-        sizeof(s_printer_svc_tab) / sizeof(s_printer_svc_tab[0]),
-        (app_sdp_service_uuid *)s_printer_svc_tab);
     sdp_set_notice_cb(printer_sdp_notice_cb);
+
+    /* Open UART2 (P0=TX, P1=RX) for wired fallback */
+    s_uart_dev = rt_device_find(UART_PRN_DEV_NAME);
+    if (s_uart_dev) {
+        struct serial_configure cfg = RT_SERIAL_CONFIG_DEFAULT;
+        cfg.baud_rate = UART_PRN_BAUD_RATE;
+        rt_device_open(s_uart_dev, RT_DEVICE_FLAG_RDWR);
+        rt_device_control(s_uart_dev, RT_DEVICE_CTRL_CONFIG, &cfg);
+        rt_kprintf("[BLEPrinter] UART2 fallback ready (P0/P1, %d baud).\n",
+                   UART_PRN_BAUD_RATE);
+    } else {
+        rt_kprintf("[BLEPrinter] UART2 not found, no wired fallback.\n");
+    }
 
     rt_kprintf("[BLEPrinter] Initialized.\n");
     return 0;
@@ -214,15 +281,31 @@ int ble_printer_connect(void)
         s_state = BLE_PRN_IDLE;
         return -1;
     }
+    /* Stop scan and wait for BLE_DEINIT_SCAN callback (BLE env → READY) */
     bk_ble_scan_stop(s_scan_idx, printer_ble_cmd_cb);
+    if (rt_sem_take(s_cmd_sem,
+                    rt_tick_from_millisecond(5000)) != RT_EOK) {
+        rt_kprintf("[BLEPrinter] Scan stop timeout!\n");
+        s_state = BLE_PRN_IDLE;
+        return -1;
+    }
 
     /* Step 2: Connect */
     rt_kprintf("[BLEPrinter] Connecting...\n");
-    uint8_t init_idx = app_ble_get_idle_actv_idx_handle(INIT_ACTV);
+    uint8_t init_idx = app_ble_get_idle_conn_idx_handle(INIT_ACTV);
     struct bd_addr addr;
     memcpy(addr.addr, s_peer_addr, 6);
 
+    /* Create init activity and wait for BLE_INIT_CREATE callback */
     bk_ble_create_init(init_idx, printer_ble_cmd_cb);
+    if (rt_sem_take(s_cmd_sem,
+                    rt_tick_from_millisecond(5000)) != RT_EOK) {
+        rt_kprintf("[BLEPrinter] Init create timeout!\n");
+        s_state = BLE_PRN_IDLE;
+        return -1;
+    }
+
+    /* Set peer address then start connection */
     bk_ble_init_set_connect_dev_addr(init_idx, &addr, s_peer_addr_type);
     bk_ble_init_start_conn(init_idx, 10000, printer_ble_cmd_cb);
 
@@ -234,17 +317,26 @@ int ble_printer_connect(void)
         return -1;
     }
 
-    /* Step 3: Service discovery (auto-triggered by registered service tab) */
+    /* Step 3: Service discovery */
     rt_kprintf("[BLEPrinter] Discovering services...\n");
-    sdp_update_gatt_mtu(s_conn_idx);
+    /* Give printer 300ms to stabilize before issuing GATT commands.
+     * sdp_update_gatt_mtu is intentionally omitted: sending an ATT MTU Request
+     * immediately after connection triggers reason-0x3e disconnects on some
+     * printer firmware versions. */
+    rt_thread_delay(rt_tick_from_millisecond(300));
+    sdp_get_all_service(s_conn_idx);
 
     if (rt_sem_take(s_disc_sem,
                     rt_tick_from_millisecond(BLE_DISC_TIMEOUT_MS)) != RT_EOK) {
         rt_kprintf("[BLEPrinter] Discovery timeout!\n");
+        s_state = BLE_PRN_IDLE;
+        ble_printer_disconnect();   /* clean up so next retry starts fresh */
         return -1;
     }
     if (s_write_hdl == 0xFFFF) {
         rt_kprintf("[BLEPrinter] 0xFF02 characteristic not found!\n");
+        s_state = BLE_PRN_IDLE;
+        ble_printer_disconnect();
         return -1;
     }
 
@@ -254,12 +346,25 @@ int ble_printer_connect(void)
 
 int ble_printer_send(const uint8_t *data, int len)
 {
-    if (s_state != BLE_PRN_READY || s_write_hdl == 0xFFFF) {
-        rt_kprintf("[BLEPrinter] Not ready!\n");
-        return -1;
+    /* Hex dump first 48 bytes for debugging (16 bytes per line) */
+    {
+        int dump = len < 48 ? len : 48;
+        rt_kprintf("[BLEPrinter] --- hex dump (total %d bytes) ---\n", len);
+        for (int i = 0; i < dump; i++) {
+            if (i % 16 == 0) rt_kprintf("[%02d]", i);
+            rt_kprintf(" %02X", data[i]);
+            if (i % 16 == 15 || i == dump - 1) rt_kprintf("\n");
+        }
+        rt_kprintf("[BLEPrinter] ---\n");
     }
 
-    rt_kprintf("[BLEPrinter] Sending %d bytes in %d-byte chunks...\n",
+    /* BLE not connected - try UART fallback immediately */
+    if (s_state != BLE_PRN_READY || s_write_hdl == 0xFFFF) {
+        rt_kprintf("[BLEPrinter] BLE not ready, trying UART fallback...\n");
+        return uart_printer_send(data, len);
+    }
+
+    rt_kprintf("[BLEPrinter] Sending %d bytes via BLE (%d-byte chunks)...\n",
                len, BLE_CHUNK_SIZE);
 
     int offset = 0;
@@ -273,13 +378,14 @@ int ble_printer_send(const uint8_t *data, int len)
         /* Wait for write done before sending next chunk */
         if (rt_sem_take(s_write_sem,
                         rt_tick_from_millisecond(BLE_WRITE_TIMEOUT_MS)) != RT_EOK) {
-            rt_kprintf("[BLEPrinter] Write timeout at offset %d!\n", offset);
-            return -1;
+            rt_kprintf("[BLEPrinter] BLE write timeout at offset %d, trying UART...\n",
+                       offset);
+            return uart_printer_send(data, len);
         }
         offset += chunk;
     }
 
-    rt_kprintf("[BLEPrinter] Print data sent (%d bytes).\n", len);
+    rt_kprintf("[BLEPrinter] Print data sent via BLE (%d bytes).\n", len);
     return 0;
 }
 
