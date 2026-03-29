@@ -34,6 +34,19 @@ config BEKEN_USING_GPIO
     select RT_USING_PIN
     default n
 
+config BEKEN_USING_SPI_MASTER
+    bool "Using SPI Master"
+    select RT_USING_SPI
+    default y
+
+config BEKEN_USING_ST7789_LCD
+    bool "Using ST7789 LCD Driver"
+    depends on BEKEN_USING_SPI_MASTER
+    default n
+    help
+        ST7789 240x240 LCD display driver
+        SPI interface, no touch support
+
 config BEKEN_USING_WLAN
     bool "Using Wi-Fi"
     select RT_USING_WIFI

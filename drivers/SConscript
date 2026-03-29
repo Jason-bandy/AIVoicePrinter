@@ -13,6 +13,9 @@ if GetDepend('BEKEN_USING_FLASH') == False:
 if GetDepend('RT_USING_ADC') == False:
     SrcRemove(src, 'drv_adc.c')
 
+if GetDepend('BEKEN_USING_ST7789_LCD') == False:
+    SrcRemove(src, 'drv_st7789_lcd.c')
+
 group = DefineGroup('Drivers', src, depend = [''], CPPPATH = CPPPATH)
 
 for d in list:
