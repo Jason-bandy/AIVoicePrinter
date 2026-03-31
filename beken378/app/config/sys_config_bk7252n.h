@@ -300,8 +300,8 @@
 #define IPERF_OPEN_ONLY                            2  /* open iperf, but no open accel */
 #define CFG_IPERF_TEST                             IPERF_OPEN_ONLY
 
-#define CFG_USE_APP_DEMO_VIDEO_TRANSFER            1
-#define CFG_USE_CAMERA_INTF                        1
+#define CFG_USE_APP_DEMO_VIDEO_TRANSFER            0
+#define CFG_USE_CAMERA_INTF                        0
 
 #define CFG_USE_HSLAVE_SPI                         0
 #define CFG_USE_SPIDMA                             0

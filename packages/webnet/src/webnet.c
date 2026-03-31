@@ -24,12 +24,10 @@
 
 #include <stdint.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include <webnet.h>
 #include <wn_module.h>
-
-
-#include <sys/select.h>
 
 
 #if defined(RT_USING_LWIP) && (RT_LWIP_TCPTHREAD_STACKSIZE < 1408)

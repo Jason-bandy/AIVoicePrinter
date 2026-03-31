@@ -7,6 +7,10 @@ list = os.listdir(cwd)
 CPPPATH = [cwd,
            cwd + '/../packages/cJSON',
            cwd + '/../packages/webclient/inc',
+           cwd + '/../packages/librws-v1.2.4/include',
+           cwd + '/../packages/webnet/inc',
+           cwd + '/../packages/EasyFlash/inc',
+           cwd + '/../packages/EasyFlash/port',
            cwd + '/../beken378/func/base64']
 objs = []
 

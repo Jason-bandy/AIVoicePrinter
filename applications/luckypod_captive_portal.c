@@ -133,31 +133,33 @@ static void lcd_show_status(const char *status)
 
 /* ========================= WiFi Scan & Connect ========================= */
 
-/* 扫描 WiFi 列表 */
+/* 全局扫描结果缓存（最多 32 个 AP） */
+#define LUCKYPOD_SCAN_MAX   32
+static SCAN_RST_ITEM_T g_scan_results[LUCKYPOD_SCAN_MAX];
+
+/* 扫描 WiFi 列表（同步：触发扫描后等待结果） */
 static int luckypod_wifi_scan(void)
 {
-    struct rw_scan_result *results = RT_NULL;
-    rt_uint32_t count = 0;
-    
     rt_kprintf("[WiFi] 开始扫描...\n");
     g_lp_state.wifi_scanning = RT_TRUE;
-    
-    /* 执行扫描 */
-    if (rw_scan(&results, &count) == RT_EOK) {
-        g_lp_state.scan_count = count;
-        rt_kprintf("[WiFi] 扫描完成，发现 %d 个网络\n", count);
-        
-        for (rt_uint32_t i = 0; i < count; i++) {
-            rt_kprintf("  [%d] SSID: %s, RSSI: %d, Auth: %d\n", 
-                       i, results[i].ssid, results[i].rssi, results[i].security);
-        }
-        
-        rt_free(results);
-    } else {
-        rt_kprintf("[WiFi] 扫描失败\n");
-        g_lp_state.scan_count = 0;
+
+    bk_wlan_start_scan();
+    rt_thread_mdelay(3000);  /* 等待扫描完成 */
+
+    unsigned char ap_num = bk_wlan_get_scan_ap_result_numbers();
+    if (ap_num > LUCKYPOD_SCAN_MAX)
+        ap_num = LUCKYPOD_SCAN_MAX;
+
+    bk_wlan_get_scan_ap_result(g_scan_results, ap_num);
+    g_lp_state.scan_count = ap_num;
+
+    rt_kprintf("[WiFi] 扫描完成，发现 %d 个网络\n", ap_num);
+    for (int i = 0; i < ap_num; i++) {
+        rt_kprintf("  [%d] SSID: %s, RSSI: %d, Auth: %d\n",
+                   i, g_scan_results[i].ssid, g_scan_results[i].level,
+                   g_scan_results[i].security);
     }
-    
+
     g_lp_state.wifi_scanning = RT_FALSE;
     return g_lp_state.scan_count;
 }
@@ -167,24 +169,29 @@ static int luckypod_wifi_connect(const char *ssid, const char *password)
 {
     rt_kprintf("[WiFi] 连接：SSID=%s\n", ssid);
     lcd_show_status("正在连接 WiFi...");
-    
+
     /* 保存配置到 EasyFlash */
     ef_set_env(EF_KEY_WIFI_SSID, ssid);
     ef_set_env(EF_KEY_WIFI_PASSWORD, password);
     ef_set_env(EF_KEY_DEVICE_MODE, "sta");
-    
+    ef_save_env();
+
     /* 更新状态 */
     rt_strncpy(g_lp_state.sta_ssid, ssid, sizeof(g_lp_state.sta_ssid) - 1);
     rt_strncpy(g_lp_state.sta_pass, password, sizeof(g_lp_state.sta_pass) - 1);
     g_lp_state.mode = LP_MODE_CONNECTING;
-    
-    /* 连接到 WiFi */
-    wlan_ui_config_t config = {0};
-    rt_strncpy(config.ssid, ssid, sizeof(config.ssid) - 1);
-    rt_strncpy(config.password, password, sizeof(config.password) - 1);
-    
-    if (wlan_ui_connect(&config) == RT_EOK) {
-        rt_kprintf("[WiFi] 连接成功！\n");
+
+    /* 使用 bk_wlan_start 连接 STA */
+    network_InitTypeDef_st net_cfg;
+    rt_memset(&net_cfg, 0, sizeof(net_cfg));
+    net_cfg.wifi_mode = BK_STATION;
+    net_cfg.dhcp_mode = DHCP_CLIENT;
+    rt_strncpy(net_cfg.wifi_ssid, ssid, sizeof(net_cfg.wifi_ssid) - 1);
+    rt_strncpy(net_cfg.wifi_key, password, sizeof(net_cfg.wifi_key) - 1);
+
+    OSStatus ret = bk_wlan_start(&net_cfg);
+    if (ret == kNoErr) {
+        rt_kprintf("[WiFi] 连接请求已发送\n");
         lcd_show_status("配网成功！");
         g_lp_state.mode = LP_MODE_STA;
         return RT_EOK;
@@ -202,34 +209,39 @@ static int luckypod_wifi_connect(const char *ssid, const char *password)
 static int luckypod_ap_start(void)
 {
     char ap_ssid[32] = {0};
-    
+
     /* 生成唯一 SSID（使用 MAC 地址后 4 位） */
-    rt_uint8_t mac[6] = {0};
-    /* wlan_get_mac(mac); */  /* TODO: 获取实际 MAC */
-    rt_snprintf(ap_ssid, sizeof(ap_ssid), "%s%02X%02X", 
-                LUCKYPOD_AP_SSID_PREFIX, mac[4], mac[5]);
-    
+    char mac[6] = {0};
+    bk_wifi_get_softap_mac_address(mac);
+    rt_snprintf(ap_ssid, sizeof(ap_ssid), "%s%02X%02X",
+                LUCKYPOD_AP_SSID_PREFIX, (unsigned char)mac[4], (unsigned char)mac[5]);
+
     rt_strncpy(g_lp_state.ap_ssid, ap_ssid, sizeof(g_lp_state.ap_ssid) - 1);
-    
+
     rt_kprintf("[AP] 启动热点：%s (密码：%s)\n", ap_ssid, LUCKYPOD_AP_PASSWORD);
-    
-    /* 配置 SoftAP */
-    wlan_ap_config_t ap_config = {0};
-    rt_strncpy(ap_config.ssid, ap_ssid, sizeof(ap_config.ssid) - 1);
-    rt_strncpy(ap_config.password, LUCKYPOD_AP_PASSWORD, sizeof(ap_config.password) - 1);
-    ap_config.channel = LUCKYPOD_AP_CHANNEL;
-    ap_config.max_connections = LUCKYPOD_AP_MAX_CONN;
-    ap_config.security = SECURITY_WPA2_PSK;
-    
-    /* 启动 AP */
-    if (wlan_ap_start(&ap_config) == RT_EOK) {
+
+    /* 使用 network_InitTypeDef_ap_st 启动 AP */
+    network_InitTypeDef_ap_st ap_cfg;
+    rt_memset(&ap_cfg, 0, sizeof(ap_cfg));
+    rt_strncpy(ap_cfg.wifi_ssid, ap_ssid, sizeof(ap_cfg.wifi_ssid) - 1);
+    rt_strncpy(ap_cfg.wifi_key, LUCKYPOD_AP_PASSWORD, sizeof(ap_cfg.wifi_key) - 1);
+    ap_cfg.channel   = LUCKYPOD_AP_CHANNEL;
+    ap_cfg.max_con   = LUCKYPOD_AP_MAX_CONN;
+    ap_cfg.security  = BK_SECURITY_TYPE_WPA2_AES;
+    ap_cfg.dhcp_mode = DHCP_SERVER;
+    rt_strncpy(ap_cfg.local_ip_addr,    "192.168.4.1",   sizeof(ap_cfg.local_ip_addr) - 1);
+    rt_strncpy(ap_cfg.net_mask,         "255.255.255.0", sizeof(ap_cfg.net_mask) - 1);
+    rt_strncpy(ap_cfg.gateway_ip_addr,  "192.168.4.1",   sizeof(ap_cfg.gateway_ip_addr) - 1);
+
+    OSStatus ret = bk_wlan_start_ap_adv(&ap_cfg);
+    if (ret == kNoErr) {
         rt_kprintf("[AP] 热点启动成功\n");
         g_lp_state.mode = LP_MODE_AP;
-        
+
         /* 显示 QR 码 */
         lcd_show_status("扫码配网");
         lcd_draw_qrcode(ap_ssid, LUCKYPOD_AP_PASSWORD);
-        
+
         return RT_EOK;
     } else {
         rt_kprintf("[AP] 热点启动失败\n");
@@ -256,18 +268,14 @@ static void cgi_get_wifi_list(struct webnet_session* session)
     cJSON *array = cJSON_CreateArray();
     
     /* 扫描 WiFi */
-    struct rw_scan_result *results = RT_NULL;
-    rt_uint32_t count = 0;
-    
-    if (rw_scan(&results, &count) == RT_EOK) {
-        for (rt_uint32_t i = 0; i < count; i++) {
-            cJSON *item = cJSON_CreateObject();
-            cJSON_AddStringToObject(item, "ssid", results[i].ssid);
-            cJSON_AddNumberToObject(item, "rssi", results[i].rssi);
-            cJSON_AddNumberToObject(item, "security", results[i].security);
-            cJSON_AddItemToArray(array, item);
-        }
-        rt_free(results);
+    luckypod_wifi_scan();
+
+    for (int i = 0; i < g_lp_state.scan_count; i++) {
+        cJSON *item = cJSON_CreateObject();
+        cJSON_AddStringToObject(item, "ssid", g_scan_results[i].ssid);
+        cJSON_AddNumberToObject(item, "rssi", g_scan_results[i].level);
+        cJSON_AddNumberToObject(item, "security", g_scan_results[i].security);
+        cJSON_AddItemToArray(array, item);
     }
     
     cJSON_AddItemToObject(json, "data", array);

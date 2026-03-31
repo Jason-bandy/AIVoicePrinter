@@ -18,4 +18,7 @@ int ble_printer_send_base64(const char *b64_str);
 /* Disconnect from printer */
 void ble_printer_disconnect(void);
 
+/* RT-Thread task entry: connect with up to 3 retries (use for rt_thread_create) */
+void ble_printer_connect_task(void *arg);
+
 #endif /* __BLE_PRINTER_H__ */

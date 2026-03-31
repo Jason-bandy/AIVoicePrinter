@@ -288,8 +288,9 @@
 //#define RT_USING_AIRKISS
 
 /* Webnet: A web server package for rt-thread */
-//#define PKG_USING_WEBNET
-//#define WEBNET_USING_CGI
+#define PKG_USING_WEBNET
+#define WEBNET_USING_CGI
+#define PKG_USING_LIBRWS
 
 /* Hardware Drivers Config */
 #define BEKEN_USING_UART1
@@ -349,7 +350,7 @@
 #define CONFIG_VOICE_CHANGER        0
 
 /* tools packages */
-//#define PKG_USING_EASYFLASH
+#define PKG_USING_EASYFLASH
 
 
 //#define PKG_USING_LITTLEFS

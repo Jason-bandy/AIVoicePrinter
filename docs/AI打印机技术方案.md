@@ -65,3 +65,87 @@
 ### 模式二：语音转图文标签打印
 
 ![/Users/zhengzhican/Downloads/mermaid-diagram-2026-01-06-101937.png](https://alidocs.oss-cn-zhangjiakou.aliyuncs.com/res/3BMqYybKAwAJdqwZ/img/a43b8363-0066-4d39-841c-6bbd695d7030.png?x-oss-process=image/crop,x_138,y_0,w_2015,h_1482/ignore-error,1)
+
+---
+
+## 通信协议设计
+
+设备连接 WiFi 后，涉及两类数据流，采用不同协议：
+
+| 数据流 | 协议 | 原因 |
+| --- | --- | --- |
+| 语音数据 → 云端识别 | **WebSocket** | 实时流式传输，全双工，低延迟 |
+| 云端 → 设备远程打印 | **MQTT** | 设备在 NAT 后，broker 中转解决入站问题，QoS 保证送达 |
+| 设备状态上报 | **MQTT** | 复用同一 MQTT 连接 |
+
+### 为什么远程打印用 MQTT 而非 WebSocket
+
+设备连接 WiFi 后处于内网（NAT 后），Java 后台在云端**无法直接连接**设备。解决方案对比：
+
+| 方案 | 可行性 | 问题 |
+| --- | --- | --- |
+| Java 后台 HTTP push 到设备 | ❌ | 设备无公网 IP，局域网才能用 |
+| 设备做 WebSocket Server | ❌ | 同上，NAT 穿透困难 |
+| 设备做 WebSocket Client 保持长连接 | ⚠️ | 断线重连复杂，无 QoS 保证 |
+| **MQTT（设备主动连 broker）** | ✅ | 设备出站连接，天然穿透 NAT，QoS 保证，离线消息缓存 |
+
+### 架构图
+
+```
+Java 后台（云端）
+    │
+    │  publish: print/{device_id}/job
+    ▼
+MQTT Broker（公网，如 EMQX）
+    │
+    │  subscribe（设备主动出站连接）
+    ▼
+BK7252N 设备（WiFi，内网）
+    │
+    ▼
+热敏打印机（BLE/UART）
+```
+
+### MQTT Topic 设计
+
+| Topic | 方向 | 用途 |
+| --- | --- | --- |
+| `print/{device_id}/job` | 后台 → 设备 | 下发打印任务 |
+| `print/{device_id}/status` | 设备 → 后台 | 打印结果回报（成功/失败/缺纸） |
+| `device/{device_id}/online` | 设备 → 后台 | 设备上线心跳（retain=true） |
+
+### 打印任务消息格式
+
+```json
+{
+  "job_id": "550e8400-e29b-41d4-a716-446655440000",
+  "type": "text",
+  "content": "订单号：20260331-001\n商品：美式咖啡×2\n合计：36元",
+  "copies": 1,
+  "font_size": 2
+}
+```
+
+`type` 可扩展为 `text`（纯文本）/ `escpos`（原始 ESC/POS 字节流，Base64 编码）/ `image`（图片）。
+
+### 设备端实现要点
+
+项目已集成 `packages/pahomqtt`，启用步骤：
+
+1. 在 `rtconfig.h` 中启用 `PKG_USING_PAHOMQTT`
+2. 连接 WiFi 后启动 MQTT 客户端，订阅 `print/{device_id}/job`
+3. 收到消息 → 解析 JSON → 调用打印驱动
+
+QoS 建议使用 **QoS 1**（至少送达一次），配合设备端去重（job_id 防重复打印）。
+
+### 与语音识别的关系
+
+两条通道互相独立，可并行运行：
+
+```
+设备
+ ├── MQTT client（常驻后台）─── broker ─── Java 后台（远程打印）
+ └── WebSocket client（按需）─── AI 服务（语音识别）
+```
+
+语音识别完成后，云端也可以通过 MQTT 把打印任务推回设备，统一走 MQTT 通道，避免设备维护两个长连接。

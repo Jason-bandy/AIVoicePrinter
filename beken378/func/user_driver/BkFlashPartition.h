@@ -88,18 +88,17 @@ const bk_logic_partition_t bk7231_partitions_2M[BK_PARTITION_MAX] =
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "Application",
         .partition_start_addr      = 0x11000,
-        /* 0x128000 = 1184K = 1114K data + 70K crc */
-        .partition_length          = 0x128000,
+        /* 0x133000 = 1196K flash (data+CRC), partition.json len=1183488 >= firmware ~1181520 */
+        .partition_length          = 0x133000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
     [BK_PARTITION_OTA] =
     {
         .partition_owner           = BK_FLASH_EMBEDDED,
         .partition_description     = "ota",
-        .partition_start_addr      = 0x139000,
-        /* because of encoded data, OTA_size/APP_size ≈ 0.6 */
-        /* 0xA7000 = 668K = (crc + zip + enc) */
-        .partition_length          = 0xA7000, //668KB
+        .partition_start_addr      = 0x144000,
+        /* 0x9C000 = 624K, max available before RF(0x1E0000); rbl ~680K won't fit, OTA limited */
+        .partition_length          = 0x9C000,
         .partition_options         = PAR_OPT_READ_EN | PAR_OPT_WRITE_DIS,
     },
     [BK_PARTITION_RF_FIRMWARE] =

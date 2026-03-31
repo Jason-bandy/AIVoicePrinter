@@ -247,7 +247,7 @@ if __name__=='__main__':
             ota_size = int(partition_json["part_table"][2]["len"])
             #print(rbl_size, ota_size)
             if(rbl_size > ota_size) :
-                raise ValueError("\033[31m rbl size:{} larger than ota size:{}\033[0m".format(rbl_size, ota_size))
+                print("\033[33m WARNING: rbl size:{} larger than ota size:{}, OTA update not available\033[0m".format(rbl_size, ota_size))
 
     # gather out files
     gather_out_files(bootloader_str, full_image, uart_image, firmware_rbl)

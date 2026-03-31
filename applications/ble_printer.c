@@ -26,6 +26,8 @@
 #define BLE_SCAN_TIMEOUT_MS  30000
 #define BLE_DISC_TIMEOUT_MS  30000
 #define BLE_WRITE_TIMEOUT_MS 3000
+#define BLE_CHUNK_DELAY_MS   30   /* inter-chunk delay for WRITE_NO_RESP (ms) */
+#define BLE_DEFAULT_MTU      185  /* used when printer never sends MTU notification */
 
 /* UART2 fallback: P0=TX, P1=RX.
  * Change UART_PRN_BAUD_RATE to match your printer's wired serial setting. */
@@ -52,6 +54,7 @@ static uint8_t          s_conn_idx   = 0xFF;
 static uint16_t         s_write_hdl  = 0xFFFF;
 static uint8_t          s_peer_addr[6];
 static uint8_t          s_peer_addr_type;
+static int              s_mtu_peer   = 0;   /* set by printer notification; 0 = use default */
 
 static rt_device_t      s_uart_dev = RT_NULL;   /* UART2 fallback (P0/P1) */
 
@@ -205,6 +208,7 @@ static void printer_ble_notice_cb(ble_notice_t notice, void *param)
         s_state    = BLE_PRN_IDLE;
         s_conn_idx = 0xFF;
         s_write_hdl = 0xFFFF;
+        s_mtu_peer  = 0;
         break;
 
     default:
@@ -340,7 +344,9 @@ int ble_printer_connect(void)
         return -1;
     }
 
-    rt_kprintf("[BLEPrinter] Ready to print!\n");
+    if (s_mtu_peer == 0) s_mtu_peer = BLE_DEFAULT_MTU;
+    rt_kprintf("[BLEPrinter] Ready to print! mtu_peer=%d chunk_size=%d\n",
+               s_mtu_peer, s_mtu_peer - 10);
     return 0;
 }
 
@@ -358,35 +364,57 @@ int ble_printer_send(const uint8_t *data, int len)
         rt_kprintf("[BLEPrinter] ---\n");
     }
 
-    /* BLE not connected - try UART fallback immediately */
+    /* If ble_conn thread is still mid-discovery, wait up to 30s for it to finish */
+    if (s_state == BLE_PRN_DISCOVERING) {
+        rt_kprintf("[BLEPrinter] BLE discovery in progress, waiting...\n");
+        int waited = 0;
+        while (s_state == BLE_PRN_DISCOVERING && waited < 30000) {
+            rt_thread_delay(rt_tick_from_millisecond(500));
+            waited += 500;
+        }
+        rt_kprintf("[BLEPrinter] Discovery wait ended: state=%d write_hdl=0x%04x waited=%dms\n",
+                   s_state, s_write_hdl, waited);
+    }
+
+    /* BLE not ready - UART fallback */
     if (s_state != BLE_PRN_READY || s_write_hdl == 0xFFFF) {
-        rt_kprintf("[BLEPrinter] BLE not ready, trying UART fallback...\n");
+        rt_kprintf("[BLEPrinter] BLE not ready (state=%d), trying UART fallback...\n", s_state);
         return uart_printer_send(data, len);
     }
 
-    rt_kprintf("[BLEPrinter] Sending %d bytes via BLE (%d-byte chunks)...\n",
-               len, BLE_CHUNK_SIZE);
+    int max_chunk = (s_mtu_peer > 10) ? (s_mtu_peer - 10) : BLE_CHUNK_SIZE;
+    rt_kprintf("[BLEPrinter] Sending %d bytes via BLE (%d-byte chunks, %dms gap)...\n",
+               len, max_chunk, BLE_CHUNK_DELAY_MS);
 
     int offset = 0;
     while (offset < len) {
         int chunk = len - offset;
-        if (chunk > BLE_CHUNK_SIZE) chunk = BLE_CHUNK_SIZE;
+        if (chunk > max_chunk) chunk = max_chunk;
 
         sdp_svc_write_characteristic(s_conn_idx, s_write_hdl,
                                      chunk, (uint8_t *)(data + offset));
-
-        /* Wait for write done before sending next chunk */
-        if (rt_sem_take(s_write_sem,
-                        rt_tick_from_millisecond(BLE_WRITE_TIMEOUT_MS)) != RT_EOK) {
-            rt_kprintf("[BLEPrinter] BLE write timeout at offset %d, trying UART...\n",
-                       offset);
-            return uart_printer_send(data, len);
-        }
         offset += chunk;
+
+        /* SDP_CHARAC_WRITE_DONE never fires on this SDK stack for WRITE_NO_RESP;
+         * use a fixed inter-chunk delay to avoid overwhelming the printer buffer. */
+        if (offset < len)
+            rt_thread_delay(rt_tick_from_millisecond(BLE_CHUNK_DELAY_MS));
     }
 
     rt_kprintf("[BLEPrinter] Print data sent via BLE (%d bytes).\n", len);
     return 0;
+}
+
+/* RT-Thread task entry: connect with up to 3 retries (use for rt_thread_create) */
+void ble_printer_connect_task(void *arg)
+{
+    (void)arg;
+    for (int i = 0; i < 3; i++) {
+        if (ble_printer_connect() == 0) return;
+        rt_kprintf("[BLEPrinter] Connect attempt %d failed; retrying in 3s...\n", i + 1);
+        rt_thread_delay(rt_tick_from_millisecond(3000));
+    }
+    rt_kprintf("[BLEPrinter] All connection attempts failed.\n");
 }
 
 int ble_printer_send_base64(const char *b64_str)

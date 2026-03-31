@@ -16,6 +16,9 @@ if GetDepend('RT_USING_ADC') == False:
 if GetDepend('BEKEN_USING_ST7789_LCD') == False:
     SrcRemove(src, 'drv_st7789_lcd.c')
 
+if GetDepend('BEKEN_USING_NV3030B_LCD') == False:
+    SrcRemove(src, 'drv_nv3030b_lcd.c')
+
 group = DefineGroup('Drivers', src, depend = [''], CPPPATH = CPPPATH)
 
 for d in list:

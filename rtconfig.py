@@ -100,6 +100,11 @@ if PLATFORM == 'gcc':
 
     DEVICE  = ' -mcpu=arm968e-s -mthumb-interwork -mthumb -ffunction-sections -fdata-sections'
     CFLAGS  = DEVICE + ' -Iconfig' + ' -Irelease' + ' -Werror' + ' -Wall' + ' -Wno-format' + ' -Wno-unknown-pragmas'
+    _lwip_root = os.path.join(RTT_ROOT, 'components', 'net', 'lwip-2.0.2', 'src').replace('\\', '/')
+    _lwip_inc = _lwip_root + '/include'
+    CFLAGS += ' -I' + _lwip_root
+    CFLAGS += ' -I' + _lwip_inc
+    CFLAGS += ' -I' + _lwip_inc + '/ipv4'
     AFLAGS  = ' -c' + DEVICE + ' -x assembler-with-cpp -Iconfig'
     LFLAGS  = DEVICE + ' -nostartfiles -Wl,--gc-sections,-Map=rtthread.map,-cref,-u,system_vectors -T link.lds'
     CPATH   = ''

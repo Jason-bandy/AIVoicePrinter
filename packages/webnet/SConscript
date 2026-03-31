@@ -15,6 +15,7 @@ Import('RTT_ROOT')
 from building import *
 
 cwd = GetCurrentDir()
+rtt_dfs_net_socket = os.path.join(RTT_ROOT, 'components', 'dfs', 'filesystems', 'net', 'socket')
 
 src = Split("""
 src/webnet.c
@@ -55,12 +56,12 @@ if GetDepend(['WEBNET_USING_DAV']):
 if GetDepend(['WEBNET_USING_SAMPLES']):
     src += Glob('samples/wn_sample.c')
 
-src += Glob('samples/apconfig.c')
+src += Glob('samples/apconfig_sample.c')
 
 if GetDepend(['WEBNET_USING_SAMPLES']) and GetDepend(['WEBNET_USING_UPLOAD']):
     src += Glob('samples/wn_sample_upload.c')
 
-CPPPATH = [cwd + '/inc']
+CPPPATH = [cwd + '/inc', rtt_dfs_net_socket]
 
 group = DefineGroup('WebNet', src, depend = ['PKG_USING_WEBNET'], CPPPATH = CPPPATH)
 
