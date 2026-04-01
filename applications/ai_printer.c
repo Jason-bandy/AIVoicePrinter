@@ -37,7 +37,7 @@ static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
 #define AI_HOST_SEL_MS      5000
 
 /* Device API key — must match token.test-token in server application.properties */
-#define AI_DEVICE_TOKEN     "luckypod-bk7252-2026"
+#define AI_DEVICE_TOKEN     "da60e317-7114-48c6-8224-e99c750af2b9"
 
 /* WebSocket path */
 #define AI_WS_PATH          "/ws/voicePrint"
@@ -56,7 +56,7 @@ static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
 #define AI_WS_CONNECT_MS    10000  /* WS connect timeout */
 #define AI_WS_RESULT_MS     30000  /* wait for complete/print after stop */
 
-#define AI_TASK_STACK_SZ    8192
+#define AI_TASK_STACK_SZ    16384
 #define AI_TASK_PRIO        15
 
 /* ========================= Runtime Host Config ========================= */
@@ -480,6 +480,17 @@ static void ai_printer_task(void *arg)
     while (1) {
         rt_kprintf("[AIPrinter] Ready. Press & hold GPIO%d to record.\n", AI_BTN_GPIO);
         rt_sem_take(g_btn_sem, RT_WAITING_FOREVER);
+
+        /* Re-check WiFi on each button press in case it dropped */
+        if (mhdr_get_station_status() != RW_EVT_STA_GOT_IP) {
+            rt_kprintf("[AIPrinter] WiFi lost, reconnecting...\n");
+            if (ai_wifi_connect() != 0) {
+                rt_kprintf("[AIPrinter] WiFi reconnect failed, skipping.\n");
+                while (g_btn_held) rt_thread_delay(10);
+                while (rt_sem_take(g_btn_sem, 0) == RT_EOK) {}
+                continue;
+            }
+        }
 
         rt_kprintf("[AIPrinter] [3/3] Hold and speak...\n");
         ai_voice_ws_print();
