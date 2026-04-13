@@ -22,28 +22,34 @@ if os.getenv('RTT_CC'):
 print('CROSS_TOOL is: %s' % CROSS_TOOL)
 if  CROSS_TOOL == 'gcc':
     PLATFORM    = 'gcc'
-    
+
     # Auto-detect OS and set appropriate path
     system_platform = platform.system()
-    if system_platform == 'Darwin':  # macOS
+
+    # Priority 1: Use project-local toolchain (for consistent builds across team)
+    local_toolchain = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'toolchain', 'gcc-arm-none-eabi-5_4-2016q3', 'bin')
+    if os.path.exists(local_toolchain):
+        EXEC_PATH = local_toolchain
+        print('Using project-local toolchain: %s' % EXEC_PATH)
+    elif system_platform == 'Darwin':  # macOS
         # Try common macOS installation paths
         possible_paths = [
             '/opt/homebrew/bin',  # Apple Silicon Mac
             '/usr/local/bin',     # Intel Mac
             '/opt/gcc-arm-none-eabi-5_4-2016q3/bin',
         ]
-        
+
         # Check which path exists
         EXEC_PATH = None
         for path in possible_paths:
             if os.path.exists(path):
                 EXEC_PATH = path
                 break
-        
+
         if EXEC_PATH is None:
             # Default to Homebrew path
             EXEC_PATH = '/opt/homebrew/bin' if os.path.exists('/opt/homebrew/bin') else '/usr/local/bin'
-            
+
     elif system_platform == 'Linux':
         EXEC_PATH = '/usr/bin'
     else:  # Windows

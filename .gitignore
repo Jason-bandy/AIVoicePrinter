@@ -25,7 +25,7 @@ __pycache__/
 # macOS
 .DS_Store
 
-# Toolchain (large files)
+# Toolchain (大型文件，需单独下载)
 toolchain/
 *.tar.bz2
 *.tar.gz

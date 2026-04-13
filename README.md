@@ -1,6 +1,47 @@
 ## ZhiPlus AI Printer Firmware (BK7252N / RT-Thread SDK 3.0.78)
 
-该工程在博通 `BK7252N`（RT-Thread SDK 3.0.78）上实现“AI 语音打印机”的端侧固件能力。
+该工程在博通 `BK7252N`（RT-Thread SDK 3.0.78）上实现”AI 语音打印机”的端侧固件能力。
+
+### 0. 编译环境准备
+
+#### 工具链要求
+- **必须使用** `gcc-arm-none-eabi-5_4-2016q3` 版本（其他版本可能导致编译失败或固件异常）
+- 工具链**不提交到 Git**（超过 GitHub 100MB 限制），需单独下载
+
+#### 下载工具链
+
+**Linux/macOS:**
+```bash
+# 方式 1: 使用项目脚本下载（推荐）
+./tools/download_toolchain.sh
+
+# 方式 2: 手动下载
+# 从 https://developer.arm.com/downloads/-/gnu-rm 下载 5-2016q3 版本
+# 解压到项目根目录的 toolchain/ 目录
+```
+
+**Windows:**
+```batch
+REM 运行下载脚本
+tools\download_toolchain.bat
+
+REM 或手动下载 gcc-arm-none-eabi-5_4-2016q3-20160926-win32.zip
+REM 解压到项目根目录的 toolchain\ 目录
+```
+
+#### 验证工具链
+```bash
+toolchain/gcc-arm-none-eabi-5_4-2016q3/bin/arm-none-eabi-gcc --version
+# 应显示：arm-none-eabi-gcc (GNU Tools for ARM Embedded Processors) 5.4.1
+```
+
+#### 开始编译
+```bash
+# 项目会自动检测 toolchain/ 目录并使用其中的工具链
+scons
+```
+
+---
 
 当前固件的实现路径是：
 
