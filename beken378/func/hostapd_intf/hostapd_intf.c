@@ -370,7 +370,7 @@ int hapd_intf_del_key(struct prism2_hostapd_param *param, int len)
 {
     u8 hw_key_idx = 0;
 
-    if ((param->sta_addr == NULL) || is_broadcast_ether_addr(param->sta_addr))
+    if ((0 == param->sta_addr[0]) || is_broadcast_ether_addr(param->sta_addr))
     {
         hw_key_idx = rwm_mgmt_get_hwkeyidx(param->vif_idx, 0xff, param->u.crypt.idx);
     }

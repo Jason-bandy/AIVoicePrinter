@@ -6,7 +6,7 @@ static const struct romfs_dirent _romfs_root_flash0[] = {
 
 };
 
-static const struct romfs_dirent _romfs_root_flash1[] = {
+static RT_USED const struct romfs_dirent _romfs_root_flash1[] = {
 
 };
 
