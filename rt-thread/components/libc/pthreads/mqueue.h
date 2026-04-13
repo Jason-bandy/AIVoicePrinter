@@ -26,6 +26,7 @@
 
 #include <rtthread.h>
 #include <pthread.h>
+#include <libc/libc_signal.h>
 
 struct mqdes
 {
