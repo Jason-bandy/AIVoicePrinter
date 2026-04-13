@@ -10,13 +10,27 @@
 
 #### 下载工具链
 
-**Linux/macOS:**
+**macOS:**
+```bash
+# 方式 1: 使用 Homebrew 安装（推荐 Apple Silicon / Intel Mac）
+brew install arm-none-eabi-gcc@5.4
+# 或最新版（兼容）：brew install arm-none-eabi-gcc
+
+# 方式 2: 使用项目脚本下载（需要 macOS 版本工具链包）
+./tools/download_toolchain.sh
+
+# 方式 3: 手动下载
+# 从 https://developer.arm.com/downloads/-/gnu-rm 下载 5-2016q3 macOS 版本
+# 解压到项目根目录的 toolchain/ 目录
+```
+
+**Linux:**
 ```bash
 # 方式 1: 使用项目脚本下载（推荐）
 ./tools/download_toolchain.sh
 
 # 方式 2: 手动下载
-# 从 https://developer.arm.com/downloads/-/gnu-rm 下载 5-2016q3 版本
+# 从 https://developer.arm.com/downloads/-/gnu-rm 下载 5-2016q3 Linux 版本
 # 解压到项目根目录的 toolchain/ 目录
 ```
 
@@ -31,13 +45,24 @@ REM 解压到项目根目录的 toolchain\ 目录
 
 #### 验证工具链
 ```bash
+# 项目内工具链
 toolchain/gcc-arm-none-eabi-5_4-2016q3/bin/arm-none-eabi-gcc --version
-# 应显示：arm-none-eabi-gcc (GNU Tools for ARM Embedded Processors) 5.4.1
+
+# 或 Homebrew 安装
+arm-none-eabi-gcc --version
+
+# 应显示：arm-none-eabi-gcc (GNU Tools for ARM Embedded Processors) 5.4.x
+```
+
+#### 使用环境变量（可选）
+如果工具链不在默认位置，可设置环境变量：
+```bash
+export RTT_EXEC_PATH=/path/to/your/toolchain/bin
 ```
 
 #### 开始编译
 ```bash
-# 项目会自动检测 toolchain/ 目录并使用其中的工具链
+# 项目会自动检测 toolchain/ 目录或使用系统安装的 toolchain
 scons
 ```
 

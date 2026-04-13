@@ -32,23 +32,31 @@ if  CROSS_TOOL == 'gcc':
         EXEC_PATH = local_toolchain
         print('Using project-local toolchain: %s' % EXEC_PATH)
     elif system_platform == 'Darwin':  # macOS
-        # Try common macOS installation paths
-        possible_paths = [
-            '/opt/homebrew/bin',  # Apple Silicon Mac
-            '/usr/local/bin',     # Intel Mac
-            '/opt/gcc-arm-none-eabi-5_4-2016q3/bin',
-        ]
+        # Try common macOS installation paths (check actual gcc location)
+        possible_paths = []
 
-        # Check which path exists
-        EXEC_PATH = None
-        for path in possible_paths:
-            if os.path.exists(path):
-                EXEC_PATH = path
-                break
+        # Check Homebrew installations first
+        brew_prefix_intel = '/usr/local'
+        brew_prefix_apple = '/opt/homebrew'
 
-        if EXEC_PATH is None:
-            # Default to Homebrew path
+        # Check if arm-none-eabi-gcc exists in these paths
+        for prefix in [brew_prefix_apple, brew_prefix_intel]:
+            gcc_path = os.path.join(prefix, 'bin', 'arm-none-eabi-gcc')
+            if os.path.exists(gcc_path):
+                possible_paths.append(os.path.join(prefix, 'bin'))
+
+        # Also check standalone installation
+        standalone_path = '/opt/gcc-arm-none-eabi-5_4-2016q3/bin'
+        if os.path.exists(standalone_path):
+            possible_paths.insert(0, standalone_path)  # Priority for exact version
+
+        # Use first found path
+        if possible_paths:
+            EXEC_PATH = possible_paths[0]
+        else:
+            # Default fallback - try to use whatever Homebrew provides
             EXEC_PATH = '/opt/homebrew/bin' if os.path.exists('/opt/homebrew/bin') else '/usr/local/bin'
+            print('Note: Using default Homebrew path. Set RTT_EXEC_PATH if different.')
 
     elif system_platform == 'Linux':
         EXEC_PATH = '/usr/bin'
