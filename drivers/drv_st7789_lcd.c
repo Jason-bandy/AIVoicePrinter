@@ -1,14 +1,25 @@
 /*
  * ST7789 240x240 LCD 驱动程序
  * 硬件接口：SPI
- * 适用：BK7252N
+ * 适用：BK7252N + ZH024B12550C 显示屏 (240x240 IPS)
  *
- * GPIO 配置（根据实际硬件修改）：
- * - CS:  GPIO_PB0
- * - CLK: GPIO_PB1 (SPI CLK)
- * - MOSI: GPIO_PB2 (SPI MOSI)
- * - DC:  GPIO_PB3
- * - RST: GPIO_PB4
+ * 引脚连接说明：
+ * ┌─────────────────────────────────────────────────────┐
+ * │  ZH024B12550C 显示屏     →    BK7252N 开发板       │
+ * ├─────────────────────────────────────────────────────┤
+ * │  Pin 1 VCC             →    3.3V (VBAT)            │
+ * │  Pin 2 GND             →    GND                    │
+ * │  Pin 3 CS              →    GPIO6  (SPI0 CS)       │
+ * │  Pin 4 RESET           →    GPIO10                 │
+ * │  Pin 5 DC              →    GPIO9                  │
+ * │  Pin 6 SDO             →    悬空 (MISO 不用)       │
+ * │  Pin 7 SCLK            →    GPIO7  (SPI0 CLK)      │
+ * │  Pin 8 SDI             →    GPIO8  (SPI0 MOSI)     │
+ * │  Pin 9 LED_A (背光 +)   →    3.3V (串联电阻)        │
+ * │  Pin 10 LED_K (背光 -)  →    GND                    │
+ * └─────────────────────────────────────────────────────┘
+ *
+ * 如需修改引脚，请更改下方的 LCD_CS_PIN、LCD_DC_PIN、LCD_RST_PIN 定义
  */
 
 #include <rtthread.h>
@@ -26,13 +37,19 @@
 #define ST7789_SPI_DEVICE    "spi0"
 
 /* GPIO 定义（根据 BK7252N 实际引脚调整）
- * 推荐引脚（可修改）：
- * - CS:  GPIO6   (SPI CS)
- * - CLK: GPIO7   (SPI CLK)
- * - MOSI: GPIO8  (SPI MOSI)
- * - DC:  GPIO9   (普通 GPIO)
- * - RST: GPIO10  (普通 GPIO)
- * 
+ *
+ * 默认引脚配置（ZH024B12550C 显示屏）：
+ * ┌──────────────────────────────────────────────────────────┐
+ * │  LCD 信号    │  BK7252N GPIO  │      功能说明           │
+ * ├──────────────────────────────────────────────────────────┤
+ * │  CS         │  GPIO6         │  SPI 片选，低电平有效   │
+ * │  CLK        │  GPIO7         │  SPI 时钟               │
+ * │  MOSI       │  GPIO8         │  SPI 数据输出           │
+ * │  DC         │  GPIO9         │  数据/命令选择          │
+ * │  RST        │  GPIO10        │  复位，低电平有效       │
+ * │  BLK/PWM    │  GPIO11        │  背光控制 (PWM 可选)     │
+ * └──────────────────────────────────────────────────────────┘
+ *
  * 注意：BK7252N 的 GPIO 编号直接使用数字，不需要 GPIO_PBx 格式
  */
 #define LCD_CS_PIN           GPIO6
@@ -40,6 +57,7 @@
 #define LCD_MOSI_PIN         GPIO8
 #define LCD_DC_PIN           GPIO9
 #define LCD_RST_PIN          GPIO10
+#define LCD_BLK_PIN          GPIO11  /* 背光控制，可选 */
 
 /* 屏幕参数 */
 #define LCD_WIDTH            240
@@ -80,6 +98,11 @@ static void lcd_gpio_init(void)
     gpio_set_pin_function(LCD_RST_PIN, GPIO_FUNC_GPIO);
     gpio_set_pin_direction(LCD_RST_PIN, GPIO_OUTPUT);
     gpio_set_pin_value(LCD_RST_PIN, GPIO_HIGH);
+
+    /* 初始化 BLK (背光控制) */
+    gpio_set_pin_function(LCD_BLK_PIN, GPIO_FUNC_GPIO);
+    gpio_set_pin_direction(LCD_BLK_PIN, GPIO_OUTPUT);
+    gpio_set_pin_value(LCD_BLK_PIN, GPIO_HIGH);  /* 高电平点亮背光 */
 }
 
 static void lcd_cs_select(void)
@@ -575,6 +598,29 @@ int st7789_lcd_init(void)
     return RT_EOK;
 }
 
+/* ========================= 背光控制 ========================= */
+
+void lcd_backlight_on(void)
+{
+    gpio_set_pin_value(LCD_BLK_PIN, GPIO_HIGH);
+    rt_kprintf("[LCD] 背光开启\n");
+}
+
+void lcd_backlight_off(void)
+{
+    gpio_set_pin_value(LCD_BLK_PIN, GPIO_LOW);
+    rt_kprintf("[LCD] 背光关闭\n");
+}
+
+void lcd_backlight_set(rt_uint8_t level)
+{
+    /* level: 0-100, PWM 控制亮度（需要 PWM 支持） */
+    if (level == 0)
+        lcd_backlight_off();
+    else
+        lcd_backlight_on();
+}
+
 /* ========================= MSH 命令 ========================= */
 
 #ifdef FINSH_USING_MSH
@@ -583,32 +629,44 @@ int st7789_lcd_init(void)
 static void lcd_test(void)
 {
     rt_kprintf("[LCD Test] 开始测试...\n");
-    
+
     /* 清屏 */
     lcd_clear(WHITE);
     rt_kprintf("[LCD Test] 清屏 (白色)\n");
     rt_thread_mdelay(1000);
-    
+
     /* 显示文字 */
     lcd_draw_string(10, 10, "Hello", BLACK, WHITE);
     lcd_draw_string(10, 30, "World", RED, WHITE);
     rt_kprintf("[LCD Test] 显示文字\n");
     rt_thread_mdelay(2000);
-    
+
     /* 画图形 */
     lcd_draw_line(0, 50, 240, 50, BLUE);
     lcd_draw_rectangle(20, 70, 100, 100, GREEN);
     lcd_draw_circle(180, 120, 40, RED);
     rt_kprintf("[LCD Test] 画图形\n");
     rt_thread_mdelay(2000);
-    
+
     /* 显示状态 */
     lcd_show_status("测试完成");
     rt_kprintf("[LCD Test] 完成\n");
 }
 
+static void lcd_bl_on(void)
+{
+    lcd_backlight_on();
+}
+
+static void lcd_bl_off(void)
+{
+    lcd_backlight_off();
+}
+
 MSH_CMD_EXPORT(st7789_lcd_init, 初始化 ST7789 LCD);
 MSH_CMD_EXPORT(lcd_test, LCD 测试);
+MSH_CMD_EXPORT(lcd_bl_on, LCD 背光开启);
+MSH_CMD_EXPORT(lcd_bl_off, LCD 背光关闭);
 
 #endif /* FINSH_USING_MSH */
 

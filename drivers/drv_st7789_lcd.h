@@ -22,6 +22,11 @@
 #define LCD_WIDTH       240
 #define LCD_HEIGHT      240
 
+/* 背光控制 */
+void lcd_backlight_on(void);
+void lcd_backlight_off(void);
+void lcd_backlight_set(rt_uint8_t level);  /* 0-100 */
+
 /* 函数声明 */
 int st7789_lcd_init(void);
 void lcd_clear(rt_uint16_t color);
