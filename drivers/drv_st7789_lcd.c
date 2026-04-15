@@ -155,34 +155,30 @@ static void spi_delay(void)
 {
     /* 空延迟 - 让 GPIO 变化有时间稳定 */
     volatile int i;
-    for (i = 0; i < 10; i++);
+    for (i = 0; i < 50; i++);  /* 增加延迟，降低 SPI 速度 */
 }
 
-/* 模拟 SPI 发送一个字节 - 使用快速 GPIO 操作 */
+/* 模拟 SPI 发送一个字节 - 使用快速 GPIO 操作
+ * ST7789: SPI 模式 3 (CPOL=1, CPHA=1) - 时钟空闲高，上升沿采样
+ * 但大部分 LCD 也支持模式 0 (CPOL=0, CPHA=0) - 时钟空闲低，上升沿采样
+ */
 static void soft_spi_write_byte(rt_uint8_t data)
 {
     rt_int8_t i;
 
     for (i = 7; i >= 0; i--)
     {
-        /* 拉低时钟，准备数据 */
-        gpio_output(LCD_CLK_PIN, 0);
-
-        /* 设置 MOSI 数据 */
+        /* 设置 MOSI 数据（时钟低时变化） */
         gpio_output(LCD_MOSI_PIN, (data >> i) & 1);
-
-        /* 短延迟 */
         spi_delay();
 
         /* 拉高时钟，锁存数据 */
         gpio_output(LCD_CLK_PIN, 1);
-
-        /* 短延迟 */
         spi_delay();
-    }
 
-    /* 最后将时钟拉低，保持空闲状态 */
-    gpio_output(LCD_CLK_PIN, 0);
+        /* 拉低时钟，准备下一次 */
+        gpio_output(LCD_CLK_PIN, 0);
+    }
 }
 
 /* 发送命令 */
@@ -257,24 +253,48 @@ void lcd_clear(rt_uint16_t color)
     rt_uint8_t high = color >> 8;
     rt_uint8_t low = color & 0xFF;
 
-    lcd_set_cursor(0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1);
-    lcd_dc_data();
+    /* 设置显示窗口 */
+    lcd_dc_command();
     lcd_cs_select();
+    soft_spi_write_byte(0x2A);  /* 列地址设置 */
+    lcd_dc_data();
+    /* 发送 4 字节：x1, x1, x2, x2 */
+    soft_spi_write_byte(0);
+    soft_spi_write_byte(0);
+    soft_spi_write_byte((LCD_WIDTH - 1) >> 8);
+    soft_spi_write_byte((LCD_WIDTH - 1) & 0xFF);
+    lcd_cs_deselect();
 
-    /* 优化：一次发送多个像素，每 1024 像素喂一次看门狗 */
-    for (i = 0; i < (rt_uint32_t)LCD_WIDTH * LCD_HEIGHT / 16; i++) {
-        for (rt_uint8_t j = 0; j < 16; j++) {
-            soft_spi_write_byte(high);
-            soft_spi_write_byte(low);
-        }
-        /* 每 1024 像素喂一次看门狗 */
-        if ((i & 0x3F) == 0) {
-            rt_kprintf(".");  /* 进度提示 */
+    lcd_dc_command();
+    lcd_cs_select();
+    soft_spi_write_byte(0x2B);  /* 行地址设置 */
+    lcd_dc_data();
+    /* 发送 4 字节：y1, y1, y2, y2 */
+    soft_spi_write_byte(0);
+    soft_spi_write_byte(0);
+    soft_spi_write_byte((LCD_HEIGHT - 1) >> 8);
+    soft_spi_write_byte((LCD_HEIGHT - 1) & 0xFF);
+    lcd_cs_deselect();
+
+    /* 内存写命令 */
+    lcd_dc_command();
+    lcd_cs_select();
+    soft_spi_write_byte(0x2C);
+    lcd_dc_data();
+    /* 不释放 CS，直接发送像素数据 */
+
+    /* 发送全屏像素数据 */
+    rt_kprintf("[LCD Clear] 发送 %d 像素...\n", LCD_WIDTH * LCD_HEIGHT);
+    for (i = 0; i < (rt_uint32_t)LCD_WIDTH * LCD_HEIGHT; i++) {
+        soft_spi_write_byte(high);
+        soft_spi_write_byte(low);
+        if ((i & 0x3FF) == 0) {
+            rt_kprintf(".");
         }
     }
 
     lcd_cs_deselect();
-    rt_kprintf("\n");
+    rt_kprintf("\n[LCD Clear] 完成\n");
 }
 
 /* 设置显示窗口 */
@@ -606,33 +626,36 @@ int st7789_lcd_init(void)
 {
     rt_kprintf("\n");
     rt_kprintf("╔════════════════════════════════════════╗\n");
-    rt_kprintf("║   ST7789 LCD 驱动初始化 (240x240)      ║\n");
-    rt_kprintf("║   软件模拟 SPI 模式                     ║\n");
+    rt_kprintf("║   ST7789 LCD 驱动初始化 (240x320)      ║\n");
     rt_kprintf("╚════════════════════════════════════════╝\n");
 
     if (lcd_initialized) {
-        rt_kprintf("[LCD] 已经初始化过了\n");
+        rt_kprintf("[LCD] 已经初始化过了，跳过\n");
         return RT_EOK;
     }
 
     /* 1. 初始化 GPIO */
-    rt_kprintf("[LCD] 初始化 GPIO...\n");
+    rt_kprintf("[LCD] 1. 初始化 GPIO...\n");
     lcd_gpio_init();
+    rt_kprintf("[LCD] GPIO 初始化完成\n");
 
     /* 2. 硬件复位 */
-    rt_kprintf("[LCD] 复位 LCD...\n");
+    rt_kprintf("[LCD] 2. 复位 LCD...\n");
     lcd_reset();
+    rt_kprintf("[LCD] 复位完成\n");
 
     /* 3. 发送初始化序列 */
-    rt_kprintf("[LCD] 发送初始化序列...\n");
+    rt_kprintf("[LCD] 3. 发送初始化序列...\n");
     st7789_init_sequence();
+    rt_kprintf("[LCD] 初始化序列完成\n");
 
     /* 4. 清屏 */
-    rt_kprintf("[LCD] 清屏...\n");
+    rt_kprintf("[LCD] 4. 清屏 (黑色)...\n");
     lcd_clear(BLACK);
+    rt_kprintf("[LCD] 清屏完成\n");
 
     lcd_initialized = RT_TRUE;
-    rt_kprintf("[LCD] 初始化完成！\n");
+    rt_kprintf("[LCD] === 初始化完成！===\n");
 
     return RT_EOK;
 }
