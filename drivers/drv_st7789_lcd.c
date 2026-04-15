@@ -41,37 +41,30 @@
 
 /* GPIO 定义（根据 BK7252N 实际引脚调整）
  *
+ * 根据你的接线：
  * ┌──────────────────────────────────────────────────────────┐
- * │  针对 BK7252N QFN48 开发板 (使用 VIDEO IF 排针)          │
+ * │  LCD 引脚  │  芯片引脚  │  BK7252N GPIO              │
  * ├──────────────────────────────────────────────────────────┤
- * │  LCD 信号    │  BK7252N GPIO  │  VIDEO IF 排针位置     │
- * ├──────────────────────────────────────────────────────────┤
- * │  CS (5)     │  GPIO36        │  D4/P36                │
- * │  CLK (2)    │  GPIO37        │  D5/P37                │
- * │  MOSI (1)   │  GPIO38        │  D6/P38                │
- * │  DC (4)     │  GPIO35        │  D3/P35                │
- * │  RST (3)    │  GPIO34        │  D2/P34                │
- * │  BLK        │  GPIO39        │  D7/P39 (可选)          │
- * │  VDD (7)    │  3.3V          │  VBAT (第 3 行左侧)       │
- * │  LED_A (12) │  3.3V          │  需另接 VBAT (串电阻)    │
- * │  GND (6,11) │  GND           │  GND (第 3 行右侧)        │
+ * │  SDA      │  P32       │  GPIO32 (SPI0_MOSI)        │
+ * │  SCL      │  P30       │  GPIO30 (SPI0_SCK)         │
+ * │  CS       │  P31       │  GPIO31 (SPI0_CSN)         │
+ * │  RS/A0    │  P34       │  GPIO34                    │
+ * │  RESET    │  P35       │  GPIO35                    │
+ * │  A+ (BLK) │  P37       │  GPIO37                    │
  * └──────────────────────────────────────────────────────────┘
- *
- * 注意：
- * 1. 使用软件模拟 SPI，可以直接使用 VIDEO IF 排针，无需飞线
- * 2. LCD VDD (2.8V) 接 3.3V 时建议串联 10Ω 电阻限流
- * 3. 背光 LED_A 必须串联 22-47Ω 电阻限流
  */
-#define LCD_CS_PIN           GPIO36
-#define LCD_CLK_PIN          GPIO37
-#define LCD_MOSI_PIN         GPIO38
-#define LCD_DC_PIN           GPIO35
-#define LCD_RST_PIN          GPIO34
-#define LCD_BLK_PIN          GPIO39  /* 背光控制，可选 */
+#define LCD_CS_PIN           GPIO31
+#define LCD_CLK_PIN          GPIO30
+#define LCD_MOSI_PIN         GPIO32
+#define LCD_DC_PIN           GPIO34
+#define LCD_RST_PIN          GPIO35
+#define LCD_BLK_PIN          GPIO37  /* 背光控制 */
 
-/* 屏幕参数 */
-#define LCD_WIDTH            320
-#define LCD_HEIGHT           240
+/* 屏幕参数 - ZH024B12550C: 2.4 寸 TFT, 240x320 竖屏，ST7789P3
+ * 如果横向使用，通过 MADCTL 旋转
+ */
+#define LCD_WIDTH            240
+#define LCD_HEIGHT           320
 
 /* 颜色定义（RGB565 格式） */
 #define WHITE                0xFFFF
@@ -518,33 +511,24 @@ void lcd_show_status(const char *status)
 
 static void st7789_init_sequence(void)
 {
-    /* 软件复位 */
+    rt_kprintf("[LCD] 1. 软件复位...\n");
     lcd_write_cmd(0x01);
     rt_thread_mdelay(120);
 
-    /* 退出睡眠模式 */
+    rt_kprintf("[LCD] 2. 退出睡眠...\n");
     lcd_write_cmd(0x11);
     rt_thread_mdelay(120);
 
-    /* 像素格式：RGB565 */
+    rt_kprintf("[LCD] 3. 像素格式 RGB565...\n");
     lcd_write_cmd(0x3A);
     lcd_write_data(0x55);
 
-    /* 显示反转（根据实际屏幕调整） */
-    lcd_write_cmd(0x21);
+    rt_kprintf("[LCD] 4. 正常显示模式 (非反转)...\n");
+    lcd_write_cmd(0x20);  /* 0x20=正常，0x21=反转 */
 
-    /* 内存数据访问顺序 (MADCTL)
-     * 对于 320x240 横向屏幕：
-     * bit7: MY=0 (行地址顺序)
-     * bit6: MX=0 (列地址顺序)
-     * bit5: MV=0 (行列交换，0=不交换)
-     * bit4: ML=0 (行刷新顺序)
-     * bit3: BGR=0 (RGB 顺序) - 如果颜色不对改为 1
-     * bit2: MH=0 (水平刷新顺序)
-     * 值 = 0x00 (正常) 或 0x20 (BGR)
-     */
+    rt_kprintf("[LCD] 5. MADCTL (0x20: BGR 色序)...\n");
     lcd_write_cmd(0x36);
-    lcd_write_data(0x00);  /* 正常 RGB 顺序 */
+    lcd_write_data(0x20);  /* BGR=1: ST7789P3 需要 BGR 色序 */
     
     /* 帧率控制 */
     lcd_write_cmd(0xB2);
@@ -681,18 +665,16 @@ void lcd_backlight_set(rt_uint8_t level)
 #ifdef FINSH_USING_MSH
 #include <finsh.h>
 
-/* 简化版测试 - 只画一个小矩形，避免长时间等待 */
+/* 全屏测试 - 填充整个屏幕为红色 */
 static void lcd_test(void)
 {
     rt_kprintf("[LCD Test] 开始测试...\n");
-
-    /* 填充一个小矩形（红色）- 只需要 100*100*2 = 20000 字节 */
-    rt_kprintf("[LCD Test] 填充 100x100 红色矩形...\n");
-    lcd_fill_rectangle(50, 50, 100, 100, RED);
-    rt_kprintf("[LCD Test] 完成，屏幕上应该看到一个红色方块\n");
+    rt_kprintf("[LCD Test] 填充整个屏幕为红色...\n");
+    lcd_clear(RED);
+    rt_kprintf("[LCD Test] 完成，整个屏幕应该是红色\n");
 }
 
-/* 测试：直接发送数据，不经过任何缓冲区 */
+/* 测试：直接发送数据，不经过任何缓冲区 - 填充全屏绿色 */
 static void lcd_test_raw(void)
 {
     rt_kprintf("[LCD Raw Test] 开始...\n");
@@ -702,15 +684,15 @@ static void lcd_test_raw(void)
     lcd_dc_data();
     lcd_cs_select();
 
-    /* 发送纯红色数据 */
-    rt_kprintf("[LCD Raw Test] 发送红色数据...\n");
-    for (int i = 0; i < 1000; i++) {
-        soft_spi_write_byte(0xF8);  /* 红色高字节 */
-        soft_spi_write_byte(0x00);  /* 红色低字节 */
+    /* 发送纯绿色数据 (RGB565: 0x07E0) */
+    rt_kprintf("[LCD Raw Test] 发送绿色数据...\n");
+    for (int i = 0; i < LCD_WIDTH * LCD_HEIGHT; i++) {
+        soft_spi_write_byte(0x07);  /* 绿色高字节 */
+        soft_spi_write_byte(0xE0);  /* 绿色低字节 */
     }
 
     lcd_cs_deselect();
-    rt_kprintf("[LCD Raw Test] 完成，屏幕左上角应该有红色条纹\n");
+    rt_kprintf("[LCD Raw Test] 完成，整个屏幕应该是绿色\n");
 }
 
 static void lcd_bl_on(void)
