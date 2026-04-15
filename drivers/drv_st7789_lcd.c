@@ -34,6 +34,8 @@
 #include <stdio.h>
 
 #include "gpio_pub.h"
+#include "drv_model_pub.h"
+#include "gpio.h"
 
 /* ========================= 硬件配置 ========================= */
 
@@ -89,57 +91,67 @@ static rt_bool_t lcd_initialized = RT_FALSE;
 
 /* ========================= GPIO 控制 ========================= */
 
+/*
+ * BK7252N 底层 GPIO API：
+ * - gpio_ctrl(CMD_GPIO_CFG, &param) 配置 GPIO
+ * - gpio_output(pin, 0/1) 设置输出电平（快速）
+ * - param = GPIO_CFG_PARAM(pin, mode) 配置参数，mode: GMODE_OUTPUT, GMODE_INPUT 等
+ * - param = GPIO_OUTPUT_PARAM(pin, val) 输出参数，val: 0(低) 或 1(高)
+ */
+
 static void lcd_gpio_init(void)
 {
-    /* 初始化 CS (片选) */
-    gpio_set_pin_function(LCD_CS_PIN, GPIO_FUNC_GPIO);
-    gpio_set_pin_direction(LCD_CS_PIN, GPIO_OUTPUT);
-    gpio_set_pin_value(LCD_CS_PIN, GPIO_HIGH);  /* 默认不选中 */
+    UINT32 param;
 
-    /* 初始化 DC (数据/命令选择) */
-    gpio_set_pin_function(LCD_DC_PIN, GPIO_FUNC_GPIO);
-    gpio_set_pin_direction(LCD_DC_PIN, GPIO_OUTPUT);
-    gpio_set_pin_value(LCD_DC_PIN, GPIO_LOW);
+    /* 初始化 CS (片选) - 输出高电平，默认不选中 */
+    param = GPIO_CFG_PARAM(LCD_CS_PIN, GMODE_OUTPUT);
+    gpio_ctrl(CMD_GPIO_CFG, &param);
+    gpio_output(LCD_CS_PIN, 1);
 
-    /* 初始化 RST (复位) */
-    gpio_set_pin_function(LCD_RST_PIN, GPIO_FUNC_GPIO);
-    gpio_set_pin_direction(LCD_RST_PIN, GPIO_OUTPUT);
-    gpio_set_pin_value(LCD_RST_PIN, GPIO_HIGH);
+    /* 初始化 DC (数据/命令选择) - 输出低电平 */
+    param = GPIO_CFG_PARAM(LCD_DC_PIN, GMODE_OUTPUT);
+    gpio_ctrl(CMD_GPIO_CFG, &param);
+    gpio_output(LCD_DC_PIN, 0);
 
-    /* 初始化 BLK (背光控制) */
-    gpio_set_pin_function(LCD_BLK_PIN, GPIO_FUNC_GPIO);
-    gpio_set_pin_direction(LCD_BLK_PIN, GPIO_OUTPUT);
-    gpio_set_pin_value(LCD_BLK_PIN, GPIO_HIGH);  /* 高电平点亮背光 */
+    /* 初始化 RST (复位) - 输出高电平 */
+    param = GPIO_CFG_PARAM(LCD_RST_PIN, GMODE_OUTPUT);
+    gpio_ctrl(CMD_GPIO_CFG, &param);
+    gpio_output(LCD_RST_PIN, 1);
+
+    /* 初始化 BLK (背光控制) - 输出高电平，点亮背光 */
+    param = GPIO_CFG_PARAM(LCD_BLK_PIN, GMODE_OUTPUT);
+    gpio_ctrl(CMD_GPIO_CFG, &param);
+    gpio_output(LCD_BLK_PIN, 1);
 }
 
 static void lcd_cs_select(void)
 {
-    gpio_set_pin_value(LCD_CS_PIN, GPIO_LOW);
+    gpio_output(LCD_CS_PIN, 0);
 }
 
 static void lcd_cs_deselect(void)
 {
-    gpio_set_pin_value(LCD_CS_PIN, GPIO_HIGH);
+    gpio_output(LCD_CS_PIN, 1);
 }
 
 static void lcd_dc_command(void)
 {
-    gpio_set_pin_value(LCD_DC_PIN, GPIO_LOW);
+    gpio_output(LCD_DC_PIN, 0);
 }
 
 static void lcd_dc_data(void)
 {
-    gpio_set_pin_value(LCD_DC_PIN, GPIO_HIGH);
+    gpio_output(LCD_DC_PIN, 1);
 }
 
 static void lcd_reset(void)
 {
     /* 拉低复位 */
-    gpio_set_pin_value(LCD_RST_PIN, GPIO_LOW);
+    gpio_output(LCD_RST_PIN, 0);
     rt_thread_mdelay(100);
-    
+
     /* 释放复位 */
-    gpio_set_pin_value(LCD_RST_PIN, GPIO_HIGH);
+    gpio_output(LCD_RST_PIN, 1);
     rt_thread_mdelay(100);
 }
 
@@ -148,11 +160,12 @@ static void lcd_reset(void)
 /* 软件延迟 - 用于控制 SPI 速度 */
 static void spi_delay(void)
 {
+    /* 空延迟 - 让 GPIO 变化有时间稳定 */
     volatile int i;
-    for (i = 0; i < 3; i++);
+    for (i = 0; i < 10; i++);
 }
 
-/* 模拟 SPI 发送一个字节 */
+/* 模拟 SPI 发送一个字节 - 使用快速 GPIO 操作 */
 static void soft_spi_write_byte(rt_uint8_t data)
 {
     rt_int8_t i;
@@ -160,26 +173,23 @@ static void soft_spi_write_byte(rt_uint8_t data)
     for (i = 7; i >= 0; i--)
     {
         /* 拉低时钟，准备数据 */
-        gpio_set_pin_value(LCD_CLK_PIN, GPIO_LOW);
+        gpio_output(LCD_CLK_PIN, 0);
 
         /* 设置 MOSI 数据 */
-        if (data & (1 << i))
-            gpio_set_pin_value(LCD_MOSI_PIN, GPIO_HIGH);
-        else
-            gpio_set_pin_value(LCD_MOSI_PIN, GPIO_LOW);
+        gpio_output(LCD_MOSI_PIN, (data >> i) & 1);
 
         /* 短延迟 */
         spi_delay();
 
         /* 拉高时钟，锁存数据 */
-        gpio_set_pin_value(LCD_CLK_PIN, GPIO_HIGH);
+        gpio_output(LCD_CLK_PIN, 1);
 
         /* 短延迟 */
         spi_delay();
     }
 
     /* 最后将时钟拉低，保持空闲状态 */
-    gpio_set_pin_value(LCD_CLK_PIN, GPIO_LOW);
+    gpio_output(LCD_CLK_PIN, 0);
 }
 
 /* 发送命令 */
@@ -258,15 +268,20 @@ void lcd_clear(rt_uint16_t color)
     lcd_dc_data();
     lcd_cs_select();
 
-    /* 优化：一次发送多个像素 */
+    /* 优化：一次发送多个像素，每 1024 像素喂一次看门狗 */
     for (i = 0; i < (rt_uint32_t)LCD_WIDTH * LCD_HEIGHT / 16; i++) {
         for (rt_uint8_t j = 0; j < 16; j++) {
             soft_spi_write_byte(high);
             soft_spi_write_byte(low);
         }
+        /* 每 1024 像素喂一次看门狗 */
+        if ((i & 0x3F) == 0) {
+            rt_kprintf(".");  /* 进度提示 */
+        }
     }
 
     lcd_cs_deselect();
+    rt_kprintf("\n");
 }
 
 /* 设置显示窗口 */
@@ -524,12 +539,12 @@ static void st7789_init_sequence(void)
      * bit6: MX=0 (列地址顺序)
      * bit5: MV=0 (行列交换，0=不交换)
      * bit4: ML=0 (行刷新顺序)
-     * bit3: BGR=1 (RGB 顺序)
+     * bit3: BGR=0 (RGB 顺序) - 如果颜色不对改为 1
      * bit2: MH=0 (水平刷新顺序)
-     * 值 = 0x00 或 0x20 (取决于屏幕方向，如果颜色不对改为 0x00)
+     * 值 = 0x00 (正常) 或 0x20 (BGR)
      */
     lcd_write_cmd(0x36);
-    lcd_write_data(0x20);  /* BGR=1，其他=0 */
+    lcd_write_data(0x00);  /* 正常 RGB 顺序 */
     
     /* 帧率控制 */
     lcd_write_cmd(0xB2);
@@ -642,13 +657,13 @@ int st7789_lcd_init(void)
 
 void lcd_backlight_on(void)
 {
-    gpio_set_pin_value(LCD_BLK_PIN, GPIO_HIGH);
+    gpio_output(LCD_BLK_PIN, 1);
     rt_kprintf("[LCD] 背光开启\n");
 }
 
 void lcd_backlight_off(void)
 {
-    gpio_set_pin_value(LCD_BLK_PIN, GPIO_LOW);
+    gpio_output(LCD_BLK_PIN, 0);
     rt_kprintf("[LCD] 背光关闭\n");
 }
 
@@ -666,31 +681,36 @@ void lcd_backlight_set(rt_uint8_t level)
 #ifdef FINSH_USING_MSH
 #include <finsh.h>
 
+/* 简化版测试 - 只画一个小矩形，避免长时间等待 */
 static void lcd_test(void)
 {
     rt_kprintf("[LCD Test] 开始测试...\n");
 
-    /* 清屏 */
-    lcd_clear(WHITE);
-    rt_kprintf("[LCD Test] 清屏 (白色)\n");
-    rt_thread_mdelay(1000);
+    /* 填充一个小矩形（红色）- 只需要 100*100*2 = 20000 字节 */
+    rt_kprintf("[LCD Test] 填充 100x100 红色矩形...\n");
+    lcd_fill_rectangle(50, 50, 100, 100, RED);
+    rt_kprintf("[LCD Test] 完成，屏幕上应该看到一个红色方块\n");
+}
 
-    /* 显示文字 */
-    lcd_draw_string(10, 10, "Hello", BLACK, WHITE);
-    lcd_draw_string(10, 30, "World", RED, WHITE);
-    rt_kprintf("[LCD Test] 显示文字\n");
-    rt_thread_mdelay(2000);
+/* 测试：直接发送数据，不经过任何缓冲区 */
+static void lcd_test_raw(void)
+{
+    rt_kprintf("[LCD Raw Test] 开始...\n");
 
-    /* 画图形 */
-    lcd_draw_line(0, 50, 320, 50, BLUE);
-    lcd_draw_rectangle(20, 70, 100, 100, GREEN);
-    lcd_draw_circle(150, 120, 40, RED);
-    rt_kprintf("[LCD Test] 画图形\n");
-    rt_thread_mdelay(2000);
+    /* 设置整个屏幕为显示窗口 */
+    lcd_set_cursor(0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1);
+    lcd_dc_data();
+    lcd_cs_select();
 
-    /* 显示状态 */
-    lcd_show_status("测试完成");
-    rt_kprintf("[LCD Test] 完成\n");
+    /* 发送纯红色数据 */
+    rt_kprintf("[LCD Raw Test] 发送红色数据...\n");
+    for (int i = 0; i < 1000; i++) {
+        soft_spi_write_byte(0xF8);  /* 红色高字节 */
+        soft_spi_write_byte(0x00);  /* 红色低字节 */
+    }
+
+    lcd_cs_deselect();
+    rt_kprintf("[LCD Raw Test] 完成，屏幕左上角应该有红色条纹\n");
 }
 
 static void lcd_bl_on(void)
@@ -705,6 +725,7 @@ static void lcd_bl_off(void)
 
 MSH_CMD_EXPORT(st7789_lcd_init, 初始化 ST7789 LCD);
 MSH_CMD_EXPORT(lcd_test, LCD 测试);
+MSH_CMD_EXPORT(lcd_test_raw, LCD 原始数据测试);
 MSH_CMD_EXPORT(lcd_bl_on, LCD 背光开启);
 MSH_CMD_EXPORT(lcd_bl_off, LCD 背光关闭);
 

@@ -17,8 +17,8 @@
 
 /* Automatically generated file; DO NOT EDIT. */
 /* RT-Thread Configuration */
-
 /* RT-Thread Kernel */
+
 
 #define RT_NAME_MAX 8
 #define RT_ALIGN_SIZE 4
@@ -64,6 +64,7 @@
 #define RT_USING_COMPONENTS_INIT
 #define RT_USING_USER_MAIN
 #define RT_MAIN_THREAD_STACK_SIZE 4096
+#define BEKEN_USING_ST7789_LCD
 
 /* Command shell */
 
