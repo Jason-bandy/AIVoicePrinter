@@ -1,25 +1,31 @@
 /*
- * ST7789 240x240 LCD 驱动程序
- * 硬件接口：SPI
- * 适用：BK7252N + ZH024B12550C 显示屏 (240x240 IPS)
+ * ST7789 320x240 LCD 驱动程序
+ * 硬件接口：软件模拟 SPI
+ * 适用：BK7252N + 320x240 IPS 显示屏 (ST7789 驱动)
  *
- * 引脚连接说明：
+ * 引脚连接说明（使用 VIDEO IF 排针）：
  * ┌─────────────────────────────────────────────────────┐
- * │  ZH024B12550C 显示屏     →    BK7252N 开发板       │
+ * │  LCD 引脚 (12Pin)  →    BK7252N VIDEO IF          │
  * ├─────────────────────────────────────────────────────┤
- * │  Pin 1 VCC             →    3.3V (VBAT)            │
- * │  Pin 2 GND             →    GND                    │
- * │  Pin 3 CS              →    GPIO6  (SPI0 CS)       │
- * │  Pin 4 RESET           →    GPIO10                 │
- * │  Pin 5 DC              →    GPIO9                  │
- * │  Pin 6 SDO             →    悬空 (MISO 不用)       │
- * │  Pin 7 SCLK            →    GPIO7  (SPI0 CLK)      │
- * │  Pin 8 SDI             →    GPIO8  (SPI0 MOSI)     │
- * │  Pin 9 LED_A (背光 +)   →    3.3V (串联电阻)        │
- * │  Pin 10 LED_K (背光 -)  →    GND                    │
+ * │  1 SDA (SPI 数据)  →    GPIO38 (D6/P38)            │
+ * │  2 SCL (SPI 时钟)  →    GPIO37 (D5/P37)            │
+ * │  3 RESET (复位)    →    GPIO34 (D2/P34)            │
+ * │  4 RS/A0 (DC)     →    GPIO35 (D3/P35)            │
+ * │  5 CS (片选)      →    GPIO36 (D4/P36)            │
+ * │  6 GND            →    GND                         │
+ * │  7 VDD (2.8V)     →    VBAT (3.3V, 建议串 10Ω)     │
+ * │  8-10 NC          →    悬空                        │
+ * │  11 K- (LED 阴极)  →    GND                         │
+ * │  12 A+ (LED 阳极)  →    VBAT (串 22-47Ω 电阻)        │
  * └─────────────────────────────────────────────────────┘
  *
- * 如需修改引脚，请更改下方的 LCD_CS_PIN、LCD_DC_PIN、LCD_RST_PIN 定义
+ * VIDEO IF 排针引脚定义（从上到下，从左到右）：
+ * ┌─────────────────────────────────────────────────────────┐
+ * │ HSYNC/P30   D1/P29    SYNC/P34   TX1/P22               │
+ * │ D2/P34      D3/P35    D4/P36     RX1/P23               │
+ * │ D5/P37      D6/P38    D7/P39     GND                   │
+ * │ VBAT        24V       NC         NC                    │
+ * └─────────────────────────────────────────────────────────┘
  */
 
 #include <rtthread.h>
@@ -27,40 +33,42 @@
 #include <string.h>
 #include <stdio.h>
 
-#include "spi_pub.h"
 #include "gpio_pub.h"
-#include "sys_config.h"
 
 /* ========================= 硬件配置 ========================= */
 
-/* SPI 设备名称 */
-#define ST7789_SPI_DEVICE    "spi0"
-
 /* GPIO 定义（根据 BK7252N 实际引脚调整）
  *
- * 默认引脚配置（ZH024B12550C 显示屏）：
  * ┌──────────────────────────────────────────────────────────┐
- * │  LCD 信号    │  BK7252N GPIO  │      功能说明           │
+ * │  针对 BK7252N QFN48 开发板 (使用 VIDEO IF 排针)          │
  * ├──────────────────────────────────────────────────────────┤
- * │  CS         │  GPIO6         │  SPI 片选，低电平有效   │
- * │  CLK        │  GPIO7         │  SPI 时钟               │
- * │  MOSI       │  GPIO8         │  SPI 数据输出           │
- * │  DC         │  GPIO9         │  数据/命令选择          │
- * │  RST        │  GPIO10        │  复位，低电平有效       │
- * │  BLK/PWM    │  GPIO11        │  背光控制 (PWM 可选)     │
+ * │  LCD 信号    │  BK7252N GPIO  │  VIDEO IF 排针位置     │
+ * ├──────────────────────────────────────────────────────────┤
+ * │  CS (5)     │  GPIO36        │  D4/P36                │
+ * │  CLK (2)    │  GPIO37        │  D5/P37                │
+ * │  MOSI (1)   │  GPIO38        │  D6/P38                │
+ * │  DC (4)     │  GPIO35        │  D3/P35                │
+ * │  RST (3)    │  GPIO34        │  D2/P34                │
+ * │  BLK        │  GPIO39        │  D7/P39 (可选)          │
+ * │  VDD (7)    │  3.3V          │  VBAT (第 3 行左侧)       │
+ * │  LED_A (12) │  3.3V          │  需另接 VBAT (串电阻)    │
+ * │  GND (6,11) │  GND           │  GND (第 3 行右侧)        │
  * └──────────────────────────────────────────────────────────┘
  *
- * 注意：BK7252N 的 GPIO 编号直接使用数字，不需要 GPIO_PBx 格式
+ * 注意：
+ * 1. 使用软件模拟 SPI，可以直接使用 VIDEO IF 排针，无需飞线
+ * 2. LCD VDD (2.8V) 接 3.3V 时建议串联 10Ω 电阻限流
+ * 3. 背光 LED_A 必须串联 22-47Ω 电阻限流
  */
-#define LCD_CS_PIN           GPIO6
-#define LCD_CLK_PIN          GPIO7
-#define LCD_MOSI_PIN         GPIO8
-#define LCD_DC_PIN           GPIO9
-#define LCD_RST_PIN          GPIO10
-#define LCD_BLK_PIN          GPIO11  /* 背光控制，可选 */
+#define LCD_CS_PIN           GPIO36
+#define LCD_CLK_PIN          GPIO37
+#define LCD_MOSI_PIN         GPIO38
+#define LCD_DC_PIN           GPIO35
+#define LCD_RST_PIN          GPIO34
+#define LCD_BLK_PIN          GPIO39  /* 背光控制，可选 */
 
 /* 屏幕参数 */
-#define LCD_WIDTH            240
+#define LCD_WIDTH            320
 #define LCD_HEIGHT           240
 
 /* 颜色定义（RGB565 格式） */
@@ -77,7 +85,6 @@
 
 /* ========================= 全局变量 ========================= */
 
-static struct rt_spi_device *lcd_spi_dev = RT_NULL;
 static rt_bool_t lcd_initialized = RT_FALSE;
 
 /* ========================= GPIO 控制 ========================= */
@@ -136,16 +143,53 @@ static void lcd_reset(void)
     rt_thread_mdelay(100);
 }
 
-/* ========================= SPI 通信 ========================= */
+/* ========================= 软件模拟 SPI ========================= */
+
+/* 软件延迟 - 用于控制 SPI 速度 */
+static void spi_delay(void)
+{
+    volatile int i;
+    for (i = 0; i < 3; i++);
+}
+
+/* 模拟 SPI 发送一个字节 */
+static void soft_spi_write_byte(rt_uint8_t data)
+{
+    rt_int8_t i;
+
+    for (i = 7; i >= 0; i--)
+    {
+        /* 拉低时钟，准备数据 */
+        gpio_set_pin_value(LCD_CLK_PIN, GPIO_LOW);
+
+        /* 设置 MOSI 数据 */
+        if (data & (1 << i))
+            gpio_set_pin_value(LCD_MOSI_PIN, GPIO_HIGH);
+        else
+            gpio_set_pin_value(LCD_MOSI_PIN, GPIO_LOW);
+
+        /* 短延迟 */
+        spi_delay();
+
+        /* 拉高时钟，锁存数据 */
+        gpio_set_pin_value(LCD_CLK_PIN, GPIO_HIGH);
+
+        /* 短延迟 */
+        spi_delay();
+    }
+
+    /* 最后将时钟拉低，保持空闲状态 */
+    gpio_set_pin_value(LCD_CLK_PIN, GPIO_LOW);
+}
 
 /* 发送命令 */
 static void lcd_write_cmd(rt_uint8_t cmd)
 {
     lcd_dc_command();
     lcd_cs_select();
-    
-    rt_spi_write(lcd_spi_dev, &cmd, 1);
-    
+
+    soft_spi_write_byte(cmd);
+
     lcd_cs_deselect();
 }
 
@@ -154,9 +198,9 @@ static void lcd_write_data(rt_uint8_t data)
 {
     lcd_dc_data();
     lcd_cs_select();
-    
-    rt_spi_write(lcd_spi_dev, &data, 1);
-    
+
+    soft_spi_write_byte(data);
+
     lcd_cs_deselect();
 }
 
@@ -165,9 +209,12 @@ static void lcd_write_data_multi(const rt_uint8_t *data, rt_size_t len)
 {
     lcd_dc_data();
     lcd_cs_select();
-    
-    rt_spi_write(lcd_spi_dev, data, len);
-    
+
+    while (len--)
+    {
+        soft_spi_write_byte(*data++);
+    }
+
     lcd_cs_deselect();
 }
 
@@ -177,7 +224,7 @@ static void lcd_write_data16(rt_uint16_t data)
     rt_uint8_t buf[2];
     buf[0] = (data >> 8) & 0xFF;
     buf[1] = data & 0xFF;
-    
+
     lcd_write_data_multi(buf, 2);
 }
 
@@ -206,19 +253,19 @@ void lcd_clear(rt_uint16_t color)
     rt_uint32_t i;
     rt_uint8_t high = color >> 8;
     rt_uint8_t low = color & 0xFF;
-    
+
     lcd_set_cursor(0, 0, LCD_WIDTH - 1, LCD_HEIGHT - 1);
     lcd_dc_data();
     lcd_cs_select();
-    
+
     /* 优化：一次发送多个像素 */
     for (i = 0; i < (rt_uint32_t)LCD_WIDTH * LCD_HEIGHT / 16; i++) {
         for (rt_uint8_t j = 0; j < 16; j++) {
-            rt_spi_write(lcd_spi_dev, &high, 1);
-            rt_spi_write(lcd_spi_dev, &low, 1);
+            soft_spi_write_byte(high);
+            soft_spi_write_byte(low);
         }
     }
-    
+
     lcd_cs_deselect();
 }
 
@@ -290,19 +337,19 @@ void lcd_fill_rectangle(rt_uint16_t x, rt_uint16_t y, rt_uint16_t width, rt_uint
 {
     rt_uint32_t i;
     rt_uint16_t total = width * height;
-    
+
     lcd_set_window(x, y, width, height);
     lcd_dc_data();
     lcd_cs_select();
-    
+
     rt_uint8_t high = color >> 8;
     rt_uint8_t low = color & 0xFF;
-    
+
     for (i = 0; i < total; i++) {
-        rt_spi_write(lcd_spi_dev, &high, 1);
-        rt_spi_write(lcd_spi_dev, &low, 1);
+        soft_spi_write_byte(high);
+        soft_spi_write_byte(low);
     }
-    
+
     lcd_cs_deselect();
 }
 
@@ -417,19 +464,19 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
     rt_kprintf("[LCD] 显示 WiFi QR 码\n");
     rt_kprintf("  SSID: %s\n", ssid);
     rt_kprintf("  Password: %s\n", password);
-    
+
     /* 清屏为白色 */
     lcd_clear(WHITE);
-    
+
     /* 显示标题 */
     lcd_draw_string(10, 10, "WiFi:", BLACK, WHITE);
-    lcd_draw_string(50, 10, ssid, BLACK, WHITE);
-    
+    lcd_draw_string(60, 10, ssid, BLACK, WHITE);
+
     /* TODO: 集成 QR 码生成库后绘制 QR 码 */
     /* 临时：画一个方框表示 QR 码区域 */
-    lcd_draw_rectangle(20, 40, 200, 200, BLACK);
-    lcd_fill_rectangle(30, 50, 180, 180, BLACK);
-    
+    lcd_draw_rectangle(60, 40, 200, 200, BLACK);
+    lcd_fill_rectangle(70, 50, 180, 180, BLACK);
+
     /* 显示密码 */
     char pwd_text[32];
     rt_snprintf(pwd_text, sizeof(pwd_text), "PWD: %s", password);
@@ -441,15 +488,15 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
 void lcd_show_status(const char *status)
 {
     rt_kprintf("[LCD] 状态：%s\n", status);
-    
+
     /* 清屏 */
     lcd_clear(WHITE);
-    
-    /* 显示 Logo */
-    lcd_draw_string(70, 50, "LuckyPod", BLACK, WHITE);
-    
-    /* 显示状态 */
-    lcd_draw_string(50, 150, status, BLACK, WHITE);
+
+    /* 显示 Logo - 居中显示 */
+    lcd_draw_string(110, 50, "LuckyPod", BLACK, WHITE);
+
+    /* 显示状态 - 居中显示 */
+    lcd_draw_string(120, 120, status, BLACK, WHITE);
 }
 
 /* ========================= 初始化 ========================= */
@@ -459,21 +506,30 @@ static void st7789_init_sequence(void)
     /* 软件复位 */
     lcd_write_cmd(0x01);
     rt_thread_mdelay(120);
-    
+
     /* 退出睡眠模式 */
     lcd_write_cmd(0x11);
     rt_thread_mdelay(120);
-    
+
     /* 像素格式：RGB565 */
     lcd_write_cmd(0x3A);
     lcd_write_data(0x55);
-    
+
     /* 显示反转（根据实际屏幕调整） */
     lcd_write_cmd(0x21);
-    
-    /* 内存数据访问顺序 */
+
+    /* 内存数据访问顺序 (MADCTL)
+     * 对于 320x240 横向屏幕：
+     * bit7: MY=0 (行地址顺序)
+     * bit6: MX=0 (列地址顺序)
+     * bit5: MV=0 (行列交换，0=不交换)
+     * bit4: ML=0 (行刷新顺序)
+     * bit3: BGR=1 (RGB 顺序)
+     * bit2: MH=0 (水平刷新顺序)
+     * 值 = 0x00 或 0x20 (取决于屏幕方向，如果颜色不对改为 0x00)
+     */
     lcd_write_cmd(0x36);
-    lcd_write_data(0x00);  /* 根据实际屏幕方向调整 */
+    lcd_write_data(0x20);  /* BGR=1，其他=0 */
     
     /* 帧率控制 */
     lcd_write_cmd(0xB2);
@@ -552,49 +608,33 @@ int st7789_lcd_init(void)
     rt_kprintf("\n");
     rt_kprintf("╔════════════════════════════════════════╗\n");
     rt_kprintf("║   ST7789 LCD 驱动初始化 (240x240)      ║\n");
+    rt_kprintf("║   软件模拟 SPI 模式                     ║\n");
     rt_kprintf("╚════════════════════════════════════════╝\n");
-    
+
     if (lcd_initialized) {
         rt_kprintf("[LCD] 已经初始化过了\n");
         return RT_EOK;
     }
-    
+
     /* 1. 初始化 GPIO */
     rt_kprintf("[LCD] 初始化 GPIO...\n");
     lcd_gpio_init();
-    
-    /* 2. 查找 SPI 设备 */
-    rt_kprintf("[LCD] 查找 SPI 设备：%s...\n", ST7789_SPI_DEVICE);
-    lcd_spi_dev = rt_spi_bus_attach_device(ST7789_SPI_DEVICE);
-    if (lcd_spi_dev == RT_NULL) {
-        rt_kprintf("[LCD] ERROR: 找不到 SPI 设备 %s\n", ST7789_SPI_DEVICE);
-        return -RT_ERROR;
-    }
-    
-    /* 3. 配置 SPI 参数 */
-    struct rt_spi_configuration cfg = {0};
-    cfg.data_width = 8;
-    cfg.mode = RT_SPI_MASTER | RT_SPI_MODE_0 | RT_SPI_MSB;
-    cfg.max_hz = 20 * 1000 * 1000;  /* 20MHz */
-    
-    rt_spi_configure(lcd_spi_dev, &cfg);
-    rt_kprintf("[LCD] SPI 配置完成 (20MHz)\n");
-    
-    /* 4. 硬件复位 */
+
+    /* 2. 硬件复位 */
     rt_kprintf("[LCD] 复位 LCD...\n");
     lcd_reset();
-    
-    /* 5. 发送初始化序列 */
+
+    /* 3. 发送初始化序列 */
     rt_kprintf("[LCD] 发送初始化序列...\n");
     st7789_init_sequence();
-    
-    /* 6. 清屏 */
+
+    /* 4. 清屏 */
     rt_kprintf("[LCD] 清屏...\n");
     lcd_clear(BLACK);
-    
+
     lcd_initialized = RT_TRUE;
     rt_kprintf("[LCD] 初始化完成！\n");
-    
+
     return RT_EOK;
 }
 
@@ -642,9 +682,9 @@ static void lcd_test(void)
     rt_thread_mdelay(2000);
 
     /* 画图形 */
-    lcd_draw_line(0, 50, 240, 50, BLUE);
+    lcd_draw_line(0, 50, 320, 50, BLUE);
     lcd_draw_rectangle(20, 70, 100, 100, GREEN);
-    lcd_draw_circle(180, 120, 40, RED);
+    lcd_draw_circle(150, 120, 40, RED);
     rt_kprintf("[LCD Test] 画图形\n");
     rt_thread_mdelay(2000);
 
