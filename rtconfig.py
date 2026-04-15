@@ -27,24 +27,57 @@ if  CROSS_TOOL == 'gcc':
     system_platform = platform.system()
 
     # Priority 1: Use project-local toolchain (for consistent builds across team)
-    # Skip project-local toolchain on Windows as it may contain non-Windows binaries
-    local_toolchain = None
-    local_gcc = None
-    if system_platform != 'Windows':
-        local_toolchain_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'toolchain', 'gcc-arm-none-eabi-5_4-2016q3', 'bin')
-        local_gcc_path = os.path.join(local_toolchain_path, 'arm-none-eabi-gcc')
-        if os.path.exists(local_gcc_path) and os.access(local_gcc_path, os.X_OK):
-            local_toolchain = local_toolchain_path
-            local_gcc = local_gcc_path
+    # But only if it's actually executable on this platform
+    local_toolchain = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'toolchain', 'gcc-arm-none-eabi-5_4-2016q3', 'bin')
+    local_gcc = os.path.join(local_toolchain, 'arm-none-eabi-gcc')
 
-    if local_toolchain:
-        EXEC_PATH = local_toolchain
-        print('Using project-local toolchain: %s' % EXEC_PATH)
-    elif system_platform == 'Darwin':  # macOS
-        EXEC_PATH = '/usr/bin'
-    elif system_platform == 'Linux':
-        EXEC_PATH = '/usr/bin'
-    else:  # Windows
+    if os.path.exists(local_gcc) and os.access(local_gcc, os.X_OK):
+        # Verify it's the right platform by trying to execute
+        try:
+            test_cmd = '"%s" -dumpversion' % local_gcc
+            subprocess.check_output(test_cmd, shell=True, stderr=subprocess.DEVNULL)
+            EXEC_PATH = local_toolchain
+            print('Using project-local toolchain: %s' % EXEC_PATH)
+        except (subprocess.CalledProcessError, OSError):
+            print('Note: Project toolchain exists but not executable on this platform.')
+            local_toolchain = None
+
+    if local_toolchain is None or not os.path.exists(local_gcc):
+        if system_platform == 'Darwin':  # macOS
+            # Try common macOS installation paths (check actual gcc location)
+            possible_paths = []
+
+            # Priority 1: Arm GNU Toolchain (official installer, includes newlib)
+            arm_toolchain = '/Applications/ArmGNUToolchain/14.2.rel1/arm-none-eabi/bin'
+            if os.path.exists(os.path.join(arm_toolchain, 'arm-none-eabi-gcc')):
+                possible_paths.append(arm_toolchain)
+
+            # Priority 2: Check Homebrew installations
+            brew_prefix_intel = '/usr/local'
+            brew_prefix_apple = '/opt/homebrew'
+
+            # Check if arm-none-eabi-gcc exists in these paths
+            for prefix in [brew_prefix_apple, brew_prefix_intel]:
+                gcc_path = os.path.join(prefix, 'bin', 'arm-none-eabi-gcc')
+                if os.path.exists(gcc_path):
+                    possible_paths.append(os.path.join(prefix, 'bin'))
+
+            # Priority 3: Standalone installation
+            standalone_path = '/opt/gcc-arm-none-eabi-5_4-2016q3/bin'
+            if os.path.exists(standalone_path):
+                possible_paths.insert(0 if not possible_paths else len(possible_paths), standalone_path)
+
+            # Use first found path
+            if possible_paths:
+                EXEC_PATH = possible_paths[0]
+            else:
+                # Default fallback - try to use whatever Homebrew provides
+                EXEC_PATH = '/opt/homebrew/bin' if os.path.exists('/opt/homebrew/bin') else '/usr/local/bin'
+                print('Note: Using default Homebrew path. Set RTT_EXEC_PATH if different.')
+
+        elif system_platform == 'Linux':
+            EXEC_PATH = '/usr/bin'
+        else:  # Windows
             possible_paths_win = [
                 r'C:\Program Files (x86)\GNU Tools ARM Embedded\5.4 2016q3\bin',
                 r'C:\Program Files\GNU Tools ARM Embedded\5.4 2016q3\bin',
