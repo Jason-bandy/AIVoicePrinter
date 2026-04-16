@@ -339,10 +339,11 @@ void intc_deinit(void)
 void bk_cpu_shutdown(void)
 {
     GLOBAL_INT_DECLARATION();
-	
+
     os_printf("shutdown...\n");
-	
+
     GLOBAL_INT_DISABLE();
+    (void)irq_level;  /* Suppress unused-but-set-variable warning */
     while(1)
     {
     }
