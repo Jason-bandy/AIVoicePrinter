@@ -31,7 +31,9 @@
 
 #define STDIO_DEVICE_NAME_MAX   32
 
+#ifdef _EXFUN
 int	_EXFUN(fileno, (FILE *));
+#endif
 
 static FILE* std_console = NULL;
 
@@ -80,7 +82,9 @@ int libc_stdio_set_console(const char* device_name, int mode)
             _GLOBAL_REENT->_stderr = std_console;
         }
 
+#ifdef __sdidinit
         _GLOBAL_REENT->__sdidinit = 1;
+#endif
     }
 
     if (std_console) return fileno(std_console);

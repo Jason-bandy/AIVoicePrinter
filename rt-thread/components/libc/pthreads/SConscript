@@ -4,7 +4,13 @@ cwd = GetCurrentDir()
 src	= Glob('*.c')
 CPPPATH = [cwd]
 
-group = DefineGroup('pthreads', src, 
-    depend = ['RT_USING_PTHREADS', 'RT_USING_LIBC'], CPPPATH = CPPPATH)
+# Disable pthreads on macOS due to newlib pthread type conflicts with newer GCC
+import sys
+if sys.platform == 'darwin':
+    # Return empty group to skip building pthreads
+    group = []
+else:
+    group = DefineGroup('pthreads', src,
+        depend = ['RT_USING_PTHREADS', 'RT_USING_LIBC'], CPPPATH = CPPPATH)
 
 Return('group')

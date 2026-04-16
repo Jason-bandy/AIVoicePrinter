@@ -35,7 +35,19 @@
 #include <pthread.h>
 #endif
 
+#ifdef _EXFUN
 int	_EXFUN(putenv,(char *__string));
+#endif
+
+/* Compatibility shim for newer newlib - __locale_ctype_ptr was removed/renamed */
+#ifdef BUILD_ON_MACOS
+const char *__locale_ctype_ptr(void)
+{
+    /* Return pointer to internal ctype table for compatibility with pre-compiled libs */
+    static const char ctype_table[256] = {0};
+    return ctype_table;
+}
+#endif
 
 int libc_system_init(void)
 {

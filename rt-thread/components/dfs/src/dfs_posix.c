@@ -125,7 +125,11 @@ RTM_EXPORT(close);
  * may be reach the end of file, please check errno.
  */
 #ifdef RT_USING_NEWLIB
+#ifdef _EXFUN
 _READ_WRITE_RETURN_TYPE _EXFUN(read, (int fd, void *buf, size_t len))
+#else
+int read(int fd, void *buf, size_t len)
+#endif
 #else
 int read(int fd, void *buf, size_t len)
 #endif
@@ -169,7 +173,11 @@ RTM_EXPORT(read);
  * @return the actual written data buffer length.
  */
 #ifdef RT_USING_NEWLIB
+#ifdef _EXFUN
 _READ_WRITE_RETURN_TYPE _EXFUN(write, (int fd, const void *buf, size_t len))
+#else
+int write(int fd, const void *buf, size_t len)
+#endif
 #else
 int write(int fd, const void *buf, size_t len)
 #endif

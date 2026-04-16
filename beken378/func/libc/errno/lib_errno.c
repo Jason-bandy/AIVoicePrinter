@@ -24,7 +24,9 @@
 
 //#include <nuttx/config.h>
 
+#ifndef BUILD_ON_MACOS
 #include <sched.h>
+#endif
 #include <errno.h>
 
 //#include <arch/tls.h>

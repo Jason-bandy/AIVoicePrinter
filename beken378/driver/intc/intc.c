@@ -342,9 +342,10 @@ void bk_cpu_shutdown(void)
 	
     os_printf("shutdown...\n");
 	
-    GLOBAL_INT_DISABLE();	
-    while(1);
-	GLOBAL_INT_RESTORE();
+    GLOBAL_INT_DISABLE();
+    while(1)
+    {
+    }
 }
 
 void bk_show_register (struct arm_registers *regs)

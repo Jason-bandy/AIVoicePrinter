@@ -405,6 +405,8 @@ def PrepareBuilding(env, root_directory, has_libcpu=False, remove_components = [
     #rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '\n'
     if sys.platform == 'win32':
         rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + '\n'
+    elif sys.platform == 'darwin':
+        rtconfig.POST_ACTION += 'python3 tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + ' > /dev/null' + '\n'
     else:
         rtconfig.POST_ACTION += 'python tools/scripts/post_action.py ' + beken_target + ' ' + flash_size + ' > /dev/null' + '\n'
 

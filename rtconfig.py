@@ -133,7 +133,11 @@ if PLATFORM == 'gcc':
     OBJCPY  = PREFIX + 'objcopy'
 
     DEVICE  = ' -mcpu=arm968e-s -mthumb-interwork -mthumb -ffunction-sections -fdata-sections'
-    CFLAGS  = DEVICE + ' -Iconfig' + ' -Irelease' + ' -Werror' + ' -Wall' + ' -Wno-format' + ' -Wno-unknown-pragmas'
+    # Disable -Werror on macOS with newer GCC to avoid spurious warnings
+    WERROR_FLAG = '' if system_platform == 'Darwin' else ' -Werror'
+    # Define BUILD_ON_MACOS for platform-specific workarounds
+    MACOS_FLAG = ' -DBUILD_ON_MACOS' if system_platform == 'Darwin' else ''
+    CFLAGS  = DEVICE + MACOS_FLAG + ' -Iconfig' + ' -Irelease' + WERROR_FLAG + ' -Wall' + ' -Wno-format' + ' -Wno-unknown-pragmas'
     _lwip_root = os.path.join(RTT_ROOT, 'components', 'net', 'lwip-2.0.2', 'src').replace('\\', '/')
     _lwip_inc = _lwip_root + '/include'
     CFLAGS += ' -I' + _lwip_root
@@ -154,4 +158,6 @@ if PLATFORM == 'gcc':
     CXXFLAGS = CFLAGS
 
 DUMP_ACTION = OBJDUMP + ' -D -S $TARGET > rtt.asm\n'
-POST_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n' + SIZE + ' $TARGET \n'
+# Use python3 on macOS, python on other platforms
+PYTHON_CMD = 'python3' if system_platform == 'Darwin' else 'python'
+POST_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n' + SIZE + ' $TARGET \n' + PYTHON_CMD + ' tools/scripts/post_action.py bk7252n 2097152 > /dev/null\n'

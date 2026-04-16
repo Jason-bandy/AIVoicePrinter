@@ -345,7 +345,10 @@
 
 #define PKG_USING_RT_OTA
 
+/* Disable pthreads on macOS due to newlib pthread type conflicts with newer GCC */
+#ifndef BUILD_ON_MACOS
 #define RT_USING_PTHREADS
+#endif
 
 /* voice changer */
 #define CONFIG_VOICE_CHANGER        0
