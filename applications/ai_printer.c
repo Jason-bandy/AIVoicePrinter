@@ -193,12 +193,14 @@ static void ai_button_init(void)
 /* ========================= WebSocket Session Context ========================= */
 
 typedef struct {
+    rws_socket   sock;          /* socket reference for callback checks */
     rt_sem_t     connected_sem; /* signaled by on_connected */
     rt_sem_t     done_sem;      /* signaled by on_text(complete/print/error) or on_disconnected */
     char        *b64;           /* heap: ESC/POS base64 print data */
     int          b64_len;
     volatile int got_result;    /* 1 after complete/print received */
     volatile int error;         /* 1 on error or disconnect-before-result */
+    volatile int disconnecting; /* 1 during cleanup, protect against callbacks */
 } ai_ws_ctx_t;
 
 static ai_ws_ctx_t g_ws_ctx;
@@ -241,6 +243,8 @@ static void ws_on_connected(rws_socket sock)
 static void ws_on_disconnected(rws_socket sock)
 {
     ai_ws_ctx_t *ctx = (ai_ws_ctx_t *)rws_socket_get_user_object(sock);
+    if (!ctx || !ctx->sock || ctx->disconnecting) return;
+
     rws_error err = rws_socket_get_error(sock);
     if (err) {
         rt_kprintf("[AIPrinter] WS disconnected (error %d: %s)\n",
@@ -249,7 +253,7 @@ static void ws_on_disconnected(rws_socket sock)
         rt_kprintf("[AIPrinter] WS disconnected\n");
     }
     /* If no result yet, signal done with error so main task doesn't hang */
-    if (ctx && !ctx->got_result) {
+    if (!ctx->got_result) {
         ctx->error = 1;
         rt_sem_release(ctx->done_sem);
     }
@@ -258,7 +262,7 @@ static void ws_on_disconnected(rws_socket sock)
 static void ws_on_text(rws_socket sock, const char *text, unsigned int len)
 {
     ai_ws_ctx_t *ctx = (ai_ws_ctx_t *)rws_socket_get_user_object(sock);
-    if (!ctx || !text || len == 0) return;
+    if (!ctx || !ctx->sock || ctx->disconnecting || !text || len == 0) return;
 
     /* Extract "type" field */
     char type[32] = {0};
@@ -345,6 +349,7 @@ static void ai_voice_ws_print(void)
     g_ws_ctx.b64_len    = 0;
     g_ws_ctx.got_result = 0;
     g_ws_ctx.error      = 0;
+    g_ws_ctx.disconnecting = 0;
 
     /* Create and configure WebSocket */
     sock = rws_socket_create();
@@ -359,6 +364,7 @@ static void ai_voice_ws_print(void)
     rws_socket_set_on_disconnected(sock,  ws_on_disconnected);
     rws_socket_set_on_received_text(sock, ws_on_text);
     rws_socket_set_user_object(sock, &g_ws_ctx);
+    g_ws_ctx.sock = sock;  /* Store socket reference for callback checks */
 
     rt_kprintf("[AIPrinter] Connecting %s://%s:%d%s ...\n",
                g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port, AI_WS_PATH);
@@ -439,6 +445,7 @@ wait_result:
     }
 
 cleanup:
+    g_ws_ctx.disconnecting = 1;  /* Signal callbacks to exit early */
     if (sock) {
         rws_socket_disconnect_and_release(sock);
     }
@@ -446,6 +453,7 @@ cleanup:
         rt_free(g_ws_ctx.b64);
         g_ws_ctx.b64 = RT_NULL;
     }
+    g_ws_ctx.sock = RT_NULL;  /* Clear socket reference */
 }
 
 /* ========================= Main Task ========================= */
@@ -500,6 +508,7 @@ void ai_printer_start(void)
     g_ws_ctx.connected_sem = rt_sem_create("ws_conn", 0, RT_IPC_FLAG_FIFO);
     g_ws_ctx.done_sem      = rt_sem_create("ws_done", 0, RT_IPC_FLAG_FIFO);
     g_ws_ctx.b64           = RT_NULL;
+    g_ws_ctx.sock          = RT_NULL;
 
     g_btn_sem = rt_sem_create("btn_sem", 0, RT_IPC_FLAG_FIFO);
     ai_button_init();
