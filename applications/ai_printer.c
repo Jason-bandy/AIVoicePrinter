@@ -1,16 +1,20 @@
 /*
  * AI Printer Application - BK7252N
  *
- * Flow: Boot → WiFi Connect → wait button → Record (6s) → ASR API → AI Print API → loop
+ * Flow: Boot → WiFi Connect → hold button → WebSocket stream PCM → receive print data → BLE print → loop
  *
- * Usage: Press trigger button (GPIO AI_BTN_GPIO) to start a new print cycle.
- * All progress is printed to the serial port (UART).
+ * WebSocket endpoint: ws://host:port/ws/voicePrint
+ *   - Binary frames: PCM audio (8kHz/16bit/mono) streamed while recording
+ *   - Text {"type":"stop"}: sent on button release
+ *   - Server replies: asr_partial, asr, stage, print, complete
+ *
+ * Usage: Press and HOLD trigger button (GPIO AI_BTN_GPIO) to record, release to stop.
  */
 
 #include <rtthread.h>
-#include <webclient.h>
-#include <cJSON.h>
 #include <string.h>
+#include <stdlib.h>
+#include <librws.h>
 #include "wlan_ui_pub.h"
 #include "rw_msg_pub.h"
 #include "gpio_pub.h"
@@ -26,62 +30,87 @@ static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
     { "XMLJ",       "lj20251210" },
 };
 
-/* ASR: POST multipart/form-data with audio file */
-#define AI_ASR_URL          "https://api.transkoi.luckjingle.com/api/apis/thirdParty/asr"
+/* Server defaults */
+#define AI_DEFAULT_HOST     "api.transkoi.luckjingle.com"
+#define AI_DEFAULT_PORT     443
+/* NOTE: To reach a local dev server use: sethost 192.168.x.x:9005 */
+#define AI_HOST_SEL_MS      5000
 
-/* AI Print: POST with JSON body {"prompt":"..."} */
-#define AI_PRINT_URL        "https://api.transkoi.luckjingle.com/luckypod/aiPrinter/testImagePrint"
+/* Device API key — must match token.test-token in server application.properties */
+#define AI_DEVICE_TOKEN     "luckypod-bk7252-2026"
 
-/* Audio: 8kHz, 16-bit, mono, 6 seconds = 96000 bytes PCM */
+/* WebSocket path */
+#define AI_WS_PATH          "/ws/voicePrint"
+
+/* Audio: 8kHz, 16-bit, mono */
 #define AI_SAMPLE_RATE      8000
-#define AI_RECORD_SECS      6
-#define AI_PCM_BYTES        (AI_SAMPLE_RATE * AI_RECORD_SECS * 2)
-#define AI_WAV_HDR_SZ       44
+#define AI_LANGUAGE         "zh"
+#define AI_RECORD_MAX_SECS  6
+#define AI_PCM_FRAME        1600   /* 100ms @ 8kHz/16bit = 1600 bytes */
+#define AI_PCM_MAX_BYTES    (AI_SAMPLE_RATE * AI_RECORD_MAX_SECS * 2)  /* 96KB */
+#define AI_PCM_MIN_BYTES    (AI_SAMPLE_RATE * 1 * 2)                   /* 1s min */
 
-#define AI_BOUNDARY         "BK7252Boundary"
+#define AI_B64_BUF_MAX      102400  /* max ESC/POS base64 size */
+
 #define AI_WIFI_TIMEOUT_MS  30000
-#define AI_HTTP_HDR_SZ      2048
-#define AI_RESP_BUF_SZ      16384   /* large enough for printDataBase64 */
-#define AI_TEXT_MAX         256
+#define AI_WS_CONNECT_MS    10000  /* WS connect timeout */
+#define AI_WS_RESULT_MS     30000  /* wait for complete/print after stop */
 
 #define AI_TASK_STACK_SZ    8192
 #define AI_TASK_PRIO        15
 
-/* ========================= WAV Header ========================= */
+/* ========================= Runtime Host Config ========================= */
 
-static void ai_wav_header(uint8_t *h, uint32_t pcm_sz)
+static char g_ws_host[128] = AI_DEFAULT_HOST;
+static int  g_ws_port      = AI_DEFAULT_PORT;
+static int  g_ws_secure    = 1;   /* 0 = ws://, 1 = wss:// */
+
+static int ai_is_local(const char *host)
 {
-    uint32_t sr = AI_SAMPLE_RATE, br = sr * 2, chunk = pcm_sz + 36, sc1 = 16;
-    uint16_t ch = 1, bps = 16, ba = 2, fmt = 1;
-
-    memcpy(h,    "RIFF", 4); memcpy(h + 4,  &chunk, 4);
-    memcpy(h + 8, "WAVE", 4); memcpy(h + 12, "fmt ", 4);
-    memcpy(h + 16, &sc1, 4); memcpy(h + 20, &fmt,   2);
-    memcpy(h + 22, &ch,  2); memcpy(h + 24, &sr,    4);
-    memcpy(h + 28, &br,  4); memcpy(h + 32, &ba,    2);
-    memcpy(h + 34, &bps, 2);
-    memcpy(h + 36, "data", 4); memcpy(h + 40, &pcm_sz, 4);
+    return strstr(host, "127.0.0.1") != RT_NULL ||
+           strstr(host, "localhost")  != RT_NULL ||
+           strstr(host, "192.168.")   != RT_NULL ||
+           strstr(host, "10.")        != RT_NULL ||
+           strstr(host, "172.")       != RT_NULL;
 }
 
-/* ========================= URL Encoder ========================= */
-
-static void ai_url_encode(const char *src, char *dst, int dsz)
+/* Parse "host:port" or just "host"; update global WS config */
+static void ai_set_host(const char *hostport)
 {
-    static const char *hex = "0123456789ABCDEF";
-    int i = 0;
-    while (*src && i + 4 < dsz) {
-        unsigned char c = (unsigned char)*src++;
-        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
-            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
-            dst[i++] = c;
-        } else {
-            dst[i++] = '%';
-            dst[i++] = hex[c >> 4];
-            dst[i++] = hex[c & 0xf];
-        }
+    char tmp[128];
+    rt_strncpy(tmp, hostport, sizeof(tmp) - 1);
+    tmp[sizeof(tmp) - 1] = '\0';
+
+    char *colon = strrchr(tmp, ':');
+    if (colon) {
+        *colon = '\0';
+        g_ws_port = atoi(colon + 1);
+    } else {
+        g_ws_port = ai_is_local(tmp) ? 80 : 443;
     }
-    dst[i] = '\0';
+    rt_strncpy(g_ws_host, tmp, sizeof(g_ws_host) - 1);
+    g_ws_secure = ai_is_local(g_ws_host) ? 0 : 1;
+
+    rt_kprintf("[AIPrinter] URL set: %s://%s:%d%s\n",
+               g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port, AI_WS_PATH);
 }
+
+/* MSH command: sethost 192.168.1.100:9005  or  sethost default */
+static int cmd_sethost(int argc, char **argv)
+{
+    if (argc < 2) {
+        rt_kprintf("[AIPrinter] Usage: sethost <host:port|default>\n");
+        rt_kprintf("[AIPrinter]   e.g. sethost 192.168.1.100:9005\n");
+        rt_kprintf("[AIPrinter]        sethost default\n");
+        rt_kprintf("[AIPrinter] Current: %s://%s:%d\n",
+                   g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port);
+        return 0;
+    }
+    const char *arg = argv[1];
+    ai_set_host(rt_strcmp(arg, "default") == 0 ? AI_DEFAULT_HOST : arg);
+    return 0;
+}
+MSH_CMD_EXPORT_ALIAS(cmd_sethost, sethost, set AI printer API host);
 
 /* ========================= WiFi Connect ========================= */
 
@@ -93,7 +122,7 @@ static int ai_wifi_connect(void)
         memset(&cfg, 0, sizeof(cfg));
         cfg.wifi_mode = BK_STATION;
         strncpy(cfg.wifi_ssid, AI_WIFI_LIST[i].ssid, sizeof(cfg.wifi_ssid) - 1);
-        strncpy(cfg.wifi_key,  AI_WIFI_LIST[i].pass, sizeof(cfg.wifi_key) - 1);
+        strncpy(cfg.wifi_key,  AI_WIFI_LIST[i].pass,  sizeof(cfg.wifi_key)  - 1);
         cfg.dhcp_mode = DHCP_CLIENT;
 
         rt_kprintf("[AIPrinter] Trying WiFi: %s\n", AI_WIFI_LIST[i].ssid);
@@ -118,33 +147,42 @@ static int ai_wifi_connect(void)
 
 /* ========================= Button Trigger ========================= */
 
-static BUTTON_S  g_ai_button;
-static rt_sem_t  g_btn_sem;
+static BUTTON_S          g_ai_button;
+static rt_sem_t          g_btn_sem;
+static volatile int      g_btn_held = 0;
 
 static uint8_t btn_read_level(BUTTON_S *handle)
 {
     return (uint8_t)bk_gpio_input((uint32_t)handle->user_data);
 }
 
-static void btn_on_single_click(void *param)
+static void btn_on_press_down(void *param)
 {
-    rt_kprintf("[AIPrinter] Button pressed! Starting recording...\n");
+    g_btn_held = 1;
+    rt_kprintf("[AIPrinter] Button held — recording...\n");
     rt_sem_release(g_btn_sem);
+}
+
+static void btn_on_press_up(void *param)
+{
+    g_btn_held = 0;
+    rt_kprintf("[AIPrinter] Button released — stopping recording.\n");
 }
 
 static void btn_tick_thread(void *arg)
 {
     while (1) {
         button_ticks(RT_NULL);
-        rt_thread_delay(5); /* matches TICKS_INTERVAL = 5ms */
+        rt_thread_delay(5);
     }
 }
 
 static void ai_button_init(void)
 {
-    bk_gpio_config_input_pup(AI_BTN_GPIO); /* input + pull-up, button connects to GND */
+    bk_gpio_config_input_pup(AI_BTN_GPIO);
     button_init(&g_ai_button, btn_read_level, 0, (void *)AI_BTN_GPIO);
-    button_attach(&g_ai_button, SINGLE_CLICK, btn_on_single_click);
+    button_attach(&g_ai_button, PRESS_DOWN, btn_on_press_down);
+    button_attach(&g_ai_button, PRESS_UP,   btn_on_press_up);
     button_start(&g_ai_button);
 
     rt_thread_t t = rt_thread_create("btn_tick", btn_tick_thread, RT_NULL,
@@ -152,213 +190,262 @@ static void ai_button_init(void)
     if (t) rt_thread_startup(t);
 }
 
-/* ========================= Audio Record ========================= */
+/* ========================= WebSocket Session Context ========================= */
 
-static int ai_record_pcm(uint8_t *buf, int buf_sz)
+typedef struct {
+    rt_sem_t     connected_sem; /* signaled by on_connected */
+    rt_sem_t     done_sem;      /* signaled by on_text(complete/print/error) or on_disconnected */
+    char        *b64;           /* heap: ESC/POS base64 print data */
+    int          b64_len;
+    volatile int got_result;    /* 1 after complete/print received */
+    volatile int error;         /* 1 on error or disconnect-before-result */
+} ai_ws_ctx_t;
+
+static ai_ws_ctx_t g_ws_ctx;
+
+/* ---- Helpers: safe strncopy + JSON field extraction ---- */
+
+/*
+ * Extract a quoted string value for a JSON key.
+ * Finds "key":"<value>" in buf[0..len] and copies value into out[out_max].
+ * Returns length of value, -1 if not found.
+ */
+static int json_get_str(const char *buf, unsigned int len,
+                        const char *key, char *out, int out_max)
 {
+    /* Build search pattern: "key":"  */
+    char pat[64];
+    rt_snprintf(pat, sizeof(pat), "\"%s\":\"", key);
+    const char *p = strstr(buf, pat);
+    if (!p || (unsigned int)(p - buf) >= len) return -1;
+    p += rt_strlen(pat);
+    const char *e = p;
+    /* Find closing quote (base64 and typical JSON values don't contain '"') */
+    while (*e && *e != '"' && (unsigned int)(e - buf) < len) e++;
+    int vlen = (int)(e - p);
+    if (vlen <= 0 || vlen >= out_max) return -1;
+    rt_memcpy(out, p, vlen);
+    out[vlen] = '\0';
+    return vlen;
+}
+
+/* ---- WebSocket callbacks (called from librws internal thread) ---- */
+
+static void ws_on_connected(rws_socket sock)
+{
+    ai_ws_ctx_t *ctx = (ai_ws_ctx_t *)rws_socket_get_user_object(sock);
+    rt_kprintf("[AIPrinter] WS connected\n");
+    rt_sem_release(ctx->connected_sem);
+}
+
+static void ws_on_disconnected(rws_socket sock)
+{
+    ai_ws_ctx_t *ctx = (ai_ws_ctx_t *)rws_socket_get_user_object(sock);
+    rws_error err = rws_socket_get_error(sock);
+    if (err) {
+        rt_kprintf("[AIPrinter] WS disconnected (error %d: %s)\n",
+                   rws_error_get_code(err), rws_error_get_description(err));
+    } else {
+        rt_kprintf("[AIPrinter] WS disconnected\n");
+    }
+    /* If no result yet, signal done with error so main task doesn't hang */
+    if (ctx && !ctx->got_result) {
+        ctx->error = 1;
+        rt_sem_release(ctx->done_sem);
+    }
+}
+
+static void ws_on_text(rws_socket sock, const char *text, unsigned int len)
+{
+    ai_ws_ctx_t *ctx = (ai_ws_ctx_t *)rws_socket_get_user_object(sock);
+    if (!ctx || !text || len == 0) return;
+
+    /* Extract "type" field */
+    char type[32] = {0};
+    if (json_get_str(text, len, "type", type, sizeof(type)) < 0) return;
+
+    if (rt_strcmp(type, "asr_partial") == 0) {
+        char txt[128] = {0};
+        if (json_get_str(text, len, "text", txt, sizeof(txt)) > 0)
+            rt_kprintf("[AIPrinter] ~~ %s\n", txt);
+
+    } else if (rt_strcmp(type, "asr") == 0) {
+        char txt[256] = {0};
+        if (json_get_str(text, len, "text", txt, sizeof(txt)) > 0)
+            rt_kprintf("[AIPrinter] === ASR: %s ===\n", txt);
+
+    } else if (rt_strcmp(type, "stage") == 0) {
+        char msg[128] = {0};
+        if (json_get_str(text, len, "message", msg, sizeof(msg)) > 0)
+            rt_kprintf("[AIPrinter] >> %s\n", msg);
+
+    } else if (rt_strcmp(type, "print") == 0) {
+        /* "data" field holds ESC/POS base64 — can be up to 100KB */
+        const char *key = "\"data\":\"";
+        const char *p = strstr(text, key);
+        if (p && ctx->b64) {
+            p += rt_strlen(key);
+            const char *e = p;
+            while (*e && *e != '"') e++;
+            int dlen = (int)(e - p);
+            if (dlen > 0 && dlen <= AI_B64_BUF_MAX) {
+                rt_memcpy(ctx->b64, p, dlen);
+                ctx->b64[dlen] = '\0';
+                ctx->b64_len = dlen;
+                rt_kprintf("[AIPrinter] Got print data (%d chars)\n", dlen);
+            }
+        }
+        ctx->got_result = 1;
+        rt_sem_release(ctx->done_sem);
+
+    } else if (rt_strcmp(type, "complete") == 0) {
+        /* No print data (hasScreen=false, needPrint=true should give print, not complete first) */
+        rt_kprintf("[AIPrinter] WS complete (no print data)\n");
+        ctx->got_result = 1;
+        rt_sem_release(ctx->done_sem);
+
+    } else if (rt_strcmp(type, "error") == 0) {
+        char msg[256] = {0};
+        json_get_str(text, len, "message", msg, sizeof(msg));
+        rt_kprintf("[AIPrinter] WS server error: %s\n", msg);
+        ctx->error = 1;
+        rt_sem_release(ctx->done_sem);
+    }
+}
+
+/* ========================= Voice WebSocket Print ========================= */
+
+/*
+ * Connect to /ws/voicePrint, stream PCM while button held, send stop,
+ * wait for ESC/POS print data, forward to BLE printer.
+ */
+static void ai_voice_ws_print(void)
+{
+    rws_socket sock = RT_NULL;
+    rt_tick_t t_start = rt_tick_get();
+
+    /* Drain semaphores from any previous session (e.g. disconnect during cleanup) */
+    while (rt_sem_take(g_ws_ctx.connected_sem, 0) == RT_EOK) {}
+    while (rt_sem_take(g_ws_ctx.done_sem,      0) == RT_EOK) {}
+
+    /* Build WS path with query params (auth token last) */
+    char path[320];
+    rt_snprintf(path, sizeof(path),
+                "%s?language=%s&format=pcm&sampleRate=%d"
+                "&printMode=image&hasScreen=false&needPrint=true"
+                "&token=%s",
+                AI_WS_PATH, AI_LANGUAGE, AI_SAMPLE_RATE, AI_DEVICE_TOKEN);
+
+    /* Allocate print data buffer */
+    g_ws_ctx.b64 = rt_malloc(AI_B64_BUF_MAX + 1);
+    if (!g_ws_ctx.b64) {
+        rt_kprintf("[AIPrinter] OOM: cannot allocate b64 buffer\n");
+        return;
+    }
+    g_ws_ctx.b64_len    = 0;
+    g_ws_ctx.got_result = 0;
+    g_ws_ctx.error      = 0;
+
+    /* Create and configure WebSocket */
+    sock = rws_socket_create();
+    if (!sock) {
+        rt_kprintf("[AIPrinter] rws_socket_create failed\n");
+        goto cleanup;
+    }
+
+    rws_socket_set_url(sock, g_ws_secure ? "wss" : "ws",
+                       g_ws_host, g_ws_port, path);
+    rws_socket_set_on_connected(sock,     ws_on_connected);
+    rws_socket_set_on_disconnected(sock,  ws_on_disconnected);
+    rws_socket_set_on_received_text(sock, ws_on_text);
+    rws_socket_set_user_object(sock, &g_ws_ctx);
+
+    rt_kprintf("[AIPrinter] Connecting %s://%s:%d%s ...\n",
+               g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port, AI_WS_PATH);
+
+    if (rws_socket_connect(sock) == rws_false) {
+        rt_kprintf("[AIPrinter] rws_socket_connect() returned false\n");
+        goto cleanup;
+    }
+
+    /* Wait for WS handshake */
+    if (rt_sem_take(g_ws_ctx.connected_sem, AI_WS_CONNECT_MS) != RT_EOK) {
+        rt_kprintf("[AIPrinter] WS connect timeout (%dms)\n", AI_WS_CONNECT_MS);
+        goto cleanup;
+    }
+    rt_kprintf("[AIPrinter] WS ready (%ums)\n",
+               (unsigned)(rt_tick_get() - t_start));
+
+    /* ---- Open mic and stream PCM frames ---- */
     rt_device_t mic = rt_device_find("mic");
     if (!mic) {
         rt_kprintf("[AIPrinter] mic device not found!\n");
-        return -1;
+        rws_socket_send_text(sock, "{\"type\":\"stop\"}");
+        goto wait_result;
     }
     if (rt_device_open(mic, RT_DEVICE_OFLAG_RDONLY) != RT_EOK) {
         rt_kprintf("[AIPrinter] Failed to open mic!\n");
-        return -1;
-    }
-
-    rt_kprintf("[AIPrinter] Speak now! Recording %d seconds...\n", AI_RECORD_SECS);
-
-    int total = 0;
-    while (total < buf_sz) {
-        /* Read in small chunks to keep up with DMA ring buffer (5120 bytes) */
-        int to_read = buf_sz - total;
-        if (to_read > 512) to_read = 512;
-        int n = rt_device_read(mic, 0, buf + total, to_read);
-        if (n > 0) {
-            total += n;
-        } else {
-            rt_thread_delay(2);
-        }
-    }
-
-    rt_device_close(mic);
-    rt_kprintf("[AIPrinter] Recording done: %d bytes PCM.\n", total);
-    return 0;
-}
-
-/* ========================= ASR API Call ========================= */
-
-static int ai_asr_call(char *body_buf, int body_sz, char *text_out)
-{
-    struct webclient_session *sess = RT_NULL;
-    uint8_t *resp = RT_NULL;
-    int ret = -1;
-
-    sess = webclient_session_create(AI_HTTP_HDR_SZ);
-    if (!sess) {
-        rt_kprintf("[AIPrinter] webclient_session_create failed\n");
-        goto out;
+        rws_socket_send_text(sock, "{\"type\":\"stop\"}");
+        goto wait_result;
     }
 
     {
-        char ct[80];
-        rt_snprintf(ct, sizeof(ct), "multipart/form-data; boundary=%s", AI_BOUNDARY);
-        webclient_header_fields_add(sess, "Content-Type: %s\r\n", ct);
-        webclient_header_fields_add(sess, "Content-Length: %d\r\n", body_sz);
-        webclient_header_fields_add(sess, "Authorization: Bearer test-token-2026-luckypod\r\n");
-    }
+        uint8_t frame[AI_PCM_FRAME];
+        int total = 0;
 
-    rt_kprintf("[AIPrinter] POST to ASR API, body=%d bytes...\n", body_sz);
-    int status = webclient_post(sess, AI_ASR_URL, body_buf, body_sz);
-    rt_kprintf("[AIPrinter] ASR HTTP status: %d\n", status);
+        rt_kprintf("[AIPrinter] Streaming PCM (release button to stop)...\n");
 
-    if (status != 200) {
-        rt_kprintf("[AIPrinter] ASR API returned non-200 status\n");
-        goto out;
-    }
-
-    resp = rt_malloc(AI_RESP_BUF_SZ);
-    if (!resp) {
-        rt_kprintf("[AIPrinter] OOM for response buffer\n");
-        goto out;
-    }
-
-    {
-        int n, total = 0;
-        do {
-            n = webclient_read(sess, resp + total, AI_RESP_BUF_SZ - total - 1);
-            if (n > 0) total += n;
-        } while (n > 0 && total < AI_RESP_BUF_SZ - 1);
-        resp[total] = '\0';
-        rt_kprintf("[AIPrinter] ASR response: %s\n", (char *)resp);
-    }
-
-    {
-        cJSON *json = cJSON_Parse((char *)resp);
-        if (!json) {
-            rt_kprintf("[AIPrinter] JSON parse failed\n");
-            goto out;
-        }
-
-        /* Response: {"code":200,"data":{"recognizedText":"..."}} or {"data":{"text":"..."}} */
-        cJSON *data = cJSON_GetObjectItem(json, "data");
-        cJSON *recognized = data ? cJSON_GetObjectItem(data, "recognizedText") : RT_NULL;
-        if (!recognized || recognized->type != cJSON_String)
-            recognized = data ? cJSON_GetObjectItem(data, "text") : RT_NULL;
-
-        if (recognized && (recognized->type == cJSON_String) && recognized->valuestring) {
-            strncpy(text_out, recognized->valuestring, AI_TEXT_MAX - 1);
-            text_out[AI_TEXT_MAX - 1] = '\0';
-            rt_kprintf("[AIPrinter] Recognized text: \"%s\"\n", text_out);
-            ret = 0;
-        } else {
-            rt_kprintf("[AIPrinter] ASR: no text found in response\n");
-        }
-        cJSON_Delete(json);
-    }
-
-out:
-    if (sess) webclient_close(sess);
-    if (resp) rt_free(resp);
-    return ret;
-}
-
-/* ========================= Print API Call ========================= */
-
-static int ai_print_call(const char *text)
-{
-    struct webclient_session *sess = RT_NULL;
-    uint8_t *resp = RT_NULL;
-    char *body = RT_NULL;
-    int ret = -1;
-
-    /* Build form body: prompt=<url-encoded text> */
-    int enc_len = strlen(text) * 3 + 4;
-    int body_len = enc_len + 16;
-    char *enc = rt_malloc(enc_len);
-    body = rt_malloc(body_len);
-    if (!enc || !body) {
-        rt_kprintf("[AIPrinter] OOM for print body\n");
-        if (enc) rt_free(enc);
-        goto out;
-    }
-    ai_url_encode(text, enc, enc_len);
-    rt_snprintf(body, body_len, "prompt=%s", enc);
-    rt_free(enc);
-    rt_kprintf("[AIPrinter] POST print API, prompt=\"%s\"\n", text);
-
-    sess = webclient_session_create(AI_HTTP_HDR_SZ);
-    if (!sess) {
-        rt_kprintf("[AIPrinter] webclient_session_create failed\n");
-        goto out;
-    }
-    webclient_set_timeout(sess, 120000);   /* 120s: image generation can be slow */
-
-    webclient_header_fields_add(sess, "Content-Type: application/x-www-form-urlencoded\r\n");
-    webclient_header_fields_add(sess, "Content-Length: %d\r\n", (int)strlen(body));
-    webclient_header_fields_add(sess, "Authorization: Bearer test-token-2026-luckypod\r\n");
-
-    int status = webclient_post(sess, AI_PRINT_URL, body, strlen(body));
-    rt_kprintf("[AIPrinter] Print API HTTP status: %d\n", status);
-    if (status != 200) {
-        rt_kprintf("[AIPrinter] Print API returned non-200 status\n");
-        goto out;
-    }
-
-    resp = rt_malloc(AI_RESP_BUF_SZ);
-    if (!resp) {
-        rt_kprintf("[AIPrinter] OOM for print response buffer\n");
-        goto out;
-    }
-
-    {
-        int n, total = 0;
-        do {
-            n = webclient_read(sess, resp + total, AI_RESP_BUF_SZ - total - 1);
-            if (n > 0) total += n;
-        } while (n > 0 && total < AI_RESP_BUF_SZ - 1);
-        resp[total] = '\0';
-        rt_kprintf("[AIPrinter] Print API response (%d bytes)\n", total);
-    }
-
-    {
-        /* Response: {"code":200,"data":{"imageUrl":"...","printDataBase64":"...",...}} */
-        cJSON *json = cJSON_Parse((char *)resp);
-        if (!json) {
-            rt_kprintf("[AIPrinter] Print API JSON parse failed\n");
-            goto out;
-        }
-
-        cJSON *data = cJSON_GetObjectItem(json, "data");
-        if (data) {
-            cJSON *image_url = cJSON_GetObjectItem(data, "imageUrl");
-            cJSON *print_b64 = cJSON_GetObjectItem(data, "printDataBase64");
-
-            if (image_url && (image_url->type == cJSON_String) && image_url->valuestring) {
-                rt_kprintf("[AIPrinter] Image URL: %s\n", image_url->valuestring);
+        while (g_btn_held && total < AI_PCM_MAX_BYTES) {
+            int n = rt_device_read(mic, 0, frame, sizeof(frame));
+            if (n > 0) {
+                /* Send each chunk as a complete binary WS message (opcode=2, fin=true) */
+                rws_socket_send_bin(sock, frame, (size_t)n, 2, rws_true);
+                total += n;
             } else {
-                rt_kprintf("[AIPrinter] imageUrl: (null)\n");
+                rt_thread_delay(2);
             }
-
-            if (print_b64 && (print_b64->type == cJSON_String) && print_b64->valuestring) {
-                rt_kprintf("[AIPrinter] printDataBase64(first 50): %.50s\n", print_b64->valuestring);
-                /* Send ESC/POS data to BLE printer */
-                ble_printer_send_base64(print_b64->valuestring);
-            } else {
-                rt_kprintf("[AIPrinter] printDataBase64: (null)\n");
-            }
-            ret = 0;
-        } else {
-            rt_kprintf("[AIPrinter] Print API: 'data' field not found\n");
         }
-        cJSON_Delete(json);
+
+        rt_device_close(mic);
+        rt_kprintf("[AIPrinter] PCM stream done: %d bytes (%dms)\n",
+                   total, total * 1000 / (AI_SAMPLE_RATE * 2));
+
+        if (total < AI_PCM_MIN_BYTES) {
+            rt_kprintf("[AIPrinter] Recording too short, aborting.\n");
+            rws_socket_send_text(sock, "{\"type\":\"stop\"}");
+            g_ws_ctx.error = 1;
+            goto cleanup;
+        }
     }
 
-out:
-    if (sess) webclient_close(sess);
-    if (body) rt_free(body);
-    if (resp) rt_free(resp);
-    return ret;
+    /* Signal end of recording */
+    rws_socket_send_text(sock, "{\"type\":\"stop\"}");
+    rt_kprintf("[AIPrinter] Sent stop, waiting for result...\n");
+
+wait_result:
+    /* Wait for print/complete/error from server (up to 30s for image gen) */
+    if (rt_sem_take(g_ws_ctx.done_sem, AI_WS_RESULT_MS) != RT_EOK) {
+        rt_kprintf("[AIPrinter] WS result timeout (%dms)\n", AI_WS_RESULT_MS);
+        g_ws_ctx.error = 1;
+    }
+
+    rt_kprintf("[AIPrinter] Total: %ums, error=%d, b64_len=%d\n",
+               (unsigned)(rt_tick_get() - t_start), g_ws_ctx.error, g_ws_ctx.b64_len);
+
+    /* Send to BLE printer */
+    if (!g_ws_ctx.error && g_ws_ctx.b64_len > 0) {
+        rt_kprintf("[AIPrinter] Sending to BLE printer...\n");
+        ble_printer_send_base64(g_ws_ctx.b64);
+    }
+
+cleanup:
+    if (sock) {
+        rws_socket_disconnect_and_release(sock);
+    }
+    if (g_ws_ctx.b64) {
+        rt_free(g_ws_ctx.b64);
+        g_ws_ctx.b64 = RT_NULL;
+    }
 }
 
 /* ========================= Main Task ========================= */
@@ -367,69 +454,41 @@ static void ai_printer_task(void *arg)
 {
     rt_kprintf("\n[AIPrinter] ======================================\n");
     rt_kprintf("[AIPrinter]   AI Voice Printer  (BK7252N)\n");
-    rt_kprintf("[AIPrinter]   GPIO%d button triggers recording\n", AI_BTN_GPIO);
+    rt_kprintf("[AIPrinter]   Hold GPIO%d to record, release to stop\n", AI_BTN_GPIO);
     rt_kprintf("[AIPrinter] ======================================\n\n");
 
-    /* Step 1: Connect WiFi once at startup */
-    rt_kprintf("[AIPrinter] [1/4] Connecting to WiFi...\n");
+    /* Step 1: Connect WiFi */
+    rt_kprintf("[AIPrinter] [1/3] Connecting to WiFi...\n");
     if (ai_wifi_connect() != 0) {
         rt_kprintf("[AIPrinter] WiFi failed! Check config and reboot.\n");
         return;
     }
 
-    /* Main loop: wait button → record → ASR → print → repeat */
-    while (1) {
-        char  asr_text[AI_TEXT_MAX] = {0};
-        char  prefix[200], suffix[64];
-        int   pre_len, suf_len, pcm_off, body_sz;
-        char *body = RT_NULL;
+    /* Step 2: Host selection window */
+    rt_kprintf("[AIPrinter]\n");
+    rt_kprintf("[AIPrinter] ┌─ Host selection (%ds) ──────────────────────────┐\n",
+               AI_HOST_SEL_MS / 1000);
+    rt_kprintf("[AIPrinter] │  sethost <PC_LAN_IP>:9005  (PC LAN IP)          │\n");
+    rt_kprintf("[AIPrinter] │    e.g.  sethost 192.168.1.100:9005             │\n");
+    rt_kprintf("[AIPrinter] │  sethost default  → %s  │\n", AI_DEFAULT_HOST);
+    rt_kprintf("[AIPrinter] └────────────────────────────────────────────────┘\n");
+    rt_thread_delay(AI_HOST_SEL_MS);
+    rt_kprintf("[AIPrinter] [2/3] Host: %s://%s:%d\n\n",
+               g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port);
 
-        rt_kprintf("[AIPrinter] Ready. Press button (GPIO%d) to start.\n", AI_BTN_GPIO);
+    /* Main loop: hold button → WS stream → print → repeat */
+    while (1) {
+        rt_kprintf("[AIPrinter] Ready. Press & hold GPIO%d to record.\n", AI_BTN_GPIO);
         rt_sem_take(g_btn_sem, RT_WAITING_FOREVER);
 
-        /* Step 2: Record */
-        rt_kprintf("[AIPrinter] [2/4] Speak now! Recording %ds...\n", AI_RECORD_SECS);
-
-        pre_len = rt_snprintf(prefix, sizeof(prefix),
-            "--%s\r\n"
-            "Content-Disposition: form-data; name=\"audio\"; filename=\"audio.wav\"\r\n"
-            "Content-Type: audio/wav\r\n"
-            "\r\n",
-            AI_BOUNDARY);
-        suf_len = rt_snprintf(suffix, sizeof(suffix), "\r\n--%s--\r\n", AI_BOUNDARY);
-        pcm_off = pre_len + AI_WAV_HDR_SZ;
-        body_sz = pcm_off + AI_PCM_BYTES + suf_len;
-
-        body = rt_malloc(body_sz);
-        if (!body) {
-            rt_kprintf("[AIPrinter] OOM: cannot allocate %d bytes!\n", body_sz);
-            continue;
-        }
-
-        memcpy(body, prefix, pre_len);
-        ai_wav_header((uint8_t *)(body + pre_len), AI_PCM_BYTES);
-
-        if (ai_record_pcm((uint8_t *)(body + pcm_off), AI_PCM_BYTES) != 0) {
-            rt_kprintf("[AIPrinter] Recording failed!\n");
-            rt_free(body);
-            continue;
-        }
-        memcpy(body + pcm_off + AI_PCM_BYTES, suffix, suf_len);
-
-        /* Step 3: ASR */
-        rt_kprintf("[AIPrinter] [3/4] Sending audio to ASR API...\n");
-        if (ai_asr_call(body, body_sz, asr_text) != 0 || !asr_text[0]) {
-            rt_kprintf("[AIPrinter] ASR failed or empty result!\n");
-            rt_free(body);
-            continue;
-        }
-        rt_free(body);
-
-        /* Step 4: Print via API (BLE if connected, else UART2 fallback) */
-        rt_kprintf("[AIPrinter] [4/4] Text: \"%s\" → Print API\n", asr_text);
-        ai_print_call(asr_text);
-
+        rt_kprintf("[AIPrinter] [3/3] Hold and speak...\n");
+        ai_voice_ws_print();
         rt_kprintf("[AIPrinter] Done! Press button for next print.\n\n");
+
+        /* Cooldown: wait for button up, drain stale triggers */
+        while (g_btn_held) rt_thread_delay(10);
+        while (rt_sem_take(g_btn_sem, 0) == RT_EOK) {}
+        rt_thread_delay(300);
     }
 }
 
@@ -437,9 +496,23 @@ static void ai_printer_task(void *arg)
 
 void ai_printer_start(void)
 {
+    /* Init semaphores (reused across button presses) */
+    g_ws_ctx.connected_sem = rt_sem_create("ws_conn", 0, RT_IPC_FLAG_FIFO);
+    g_ws_ctx.done_sem      = rt_sem_create("ws_done", 0, RT_IPC_FLAG_FIFO);
+    g_ws_ctx.b64           = RT_NULL;
+
     g_btn_sem = rt_sem_create("btn_sem", 0, RT_IPC_FLAG_FIFO);
     ai_button_init();
     ble_printer_init();
+
+    /* Init default host */
+    ai_set_host(AI_DEFAULT_HOST);
+
+    /* Start BLE connection in background */
+    rt_thread_t bt = rt_thread_create("ble_conn",
+                                      ble_printer_connect_task,
+                                      RT_NULL, 2048, AI_TASK_PRIO + 1, 20);
+    if (bt) rt_thread_startup(bt);
 
     rt_thread_t t = rt_thread_create("ai_printer",
                                      ai_printer_task, RT_NULL,
