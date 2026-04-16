@@ -29,6 +29,9 @@
 #include "lwip/netif.h"
 #include "lwip/ip_addr.h"
 
+/* LCD 驱动 */
+#include "../drivers/drv_st7789_lcd.h"
+
 /* WebNet HTTP Server */
 #include <webnet.h>
 #include <wn_module.h>
@@ -84,52 +87,18 @@ static struct {
 
 /* ========================= ST7789 Display ========================= */
 
-/* TODO: 根据实际 SPI 驱动实现 */
 static void lcd_init(void)
 {
     rt_kprintf("[LCD] ST7789 初始化 (240x240)\n");
-    /* 实际实现：
-     * 1. 初始化 SPI
-     * 2. 发送 ST7789 初始化序列
-     * 3. 设置显示方向、伽马等
-     */
+    st7789_lcd_init();  /* 调用真正的初始化函数 */
+    lcd_backlight_on();
 }
 
-static void lcd_clear(rt_uint16_t color)
-{
-    /* 清屏为指定颜色 */
-    (void)color;
-}
-
-static void lcd_draw_qrcode(const char *ssid, const char *password)
-{
-    /* 绘制 WiFi QR 码
-     * 格式：WIFI:T:WPA;S:{ssid};P:{password};;
-     * 使用 QR 码库生成并绘制到屏幕
-     */
-    rt_kprintf("[LCD] 显示 QR 码：SSID=%s\n", ssid);
-    
-    /* 示例：显示文字代替 QR 码（实际应使用 QR 库）
-     * 推荐库：https://github.com/nayuki/QR-Code-generator
-     */
-    lcd_clear(0x0000);  /* 黑色背景 */
-    
-    /* 显示 SSID */
-    char qr_text[64];
-    rt_snprintf(qr_text, sizeof(qr_text), "WIFI:%s", ssid);
-    /* lcd_draw_string(10, 10, qr_text); */
-    
-    /* 显示密码 */
-    rt_snprintf(qr_text, sizeof(qr_text), "PWD:%s", password);
-    /* lcd_draw_string(10, 30, qr_text); */
-}
-
-static void lcd_show_status(const char *status)
-{
-    /* 显示状态文字 */
-    rt_kprintf("[LCD] 状态：%s\n", status);
-    /* lcd_draw_string(10, 100, status); */
-}
+/* 使用 drv_st7789_lcd.h 中声明的函数:
+ * - lcd_clear(rt_uint16_t color)
+ * - lcd_draw_qrcode(const char *ssid, const char *password)
+ * - lcd_show_status(const char *status)
+ */
 
 /* ========================= WiFi Scan & Connect ========================= */
 

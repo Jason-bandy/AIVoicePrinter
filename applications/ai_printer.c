@@ -26,29 +26,29 @@
 
 /* WiFi AP list: tries each in order until one connects */
 static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
-    { "Xiaomi_402", "88996677"   },
     { "XMLJ",       "lj20251210" },
+    { "Xiaomi_402", "88996677"   },
 };
 
 /* Server defaults */
-#define AI_DEFAULT_HOST     "api.transkoi.luckjingle.com"
+#define AI_DEFAULT_HOST     "test.api.transkoi.luckjingle.com"
 #define AI_DEFAULT_PORT     443
 /* NOTE: To reach a local dev server use: sethost 192.168.x.x:9005 */
 #define AI_HOST_SEL_MS      5000
 
 /* Device API key — must match token.test-token in server application.properties */
-#define AI_DEVICE_TOKEN     "luckypod-bk7252-2026"
+#define AI_DEVICE_TOKEN     "da60e317-7114-48c6-8224-e99c750af2b9"
 
 /* WebSocket path */
 #define AI_WS_PATH          "/ws/voicePrint"
 
-/* Audio: 8kHz, 16-bit, mono */
-#define AI_SAMPLE_RATE      8000
+/* Audio: 16kHz, 16-bit, mono */
+#define AI_SAMPLE_RATE      16000
 #define AI_LANGUAGE         "zh"
 #define AI_RECORD_MAX_SECS  6
-#define AI_PCM_FRAME        1600   /* 100ms @ 8kHz/16bit = 1600 bytes */
-#define AI_PCM_MAX_BYTES    (AI_SAMPLE_RATE * AI_RECORD_MAX_SECS * 2)  /* 96KB */
-#define AI_PCM_MIN_BYTES    (AI_SAMPLE_RATE * 1 * 2)                   /* 1s min */
+#define AI_PCM_FRAME        3200   /* 100ms @ 16kHz/16bit = 3200 bytes */
+#define AI_PCM_MAX_BYTES    (AI_SAMPLE_RATE * AI_RECORD_MAX_SECS * 2)  /* 192KB */
+#define AI_PCM_MIN_BYTES    (AI_SAMPLE_RATE * 1 * 2)                   /* 32KB */
 
 #define AI_B64_BUF_MAX      102400  /* max ESC/POS base64 size */
 
@@ -114,11 +114,73 @@ MSH_CMD_EXPORT_ALIAS(cmd_sethost, sethost, set AI printer API host);
 
 /* ========================= WiFi Connect ========================= */
 
+/* User-specified WiFi via MSH command: setwifi <ssid> <password> */
+static char g_user_wifi_ssid[32] = {0};
+static char g_user_wifi_pass[64] = {0};
+static int  g_user_wifi_set = 0;
+
+static void ai_set_wifi(const char *ssid, const char *pass)
+{
+    if (ssid && ssid[0]) {
+        rt_strncpy(g_user_wifi_ssid, ssid, sizeof(g_user_wifi_ssid) - 1);
+        rt_strncpy(g_user_wifi_pass, pass ? pass : "", sizeof(g_user_wifi_pass) - 1);
+        g_user_wifi_set = 1;
+        rt_kprintf("[AIPrinter] WiFi set: %s (password hidden)\n", g_user_wifi_ssid);
+    } else {
+        g_user_wifi_set = 0;
+        rt_kprintf("[AIPrinter] WiFi cleared, using defaults\n");
+    }
+}
+
+static int cmd_setwifi(int argc, char **argv)
+{
+    if (argc < 2) {
+        rt_kprintf("[AIPrinter] Usage: setwifi <ssid> [password]\n");
+        rt_kprintf("[AIPrinter]   e.g. setwifi XMLJ lj20251210\n");
+        if (g_user_wifi_set) {
+            rt_kprintf("[AIPrinter] Current: %s\n", g_user_wifi_ssid);
+        } else {
+            rt_kprintf("[AIPrinter] Using default AP list\n");
+        }
+        return 0;
+    }
+    ai_set_wifi(argv[1], argc >= 3 ? argv[2] : "");
+    return 0;
+}
+MSH_CMD_EXPORT_ALIAS(cmd_setwifi, setwifi, set WiFi SSID and password);
+
 static int ai_wifi_connect(void)
 {
+    network_InitTypeDef_st cfg;
+
+    /* If user specified WiFi via setwifi, try that first */
+    if (g_user_wifi_set && g_user_wifi_ssid[0]) {
+        memset(&cfg, 0, sizeof(cfg));
+        cfg.wifi_mode = BK_STATION;
+        strncpy(cfg.wifi_ssid, g_user_wifi_ssid, sizeof(cfg.wifi_ssid) - 1);
+        strncpy(cfg.wifi_key,  g_user_wifi_pass,  sizeof(cfg.wifi_key)  - 1);
+        cfg.dhcp_mode = DHCP_CLIENT;
+
+        rt_kprintf("[AIPrinter] Trying user-specified WiFi: %s\n", g_user_wifi_ssid);
+        bk_wlan_start(&cfg);
+
+        for (int waited = 0; waited < AI_WIFI_TIMEOUT_MS; waited += 300) {
+            rw_evt_type st = mhdr_get_station_status();
+            if (st == RW_EVT_STA_GOT_IP) {
+                rt_kprintf("[AIPrinter] WiFi connected: %s\n", g_user_wifi_ssid);
+                return 0;
+            }
+            if (st == RW_EVT_STA_PASSWORD_WRONG || st == RW_EVT_STA_NO_AP_FOUND) {
+                break;
+            }
+            rt_thread_delay(300);
+        }
+        rt_kprintf("[AIPrinter] User WiFi failed, trying default list...\n");
+    }
+
+    /* Try default AP list */
     int n = sizeof(AI_WIFI_LIST) / sizeof(AI_WIFI_LIST[0]);
     for (int i = 0; i < n; i++) {
-        network_InitTypeDef_st cfg;
         memset(&cfg, 0, sizeof(cfg));
         cfg.wifi_mode = BK_STATION;
         strncpy(cfg.wifi_ssid, AI_WIFI_LIST[i].ssid, sizeof(cfg.wifi_ssid) - 1);
@@ -332,13 +394,14 @@ static void ai_voice_ws_print(void)
     while (rt_sem_take(g_ws_ctx.connected_sem, 0) == RT_EOK) {}
     while (rt_sem_take(g_ws_ctx.done_sem,      0) == RT_EOK) {}
 
-    /* Build WS path with query params (auth token last) */
-    char path[320];
+    /* Build WS path with query params (token first, then image params) */
+    char path[512];
     rt_snprintf(path, sizeof(path),
-                "%s?language=%s&format=pcm&sampleRate=%d"
+                "%s?token=%s"
+                "&language=%s&format=pcm&sampleRate=%d"
                 "&printMode=image&hasScreen=false&needPrint=true"
-                "&token=%s",
-                AI_WS_PATH, AI_LANGUAGE, AI_SAMPLE_RATE, AI_DEVICE_TOKEN);
+                "&isEscpos=true&imageWidth=384&imageHeight=384&style=sketch",
+                AI_WS_PATH, AI_DEVICE_TOKEN, AI_LANGUAGE, AI_SAMPLE_RATE);
 
     /* Allocate print data buffer */
     g_ws_ctx.b64 = rt_malloc(AI_B64_BUF_MAX + 1);
