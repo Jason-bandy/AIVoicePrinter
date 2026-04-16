@@ -2,6 +2,9 @@ from building import *
 
 cwd  = GetCurrentDir()
 src  = Glob('*.c')
+# Explicitly add ai_printer.c to ensure it's included on all platforms
+if 'ai_printer.c' not in [os.path.basename(f) for f in src]:
+    src += [os.path.join(cwd, 'ai_printer.c')]
 src += [cwd + '/../beken378/func/base64/base_64.c']
 list = os.listdir(cwd)
 CPPPATH = [cwd,

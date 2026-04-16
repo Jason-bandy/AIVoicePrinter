@@ -229,9 +229,24 @@ if __name__=='__main__':
     else:
         bootloader_str = "tools/beken_packager/bootloader_bk7251_uart2_v1.0.15.bin"
 
-    # replace partition info in boot (skip on macOS - Linux binary)
+    # replace partition info in boot
     if sys.platform == 'darwin':
-        print("Skipping rt_partition_tool on macOS (Linux binary)")
+        # Use Python-based partition table updater on macOS
+        print("Updating bootloader partition table (macOS)...")
+        import shutil
+        # Ensure out directory exists
+        if not os.path.exists("out"):
+            os.makedirs("out")
+        updated_bootloader = "out/bootloader_updated.bin"
+        # Call the update function directly instead of subprocess
+        try:
+            from tools.beken_packager.update_bootloader_partition import update_bootloader_partition
+            update_bootloader_partition(bootloader_str, boot_json.strip(), updated_bootloader)
+            # Replace original bootloader with updated version
+            shutil.copy(updated_bootloader, bootloader_str)
+            print("Bootloader partition table updated successfully")
+        except Exception as e:
+            print(f"Warning: Failed to update bootloader partition table: {e}")
     else:
         if os.name == 'nt':
             cmd_str = "tools\\rt_partition_tool\\rt_partition_tool_cli.exe " + bootloader_str +  boot_json
