@@ -158,6 +158,4 @@ if PLATFORM == 'gcc':
     CXXFLAGS = CFLAGS
 
 DUMP_ACTION = OBJDUMP + ' -D -S $TARGET > rtt.asm\n'
-# Use python3 on macOS, python on other platforms
-PYTHON_CMD = 'python3' if system_platform == 'Darwin' else 'python'
-POST_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n' + SIZE + ' $TARGET \n' + PYTHON_CMD + ' tools/scripts/post_action.py bk7252n 2097152 > /dev/null\n'
+POST_ACTION = OBJCPY + ' -O binary $TARGET rtthread.bin\n' + SIZE + ' $TARGET \n'

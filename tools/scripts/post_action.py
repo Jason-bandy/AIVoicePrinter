@@ -104,43 +104,84 @@ out_json_8M = {
 }
 
 def gather_out_files(bootloader_str, full_image, uart_image, firmware_rbl):
-    if sys.platform == 'win32':
-        cmd_cp = "copy "
-        cmd_mv = "move "
-        cmd_rm = "rd/s/q "
+    # macOS uses shutil for file operations
+    if sys.platform == 'darwin':
+        import shutil
+        out_folder = "out"
+        if os.path.exists(out_folder):
+            shutil.rmtree(out_folder)
+        os.makedirs(out_folder)
+        shutil.move("rtthread.bin", os.path.join(out_folder, "rtthread.bin"))
+        shutil.move("rtthread.elf", os.path.join(out_folder, "rtthread.elf"))
+        shutil.move("rtthread.map", os.path.join(out_folder, "rtthread.map"))
+        shutil.move(full_image, os.path.join(out_folder, full_image))
+        shutil.move(uart_image, os.path.join(out_folder, uart_image))
+        shutil.move(firmware_rbl, os.path.join(out_folder, firmware_rbl))
+        shutil.copy(bootloader_str, os.path.join(out_folder, os.path.basename(bootloader_str)))
+        print('rtthread.bin and other generated files were moved to folder %s' % out_folder)
     else:
-        cmd_cp = "cp "
-        cmd_mv = "mv "
-        cmd_rm = "rm -rf "
-    out_folder = " out"
-    os.system(cmd_rm + out_folder)
-    os.system("mkdir" + out_folder)
-    os.system(cmd_mv + "rtthread.bin" + out_folder)
-    os.system(cmd_mv + "rtthread.elf" + out_folder)
-    os.system(cmd_mv + "rtthread.map" + out_folder)
-    os.system(cmd_mv + full_image + out_folder)
-    os.system(cmd_mv + uart_image + out_folder)
-    os.system(cmd_mv + firmware_rbl + out_folder)
-    os.system(cmd_cp + bootloader_str + out_folder)
-    print('rtthread.bin and other generated files were moved to folder %s' % out_folder)
+        if sys.platform == 'win32':
+            cmd_cp = "copy "
+            cmd_mv = "move "
+            cmd_rm = "rd/s/q "
+        else:
+            cmd_cp = "cp "
+            cmd_mv = "mv "
+            cmd_rm = "rm -rf "
+        out_folder = " out"
+        os.system(cmd_rm + out_folder)
+        os.system("mkdir" + out_folder)
+        os.system(cmd_mv + "rtthread.bin" + out_folder)
+        os.system(cmd_mv + "rtthread.elf" + out_folder)
+        os.system(cmd_mv + "rtthread.map" + out_folder)
+        os.system(cmd_mv + full_image + out_folder)
+        os.system(cmd_mv + uart_image + out_folder)
+        os.system(cmd_mv + firmware_rbl + out_folder)
+        os.system(cmd_cp + bootloader_str + out_folder)
+        print('rtthread.bin and other generated files were moved to folder %s' % out_folder)
 
 if __name__=='__main__':
-    # macOS doesn't have the Linux binary tools, skip post-processing
+    # macOS doesn't have the Linux binary tools, use Python-native alternative
     if sys.platform == 'darwin':
-        print("macOS build - skipping binary tool post-processing")
+        print("macOS build - using Python-native post-processing")
         # Just verify firmware exists
-        if os.path.exists("rtthread.bin"):
-            firmware_size = os.path.getsize("rtthread.bin")
-            print("Firmware built successfully: {} bytes ({:.2f} MB)".format(firmware_size, firmware_size/1024/1024))
-        sys.exit(0)
+        if not os.path.exists("rtthread.bin"):
+            print("Error: rtthread.bin not found")
+            sys.exit(1)
+        firmware_size = os.path.getsize("rtthread.bin")
+        print("Firmware built successfully: {} bytes ({:.2f} MB)".format(firmware_size, firmware_size/1024/1024))
 
-    if os.name == 'nt':
-        cmd_str = '"' + sys.executable + '" tools\\beken_packager\\gen_partition tools\\beken_packager\\flash_partition.o'
+        # Generate partition.json and packager.json from BkFlashPartition.h info
+        # For bk7252n 2M config: boot=0x11000, app=0x13D000, ota=0x92000
+        partition_data = {
+            "magic": "RT-Thread",
+            "version": "1.0",
+            "part_table": [
+                {"name": "boot", "len": 69632, "offset": 0},
+                {"name": "app", "len": 1261568, "offset": 69632},
+                {"name": "download", "len": 602112, "offset": 1331200}
+            ]
+        }
+        packager_data = {
+            "section": [
+                {"name": "bootloader", "size": "69632"},
+                {"name": "app", "size": "1261568"}
+            ]
+        }
+        with open("partition.json", 'w') as f:
+            json.dump(partition_data, f, indent=4)
+        with open("packager.json", 'w') as f:
+            json.dump(packager_data, f, indent=4)
+        print("Generated partition.json and packager.json for macOS")
+        # Continue to generate merged firmware files
     else:
-        cmd_str = '"' + sys.executable + '" tools/beken_packager/gen_partition tools/beken_packager/flash_partition.o'
-    print(cmd_str)
-    os.system(cmd_str)
-    os.remove("tools/beken_packager/flash_partition.o")
+        if os.name == 'nt':
+            cmd_str = '"' + sys.executable + '" tools\\beken_packager\\gen_partition tools\\beken_packager\\flash_partition.o'
+        else:
+            cmd_str = '"' + sys.executable + '" tools/beken_packager/gen_partition tools/beken_packager/flash_partition.o'
+        print(cmd_str)
+        os.system(cmd_str)
+        os.remove("tools/beken_packager/flash_partition.o")
 
     # from --beken=xxx
     beken_str = sys.argv[1]
@@ -188,13 +229,16 @@ if __name__=='__main__':
     else:
         bootloader_str = "tools/beken_packager/bootloader_bk7251_uart2_v1.0.15.bin"
 
-    # replace partition info in booot
-    if os.name == 'nt':
-        cmd_str = "tools\\rt_partition_tool\\rt_partition_tool_cli.exe " + bootloader_str +  boot_json
+    # replace partition info in boot (skip on macOS - Linux binary)
+    if sys.platform == 'darwin':
+        print("Skipping rt_partition_tool on macOS (Linux binary)")
     else:
-        cmd_str = "tools/rt_partition_tool/rt_partition_tool_cli " + bootloader_str + boot_json
-    print(cmd_str)
-    os.system(cmd_str)
+        if os.name == 'nt':
+            cmd_str = "tools\\rt_partition_tool\\rt_partition_tool_cli.exe " + bootloader_str +  boot_json
+        else:
+            cmd_str = "tools/rt_partition_tool/rt_partition_tool_cli " + bootloader_str + boot_json
+        print(cmd_str)
+        os.system(cmd_str)
 
     # set right size for boot and app
     with open("packager.json", 'r') as file:
@@ -212,19 +256,23 @@ if __name__=='__main__':
         firmware_rbl = firmware_str.replace(".bin", ".rbl")
     else:
         firmware_rbl = firmware_str + ".rbl"
-    if os.name == 'nt':
-        ota_pack_cmd = ".\\tools\\rtt_ota\\rt_ota_packaging_tool_cli.exe -f " + firmware_str
-    else:
-        ota_pack_cmd = "./tools/rtt_ota/rt_ota_packaging_tool_cli-x86 -f " + firmware_str
-    ota_pack_cmd = ota_pack_cmd + " -v " + out_json["section"][0]["version"]
-    ota_pack_cmd = ota_pack_cmd + " -o " + firmware_rbl
-    ota_pack_cmd = ota_pack_cmd + " -p " + out_json["section"][1]["partition"]
-    ota_pack_cmd = ota_pack_cmd + " -c lzma -s aes -k 0123456789ABCDEF0123456789ABCDEF -i 0123456789ABCDEF"
 
-    out_json = json.dumps(out_json, sort_keys=True, indent=4)
-    print(out_json)
+    # Skip OTA packaging command building on macOS
+    if sys.platform != 'darwin':
+        if os.name == 'nt':
+            ota_pack_cmd = ".\\tools\\rtt_ota\\rt_ota_packaging_tool_cli.exe -f " + firmware_str
+        else:
+            ota_pack_cmd = "./tools/rtt_ota/rt_ota_packaging_tool_cli-x86 -f " + firmware_str
+        ota_pack_cmd = ota_pack_cmd + " -v " + out_json["section"][0]["version"]
+        ota_pack_cmd = ota_pack_cmd + " -o " + firmware_rbl
+        ota_pack_cmd = ota_pack_cmd + " -p " + out_json["section"][1]["partition"]
+        ota_pack_cmd = ota_pack_cmd + " -c lzma -s aes -k 0123456789ABCDEF0123456789ABCDEF -i 0123456789ABCDEF"
+
+    # Save config.json (but keep out_json as dict for later use)
+    out_json_str_content = json.dumps(out_json, sort_keys=True, indent=4)
+    print(out_json_str_content)
     with open(str(out_json_str), "w") as f:
-            f.write(out_json)
+            f.write(out_json_str_content)
 
     # check firmware size, should less than app size
     firmware_size = os.path.getsize(firmware_str)
@@ -242,6 +290,29 @@ if __name__=='__main__':
         os.system("tools\\beken_packager\\beken_packager")
     elif sys.platform == 'darwin':
         print("Skipping beken_packager on macOS (Linux binary)")
+        # Generate merged firmware files manually on macOS
+        print("Generating merged firmware files for macOS...")
+        with open(bootloader_str, 'rb') as f:
+            bootloader_data = f.read()
+        with open(firmware_str, 'rb') as f:
+            firmware_data = f.read()
+
+        # full image: bootloader + padding + firmware
+        boot_size = int(out_json["section"][0]["size"])
+        app_offset = int(out_json["section"][1]["start_addr"], 16)
+        padding_size = app_offset - len(bootloader_data)
+
+        # full image: bootloader + padding + firmware
+        full_image_data = bootloader_data + b'\xFF' * padding_size + firmware_data
+        with open(full_image, 'wb') as f:
+            f.write(full_image_data)
+
+        # uart image: same as full image for now
+        with open(uart_image, 'wb') as f:
+            f.write(full_image_data)
+
+        print("Generated: {} ({} bytes)".format(full_image, len(full_image_data)))
+        print("Generated: {} ({} bytes)".format(uart_image, len(full_image_data)))
     else:
         os.system("./tools/beken_packager/beken_packager")
 
