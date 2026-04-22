@@ -163,14 +163,15 @@ static void lcd_reset(void)
 /* 软件延迟 - 用于控制 SPI 速度 */
 static void spi_delay(void)
 {
-    /* 空延迟 - 让 GPIO 变化有时间稳定 */
+    /* 空延迟 - 让 GPIO 变化有时间稳定
+     * 160MHz 下 50 次循环约 0.5-1μs
+     * 配合 clock-high 的第二次 delay，SPI 时钟约 ~500kHz */
     volatile int i;
-    for (i = 0; i < 50; i++);  /* 增加延迟，降低 SPI 速度 */
+    for (i = 0; i < 50; i++);
 }
 
 /* 模拟 SPI 发送一个字节 - 使用快速 GPIO 操作
- * ST7789: SPI 模式 3 (CPOL=1, CPHA=1) - 时钟空闲高，上升沿采样
- * 但大部分 LCD 也支持模式 0 (CPOL=0, CPHA=0) - 时钟空闲低，上升沿采样
+ * ST7789 支持 SPI 模式 0 (CPOL=0, CPHA=0) - 时钟空闲低，上升沿采样
  */
 static void soft_spi_write_byte(rt_uint8_t data)
 {
@@ -184,6 +185,9 @@ static void soft_spi_write_byte(rt_uint8_t data)
 
         /* 拉高时钟，锁存数据 */
         gpio_output(LCD_CLK_PIN, 1);
+        spi_delay();
+
+        /* 保持时钟高一小段时间，确保 LCD 采样到数据 */
         spi_delay();
 
         /* 拉低时钟，准备下一次 */
@@ -239,24 +243,30 @@ static void lcd_write_data16(rt_uint16_t data)
 
 /* ========================= LCD 基础操作 ========================= */
 
+/* ST7789 列偏移量，根据实际屏幕调整
+ * 240x320 屏幕通常为 0，如果遇到花屏/偏移可尝试 1-3
+ */
+#define LCD_COL_OFFSET 0
+#define LCD_ROW_OFFSET 0
+
 /* 设置光标位置 */
 static void lcd_set_cursor(rt_uint16_t x1, rt_uint16_t y1, rt_uint16_t x2, rt_uint16_t y2)
 {
     /* 列地址设置 */
     lcd_write_cmd(0x2A);
-    lcd_write_data16(x1 + 0);  /* 偏移量，根据实际屏幕调整 */
-    lcd_write_data16(x2 + 0);
-    
+    lcd_write_data16(x1 + LCD_COL_OFFSET);
+    lcd_write_data16(x2 + LCD_COL_OFFSET);
+
     /* 行地址设置 */
     lcd_write_cmd(0x2B);
-    lcd_write_data16(y1 + 0);
-    lcd_write_data16(y2 + 0);
-    
+    lcd_write_data16(y1 + LCD_ROW_OFFSET);
+    lcd_write_data16(y2 + LCD_ROW_OFFSET);
+
     /* 内存写 */
     lcd_write_cmd(0x2C);
 }
 
-/* 清屏 */
+/* 清屏 - 不打印调试信息 */
 void lcd_clear(rt_uint16_t color)
 {
     rt_uint32_t i;
@@ -268,22 +278,20 @@ void lcd_clear(rt_uint16_t color)
     lcd_cs_select();
     soft_spi_write_byte(0x2A);  /* 列地址设置 */
     lcd_dc_data();
-    /* 发送 4 字节：x1, x1, x2, x2 */
-    soft_spi_write_byte(0);
-    soft_spi_write_byte(0);
-    soft_spi_write_byte((LCD_WIDTH - 1) >> 8);
-    soft_spi_write_byte((LCD_WIDTH - 1) & 0xFF);
+    soft_spi_write_byte((0 + LCD_COL_OFFSET) >> 8);
+    soft_spi_write_byte((0 + LCD_COL_OFFSET) & 0xFF);
+    soft_spi_write_byte(((LCD_WIDTH - 1) + LCD_COL_OFFSET) >> 8);
+    soft_spi_write_byte(((LCD_WIDTH - 1) + LCD_COL_OFFSET) & 0xFF);
     lcd_cs_deselect();
 
     lcd_dc_command();
     lcd_cs_select();
     soft_spi_write_byte(0x2B);  /* 行地址设置 */
     lcd_dc_data();
-    /* 发送 4 字节：y1, y1, y2, y2 */
-    soft_spi_write_byte(0);
-    soft_spi_write_byte(0);
-    soft_spi_write_byte((LCD_HEIGHT - 1) >> 8);
-    soft_spi_write_byte((LCD_HEIGHT - 1) & 0xFF);
+    soft_spi_write_byte((0 + LCD_ROW_OFFSET) >> 8);
+    soft_spi_write_byte((0 + LCD_ROW_OFFSET) & 0xFF);
+    soft_spi_write_byte(((LCD_HEIGHT - 1) + LCD_ROW_OFFSET) >> 8);
+    soft_spi_write_byte(((LCD_HEIGHT - 1) + LCD_ROW_OFFSET) & 0xFF);
     lcd_cs_deselect();
 
     /* 内存写命令 */
@@ -291,20 +299,56 @@ void lcd_clear(rt_uint16_t color)
     lcd_cs_select();
     soft_spi_write_byte(0x2C);
     lcd_dc_data();
-    /* 不释放 CS，直接发送像素数据 */
 
     /* 发送全屏像素数据 */
-    rt_kprintf("[LCD Clear] 发送 %d 像素...\n", LCD_WIDTH * LCD_HEIGHT);
     for (i = 0; i < (rt_uint32_t)LCD_WIDTH * LCD_HEIGHT; i++) {
         soft_spi_write_byte(high);
         soft_spi_write_byte(low);
-        if ((i & 0x3FF) == 0) {
-            rt_kprintf(".");
-        }
     }
 
     lcd_cs_deselect();
-    rt_kprintf("\n[LCD Clear] 完成\n");
+}
+
+/* 快速填充小块区域（用于初始化测试，避免阻塞太久） */
+static void lcd_fill_test_area(rt_uint16_t color)
+{
+    rt_uint32_t i;
+    rt_uint8_t high = color >> 8;
+    rt_uint8_t low = color & 0xFF;
+    rt_uint16_t w = 100;  /* 只填充 100x100 区域 */
+    rt_uint16_t h = 100;
+
+    lcd_dc_command();
+    lcd_cs_select();
+    soft_spi_write_byte(0x2A);
+    lcd_dc_data();
+    soft_spi_write_byte((0 + LCD_COL_OFFSET) >> 8);
+    soft_spi_write_byte((0 + LCD_COL_OFFSET) & 0xFF);
+    soft_spi_write_byte(((w - 1) + LCD_COL_OFFSET) >> 8);
+    soft_spi_write_byte(((w - 1) + LCD_COL_OFFSET) & 0xFF);
+    lcd_cs_deselect();
+
+    lcd_dc_command();
+    lcd_cs_select();
+    soft_spi_write_byte(0x2B);
+    lcd_dc_data();
+    soft_spi_write_byte((0 + LCD_ROW_OFFSET) >> 8);
+    soft_spi_write_byte((0 + LCD_ROW_OFFSET) & 0xFF);
+    soft_spi_write_byte(((h - 1) + LCD_ROW_OFFSET) >> 8);
+    soft_spi_write_byte(((h - 1) + LCD_ROW_OFFSET) & 0xFF);
+    lcd_cs_deselect();
+
+    lcd_dc_command();
+    lcd_cs_select();
+    soft_spi_write_byte(0x2C);
+    lcd_dc_data();
+
+    for (i = 0; i < (rt_uint32_t)w * h; i++) {
+        soft_spi_write_byte(high);
+        soft_spi_write_byte(low);
+    }
+
+    lcd_cs_deselect();
 }
 
 /* 设置显示窗口 */
@@ -556,9 +600,9 @@ static void st7789_init_sequence(void)
     rt_kprintf("[LCD] 4. 正常显示模式 (非反转)...\n");
     lcd_write_cmd(0x20);  /* 0x20=正常，0x21=反转 */
 
-    rt_kprintf("[LCD] 5. MADCTL (0x20: BGR 色序)...\n");
+    rt_kprintf("[LCD] 5. MADCTL (方向+色序)...\n");
     lcd_write_cmd(0x36);
-    lcd_write_data(0x20);  /* BGR=1: ST7789P3 需要 BGR 色序 */
+    lcd_write_data(0x00);  /* 竖屏模式，RGB 色序（非 BGR） */
     
     /* 帧率控制 */
     lcd_write_cmd(0xB2);
@@ -630,6 +674,7 @@ static void st7789_init_sequence(void)
     
     /* 启用显示 */
     lcd_write_cmd(0x29);
+    rt_thread_mdelay(120);
 }
 
 int st7789_lcd_init(void)
@@ -659,10 +704,10 @@ int st7789_lcd_init(void)
     st7789_init_sequence();
     rt_kprintf("[LCD] 初始化序列完成\n");
 
-    /* 4. 清屏 */
-    rt_kprintf("[LCD] 4. 清屏 (黑色)...\n");
-    lcd_clear(BLACK);
-    rt_kprintf("[LCD] 清屏完成\n");
+    /* 4. 小区域填充测试（避免全屏清屏阻塞太久导致重启） */
+    rt_kprintf("[LCD] 4. 填充测试区域...\n");
+    lcd_fill_test_area(BLACK);
+    rt_kprintf("[LCD] 测试区域填充完成\n");
 
     lcd_initialized = RT_TRUE;
     rt_kprintf("[LCD] === 初始化完成！===\n");
