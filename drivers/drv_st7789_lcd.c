@@ -96,6 +96,16 @@ static void lcd_gpio_init(void)
 {
     UINT32 param;
 
+    /* 初始化 CLK (SPI 时钟) - 输出低电平 */
+    param = GPIO_CFG_PARAM(LCD_CLK_PIN, GMODE_OUTPUT);
+    gpio_ctrl(CMD_GPIO_CFG, &param);
+    gpio_output(LCD_CLK_PIN, 0);
+
+    /* 初始化 MOSI (SPI 数据) - 输出低电平 */
+    param = GPIO_CFG_PARAM(LCD_MOSI_PIN, GMODE_OUTPUT);
+    gpio_ctrl(CMD_GPIO_CFG, &param);
+    gpio_output(LCD_MOSI_PIN, 0);
+
     /* 初始化 CS (片选) - 输出高电平，默认不选中 */
     param = GPIO_CFG_PARAM(LCD_CS_PIN, GMODE_OUTPUT);
     gpio_ctrl(CMD_GPIO_CFG, &param);

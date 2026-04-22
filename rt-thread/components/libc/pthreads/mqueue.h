@@ -28,16 +28,15 @@
 #include <pthread.h>
 #include <libc/libc_signal.h>
 
-/* Include cconfig.h for HAVE_* definitions if not already included */
-#ifndef HAVE_CCONFIG_H
-#ifdef RT_USING_NEWLIB
+/* When HAVE_SIGEVENT is defined but RT_USING_NEWLIB is not defined,
+ * we need to include sys/signal.h for struct sigevent definition */
+#ifdef HAVE_CCONFIG_H
 #include <cconfig.h>
-#endif
-#endif
-
-/* Include sys/signal.h for struct sigevent when available */
-#if defined(HAVE_SYS_SIGNAL_H) && !defined(_SYS_SIGNAL_H_)
+#ifdef HAVE_SIGEVENT
+#ifndef RT_USING_NEWLIB
 #include <sys/signal.h>
+#endif
+#endif
 #endif
 
 struct mqdes
