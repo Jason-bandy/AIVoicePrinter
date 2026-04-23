@@ -309,56 +309,12 @@ void lcd_clear(rt_uint16_t color)
     lcd_cs_deselect();
 }
 
-/* 快速填充小块区域（用于初始化测试，避免阻塞太久） */
-static void lcd_fill_test_area(rt_uint16_t color)
-{
-    rt_uint32_t i;
-    rt_uint8_t high = color >> 8;
-    rt_uint8_t low = color & 0xFF;
-    rt_uint16_t w = 80;  /* 80x80 区域 */
-    rt_uint16_t h = 80;
-
-    lcd_dc_command();
-    lcd_cs_select();
-    soft_spi_write_byte(0x2A);
-    lcd_dc_data();
-    soft_spi_write_byte((0 + LCD_COL_OFFSET) >> 8);
-    soft_spi_write_byte((0 + LCD_COL_OFFSET) & 0xFF);
-    soft_spi_write_byte(((w - 1) + LCD_COL_OFFSET) >> 8);
-    soft_spi_write_byte(((w - 1) + LCD_COL_OFFSET) & 0xFF);
-    lcd_cs_deselect();
-
-    lcd_dc_command();
-    lcd_cs_select();
-    soft_spi_write_byte(0x2B);
-    lcd_dc_data();
-    soft_spi_write_byte((0 + LCD_ROW_OFFSET) >> 8);
-    soft_spi_write_byte((0 + LCD_ROW_OFFSET) & 0xFF);
-    soft_spi_write_byte(((h - 1) + LCD_ROW_OFFSET) >> 8);
-    soft_spi_write_byte(((h - 1) + LCD_ROW_OFFSET) & 0xFF);
-    lcd_cs_deselect();
-
-    lcd_dc_command();
-    lcd_cs_select();
-    soft_spi_write_byte(0x2C);
-    lcd_dc_data();
-
-    for (i = 0; i < (rt_uint32_t)w * h; i++) {
-        soft_spi_write_byte(high);
-        soft_spi_write_byte(low);
-    }
-
-    lcd_cs_deselect();
-}
-
 /* 初始化测试：画多个彩色方块定位实际可见区域 */
 static void lcd_init_test_colors(void)
 {
     rt_uint32_t i;
     rt_uint8_t high, low;
     rt_uint16_t w = 60, h = 60;
-    rt_uint16_t colors[4] = { RED, GREEN, BLUE, YELLOW };
-    const char *names[4] = { "RED", "GREEN", "BLUE", "YELLOW" };
 
     /* 先在屏幕四个角各画一个彩色方块 */
     struct { rt_uint16_t x, y; rt_uint16_t color; } blocks[6] = {
