@@ -315,8 +315,8 @@ static void lcd_fill_test_area(rt_uint16_t color)
     rt_uint32_t i;
     rt_uint8_t high = color >> 8;
     rt_uint8_t low = color & 0xFF;
-    rt_uint16_t w = 100;  /* 只填充 100x100 区域 */
-    rt_uint16_t h = 100;
+    rt_uint16_t w = 80;  /* 80x80 区域 */
+    rt_uint16_t h = 80;
 
     lcd_dc_command();
     lcd_cs_select();
@@ -349,6 +349,64 @@ static void lcd_fill_test_area(rt_uint16_t color)
     }
 
     lcd_cs_deselect();
+}
+
+/* 初始化测试：画多个彩色方块定位实际可见区域 */
+static void lcd_init_test_colors(void)
+{
+    rt_uint32_t i;
+    rt_uint8_t high, low;
+    rt_uint16_t w = 60, h = 60;
+    rt_uint16_t colors[4] = { RED, GREEN, BLUE, YELLOW };
+    const char *names[4] = { "RED", "GREEN", "BLUE", "YELLOW" };
+
+    /* 先在屏幕四个角各画一个彩色方块 */
+    struct { rt_uint16_t x, y; rt_uint16_t color; } blocks[6] = {
+        { 0, 0, RED },       /* 左上 - 红色 */
+        { LCD_WIDTH - w, 0, GREEN },  /* 右上 - 绿色 */
+        { 0, LCD_HEIGHT - h, BLUE },  /* 左下 - 蓝色 */
+        { LCD_WIDTH - w, LCD_HEIGHT - h, YELLOW }, /* 右下 - 黄色 */
+        { 80, 80, CYAN },    /* 中间偏上 - 青色 */
+        { LCD_WIDTH / 2 - w / 2, LCD_HEIGHT / 2 - h / 2, MAGENTA }, /* 正中 - 品红 */
+    };
+
+    for (int b = 0; b < 6; b++) {
+        high = blocks[b].color >> 8;
+        low = blocks[b].color & 0xFF;
+
+        lcd_dc_command();
+        lcd_cs_select();
+        soft_spi_write_byte(0x2A);
+        lcd_dc_data();
+        soft_spi_write_byte((blocks[b].x + LCD_COL_OFFSET) >> 8);
+        soft_spi_write_byte((blocks[b].x + LCD_COL_OFFSET) & 0xFF);
+        soft_spi_write_byte(((blocks[b].x + w - 1) + LCD_COL_OFFSET) >> 8);
+        soft_spi_write_byte(((blocks[b].x + w - 1) + LCD_COL_OFFSET) & 0xFF);
+        lcd_cs_deselect();
+
+        lcd_dc_command();
+        lcd_cs_select();
+        soft_spi_write_byte(0x2B);
+        lcd_dc_data();
+        soft_spi_write_byte((blocks[b].y + LCD_ROW_OFFSET) >> 8);
+        soft_spi_write_byte((blocks[b].y + LCD_ROW_OFFSET) & 0xFF);
+        soft_spi_write_byte(((blocks[b].y + h - 1) + LCD_ROW_OFFSET) >> 8);
+        soft_spi_write_byte(((blocks[b].y + h - 1) + LCD_ROW_OFFSET) & 0xFF);
+        lcd_cs_deselect();
+
+        lcd_dc_command();
+        lcd_cs_select();
+        soft_spi_write_byte(0x2C);
+        lcd_dc_data();
+
+        for (i = 0; i < (rt_uint32_t)w * h; i++) {
+            soft_spi_write_byte(high);
+            soft_spi_write_byte(low);
+        }
+        lcd_cs_deselect();
+    }
+
+    rt_kprintf("[LCD Test] 6个彩色方块已画: 左上红/右上绿/左下蓝/右下黄/中上青/正中品红\n");
 }
 
 /* 设置显示窗口 */
@@ -704,10 +762,10 @@ int st7789_lcd_init(void)
     st7789_init_sequence();
     rt_kprintf("[LCD] 初始化序列完成\n");
 
-    /* 4. 小区域填充测试（避免全屏清屏阻塞太久导致重启） */
-    rt_kprintf("[LCD] 4. 填充测试区域...\n");
-    lcd_fill_test_area(BLACK);
-    rt_kprintf("[LCD] 测试区域填充完成\n");
+    /* 4. 彩色测试方块（避免全屏清屏阻塞太久导致重启） */
+    rt_kprintf("[LCD] 4. 画彩色测试方块...\n");
+    lcd_init_test_colors();
+    rt_kprintf("[LCD] 测试方块完成\n");
 
     lcd_initialized = RT_TRUE;
     rt_kprintf("[LCD] === 初始化完成！===\n");
