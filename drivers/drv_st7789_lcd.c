@@ -560,31 +560,40 @@ void lcd_draw_qrcode_module(rt_uint16_t x, rt_uint16_t y, rt_uint8_t size, rt_bo
     }
 }
 
-/* QR 码缓冲区放在 .bss，不占线程栈空间（qrcodegen_BUFFER_LEN_MAX=3918，两个约 8KB） */
-static uint8_t qr_temp_buffer[qrcodegen_BUFFER_LEN_MAX];
-static uint8_t qr_code_buffer[qrcodegen_BUFFER_LEN_MAX];
+/* QR 码缓冲区动态分配，用完即释放，不占常驻内存（两个缓冲区约 8KB） */
 
-/* 显示 QR 码（简化版，需要集成 QR 码生成库） */
+/* 显示 QR 码（动态分配缓冲区，用完即释放） */
 void lcd_draw_qrcode(const char *ssid, const char *password)
 {
     char wifi_payload[128];
+    uint8_t *qr_temp = RT_NULL;
+    uint8_t *qr_code = RT_NULL;
 
     rt_kprintf("[LCD] 显示 WiFi QR 码\n");
     rt_kprintf("  SSID: %s\n", ssid);
     rt_kprintf("  Password: %s\n", password);
 
+    qr_temp = rt_malloc(qrcodegen_BUFFER_LEN_MAX);
+    qr_code = rt_malloc(qrcodegen_BUFFER_LEN_MAX);
+    if (!qr_temp || !qr_code) {
+        rt_kprintf("[LCD] QR OOM: cannot allocate %d bytes\n", qrcodegen_BUFFER_LEN_MAX * 2);
+        lcd_clear(WHITE);
+        lcd_draw_string(60, 140, "QR OOM", BLACK, WHITE);
+        goto cleanup;
+    }
+
     rt_snprintf(wifi_payload, sizeof(wifi_payload), "WIFI:T:WPA;S:%s;P:%s;;", ssid, password);
 
-    if (!qrcodegen_encodeText(wifi_payload, qr_temp_buffer, qr_code_buffer,
+    if (!qrcodegen_encodeText(wifi_payload, qr_temp, qr_code,
                               qrcodegen_Ecc_MEDIUM, 1, 40,
                               qrcodegen_Mask_AUTO, true)) {
         rt_kprintf("[LCD] QR encode failed\n");
         lcd_clear(WHITE);
         lcd_draw_string(60, 140, "QR fail", BLACK, WHITE);
-        return;
+        goto cleanup;
     }
 
-    int size = qrcodegen_getSize(qr_code_buffer);
+    int size = qrcodegen_getSize(qr_code);
     int scale = 4;
     int quiet = 4;
     int qr_px = (size + quiet * 2) * scale;
@@ -595,7 +604,7 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
 
     for (int y = 0; y < size; y++) {
         for (int x = 0; x < size; x++) {
-            if (qrcodegen_getModule(qr_code_buffer, x, y)) {
+            if (qrcodegen_getModule(qr_code, x, y)) {
                 int sx = offset_x + (x + quiet) * scale;
                 int sy = offset_y + (y + quiet) * scale;
                 lcd_fill_rectangle(sx, sy, scale, scale, BLACK);
@@ -614,6 +623,10 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
     }
 
     rt_kprintf("[LCD] QR done: %dx%d, scale=%d\n", size, size, scale);
+
+cleanup:
+    if (qr_temp) rt_free(qr_temp);
+    if (qr_code) rt_free(qr_code);
 }
 
 /* ========================= 状态显示 ========================= */
