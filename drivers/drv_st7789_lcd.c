@@ -36,6 +36,7 @@
 #include "gpio_pub.h"
 #include "drv_model_pub.h"
 #include "gpio.h"
+#include "../applications/qrcodegen/qrcodegen.h"
 
 /* ========================= 硬件配置 ========================= */
 
@@ -561,22 +562,51 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
     rt_kprintf("  SSID: %s\n", ssid);
     rt_kprintf("  Password: %s\n", password);
 
-    /* 清屏为白色 */
+    char wifi_payload[128];
+    rt_snprintf(wifi_payload, sizeof(wifi_payload), "WIFI:T:WPA;S:%s;P:%s;;", ssid, password);
+
+    uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
+    uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+
+    if (!qrcodegen_encodeText(wifi_payload, tempBuffer, qrcode,
+                              qrcodegen_Ecc_MEDIUM, 1, 40,
+                              qrcodegen_Mask_AUTO, true)) {
+        rt_kprintf("[LCD] QR encode failed\n");
+        lcd_clear(WHITE);
+        lcd_draw_string(60, 140, "QR fail", BLACK, WHITE);
+        return;
+    }
+
+    int size = qrcodegen_getSize(qrcode);
+    int scale = 4;
+    int quiet = 4;
+    int qr_px = (size + quiet * 2) * scale;
+    int offset_x = (LCD_WIDTH - qr_px) / 2;
+    int offset_y = 20;
+
     lcd_clear(WHITE);
 
-    /* 显示标题 */
-    lcd_draw_string(10, 10, "WiFi:", BLACK, WHITE);
-    lcd_draw_string(60, 10, ssid, BLACK, WHITE);
+    for (int y = 0; y < size; y++) {
+        for (int x = 0; x < size; x++) {
+            if (qrcodegen_getModule(qrcode, x, y)) {
+                int sx = offset_x + (x + quiet) * scale;
+                int sy = offset_y + (y + quiet) * scale;
+                lcd_fill_rectangle(sx, sy, scale, scale, BLACK);
+            }
+        }
+        if (y % 8 == 0) {
+            rt_thread_delay(1);
+        }
+    }
 
-    /* TODO: 集成 QR 码生成库后绘制 QR 码 */
-    /* 临时：画一个方框表示 QR 码区域 */
-    lcd_draw_rectangle(60, 40, 200, 200, BLACK);
-    lcd_fill_rectangle(70, 50, 180, 180, BLACK);
+    char ssid_text[64];
+    rt_snprintf(ssid_text, sizeof(ssid_text), "WiFi: %s", ssid);
+    int text_y = offset_y + qr_px + 8;
+    if (text_y + 16 < LCD_HEIGHT) {
+        lcd_draw_string(10, text_y, ssid_text, BLACK, WHITE);
+    }
 
-    /* 显示密码 */
-    char pwd_text[32];
-    rt_snprintf(pwd_text, sizeof(pwd_text), "PWD: %s", password);
-    lcd_draw_string(10, 250, pwd_text, BLACK, WHITE);
+    rt_kprintf("[LCD] QR done: %dx%d, scale=%d\n", size, size, scale);
 }
 
 /* ========================= 状态显示 ========================= */
