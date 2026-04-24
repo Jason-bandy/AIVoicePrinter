@@ -305,13 +305,18 @@ static int send_response(int sock, struct sockaddr *addr, char *msg, int len)
 }
 
 #define ERROR_REFUSED 5
+
+/* DNS hijack — 所有域名查询都返回 192.168.4.1，触发 Captive Portal */
 static int process_dns_message(char *msg, int len, struct sockaddr_in *fromaddr)
 {
     struct dns_header *hdr;
     char *endp = msg + len;
     int nq;
+    char *qname_start;
+    int qname_len;
+    char *answer_ptr;
 
-    if (len < sizeof(struct dns_header)) {
+    if (len < (int)sizeof(struct dns_header)) {
         dhcp_e("DNS request is not complete, hence ignoring it\r\n");
         return -1;
     }
@@ -333,26 +338,61 @@ static int process_dns_message(char *msg, int len, struct sockaddr_in *fromaddr)
         return -1;
     }
 
-    /* make the header represent a response */
-    hdr->flags.fields.qr = 1;
+    /* 计算域名名的字节长度（DNS label 格式，以 \0 结尾） */
+    qname_start = msg + sizeof(struct dns_header);
+    if (qname_start >= endp)
+        return -1;
+
+    qname_len = 0;
+    while ((qname_start + qname_len) < endp) {
+        int label_len = (unsigned char)qname_start[qname_len];
+        qname_len += label_len + 1;
+        if (label_len == 0)
+            break;
+    }
+    if (qname_len == 0 || qname_len > 255)
+        return -1;
+
+    /* 确保问题部分的 type(A) + class(IN) 在消息内 */
+    if (qname_start + qname_len + 4 > endp)
+        return -1;
+
+    /* 构建 DNS 响应 — 在原始消息基础上追加 A 记录 */
+    hdr->flags.fields.qr = 1;   /* 响应 */
     hdr->flags.fields.opcode = 0;
-    /* Errors are never authoritative (unless they are
-       NXDOMAINS, which this is not) */
-    hdr->flags.fields.aa = 0;
+    hdr->flags.fields.aa = 1;   /* 权威应答 */
     hdr->flags.fields.tc = 0;
     hdr->flags.fields.rd = 1;
-    hdr->flags.fields.ra = 0;
-    hdr->flags.fields.rcode = ERROR_REFUSED;
+    hdr->flags.fields.ra = 1;   /* 递归可用 */
+    hdr->flags.fields.rcode = 0; /* NOERROR */
     hdr->flags.num = htons(hdr->flags.num);
-    /* number of entries in questions section */
-    hdr->num_questions  = htons(0x01);
-    hdr->answer_rrs = 0; /* number of resource records in answer section */
-    hdr->authority_rrs = 0;
+    hdr->num_questions  = htons(1);
+    hdr->answer_rrs     = htons(1);
+    hdr->authority_rrs  = 0;
     hdr->additional_rrs = 0;
-    SEND_RESPONSE(dhcps.dnssock, (struct sockaddr *)fromaddr,
-                  msg, endp - msg);
 
-    return -1;
+    /* A 记录：紧跟在问题部分后面 */
+    answer_ptr = qname_start + qname_len + 4; /* 跳过 QTYPE + QCLASS */
+
+    /* 检查缓冲区是否有足够空间 */
+    if (answer_ptr + sizeof(struct dns_rr) > endp) {
+        dhcp_e("DNS response buffer too small\r\n");
+        return -1;
+    }
+
+    struct dns_rr *rr = (struct dns_rr *)answer_ptr;
+    rr->name_ptr  = htons(0xC00C); /* 指针 → 偏移 12（域名起始位置） */
+    rr->type      = htons(1);       /* A 记录 */
+    rr->class     = htons(1);       /* IN */
+    rr->ttl       = htonl(60);      /* TTL 60 秒 */
+    rr->rdlength  = htons(4);       /* IPv4 地址 */
+    rr->rd        = htonl(0xC0A80401UL); /* 192.168.4.1 */
+
+    SEND_RESPONSE(dhcps.dnssock, (struct sockaddr *)fromaddr,
+                  msg, (int)(answer_ptr + sizeof(struct dns_rr) - msg));
+
+    dhcp_d("DNS hijack: answered A 192.168.4.1\r\n");
+    return 0;
 }
 
 static int process_dhcp_message(char *msg, int len)
