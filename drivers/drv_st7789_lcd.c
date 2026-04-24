@@ -612,11 +612,11 @@ static void st7789_init_sequence(void)
     lcd_write_data(0x55);
 
     rt_kprintf("[LCD] 4. 正常显示模式 (非反转)...\n");
-    lcd_write_cmd(0x20);  /* 0x20=正常，0x21=反转 */
+    lcd_write_cmd(0x21);  /* 0x21=反转（部分面板默认已反转，需反转来抵消） */
 
     rt_kprintf("[LCD] 5. MADCTL (方向+色序)...\n");
     lcd_write_cmd(0x36);
-    lcd_write_data(0x00);  /* 竖屏模式，RGB 色序（非 BGR） */
+    lcd_write_data(0x08);  /* 竖屏模式，BGR 色序（R/B 交换） */
     
     /* 帧率控制 */
     lcd_write_cmd(0xB2);

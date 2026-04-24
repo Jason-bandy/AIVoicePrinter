@@ -104,8 +104,13 @@ static void ai_set_host(const char *hostport)
     rt_strncpy(g_ws_host, tmp, sizeof(g_ws_host) - 1);
     g_ws_secure = ai_is_local(g_ws_host) ? 0 : 1;
 
+#if AI_USE_WSS_MODE
     rt_kprintf("[AIPrinter] URL set: %s://%s:%d%s\n",
                g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port, AI_WS_PATH);
+#else
+    rt_kprintf("[AIPrinter] API host set: %s://%s:%d\n",
+               g_ws_secure ? "https" : "http", g_ws_host, g_ws_port);
+#endif
 }
 
 /* MSH command: sethost 192.168.1.100:9005  or  sethost default */
@@ -115,8 +120,13 @@ static int cmd_sethost(int argc, char **argv)
         rt_kprintf("[AIPrinter] Usage: sethost <host:port|default>\n");
         rt_kprintf("[AIPrinter]   e.g. sethost 192.168.1.100:9005\n");
         rt_kprintf("[AIPrinter]        sethost default\n");
+#if AI_USE_WSS_MODE
         rt_kprintf("[AIPrinter] Current: %s://%s:%d\n",
                    g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port);
+#else
+        rt_kprintf("[AIPrinter] Current: %s://%s:%d\n",
+                   g_ws_secure ? "https" : "http", g_ws_host, g_ws_port);
+#endif
         return 0;
     }
     const char *arg = argv[1];

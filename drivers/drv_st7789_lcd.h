@@ -20,7 +20,7 @@
 
 /* 屏幕尺寸 */
 #define LCD_WIDTH       240
-#define LCD_HEIGHT      240
+#define LCD_HEIGHT      320
 
 /* 背光控制 */
 void lcd_backlight_on(void);
