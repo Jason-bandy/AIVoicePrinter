@@ -428,15 +428,16 @@ static void luckypod_ap_thread_entry(void *parameter)
     /* 配置 WebNet */
     webnet_set_port(80);
     webnet_set_root("/");
-    
+
     /* 注册 CGI */
     luckypod_cgi_register();
-    
+
     /* 启动 HTTP Server */
     rt_kprintf("[HTTP] WebNet 启动 (端口 80)\n");
     webnet_init();
-    
-    lcd_show_status("等待扫码...");
+
+    /* QR 码已显示，不再重复清屏 */
+    rt_kprintf("[LCD] 等待扫码...\n");
     
     /* 主循环：检查 WiFi 连接状态 */
     while (1) {
