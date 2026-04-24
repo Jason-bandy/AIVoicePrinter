@@ -44,7 +44,7 @@ struct webnet_cgi_item
 static struct webnet_cgi_item* _cgi_items = RT_NULL;
 static rt_uint32_t _cgi_count = 0;
 
-void c(const char* root)
+void webnet_cgi_set_root(const char* root)
 {
     if (strlen(root) > CGI_ROOT_PATH_MAX)
     {
