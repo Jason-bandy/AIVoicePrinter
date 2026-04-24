@@ -584,7 +584,7 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
         return;
     }
 
-    int size = qrcodegen_getSize(qrcode);
+    int size = qrcodegen_getSize(qr_code_buffer);
     int scale = 4;
     int quiet = 4;
     int qr_px = (size + quiet * 2) * scale;
@@ -595,7 +595,7 @@ void lcd_draw_qrcode(const char *ssid, const char *password)
 
     for (int y = 0; y < size; y++) {
         for (int x = 0; x < size; x++) {
-            if (qrcodegen_getModule(qrcode, x, y)) {
+            if (qrcodegen_getModule(qr_code_buffer, x, y)) {
                 int sx = offset_x + (x + quiet) * scale;
                 int sy = offset_y + (y + quiet) * scale;
                 lcd_fill_rectangle(sx, sy, scale, scale, BLACK);
