@@ -560,20 +560,22 @@ void lcd_draw_qrcode_module(rt_uint16_t x, rt_uint16_t y, rt_uint8_t size, rt_bo
     }
 }
 
+/* QR 码缓冲区放在 .bss，不占线程栈空间（qrcodegen_BUFFER_LEN_MAX=3918，两个约 8KB） */
+static uint8_t qr_temp_buffer[qrcodegen_BUFFER_LEN_MAX];
+static uint8_t qr_code_buffer[qrcodegen_BUFFER_LEN_MAX];
+
 /* 显示 QR 码（简化版，需要集成 QR 码生成库） */
 void lcd_draw_qrcode(const char *ssid, const char *password)
 {
+    char wifi_payload[128];
+
     rt_kprintf("[LCD] 显示 WiFi QR 码\n");
     rt_kprintf("  SSID: %s\n", ssid);
     rt_kprintf("  Password: %s\n", password);
 
-    char wifi_payload[128];
     rt_snprintf(wifi_payload, sizeof(wifi_payload), "WIFI:T:WPA;S:%s;P:%s;;", ssid, password);
 
-    uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
-    uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
-
-    if (!qrcodegen_encodeText(wifi_payload, tempBuffer, qrcode,
+    if (!qrcodegen_encodeText(wifi_payload, qr_temp_buffer, qr_code_buffer,
                               qrcodegen_Ecc_MEDIUM, 1, 40,
                               qrcodegen_Mask_AUTO, true)) {
         rt_kprintf("[LCD] QR encode failed\n");
