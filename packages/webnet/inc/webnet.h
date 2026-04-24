@@ -110,6 +110,9 @@ int webnet_get_port(void);
 void webnet_set_root(const char* webroot_path);
 const char* webnet_get_root(void);
 
+/* set and get CGI root path */
+void webnet_cgi_set_root(const char* root);
+
 /* webnet initialize */
 int webnet_init(void);
 

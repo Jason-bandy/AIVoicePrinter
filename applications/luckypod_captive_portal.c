@@ -314,12 +314,18 @@ static void cgi_get_status(struct webnet_session* session)
     cJSON_Delete(json);
 }
 
-/* Captive Portal 探测响应 */
+/* Captive Portal 探测响应 — 让系统认为有 captive portal 需要登录 */
 static void cgi_captive_portal(struct webnet_session* session)
 {
-    /* 返回 204 No Content 或简单 HTML，让手机认为已连接互联网 */
-    const char* response = "<html><head><meta http-equiv=\"refresh\" content=\"0;url=/\"/></head></html>";
-    
+    rt_kprintf("[CP] Captive portal detected, URL: %s\n",
+               session->request ? session->request->url : "unknown");
+
+    /* 返回 200 + HTML，让手机认为需要认证，弹出浏览器 */
+    const char *response =
+        "<!DOCTYPE html><html><head>"
+        "<meta http-equiv=\"refresh\" content=\"0;url=/\"/>"
+        "</head><body><a href=\"/\">配网</a></body></html>";
+
     webnet_session_set_header(session, "text/html", 200, "OK", rt_strlen(response));
     webnet_session_write(session, (rt_uint8_t*)response, rt_strlen(response));
 }
@@ -389,19 +395,39 @@ static void cgi_config_page(struct webnet_session* session)
     webnet_session_write(session, (rt_uint8_t*)g_config_html, rt_strlen(g_config_html));
 }
 
+/* CGI 根路径为 / 时，所有请求都会走到这里，需要兜底处理 */
+static void cgi_fallback(struct webnet_session* session)
+{
+    const char *path = session->request->path;
+    rt_kprintf("[HTTP] 未匹配 CGI 路径: %s\n", path ? path : "unknown");
+
+    /* 根路径或任意未知路径都返回配网页面 */
+    webnet_session_set_header(session, "text/html", 200, "OK", rt_strlen(g_config_html));
+    webnet_session_write(session, (rt_uint8_t*)g_config_html, rt_strlen(g_config_html));
+}
+
 /* 注册 CGI 处理函数 */
 static void luckypod_cgi_register(void)
 {
-    webnet_cgi_register("get_wifi_list", cgi_get_wifi_list);
-    webnet_cgi_register("connect_wifi", cgi_connect_wifi);
-    webnet_cgi_register("get_status", cgi_get_status);
+    /* 根路径兜底 — 最后注册，作为 catch-all（注册顺序反向匹配） */
+    webnet_cgi_register("/", cgi_fallback);
+
+    /* 页面处理 */
     webnet_cgi_register("config", cgi_config_page);
-    
-    /* Captive Portal 探测 URL */
+
+    /* Captive Portal 探测 URL — 覆盖 iOS/Android/Windows 主流系统 */
     webnet_cgi_register(CP_URL_APPLE, cgi_captive_portal);
     webnet_cgi_register(CP_URL_ANDROID, cgi_captive_portal);
     webnet_cgi_register(CP_URL_MICROSOFT, cgi_captive_portal);
     webnet_cgi_register(CP_URL_AMAZON, cgi_captive_portal);
+
+    /* iOS 实际使用的探测 URL */
+    webnet_cgi_register("hotspot-detect.html", cgi_captive_portal);
+
+    /* API 端点 */
+    webnet_cgi_register("get_wifi_list", cgi_get_wifi_list);
+    webnet_cgi_register("connect_wifi", cgi_connect_wifi);
+    webnet_cgi_register("get_status", cgi_get_status);
 }
 
 /* ========================= Main Entry ========================= */
@@ -428,8 +454,9 @@ static void luckypod_ap_thread_entry(void *parameter)
     /* 配置 WebNet */
     webnet_set_port(80);
     webnet_set_root("/");
+    webnet_cgi_set_root("/");  /* CGI 匹配根路径，使 /hotspot-detect.html 等也能匹配 */
 
-    /* 注册 CGI */
+    /* 注册 CGI — 注意：CGI 匹配顺序为反向注册，最后注册的先匹配 */
     luckypod_cgi_register();
 
     /* 启动 HTTP Server */
