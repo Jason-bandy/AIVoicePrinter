@@ -318,7 +318,7 @@ static void cgi_get_status(struct webnet_session* session)
 static void cgi_captive_portal(struct webnet_session* session)
 {
     rt_kprintf("[CP] Captive portal detected, URL: %s\n",
-               session->request ? session->request->url : "unknown");
+               session->request ? session->request->path : "unknown");
 
     /* 返回 200 + HTML，让手机认为需要认证，弹出浏览器 */
     const char *response =
@@ -366,7 +366,7 @@ static const char* g_config_html =
 "</div>"
 "<script>"
 "function loadWifiList(){"
-"fetch('/cgi-bin/get_wifi_list').then(r=>r.json()).then(d=>{"
+"fetch('/get_wifi_list').then(r=>r.json()).then(d=>{"
 "const sel=document.getElementById('wifi-ssid');sel.innerHTML='';"
 "if(d.data&&d.data.length>0){d.data.forEach(w=>{"
 "const opt=document.createElement('option');opt.value=w.ssid;opt.text=w.ssid+(w.security?' 🔒':'');sel.add(opt);"
@@ -378,7 +378,7 @@ static const char* g_config_html =
 "if(!ssid){alert('请选择 WiFi');return;}"
 "document.getElementById('loading').style.display='block';"
 "document.getElementById('status').style.display='none';"
-"fetch('/cgi-bin/connect_wifi?ssid='+encodeURIComponent(ssid)+'&password='+encodeURIComponent(pass))"
+"fetch('/connect_wifi?ssid='+encodeURIComponent(ssid)+'&password='+encodeURIComponent(pass))"
 ".then(r=>r.json()).then(d=>{"
 "document.getElementById('loading').style.display='none';"
 "const st=document.getElementById('status');st.style.display='block';"
@@ -412,14 +412,15 @@ static void luckypod_cgi_register(void)
     /* 根路径兜底 — 最后注册，作为 catch-all（注册顺序反向匹配） */
     webnet_cgi_register("/", cgi_fallback);
 
-    /* 页面处理 */
+    /* 页面处理 — CGI 根为 / 时匹配名去掉前导 / */
     webnet_cgi_register("config", cgi_config_page);
 
-    /* Captive Portal 探测 URL — 覆盖 iOS/Android/Windows 主流系统 */
-    webnet_cgi_register(CP_URL_APPLE, cgi_captive_portal);
-    webnet_cgi_register(CP_URL_ANDROID, cgi_captive_portal);
-    webnet_cgi_register(CP_URL_MICROSOFT, cgi_captive_portal);
-    webnet_cgi_register(CP_URL_AMAZON, cgi_captive_portal);
+    /* Captive Portal 探测 URL — 覆盖 iOS/Android/Windows 主流系统
+     * 注意：CGI 根为 / 时，wn_module_cgi.c 会跳过路径的前导 /，所以注册名不带 / */
+    webnet_cgi_register("library/test/success.html", cgi_captive_portal);
+    webnet_cgi_register("generate_204", cgi_captive_portal);
+    webnet_cgi_register("ncsi.txt", cgi_captive_portal);
+    webnet_cgi_register("kindle-wifi/wifisignincheck.json", cgi_captive_portal);
 
     /* iOS 实际使用的探测 URL */
     webnet_cgi_register("hotspot-detect.html", cgi_captive_portal);
