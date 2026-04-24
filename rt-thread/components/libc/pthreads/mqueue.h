@@ -26,18 +26,11 @@
 
 #include <rtthread.h>
 #include <pthread.h>
-#include <libc/libc_signal.h>
 
-/* When HAVE_SIGEVENT is defined but RT_USING_NEWLIB is not defined,
- * we need to include sys/signal.h for struct sigevent definition */
-#ifdef HAVE_CCONFIG_H
-#include <cconfig.h>
-#ifdef HAVE_SIGEVENT
-#ifndef RT_USING_NEWLIB
-#include <sys/signal.h>
-#endif
-#endif
-#endif
+/* Provide struct sigevent for mq_notify.
+ * The arm-none-eabi toolchain's sys/signal.h only defines this under
+ * __rtems__, which is not set for bare-metal targets. */
+struct sigevent;
 
 struct mqdes
 {
