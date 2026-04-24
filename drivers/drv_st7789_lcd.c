@@ -36,6 +36,7 @@
 #include "gpio_pub.h"
 #include "drv_model_pub.h"
 #include "gpio.h"
+#include "arm_arch.h"
 #include "../applications/qrcodegen/qrcodegen.h"
 
 /* ========================= 硬件配置 ========================= */
@@ -60,6 +61,19 @@
 #define LCD_DC_PIN           GPIO34
 #define LCD_RST_PIN          GPIO35
 #define LCD_BLK_PIN          GPIO37  /* 背光控制 */
+
+/* 快速 GPIO 寄存器直写 — 消除 gpio_output() → sddev_control() 调用链开销
+ * GPIO30/31 使用索引 30/31，GPIO32-39 使用索引 48-55（见 gpio.h）
+ */
+#define REG_GPIO_CLK   REG_GPIO_30_CONFIG   /* GPIO30 → index 30 */
+#define REG_GPIO_CS    REG_GPIO_31_CONFIG   /* GPIO31 → index 31 */
+#define REG_GPIO_MOSI  REG_GPIO_32_CONFIG   /* GPIO32 → index 48 */
+#define REG_GPIO_DC    REG_GPIO_34_CONFIG   /* GPIO34 → index 50 */
+#define REG_GPIO_RST   REG_GPIO_35_CONFIG   /* GPIO35 → index 51 */
+#define REG_GPIO_BLK   REG_GPIO_37_CONFIG   /* GPIO37 → index 53 */
+
+#define FAST_GPIO_SET(reg)   REG_SET_BIT(reg, GCFG_OUTPUT_BIT)
+#define FAST_GPIO_CLR(reg)   REG_CLR_BIT(reg, GCFG_OUTPUT_BIT)
 
 /* 屏幕参数 - ZH024B12550C: 2.4 寸 TFT, 240x320 竖屏，ST7789P3
  * 如果横向使用，通过 MADCTL 旋转
@@ -130,49 +144,40 @@ static void lcd_gpio_init(void)
 
 static void lcd_cs_select(void)
 {
-    gpio_output(LCD_CS_PIN, 0);
+    FAST_GPIO_CLR(REG_GPIO_CS);
 }
 
 static void lcd_cs_deselect(void)
 {
-    gpio_output(LCD_CS_PIN, 1);
+    FAST_GPIO_SET(REG_GPIO_CS);
 }
 
 static void lcd_dc_command(void)
 {
-    gpio_output(LCD_DC_PIN, 0);
+    FAST_GPIO_CLR(REG_GPIO_DC);
 }
 
 static void lcd_dc_data(void)
 {
-    gpio_output(LCD_DC_PIN, 1);
+    FAST_GPIO_SET(REG_GPIO_DC);
 }
 
 static void lcd_reset(void)
 {
     /* 拉低复位 */
-    gpio_output(LCD_RST_PIN, 0);
+    FAST_GPIO_CLR(REG_GPIO_RST);
     rt_thread_mdelay(100);
 
     /* 释放复位 */
-    gpio_output(LCD_RST_PIN, 1);
+    FAST_GPIO_SET(REG_GPIO_RST);
     rt_thread_mdelay(100);
 }
 
 /* ========================= 软件模拟 SPI ========================= */
 
-/* 软件延迟 - 用于控制 SPI 速度 */
-static void spi_delay(void)
-{
-    /* 空延迟 - 让 GPIO 变化有时间稳定
-     * 160MHz 下 50 次循环约 0.5-1μs
-     * 配合 clock-high 的第二次 delay，SPI 时钟约 ~500kHz */
-    volatile int i;
-    for (i = 0; i < 50; i++);
-}
-
-/* 模拟 SPI 发送一个字节 - 使用快速 GPIO 操作
- * ST7789 支持 SPI 模式 0 (CPOL=0, CPHA=0) - 时钟空闲低，上升沿采样
+/* 模拟 SPI 发送一个字节 — 寄存器直写，无函数调用开销
+ * ST7789 支持 SPI 模式 0 (CPOL=0, CPHA=0) — 时钟空闲低，上升沿采样
+ * 160MHz 下每 bit 约 6 次寄存器操作，理论 SPI 时钟 ~10-13MHz
  */
 static void soft_spi_write_byte(rt_uint8_t data)
 {
@@ -180,19 +185,19 @@ static void soft_spi_write_byte(rt_uint8_t data)
 
     for (i = 7; i >= 0; i--)
     {
-        /* 设置 MOSI 数据（时钟低时变化） */
-        gpio_output(LCD_MOSI_PIN, (data >> i) & 1);
-        spi_delay();
+        /* 时钟低时设置 MOSI 数据 */
+        if (data & (1 << i))
+            FAST_GPIO_SET(REG_GPIO_MOSI);
+        else
+            FAST_GPIO_CLR(REG_GPIO_MOSI);
 
-        /* 拉高时钟，锁存数据 */
-        gpio_output(LCD_CLK_PIN, 1);
-        spi_delay();
-
-        /* 保持时钟高一小段时间，确保 LCD 采样到数据 */
-        spi_delay();
+        /* 拉高时钟，上升沿锁存数据 */
+        FAST_GPIO_SET(REG_GPIO_CLK);
+        /* 短延迟确保 LCD 采样到稳定信号 */
+        asm volatile("nop");
 
         /* 拉低时钟，准备下一次 */
-        gpio_output(LCD_CLK_PIN, 0);
+        FAST_GPIO_CLR(REG_GPIO_CLK);
     }
 }
 
@@ -763,13 +768,13 @@ int st7789_lcd_init(void)
 
 void lcd_backlight_on(void)
 {
-    gpio_output(LCD_BLK_PIN, 1);
+    FAST_GPIO_SET(REG_GPIO_BLK);
     rt_kprintf("[LCD] 背光开启\n");
 }
 
 void lcd_backlight_off(void)
 {
-    gpio_output(LCD_BLK_PIN, 0);
+    FAST_GPIO_CLR(REG_GPIO_BLK);
     rt_kprintf("[LCD] 背光关闭\n");
 }
 
