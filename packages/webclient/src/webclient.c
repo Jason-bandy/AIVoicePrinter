@@ -483,6 +483,13 @@ static int webclient_connect(struct webclient_session *session, const char *URI)
         setsockopt(socket_handle, SOL_SOCKET, SO_SNDTIMEO, (void *) &timeout,
                    sizeof(timeout));
 
+        /* disable Nagle algorithm to reduce latency for small writes */
+        {
+            int nodelay = 1;
+            setsockopt(socket_handle, IPPROTO_TCP, TCP_NODELAY, (void *) &nodelay,
+                       sizeof(nodelay));
+        }
+
         if (connect(socket_handle, res->ai_addr, res->ai_addrlen) != 0)
         {
             /* connect failed, close socket */
@@ -1065,27 +1072,33 @@ int webclient_post(struct webclient_session *session, const char *URI, const voi
         return -WEBCLIENT_ERROR;
     }
 
+    LOG_D("webclient_post: connecting to %s", URI);
     rc = webclient_connect(session, URI);
     if (rc != WEBCLIENT_OK)
     {
+        LOG_E("webclient_connect failed, rc=%d", rc);
         /* connect to webclient server failed. */
         return rc;
     }
+    LOG_D("webclient_post: connected, sending headers");
 
     rc = webclient_send_header(session, WEBCLIENT_POST);
     if (rc != WEBCLIENT_OK)
     {
+        LOG_E("webclient_send_header failed, rc=%d", rc);
         /* send header to webclient server failed. */
         return rc;
     }
+    LOG_D("webclient_post: headers sent, writing body");
 
     if (post_data && (data_len > 0))
     {
         webclient_write(session, post_data, data_len);
+        LOG_D("webclient_post: body written, reading response");
 
         /* resolve response data, get http status code */
         resp_status = webclient_handle_response(session);
-        LOG_D("post handle response(%d).", resp_status);
+        LOG_D("webclient_post: handle response returned %d", resp_status);
     }
 
     return resp_status;
@@ -1350,6 +1363,8 @@ int webclient_write(struct webclient_session *session, const void *buffer, size_
     int bytes_write = 0;
     int total_write = 0;
     int left = length;
+    int retry_count = 0;
+    const int max_retries = 600;  /* 600 * 50ms = 30s max wait for TCP buffer space */
 
     RT_ASSERT(session);
 
@@ -1378,14 +1393,19 @@ int webclient_write(struct webclient_session *session, const void *buffer, size_
 #endif
             if (errno == EWOULDBLOCK || errno == EAGAIN)
             {
-                /* send timeout */
-                if (total_write)
+                /* TCP send buffer full — wait briefly and retry instead of
+                 * returning partial data. The remote end will eventually ACK,
+                 * freeing up buffer space. */
+                retry_count++;
+                if (retry_count >= max_retries)
                 {
-                    return total_write;
+                    /* Timeout: return whatever we managed to send */
+                    if (total_write)
+                        return total_write;
+                    return -WEBCLIENT_TIMEOUT;
                 }
+                rt_thread_mdelay(50);
                 continue;
-                /* TODO: whether return the TIMEOUT
-                 * return -WEBCLIENT_TIMEOUT; */
             }
             else
             {
@@ -1402,6 +1422,7 @@ int webclient_write(struct webclient_session *session, const void *buffer, size_
 
         left -= bytes_write;
         total_write += bytes_write;
+        retry_count = 0;  /* reset retry counter after successful send */
     }
     while (left);
 

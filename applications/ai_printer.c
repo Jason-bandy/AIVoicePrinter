@@ -694,16 +694,20 @@ static void ai_voice_http_print(void)
 
         /* ALL headers must be added BEFORE webclient_post() — this is the root cause fix.
          * webclient_post() → webclient_send_header() terminates the HTTP header block.
-         * Anything added after that ends up in the request body, breaking multipart parsing. */
+         * Anything added after that ends up in the request body, breaking multipart parsing.
+         *
+         * NOTE: Do NOT send "Connection: close" — it causes nginx (proxying to Tomcat)
+         * to close the upstream connection prematurely when the device sends slowly
+         * (21+ seconds for PCM data), resulting in "Stream ended unexpectedly" on the server. */
         webclient_header_fields_add(session, "Authorization: Bearer %s\r\n", AI_DEVICE_TOKEN);
-        webclient_header_fields_add(session, "Connection: close\r\n");
         webclient_header_fields_add(session, "Content-Type: multipart/form-data; boundary=%s\r\n", boundary);
         webclient_header_fields_add(session, "Content-Length: %d\r\n", content_len);
 
         /* webclient_post(session, url, NULL, 0) connects and sends ALL headers (with \r\n\r\n terminator).
          * It does NOT send any body data since post_data is NULL. */
+        rt_tick_t t_http = rt_tick_get();
         int status = webclient_post(session, upload_url, RT_NULL, 0);
-        rt_kprintf("[AIPrinter] POST connect returned %d\n", status);
+        rt_kprintf("[AIPrinter] POST connect returned %d (took %dms)\n", status, (int)(rt_tick_get() - t_http));
         if (status < 0) {
             rt_kprintf("[AIPrinter] HTTP connect failed\n");
             webclient_close(session);
@@ -714,57 +718,104 @@ static void ai_voice_http_print(void)
          * Each write is checked to avoid partial/truncated body. */
         int total_sent = 0;
         int w;
+        rt_tick_t t_part;
 
+        /* Hex dump the first part to verify multipart format on wire */
+        rt_kprintf("[AIPrinter] HEX first 128 bytes of printMode:\n");
+        for (int i = 0; i < part_printMode_len && i < 128; i += 16) {
+            char hex[48], ascii[17] = {0};
+            int hex_pos = 0, ascii_pos = 0;
+            for (int j = 0; j < 16 && (i + j) < part_printMode_len; j++) {
+                hex_pos += rt_snprintf(hex + hex_pos, sizeof(hex) - hex_pos, "%02x ", part_printMode[i + j]);
+                unsigned char c = part_printMode[i + j];
+                ascii[ascii_pos++] = (c >= 0x20 && c < 0x7f) ? c : '.';
+            }
+            rt_kprintf("  %04x  %-48s  %s\n", i, hex, ascii);
+        }
+
+        t_part = rt_tick_get();
         w = webclient_write(session, (const uint8_t *)part_printMode, part_printMode_len);
+        rt_kprintf("[AIPrinter] [1/7] printMode: sent=%d/%d, %dms\n", w, part_printMode_len, (int)(rt_tick_get() - t_part));
         if (w != part_printMode_len) { rt_kprintf("[AIPrinter] send printMode failed (%d/%d)\n", w, part_printMode_len); webclient_close(session); goto cleanup; }
         total_sent += w;
 
+        t_part = rt_tick_get();
         w = webclient_write(session, (const uint8_t *)part_hasScreen, part_hasScreen_len);
+        rt_kprintf("[AIPrinter] [2/7] hasScreen: sent=%d/%d, %dms\n", w, part_hasScreen_len, (int)(rt_tick_get() - t_part));
         if (w != part_hasScreen_len) { rt_kprintf("[AIPrinter] send hasScreen failed (%d/%d)\n", w, part_hasScreen_len); webclient_close(session); goto cleanup; }
         total_sent += w;
 
+        t_part = rt_tick_get();
         w = webclient_write(session, (const uint8_t *)part_isEscpos, part_isEscpos_len);
+        rt_kprintf("[AIPrinter] [3/7] isEscpos: sent=%d/%d, %dms\n", w, part_isEscpos_len, (int)(rt_tick_get() - t_part));
         if (w != part_isEscpos_len) { rt_kprintf("[AIPrinter] send isEscpos failed (%d/%d)\n", w, part_isEscpos_len); webclient_close(session); goto cleanup; }
         total_sent += w;
 
+        t_part = rt_tick_get();
         w = webclient_write(session, (const uint8_t *)part_audio_hdr, part_audio_hdr_len);
+        rt_kprintf("[AIPrinter] [4/7] audio_hdr: sent=%d/%d, %dms (total=%d)\n", w, part_audio_hdr_len, (int)(rt_tick_get() - t_part), total_sent + w);
         if (w != part_audio_hdr_len) { rt_kprintf("[AIPrinter] send audio_hdr failed (%d/%d)\n", w, part_audio_hdr_len); webclient_close(session); goto cleanup; }
         total_sent += w;
 
         {
             /* Send PCM in 2KB chunks — keeps write buffers small */
             int offset = 0;
+            int pcm_chunks = 0;
+            rt_tick_t t_pcm_start = rt_tick_get();
             while (offset < total_pcm) {
                 int chunk = total_pcm - offset;
                 if (chunk > 2048) chunk = 2048;
                 w = webclient_write(session, pcm_buf + offset, chunk);
                 if (w != chunk) {
-                    rt_kprintf("[AIPrinter] Failed to send PCM at offset %d (got %d/%d)\n", offset, w, chunk);
+                    rt_kprintf("[AIPrinter] [5/7] PCM chunk %d FAILED at offset %d (got %d/%d), total_sent=%d\n",
+                               pcm_chunks, offset, w, chunk, total_sent);
                     webclient_close(session);
                     goto cleanup;
                 }
                 offset += w;
                 total_sent += w;
+                pcm_chunks++;
+                /* 每 5 个 chunk 报告一次进度 */
+                if (pcm_chunks % 5 == 0 || offset >= total_pcm) {
+                    rt_kprintf("[AIPrinter] [5/7] PCM: %d/%d bytes (%d chunks, %dms)\n",
+                               offset, total_pcm, pcm_chunks, (int)(rt_tick_get() - t_pcm_start));
+                }
             }
-            rt_kprintf("[AIPrinter] PCM sent (%d bytes)\n", offset);
         }
 
+        t_part = rt_tick_get();
         w = webclient_write(session, (const uint8_t *)part_language, part_language_len);
+        rt_kprintf("[AIPrinter] [6/7] language: sent=%d/%d, %dms (total=%d)\n", w, part_language_len, (int)(rt_tick_get() - t_part), total_sent + w);
         if (w != part_language_len) { rt_kprintf("[AIPrinter] send language failed (%d/%d)\n", w, part_language_len); webclient_close(session); goto cleanup; }
         total_sent += w;
 
+        t_part = rt_tick_get();
         w = webclient_write(session, (const uint8_t *)part_close, part_close_len);
+        rt_kprintf("[AIPrinter] [7/7] close: sent=%d/%d, %dms (total=%d)\n", w, part_close_len, (int)(rt_tick_get() - t_part), total_sent + w);
         if (w != part_close_len) { rt_kprintf("[AIPrinter] send close failed (%d/%d)\n", w, part_close_len); webclient_close(session); goto cleanup; }
         total_sent += w;
 
-        rt_kprintf("[AIPrinter] Multipart body sent, total=%dB (expected %d)\n", total_sent, content_len);
+        rt_kprintf("[AIPrinter] Multipart body sent COMPLETE, total=%dB (expected %d, match=%s)\n",
+                   total_sent, content_len, (total_sent == content_len) ? "YES" : "NO");
 
         /* Parse response headers before reading SSE body */
         extern int webclient_handle_response(struct webclient_session *session);
+        t_part = rt_tick_get();
+        rt_kprintf("[AIPrinter] Calling webclient_handle_response...\n");
         int resp = webclient_handle_response(session);
-        rt_kprintf("[AIPrinter] HTTP response status: %d\n", resp);
+        rt_kprintf("[AIPrinter] HTTP response status: %d (waited %dms)\n", resp, (int)(rt_tick_get() - t_part));
         if (resp != 200) {
             rt_kprintf("[AIPrinter] Unexpected HTTP status %d\n", resp);
+            /* Read full response body to see actual error from server */
+            char err_buf[2048];
+            int err_total = 0;
+            while (err_total < sizeof(err_buf) - 1) {
+                int err_len = webclient_read(session, err_buf + err_total, sizeof(err_buf) - 1 - err_total);
+                if (err_len <= 0) break;
+                err_total += err_len;
+            }
+            err_buf[err_total] = '\0';
+            rt_kprintf("[AIPrinter] Server error body (%d bytes): %s\n", err_total, err_buf);
             webclient_close(session);
             goto cleanup;
         }
