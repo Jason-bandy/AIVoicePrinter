@@ -1,7 +1,7 @@
 /*
  * AI Printer Application - BK7252N
  *
- * Flow: Boot → WiFi Connect → hold button → WebSocket stream PCM → receive print data → BLE print → loop
+ * Flow: Boot → WiFi Connect → hold button → HTTP upload PCM → receive print data → loop
  *
  * WebSocket endpoint: ws://host:port/ws/voicePrint
  *   - Binary frames: PCM audio (8kHz/16bit/mono) streamed while recording
@@ -16,11 +16,11 @@
 #include <stdlib.h>
 #include <librws.h>
 #include <webclient.h>
+#include <ntp.h>
 #include "wlan_ui_pub.h"
 #include "rw_msg_pub.h"
 #include "gpio_pub.h"
 #include "multi_button.h"
-#include "ble_printer.h"
 
 /* ========================= Configuration ========================= */
 #define AI_BTN_GPIO     4   /* GPIO pin connected to trigger button (button → GND) */
@@ -28,9 +28,13 @@
 /* Mode switch: 0 = HTTP (default, upload → poll result), 1 = WSS streaming */
 #define AI_USE_WSS_MODE 0
 
+/* Development: force HTTP to bypass TLS verification issues (CA cert not loaded).
+ * Set to 1 when proper CA cert is installed on device. */
+#define AI_FORCE_HTTP 1
+
 /* HTTP API endpoints */
-#define AI_HTTP_UPLOAD_PATH  "/api/voicePrint"           /* POST PCM audio → returns task_id */
-#define AI_HTTP_RESULT_PATH  "/api/voicePrint/%s/result"  /* GET task result → returns print data */
+#define AI_HTTP_UPLOAD_PATH  "/luckypod/aiPrinter/voiceStreamPrint"  /* POST PCM audio → returns task_id */
+#define AI_HTTP_RESULT_PATH  "/luckypod/aiPrinter/%s/result"          /* GET task result → returns print data */
 
 /* HTTP config */
 #define AI_HTTP_RESULT_POLL_MS   3000   /* poll interval for result */
@@ -45,7 +49,7 @@ static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
 
 /* Server defaults */
 #define AI_DEFAULT_HOST     "test.api.transkoi.luckjingle.com"
-#define AI_DEFAULT_PORT     443
+#define AI_DEFAULT_PORT     80
 /* NOTE: To reach a local dev server use: sethost 192.168.x.x:9005 */
 #define AI_HOST_SEL_MS      5000
 
@@ -58,10 +62,10 @@ static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
 /* Audio: 16kHz, 16-bit, mono */
 #define AI_SAMPLE_RATE      16000
 #define AI_LANGUAGE         "zh"
-#define AI_RECORD_MAX_SECS  6
+#define AI_RECORD_MAX_SECS  3
 #define AI_PCM_FRAME        3200   /* 100ms @ 16kHz/16bit = 3200 bytes */
-#define AI_PCM_MAX_BYTES    (AI_SAMPLE_RATE * AI_RECORD_MAX_SECS * 2)  /* 192KB */
-#define AI_PCM_MIN_BYTES    (AI_SAMPLE_RATE * 1 * 2)                   /* 32KB */
+#define AI_PCM_MAX_BYTES    (AI_SAMPLE_RATE * AI_RECORD_MAX_SECS * 2)  /* 96KB */
+#define AI_PCM_MIN_BYTES    (AI_SAMPLE_RATE / 2 * 2)                     /* 16KB (0.5s) */
 
 #define AI_B64_BUF_MAX      102400  /* max ESC/POS base64 size */
 
@@ -69,14 +73,14 @@ static const struct { const char *ssid; const char *pass; } AI_WIFI_LIST[] = {
 #define AI_WS_CONNECT_MS    10000  /* WS connect timeout */
 #define AI_WS_RESULT_MS     30000  /* wait for complete/print after stop */
 
-#define AI_TASK_STACK_SZ    8192
-#define AI_TASK_PRIO        15
+#define AI_TASK_STACK_SZ    16384
+#define AI_TASK_PRIO        10   /* 提高优先级，避免被 WiFi/BLE 线程抢占导致 ADC 数据丢失 */
 
 /* ========================= Runtime Host Config ========================= */
 
 static char g_ws_host[128] = AI_DEFAULT_HOST;
 static int  g_ws_port      = AI_DEFAULT_PORT;
-static int  g_ws_secure    = 1;   /* 0 = ws://, 1 = wss:// */
+static int  g_ws_secure    = 0;   /* 0 = http/ws, 1 = https/wss (TODO: 修复 TLS 证书后改回 1) */
 
 static int ai_is_local(const char *host)
 {
@@ -102,7 +106,12 @@ static void ai_set_host(const char *hostport)
         g_ws_port = ai_is_local(tmp) ? 80 : 443;
     }
     rt_strncpy(g_ws_host, tmp, sizeof(g_ws_host) - 1);
+#if AI_FORCE_HTTP
+    g_ws_secure = 0;   /* Force HTTP to bypass TLS verification (no CA cert on device) */
+    g_ws_port = 80;    /* HTTP runs on port 80 */
+#else
     g_ws_secure = ai_is_local(g_ws_host) ? 0 : 1;
+#endif
 
 #if AI_USE_WSS_MODE
     rt_kprintf("[AIPrinter] URL set: %s://%s:%d%s\n",
@@ -291,6 +300,23 @@ typedef struct {
 static ai_ws_ctx_t g_ws_ctx;
 
 /* ---- Helpers: safe strncopy + JSON field extraction ---- */
+
+/*
+ * Extract a quoted integer value for a JSON key.
+ * Finds "key":<value> in buf[0..len] and stores into *out.
+ * Returns 0 on success, -1 if not found.
+ */
+static int json_get_int(const char *buf, unsigned int len,
+                        const char *key, int *out)
+{
+    char pat[64];
+    rt_snprintf(pat, sizeof(pat), "\"%s\":", key);
+    const char *p = strstr(buf, pat);
+    if (!p || (unsigned int)(p - buf) >= len) return -1;
+    p += rt_strlen(pat);
+    *out = atoi(p);
+    return 0;
+}
 
 /*
  * Extract a quoted string value for a JSON key.
@@ -529,10 +555,9 @@ wait_result:
     rt_kprintf("[AIPrinter] Total: %ums, error=%d, b64_len=%d\n",
                (unsigned)(rt_tick_get() - t_start), g_ws_ctx.error, g_ws_ctx.b64_len);
 
-    /* Send to BLE printer */
+    /* TODO: 处理 print 数据（显示到屏幕/发送到打印机） */
     if (!g_ws_ctx.error && g_ws_ctx.b64_len > 0) {
-        rt_kprintf("[AIPrinter] Sending to BLE printer...\n");
-        ble_printer_send_base64(g_ws_ctx.b64);
+        rt_kprintf("[AIPrinter] Got print data (%d bytes)\n", g_ws_ctx.b64_len);
     }
 
 cleanup:
@@ -551,20 +576,22 @@ cleanup:
 /* ========================= HTTP Print (Upload + Poll) ========================= */
 
 /*
- * Two-step HTTP flow:
- *   1. POST PCM audio to /api/voicePrint → returns {"taskId":"xxx"}
- *   2. GET  /api/voicePrint/{taskId}/result → polls until processing complete
- *      Returns: {"type":"print","data":"<base64>"} or {"type":"complete"} or {"type":"error","message":"..."}
+ * Single-step SSE streaming flow:
+ *   POST /luckypod/aiPrinter/voiceStreamPrint  (multipart/form-data)
+ *   → Server pushes SSE events: asr, stage, print, complete, error
+ *   → Process each event as it arrives, no need to poll or store full response
  */
 static void ai_voice_http_print(void)
 {
     rt_device_t mic = RT_NULL;
     uint8_t *pcm_buf = RT_NULL;
-    char *resp_buf = RT_NULL;
     int total_pcm = 0;
     rt_tick_t t_start = rt_tick_get();
 
-    /* Step 0: Record PCM locally (button already held by the time we're called) */
+    /* Step 0: Record PCM locally */
+    extern void lcd_clear(rt_uint16_t color);
+    lcd_clear(0);  /* 黑屏 */
+
     mic = rt_device_find("mic");
     if (!mic) {
         rt_kprintf("[AIPrinter] mic device not found!\n");
@@ -604,174 +631,520 @@ static void ai_voice_http_print(void)
         goto cleanup;
     }
 
-    /* Step 1: POST PCM to upload endpoint */
+    /* Step 1: Build multipart/form-data body and POST to SSE endpoint
+     *
+     * IMPORTANT: All headers (Content-Type, Content-Length) must be added
+     * BEFORE webclient_post(), which calls webclient_send_header() that
+     * terminates the header block with \r\n\r\n. Headers added after
+     * webclient_post() end up in the body, causing Tomcat's multipart
+     * parser to see "Content-Type: ..." as body data and fail with
+     * "Stream ended unexpectedly".
+     */
     {
+        char boundary[64];
+        rt_snprintf(boundary, sizeof(boundary), "----WebKitFormBoundary%08X", (unsigned)rt_tick_get());
+
+        /* Pre-calculate part sizes for Content-Length */
+        char part_printMode[128], part_hasScreen[64], part_isEscpos[64], part_audio_hdr[256], part_language[128], part_close[32];
+
+        int part_printMode_len = rt_snprintf(part_printMode, sizeof(part_printMode),
+                               "--%s\r\n"
+                               "Content-Disposition: form-data; name=\"printMode\"\r\n"
+                               "\r\n"
+                               "image\r\n", boundary);
+        int part_hasScreen_len = rt_snprintf(part_hasScreen, sizeof(part_hasScreen),
+                               "--%s\r\n"
+                               "Content-Disposition: form-data; name=\"hasScreen\"\r\n"
+                               "\r\n"
+                               "true\r\n", boundary);
+        int part_isEscpos_len = rt_snprintf(part_isEscpos, sizeof(part_isEscpos),
+                               "--%s\r\n"
+                               "Content-Disposition: form-data; name=\"isEscpos\"\r\n"
+                               "\r\n"
+                               "true\r\n", boundary);
+        int part_audio_hdr_len = rt_snprintf(part_audio_hdr, sizeof(part_audio_hdr),
+                               "--%s\r\n"
+                               "Content-Disposition: form-data; name=\"audioFile\"; filename=\"audio.pcm\"\r\n"
+                               "Content-Type: application/octet-stream\r\n"
+                               "\r\n", boundary);
+        int part_language_len = rt_snprintf(part_language, sizeof(part_language),
+                               "--%s\r\n"
+                               "Content-Disposition: form-data; name=\"language\"\r\n"
+                               "\r\n"
+                               "%s\r\n", boundary, AI_LANGUAGE);
+        int part_close_len = rt_snprintf(part_close, sizeof(part_close),
+                               "--%s--\r\n", boundary);
+
+        int content_len = part_printMode_len + part_hasScreen_len + part_isEscpos_len +
+                          part_audio_hdr_len + total_pcm + part_language_len + part_close_len;
+
         char upload_url[256];
         rt_snprintf(upload_url, sizeof(upload_url),
-                    "%s://%s:%d%s?token=%s&language=%s&format=pcm&sampleRate=%d"
-                    "&printMode=image&hasScreen=false&needPrint=true"
-                    "&isEscpos=true&imageWidth=384&imageHeight=384&style=sketch",
+                    "%s://%s:%d%s",
                     g_ws_secure ? "https" : "http",
-                    g_ws_host, g_ws_port, AI_HTTP_UPLOAD_PATH,
-                    AI_DEVICE_TOKEN, AI_LANGUAGE, AI_SAMPLE_RATE);
+                    g_ws_host, g_ws_port, AI_HTTP_UPLOAD_PATH);
 
         struct webclient_session *session = webclient_session_create(WEBCLIENT_HEADER_BUFSZ);
         if (!session) {
             rt_kprintf("[AIPrinter] OOM: cannot create webclient session\n");
             goto cleanup;
         }
-        webclient_set_timeout(session, 15000);
+        webclient_set_timeout(session, 30000);
+        rt_kprintf("[AIPrinter] SSE POST to %s (Content-Length=%d)\n", upload_url, content_len);
 
-        webclient_header_fields_add(session, "Content-Length: %d\r\n", total_pcm);
-        webclient_header_fields_add(session, "Content-Type: application/octet-stream\r\n");
+        /* ALL headers must be added BEFORE webclient_post() — this is the root cause fix.
+         * webclient_post() → webclient_send_header() terminates the HTTP header block.
+         * Anything added after that ends up in the request body, breaking multipart parsing. */
         webclient_header_fields_add(session, "Authorization: Bearer %s\r\n", AI_DEVICE_TOKEN);
+        webclient_header_fields_add(session, "Connection: close\r\n");
+        webclient_header_fields_add(session, "Content-Type: multipart/form-data; boundary=%s\r\n", boundary);
+        webclient_header_fields_add(session, "Content-Length: %d\r\n", content_len);
 
-        int status = webclient_post(session, upload_url, pcm_buf, total_pcm);
-        if (status != 200) {
-            rt_kprintf("[AIPrinter] HTTP upload failed, status=%d\n", status);
+        /* webclient_post(session, url, NULL, 0) connects and sends ALL headers (with \r\n\r\n terminator).
+         * It does NOT send any body data since post_data is NULL. */
+        int status = webclient_post(session, upload_url, RT_NULL, 0);
+        rt_kprintf("[AIPrinter] POST connect returned %d\n", status);
+        if (status < 0) {
+            rt_kprintf("[AIPrinter] HTTP connect failed\n");
             webclient_close(session);
             goto cleanup;
         }
 
-        /* Read upload response to extract taskId */
-        resp_buf = rt_malloc(1024);
-        if (!resp_buf) {
-            rt_kprintf("[AIPrinter] OOM: cannot allocate response buffer\n");
+        /* Now write multipart body parts — headers are already sent, these go into body only.
+         * Each write is checked to avoid partial/truncated body. */
+        int total_sent = 0;
+        int w;
+
+        w = webclient_write(session, (const uint8_t *)part_printMode, part_printMode_len);
+        if (w != part_printMode_len) { rt_kprintf("[AIPrinter] send printMode failed (%d/%d)\n", w, part_printMode_len); webclient_close(session); goto cleanup; }
+        total_sent += w;
+
+        w = webclient_write(session, (const uint8_t *)part_hasScreen, part_hasScreen_len);
+        if (w != part_hasScreen_len) { rt_kprintf("[AIPrinter] send hasScreen failed (%d/%d)\n", w, part_hasScreen_len); webclient_close(session); goto cleanup; }
+        total_sent += w;
+
+        w = webclient_write(session, (const uint8_t *)part_isEscpos, part_isEscpos_len);
+        if (w != part_isEscpos_len) { rt_kprintf("[AIPrinter] send isEscpos failed (%d/%d)\n", w, part_isEscpos_len); webclient_close(session); goto cleanup; }
+        total_sent += w;
+
+        w = webclient_write(session, (const uint8_t *)part_audio_hdr, part_audio_hdr_len);
+        if (w != part_audio_hdr_len) { rt_kprintf("[AIPrinter] send audio_hdr failed (%d/%d)\n", w, part_audio_hdr_len); webclient_close(session); goto cleanup; }
+        total_sent += w;
+
+        {
+            /* Send PCM in 2KB chunks — keeps write buffers small */
+            int offset = 0;
+            while (offset < total_pcm) {
+                int chunk = total_pcm - offset;
+                if (chunk > 2048) chunk = 2048;
+                w = webclient_write(session, pcm_buf + offset, chunk);
+                if (w != chunk) {
+                    rt_kprintf("[AIPrinter] Failed to send PCM at offset %d (got %d/%d)\n", offset, w, chunk);
+                    webclient_close(session);
+                    goto cleanup;
+                }
+                offset += w;
+                total_sent += w;
+            }
+            rt_kprintf("[AIPrinter] PCM sent (%d bytes)\n", offset);
+        }
+
+        w = webclient_write(session, (const uint8_t *)part_language, part_language_len);
+        if (w != part_language_len) { rt_kprintf("[AIPrinter] send language failed (%d/%d)\n", w, part_language_len); webclient_close(session); goto cleanup; }
+        total_sent += w;
+
+        w = webclient_write(session, (const uint8_t *)part_close, part_close_len);
+        if (w != part_close_len) { rt_kprintf("[AIPrinter] send close failed (%d/%d)\n", w, part_close_len); webclient_close(session); goto cleanup; }
+        total_sent += w;
+
+        rt_kprintf("[AIPrinter] Multipart body sent, total=%dB (expected %d)\n", total_sent, content_len);
+
+        /* Parse response headers before reading SSE body */
+        extern int webclient_handle_response(struct webclient_session *session);
+        int resp = webclient_handle_response(session);
+        rt_kprintf("[AIPrinter] HTTP response status: %d\n", resp);
+        if (resp != 200) {
+            rt_kprintf("[AIPrinter] Unexpected HTTP status %d\n", resp);
             webclient_close(session);
             goto cleanup;
         }
-        int resp_len = 0;
-        int n = webclient_read(session, resp_buf, 1023);
-        if (n > 0) {
-            resp_buf[n] = '\0';
-            resp_len = n;
-        }
-        webclient_close(session);
+        {
+            char line_buf[512];
+            int line_pos = 0;
+            char last_event[32] = {0};
+            int read_timeout = 0;
+            int expecting_image_data = 0;  /* After "event:image", next data: line is image */
+            int streaming_image = 0;       /* Currently streaming base64 bytes directly */
+            int image_skip_data = 0;       /* Skip "data:" prefix bytes */
 
-        /* Extract taskId from JSON response */
-        char task_id[128] = {0};
-        if (json_get_str(resp_buf, resp_len, "taskId", task_id, sizeof(task_id)) < 0) {
-            rt_kprintf("[AIPrinter] HTTP upload response missing taskId: %.*s\n", resp_len, resp_buf);
-            rt_free(resp_buf);
-            resp_buf = RT_NULL;
-            goto cleanup;
-        }
-        rt_free(resp_buf);
-        resp_buf = RT_NULL;
-        rt_kprintf("[AIPrinter] Upload OK, taskId=%s\n", task_id);
+            /* Buffer for accumulating image base64 data */
+            char *img_b64_buf = RT_NULL;
+            int img_b64_len = 0;
+            int img_b64_cap = 0;
 
-        /* Step 2: Poll GET result until processing complete */
-        int poll_ms = 0;
-        while (poll_ms < AI_HTTP_RESULT_TIMEOUT_MS) {
-            char poll_url[384];
-            rt_snprintf(poll_url, sizeof(poll_url),
-                        "%s://%s:%d/api/voicePrint/%s/result?token=%s",
-                        g_ws_secure ? "https" : "http",
-                        g_ws_host, g_ws_port, task_id, AI_DEVICE_TOKEN);
+            /* Read buffer for chunked reads */
+            uint8_t read_buf[1024];
+            int read_pos = 0, read_avail = 0;
 
-            session = webclient_session_create(WEBCLIENT_HEADER_BUFSZ);
-            if (!session) {
-                rt_kprintf("[AIPrinter] OOM: cannot create webclient session for poll\n");
-                break;
-            }
-            webclient_set_timeout(session, 15000);
-            webclient_header_fields_add(session, "Authorization: Bearer %s\r\n", AI_DEVICE_TOKEN);
+            while (read_timeout < 120) {  /* 2 min timeout for SSE */
+                /* Refill read buffer */
+                if (read_pos >= read_avail) {
+                    int n = webclient_read(session, read_buf, sizeof(read_buf));
+                    if (n < 0) {
+                        rt_kprintf("[AIPrinter] SSE read error %d\n", n);
+                        break;
+                    }
+                    if (n == 0) {
+                        read_timeout++;
+                        rt_thread_delay(100);
+                        continue;
+                    }
+                    read_timeout = 0;
+                    read_pos = 0;
+                    read_avail = n;
+                }
 
-            status = webclient_get(session, poll_url);
-            if (status != 200) {
-                webclient_close(session);
-                rt_kprintf("[AIPrinter] HTTP poll failed, status=%d\n", status);
-                break;
-            }
+                uint8_t byte = read_buf[read_pos++];
 
-            /* Read result — may be large (base64 print data) */
-            int content_len = session->content_length > 0 ? session->content_length : AI_HTTP_RESP_BUF_MAX;
-            if (content_len > AI_HTTP_RESP_BUF_MAX) content_len = AI_HTTP_RESP_BUF_MAX;
-
-            if (!resp_buf) resp_buf = rt_malloc(content_len + 1);
-            if (!resp_buf) {
-                rt_kprintf("[AIPrinter] OOM: cannot allocate result buffer\n");
-                webclient_close(session);
-                break;
-            }
-            int total_read = 0;
-            while (total_read < content_len) {
-                n = webclient_read(session, resp_buf + total_read, content_len - total_read);
-                if (n <= 0) break;
-                total_read += n;
-            }
-            resp_buf[total_read] = '\0';
-            webclient_close(session);
-
-            /* Parse response type */
-            char type[32] = {0};
-            if (json_get_str(resp_buf, total_read, "type", type, sizeof(type)) < 0) {
-                rt_kprintf("[AIPrinter] Poll response missing type: %.*s\n",
-                           total_read > 200 ? 200 : total_read, resp_buf);
-                rt_thread_delay(AI_HTTP_RESULT_POLL_MS);
-                poll_ms += AI_HTTP_RESULT_POLL_MS;
-                continue;
-            }
-
-            if (rt_strcmp(type, "print") == 0) {
-                const char *key = "\"data\":\"";
-                const char *p = strstr(resp_buf, key);
-                if (p) {
-                    p += rt_strlen(key);
-                    const char *e = p;
-                    while (*e && *e != '"') e++;
-                    int dlen = (int)(e - p);
-                    if (dlen > 0 && dlen <= AI_B64_BUF_MAX) {
-                        g_ws_ctx.b64 = rt_malloc(dlen + 1);
-                        if (g_ws_ctx.b64) {
-                            rt_memcpy(g_ws_ctx.b64, p, dlen);
-                            g_ws_ctx.b64[dlen] = '\0';
-                            g_ws_ctx.b64_len = dlen;
-                            rt_kprintf("[AIPrinter] Got print data (%d chars)\n", dlen);
+                /* ---- Streaming image base64 directly (no line_buf) ---- */
+                if (streaming_image) {
+                    if (byte == '\n' || byte == '\r') {
+                        /* End of image data line — null-terminate for safety */
+                        if (img_b64_buf && img_b64_len < img_b64_cap) {
+                            img_b64_buf[img_b64_len] = '\0';
+                        }
+                        streaming_image = 0;
+                        image_skip_data = 0;
+                        rt_kprintf("[AIPrinter] SSE [image]: total %d bytes\n", img_b64_len);
+                        /* Skip empty lines (SSE event separator) */
+                    } else {
+                        /* Accumulate base64 byte directly */
+                        if (image_skip_data < 5) {
+                            /* Skip "data: " prefix */
+                            image_skip_data++;
+                        } else {
+                            if (img_b64_len + 1 >= img_b64_cap) {
+                                img_b64_cap = (img_b64_len + 1024) * 2;
+                                if (img_b64_cap > 200000) img_b64_cap = 200000;  /* cap at 300KB */
+                                img_b64_buf = rt_realloc(img_b64_buf, img_b64_cap);
+                            }
+                            if (img_b64_buf) {
+                                img_b64_buf[img_b64_len++] = (char)byte;
+                            }
                         }
                     }
+                    continue;
                 }
-                g_ws_ctx.got_result = 1;
-                break;
-            } else if (rt_strcmp(type, "complete") == 0) {
-                rt_kprintf("[AIPrinter] HTTP complete (no print data)\n");
-                g_ws_ctx.got_result = 1;
-                break;
-            } else if (rt_strcmp(type, "error") == 0) {
-                char msg[256] = {0};
-                json_get_str(resp_buf, total_read, "message", msg, sizeof(msg));
-                rt_kprintf("[AIPrinter] HTTP server error: %s\n", msg);
-                g_ws_ctx.error = 1;
-                break;
-            } else if (rt_strcmp(type, "processing") == 0) {
-                rt_kprintf("[AIPrinter] Server still processing...\n");
-            } else {
-                rt_kprintf("[AIPrinter] Unknown poll type: %s\n", type);
+
+                /* ---- Normal line-by-line SSE parsing ---- */
+                if (byte == '\n' || byte == '\r') {
+                    if (line_pos > 0) {
+                        line_buf[line_pos] = '\0';
+                        rt_kprintf("[AIPrinter] SSE [%s]: %.100s\n", last_event, line_buf);
+
+                        /* Parse SSE event + data */
+                        if (rt_strncmp(line_buf, "event:", 6) == 0) {
+                            char *p = line_buf + 6;
+                            while (*p == ' ') p++;
+                            rt_strncpy(last_event, p, sizeof(last_event) - 1);
+                            if (rt_strcmp(last_event, "image") == 0) {
+                                expecting_image_data = 1;
+                            }
+                        } else if (rt_strncmp(line_buf, "data:", 5) == 0) {
+                            const char *data = line_buf + 5;
+                            while (*data == ' ') data++;
+
+                            if (expecting_image_data) {
+                                /* Shouldn't reach here — streaming_image handles it —
+                                   but fallback for short data: lines */
+                                expecting_image_data = 0;
+                                int dlen = rt_strlen(data);
+                                if (dlen > 0 && img_b64_len + dlen < 300000) {
+                                    if (img_b64_len + dlen >= img_b64_cap) {
+                                        img_b64_cap = (img_b64_len + dlen + 1) * 2;
+                                        if (img_b64_cap > 200000) img_b64_cap = 200000;
+                                        img_b64_buf = rt_realloc(img_b64_buf, img_b64_cap);
+                                    }
+                                    if (img_b64_buf) {
+                                        rt_memcpy(img_b64_buf + img_b64_len, data, dlen);
+                                        img_b64_len += dlen;
+                                        img_b64_buf[img_b64_len] = '\0';
+                                    }
+                                }
+                            } else if (rt_strcmp(last_event, "asr") == 0) {
+                                char text[256] = {0};
+                                json_get_str((char *)data, rt_strlen(data), "text", text, sizeof(text));
+                                if (text[0]) rt_kprintf("[AIPrinter] ASR: %s\n", text);
+                            } else if (rt_strcmp(last_event, "stage") == 0) {
+                                char msg[128] = {0};
+                                json_get_str((char *)data, rt_strlen(data), "message", msg, sizeof(msg));
+                                if (msg[0]) rt_kprintf("[AIPrinter] Stage: %s\n", msg);
+                            } else if (rt_strcmp(last_event, "complete") == 0) {
+                                rt_kprintf("[AIPrinter] Complete! img_b64: %d chars\n", img_b64_len);
+                                int img_w = 384, img_h = 384;
+                                json_get_int(data, rt_strlen(data), "width", &img_w);
+                                json_get_int(data, rt_strlen(data), "height", &img_h);
+                                rt_kprintf("[AIPrinter] Image: %dx%d (JPEG)\n", img_w, img_h);
+                                char prompt[128] = {0};
+                                json_get_str((char *)data, rt_strlen(data), "imagePrompt", prompt, sizeof(prompt));
+                                if (prompt[0]) rt_kprintf("[AIPrinter] Prompt: %s\n", prompt);
+                            } else if (rt_strcmp(last_event, "error") == 0) {
+                                char msg[256] = {0};
+                                json_get_str((char *)data, rt_strlen(data), "message", msg, sizeof(msg));
+                                rt_kprintf("[AIPrinter] SSE error: %s\n", msg);
+                                g_ws_ctx.error = 1;
+                            }
+                        }
+
+                        line_pos = 0;
+                    }
+                    /* Skip empty lines (SSE event separator) */
+                } else {
+                    if (expecting_image_data) {
+                        /* First byte of "data:" line — switch to streaming mode */
+                        expecting_image_data = 0;
+                        streaming_image = 1;
+                        image_skip_data = 0;
+                        /* Re-process this byte in streaming mode */
+                        if (streaming_image) {
+                            if (image_skip_data < 5) {
+                                image_skip_data++;
+                            } else {
+                                if (img_b64_len + 1 >= img_b64_cap) {
+                                    img_b64_cap = (img_b64_len + 1024) * 2;
+                                    if (img_b64_cap > 200000) img_b64_cap = 200000;
+                                    img_b64_buf = rt_realloc(img_b64_buf, img_b64_cap);
+                                }
+                                if (img_b64_buf) {
+                                    img_b64_buf[img_b64_len++] = (char)byte;
+                                }
+                            }
+                        }
+                    } else if (line_pos < (int)sizeof(line_buf) - 1) {
+                        line_buf[line_pos++] = (char)byte;
+                    }
+                }
+
+                if (g_ws_ctx.error) break;
             }
 
-            rt_thread_delay(AI_HTTP_RESULT_POLL_MS);
-            poll_ms += AI_HTTP_RESULT_POLL_MS;
-        }
+            if (read_timeout >= 120) {
+                rt_kprintf("[AIPrinter] SSE read timeout\n");
+                g_ws_ctx.error = 1;
+            }
 
-        if (poll_ms >= AI_HTTP_RESULT_TIMEOUT_MS) {
-            rt_kprintf("[AIPrinter] HTTP result timeout (%dms)\n", AI_HTTP_RESULT_TIMEOUT_MS);
-            g_ws_ctx.error = 1;
+            /* Transfer accumulated image data to global context */
+            if (img_b64_len > 0 && img_b64_buf) {
+                rt_kprintf("[AIPrinter] Got JPEG base64: %d chars\n", img_b64_len);
+                g_ws_ctx.b64 = img_b64_buf;
+                g_ws_ctx.b64_len = img_b64_len;
+                g_ws_ctx.got_result = 1;
+                img_b64_buf = RT_NULL;
+            }
+
+            if (img_b64_buf) rt_free(img_b64_buf);
         }
 
         rt_kprintf("[AIPrinter] Total: %ums, error=%d, b64_len=%d\n",
                    (unsigned)(rt_tick_get() - t_start), g_ws_ctx.error, g_ws_ctx.b64_len);
 
-        if (!g_ws_ctx.error && g_ws_ctx.b64_len > 0) {
-            rt_kprintf("[AIPrinter] Sending to BLE printer...\n");
-            ble_printer_send_base64(g_ws_ctx.b64);
-        }
+        webclient_close(session);
     }
 
 cleanup:
     if (pcm_buf) rt_free(pcm_buf);
-    if (resp_buf) rt_free(resp_buf);
     if (mic) rt_device_close(mic);
 }
+
+/* ========================= Test Image Print (POST /testImagePrint) ========================= */
+
+/* Beken built-in base64 decoder — see beken378/func/base64/base_64.c */
+extern unsigned char base64_decode(const unsigned char *src, int len,
+                                   int *out_len, unsigned char *out);
+
+/* LCD APIs — see drivers/drv_st7789_lcd.c */
+extern void lcd_clear(rt_uint16_t color);
+extern void lcd_show_grayscale(unsigned short x, unsigned short y,
+                               unsigned short w, unsigned short h,
+                               const unsigned char *gray);
+
+/* URL-encode src into dst. Returns bytes written (excluding NUL). */
+static int url_encode(const char *src, char *dst, int dst_max)
+{
+    static const char hex[] = "0123456789ABCDEF";
+    int i = 0;
+    while (*src && i + 4 < dst_max) {
+        unsigned char c = (unsigned char)*src++;
+        if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') ||
+            (c >= '0' && c <= '9') || c == '-' || c == '_' || c == '.' || c == '~') {
+            dst[i++] = (char)c;
+        } else {
+            dst[i++] = '%';
+            dst[i++] = hex[c >> 4];
+            dst[i++] = hex[c & 0xF];
+        }
+    }
+    dst[i] = '\0';
+    return i;
+}
+
+/* Test image-only flow:
+ *   POST /testImagePrint  body=lang=zh&isEscpos=false&hasScreen=true&imageWidth=W&imageHeight=H&style=...&prompt=...
+ *   → response JSON has imageDataBase64 (raw 8-bit grayscale, base64-encoded)
+ *   → decode base64 → push to LCD via lcd_show_grayscale
+ *
+ * img_w/img_h must match the screen size budget (≤ 240×240 for our 240×320 panel).
+ */
+static int ai_test_image_print(const char *prompt, const char *style,
+                               int img_w, int img_h)
+{
+    if (!prompt || !prompt[0]) {
+        rt_kprintf("[AIPrinter] testImagePrint: empty prompt\n");
+        return -1;
+    }
+
+    /* Sanitise dimensions to fit on screen (LCD is 240x320 portrait) */
+    if (img_w <= 0 || img_w > 240) img_w = 240;
+    if (img_h <= 0 || img_h > 320) img_h = 240;
+
+    rt_tick_t t_start = rt_tick_get();
+    char  *body     = RT_NULL;
+    char  *resp_buf = RT_NULL;
+    rt_uint8_t *gray_buf = RT_NULL;
+    struct webclient_session *session = RT_NULL;
+    int rc = -1;
+
+    /* ---- Build URL-encoded form body ---- */
+    /* Worst case: prompt is all multi-byte UTF-8 (3 bytes/char → 9 chars after encoding).
+     * 1.5KB body buffer is enough for typical prompts (≤ ~150 Chinese chars). */
+    body = rt_malloc(1536);
+    if (!body) { rt_kprintf("[AIPrinter] OOM: body buf\n"); goto out; }
+
+    int blen = rt_snprintf(body, 1536,
+        "lang=zh&isEscpos=false&hasScreen=true&imageWidth=%d&imageHeight=%d",
+        img_w, img_h);
+    if (style && style[0]) {
+        blen += rt_snprintf(body + blen, 1536 - blen, "&style=%s", style);
+    }
+    blen += rt_snprintf(body + blen, 1536 - blen, "&prompt=");
+    blen += url_encode(prompt, body + blen, 1536 - blen);
+
+    /* ---- Free up RAM before allocating big buffers (kick QR / pre-cleanup) ---- */
+    lcd_clear(0x0000);  /* black */
+
+    /* ---- POST ---- */
+    char url[256];
+    rt_snprintf(url, sizeof(url), "%s://%s:%d/testImagePrint",
+                g_ws_secure ? "https" : "http", g_ws_host, g_ws_port);
+    rt_kprintf("[AIPrinter] POST %s  (body=%dB)\n", url, blen);
+
+    session = webclient_session_create(WEBCLIENT_HEADER_BUFSZ);
+    if (!session) { rt_kprintf("[AIPrinter] OOM: session\n"); goto out; }
+    webclient_set_timeout(session, 60000);
+    webclient_header_fields_add(session, "Content-Length: %d\r\n", blen);
+    webclient_header_fields_add(session, "Content-Type: application/x-www-form-urlencoded\r\n");
+    webclient_header_fields_add(session, "Authorization: Bearer %s\r\n", AI_DEVICE_TOKEN);
+
+    int status = webclient_post(session, url, body, blen);
+    if (status != 200) {
+        rt_kprintf("[AIPrinter] testImagePrint failed, status=%d\n", status);
+        goto out;
+    }
+
+    /* ---- Read response ----
+     * Body holds JSON with imageDataBase64. With isEscpos=false the response is
+     * dominated by the base64 string: img_w*img_h * 4/3 ≈ image bytes.
+     * Add ~4KB JSON envelope.
+     */
+    int max_resp = (img_w * img_h * 4 / 3) + 4096;
+    if (max_resp > AI_HTTP_RESP_BUF_MAX) max_resp = AI_HTTP_RESP_BUF_MAX;
+    int content_len = session->content_length;
+    if (content_len <= 0 || content_len > max_resp) content_len = max_resp;
+
+    resp_buf = rt_malloc(content_len + 1);
+    if (!resp_buf) { rt_kprintf("[AIPrinter] OOM: resp_buf %d\n", content_len + 1); goto out; }
+
+    int total_read = 0;
+    while (total_read < content_len) {
+        int n = webclient_read(session, resp_buf + total_read, content_len - total_read);
+        if (n <= 0) break;
+        total_read += n;
+    }
+    resp_buf[total_read] = '\0';
+    webclient_close(session);
+    session = RT_NULL;
+    rt_kprintf("[AIPrinter] response: %d bytes (%ums)\n",
+               total_read, (unsigned)(rt_tick_get() - t_start));
+
+    /* ---- Locate imageDataBase64 value within response ---- */
+    const char *key = "\"imageDataBase64\":\"";
+    char *p = strstr(resp_buf, key);
+    if (!p) {
+        rt_kprintf("[AIPrinter] imageDataBase64 not found. snippet: %.200s\n", resp_buf);
+        goto out;
+    }
+    p += rt_strlen(key);
+    char *e = p;
+    while (*e && *e != '"') e++;
+    if (*e != '"') { rt_kprintf("[AIPrinter] imageDataBase64 unterminated\n"); goto out; }
+    int b64_len = (int)(e - p);
+    rt_kprintf("[AIPrinter] imageDataBase64: %d chars\n", b64_len);
+
+    /* ---- Decode base64 → grayscale buffer ---- */
+    int gray_size = img_w * img_h;
+    gray_buf = rt_malloc(gray_size);
+    if (!gray_buf) { rt_kprintf("[AIPrinter] OOM: gray %d\n", gray_size); goto out; }
+
+    int decoded = 0;
+    if (!base64_decode((const unsigned char *)p, b64_len, &decoded, gray_buf)) {
+        rt_kprintf("[AIPrinter] base64 decode failed\n");
+        goto out;
+    }
+    rt_kprintf("[AIPrinter] decoded %d bytes (expect %d)\n", decoded, gray_size);
+    if (decoded < gray_size) {
+        rt_kprintf("[AIPrinter] WARN: short decode, padding may distort image\n");
+    }
+
+    /* Free response buffer ASAP — frees ~80KB before we touch the LCD SPI loop */
+    rt_free(resp_buf);
+    resp_buf = RT_NULL;
+
+    /* ---- Display centred on screen ---- */
+    rt_uint16_t x = (240 > img_w) ? (240 - img_w) / 2 : 0;
+    rt_uint16_t y = (320 > img_h) ? (320 - img_h) / 2 : 0;
+    lcd_show_grayscale(x, y, (rt_uint16_t)img_w, (rt_uint16_t)img_h, gray_buf);
+
+    rt_kprintf("[AIPrinter] image displayed at (%d,%d) %dx%d (total %ums)\n",
+               x, y, img_w, img_h, (unsigned)(rt_tick_get() - t_start));
+    rc = 0;
+
+out:
+    if (session)  webclient_close(session);
+    if (body)     rt_free(body);
+    if (resp_buf) rt_free(resp_buf);
+    if (gray_buf) rt_free(gray_buf);
+    return rc;
+}
+
+/* MSH command: testimg <prompt> [style] [size]
+ *   style: sketch / anime / cartoon  (default: server picks)
+ *   size:  pixel side (default 240, capped to 240 wide / 320 tall)
+ *   e.g.   testimg "可爱的小猫" sketch 240
+ */
+static int cmd_testimg(int argc, char **argv)
+{
+    if (argc < 2) {
+        rt_kprintf("Usage: testimg <prompt> [style] [size]\n");
+        rt_kprintf("  e.g. testimg \"a cute cat\" sketch 240\n");
+        rt_kprintf("       testimg 可爱的小猫\n");
+        return 0;
+    }
+    const char *prompt = argv[1];
+    const char *style  = (argc >= 3) ? argv[2] : RT_NULL;
+    int size           = (argc >= 4) ? atoi(argv[3]) : 240;
+    return ai_test_image_print(prompt, style, size, size);
+}
+MSH_CMD_EXPORT_ALIAS(cmd_testimg, testimg, test text-to-image API);
 
 /* ========================= Main Task ========================= */
 
@@ -789,6 +1162,21 @@ static void ai_printer_task(void *arg)
         return;
     }
 
+    /* Step 1.5: NTP sync — fix system time so HTTPS/TLS certificate validation passes */
+#ifdef PKG_NETUTILS_NTP
+    rt_kprintf("[AIPrinter] Syncing time via NTP...\n");
+    {
+        /* Packages NTP uses compile-time NTP_HOSTNAME. Try with default first.
+         * If it fails, the user can try `__cmd_ntp_sync` from msh.
+         * We proceed anyway — server time may still be close enough. */
+        if (ntp_sync_to_rtc() != 0) {
+            rt_kprintf("[AIPrinter] NTP sync failed (default server), proceeding anyway\n");
+        } else {
+            rt_kprintf("[AIPrinter] NTP time synced\n");
+        }
+    }
+#endif
+
     /* Step 2: Host selection window */
     rt_kprintf("[AIPrinter]\n");
 #if AI_USE_WSS_MODE
@@ -804,7 +1192,9 @@ static void ai_printer_task(void *arg)
     rt_kprintf("[AIPrinter] └────────────────────────────────────────────────┘\n");
     rt_thread_delay(AI_HOST_SEL_MS);
     rt_kprintf("[AIPrinter] [2/3] Host: %s://%s:%d\n\n",
-               g_ws_secure ? "wss" : "ws", g_ws_host, g_ws_port);
+               g_ws_secure ? (AI_USE_WSS_MODE ? "wss" : "https")
+                           : (AI_USE_WSS_MODE ? "ws" : "http"),
+               g_ws_host, g_ws_port);
 
     /* Main loop: hold button → WS stream → print → repeat */
     while (1) {
@@ -841,16 +1231,9 @@ void ai_printer_start(void)
 
     g_btn_sem = rt_sem_create("btn_sem", 0, RT_IPC_FLAG_FIFO);
     ai_button_init();
-    ble_printer_init();
 
     /* Init default host */
     ai_set_host(AI_DEFAULT_HOST);
-
-    /* Start BLE connection in background */
-    rt_thread_t bt = rt_thread_create("ble_conn",
-                                      ble_printer_connect_task,
-                                      RT_NULL, 2048, AI_TASK_PRIO + 1, 20);
-    if (bt) rt_thread_startup(bt);
 
     rt_thread_t t = rt_thread_create("ai_printer",
                                      ai_printer_task, RT_NULL,
